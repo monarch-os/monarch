@@ -373,7 +373,7 @@ show_install_elixir_menu() {
 show_install_cyber_menu() {
   case $(menu "Install" "  Burpsuite\n󱉟  Wordlists") in
   *Burpsuite*) present_terminal "monarch-install-burp" ;;
-  *Wordlists*) install "Seclists" "seclists" ;;
+  *Wordlists*) aur_install "Seclists" "seclists" ;;
   *) show_install_menu ;;
   esac
 }
