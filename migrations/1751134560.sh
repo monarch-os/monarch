@@ -9,8 +9,19 @@ export MONARCH_PATH=$HOME/.local/share/monarch
 export PATH=$MONARCH_PATH/bin/:$PATH
 EOF
 
+# Ensure we have the latest repos and are ready to pull
+monarch-refresh-pacman
+sudo systemctl restart systemd-timesyncd
+sudo pacman -Sy # Normally not advisable, but we'll do a full -Syu before finishing
+
 mkdir -p ~/.local/state/monarch/migrations
 touch ~/.local/state/monarch/migrations/1751134560.sh
 
-sudo systemctl restart systemd-timesyncd
+# Remove old AUR packages to prevent a super lengthy build on old Monarch installs
+monarch-pkg-drop zoom qt5-remoteobjects wf-recorder wl-screenrec
+
+# Get rid of old AUR packages
+bash $MONARCH_PATH/migrations/1756060611.sh
+touch ~/.local/state/monarch/migrations/1756060611.sh
+
 bash monarch-update-perform

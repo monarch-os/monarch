@@ -32,12 +32,12 @@ menu() {
       args+=("-c" "$index")
     fi
   fi
-
-  echo -e "$options" | monarch-launch-walker --dmenu --width 295 --minheight 1 --maxheight 600 -p "$prompt…" "${args[@]}" 2> /dev/null
+  
+  echo -e "$options" | monarch-launch-walker --dmenu --width 295 --minheight 1 --maxheight 630 -p "$prompt…" "${args[@]}" 2>/dev/null
 }
 
 terminal() {
-  xdg-terminal-exec --app-id=com.monarch.Monarch "$@"
+  xdg-terminal-exec --app-id=org.monarch.terminal "$@"
 }
 
 present_terminal() {
@@ -76,7 +76,7 @@ aur_install_and_launch() {
 show_learn_menu() {
   case $(menu "Learn" "  Keybindings\n  Monarch\n  Hyprland\n󰣇  Arch\n  Neovim\n󱆃  Bash") in
   *Keybindings*) monarch-menu-keybindings ;;
-  *Monarch*) monarch-launch-webapp "https://learn.omacom.io/2/the-omarchy-manual" ;;
+  *Monarch*) monarch-launch-webapp "https://docs.monarchlinux.com/" ;;
   *Hyprland*) monarch-launch-webapp "https://wiki.hypr.land/" ;;
   *Arch*) monarch-launch-webapp "https://wiki.archlinux.org/title/Main_page" ;;
   *Bash*) monarch-launch-webapp "https://devhints.io/bash" ;;
@@ -112,19 +112,19 @@ show_screenshot_menu() {
 }
 
 show_screenrecord_menu() {
-  case $(menu "Screenrecord" "  Region\n  Region + Audio\n  Display\n  Display + Audio\n  Display + Webcam") in
-  *"Region + Audio"*) monarch-cmd-screenrecord region --with-audio ;;
-  *Region*) monarch-cmd-screenrecord ;;
-  *"Display + Audio"*) monarch-cmd-screenrecord output --with-audio ;;
-  *"Display + Webcam"*) monarch-cmd-screenrecord output --with-audio --with-webcam ;;
-  *Display*) monarch-cmd-screenrecord output ;;
+  monarch-cmd-screenrecord --stop-recording && exit 0
+
+  case $(menu "Screenrecord" "  With desktop audio\n  With desktop + microphone audio\n  With desktop + microphone audio + webcam") in
+  *"With desktop audio") monarch-cmd-screenrecord --with-desktop-audio ;;
+  *"With desktop + microphone audio") monarch-cmd-screenrecord --with-desktop-audio --with-microphone-audio ;;
+  *"With desktop + microphone audio + webcam") monarch-cmd-screenrecord --with-desktop-audio --with-microphone-audio --with-webcam ;;
   *) back_to show_capture_menu ;;
   esac
 }
 
 show_share_menu() {
   case $(menu "Share" "  Clipboard\n  File \n  Folder") in
-  *Clipboard*) terminal bash -c "monarch-cmd-share clipboard" ;;
+  *Clipboard*) monarch-cmd-share clipboard ;;
   *File*) terminal bash -c "monarch-cmd-share file" ;;
   *Folder*) terminal bash -c "monarch-cmd-share folder" ;;
   *) back_to show_trigger_menu ;;
@@ -154,12 +154,7 @@ show_style_menu() {
 }
 
 show_theme_menu() {
-  theme=$(menu "Theme" "$(monarch-theme-list)" "" "$(monarch-theme-current)")
-  if [[ "$theme" == "CNCLD" || -z "$theme" ]]; then
-    back_to show_style_menu
-  else
-    monarch-theme-set "$theme"
-  fi
+  monarch-launch-walker -m menus:monarchthemes --width 800 --minheight 400
 }
 
 show_font_menu() {
@@ -178,15 +173,9 @@ show_setup_menu() {
   options="$options\n󰌌  Language\n  Defaults\n󰱔  DNS\n  Security\n  Config"
 
   case $(menu "Setup" "$options") in
-  *Audio*) xdg-terminal-exec --app-id=com.monarch.Wiremix -e wiremix ;;
-  *Wifi*)
-    rfkill unblock wifi
-    monarch-launch-wifi
-    ;;
-  *Bluetooth*)
-    rfkill unblock bluetooth
-    monarch-launch-bluetooth
-    ;;
+  *Audio*) monarch-launch-or-focus-tui wiremix ;;
+  *Wifi*) monarch-launch-wifi ;;
+  *Bluetooth*) monarch-launch-bluetooth ;;
   *Power*) show_setup_power_menu ;;
   *Monitors*) open_in_editor ~/.config/hypr/monitors.conf ;;
   *Keybindings*) open_in_editor ~/.config/hypr/bindings.conf ;;
@@ -307,11 +296,12 @@ show_install_ai_menu() {
 }
 
 show_install_gaming_menu() {
-  case $(menu "Install" "  Lutris\n  Steam\n  RetroArch [AUR]\n󰍳  Minecraft") in
+  case $(menu "Install" "  Lutris\n  Steam\n  RetroArch [AUR]\n󰍳  Minecraft\n󰖺  Xbox Controller [AUR]") in
   *Lutris*) install "Lutris" "lutris" ;;
   *Steam*) present_terminal monarch-install-steam ;;
   *RetroArch*) aur_install_and_launch "RetroArch" "retroarch retroarch-assets libretro libretro-fbneo" "com.libretro.RetroArch.desktop" ;;
   *Minecraft*) install_and_launch "Minecraft" "minecraft-launcher" "minecraft-launcher" ;;
+  *Xbox*) present_terminal monarch-install-xbox-controllers ;;
   *) show_install_menu ;;
   esac
 }

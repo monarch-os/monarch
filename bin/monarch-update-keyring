@@ -5,6 +5,8 @@ if monarch-pkg-missing omarchy-keyring || ! sudo pacman-key --list-keys 40DFB630
   sudo pacman-key --recv-keys 40DFB630FF42BCFFB047046CF0134EE680CAC571 --keyserver keys.openpgp.org
   sudo pacman-key --lsign-key 40DFB630FF42BCFFB047046CF0134EE680CAC571
 
+  # This is generally not a good idea, but this is a special case because we're going to be updating
+  # the full set of packages in monarch-update-system-pkgs right after this (and it needs latest keyring)!
   sudo pacman -Sy
   monarch-pkg-add omarchy-keyring
 
@@ -16,6 +18,7 @@ if monarch-pkg-missing monarch-keyring || ! sudo pacman-key --list-keys 519BC3D5
   sudo pacman-key --recv-keys 519BC3D5AEA652C94F89F0AAC13B3766D969CE82 --keyserver keys.openpgp.org
   sudo pacman-key --lsign-key 519BC3D5AEA652C94F89F0AAC13B3766D969CE82
 
+  # Same here
   sudo pacman -Sy
   monarch-pkg-add monarch-keyring
 

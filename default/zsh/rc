@@ -108,9 +108,8 @@ plugins=(git ssh-agent colored-man-pages docker extract fzf mise npm terraform t
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
 source $ZSH/oh-my-zsh.sh
-source ~/.local/share/monarch/default/aliases
 
-export PATH=$PATH:~/.local/bin
-eval "$(register-python-argcomplete --no-defaults exegol)"
-
-export NESSUS_KEY="NESSUS_KEY"
+source ~/.local/share/monarch/default/shells/aliases
+source ~/.local/share/monarch/default/shells/functions
+source ~/.local/share/monarch/default/shells/envs
+source ~/.local/share/monarch/default/zsh/init

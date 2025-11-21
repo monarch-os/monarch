@@ -1,0 +1,4 @@
+#!/bin/bash
+
+sudo cp -f ~/.local/share/monarch/default/pacman/pacman.conf /etc/pacman.conf
+monarch-refresh-pacman-mirrorlist

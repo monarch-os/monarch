@@ -2,7 +2,6 @@
 # This file is also used by the ISO builder when determining needs
 
 aether
-alacritty
 asdcontrol
 avahi
 bash-completion
@@ -11,7 +10,6 @@ bind
 bluetui
 brightnessctl
 btop
-cargo
 clang
 cups
 cups-browsed
@@ -22,6 +20,7 @@ docker-buildx
 docker-compose
 dust
 evince
+exfatprogs
 expac
 eza
 fastfetch
@@ -33,6 +32,7 @@ ffmpegthumbnailer
 firefox
 fontconfig
 fzf
+ghostty
 gnome-calculator
 gnome-keyring
 gnome-themes-extra
@@ -64,7 +64,7 @@ llvm
 localsend
 luarocks
 mako
-man
+man-db
 mise
 mpv
 nautilus
@@ -94,6 +94,8 @@ python-poetry-core
 python-terminaltexteffects
 qt5-wayland
 ripgrep
+ruby
+rust
 satty
 sddm
 signal-desktop
@@ -103,6 +105,7 @@ swaybg
 swayosd
 system-config-printer
 tmux
+tobi-try
 tree-sitter-cli
 ttf-cascadia-mono-nerd
 ttf-ia-writer
@@ -111,6 +114,7 @@ tzupdate
 ufw
 ufw-docker
 unzip
+usage
 uwsm
 waybar
 wayfreeze
