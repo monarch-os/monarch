@@ -1,0 +1,11 @@
+# Changes require a restart to take effect.
+
+# Ensure Monarch bins are in the path
+export MONARCH_PATH=$HOME/.local/share/monarch
+export PATH=$MONARCH_PATH/bin:$PATH
+
+# Set default terminal and editor
+source ~/.config/uwsm/default
+
+# Activate mise if present on the system
+monarch-cmd-present mise && eval "$(mise activate bash)"

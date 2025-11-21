@@ -1,0 +1,3 @@
+#!/bin/bash
+
+monarch-restart-app waybar

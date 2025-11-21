@@ -1,0 +1,7 @@
+#!/bin/bash
+
+monarch-refresh-config walker/config.toml
+monarch-refresh-config elephant/calc.toml
+monarch-refresh-config elephant/desktopapplications.toml
+monarch-refresh-config elephant/websearch.toml
+monarch-restart-walker

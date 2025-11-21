@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+if ! command -v gum &>/dev/null; then
+  echo "❌ Gum is not installed"
+  monarch-pkg-add gum
+fi
+
+if ! command -v termshark &>/dev/null; then
+  echo "❌ termshark is not installed"
+  monarch-pkg-add termshark
+fi
+
+# Récupère la liste des interfaces depuis tshark
+interfaces=$(tshark -D 2>/dev/null)
+
+if [ -z "$interfaces" ]; then
+  echo "⚠️ No interface found. Are you in wireshark user group ?"
+  echo "usermod -a -G wireshark $USER"
+  exit 1
+fi
+
+# Prépare la liste pour gum
+iface_choice=$(echo "$interfaces" | gum choose --height 20 --header "Sélectionnez une interface de capture :")
+
+# Si l'utilisateur annule
+if [ -z "$iface_choice" ]; then
+  echo "❌ No interface selected, goodbye..."
+  exit 1
+fi
+
+# Extrait le nom de l'interface (ex : "eth0" depuis "1. eth0 (Description)")
+iface_name=$(echo "$iface_choice" | sed -E 's/^[0-9]+\. ([^ ]+).*/\1/')
+
+echo "🚀 Start termshark on interface : $iface_name"
+# Lance termshark sur l'interface choisie
+termshark -i "$iface_name"

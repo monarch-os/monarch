@@ -1,0 +1,7 @@
+source ~/.local/share/monarch/default/aliases
+source ~/.local/share/monarch/default/bash/shell
+source ~/.local/share/monarch/default/bash/functions
+source ~/.local/share/monarch/default/bash/prompt
+source ~/.local/share/monarch/default/bash/init
+source ~/.local/share/monarch/default/bash/envs
+[[ $- == *i* ]] && bind -f ~/.local/share/monarch/default/bash/inputrc

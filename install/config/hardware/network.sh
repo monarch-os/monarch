@@ -1,0 +1,6 @@
+# Enable NetworkManager profile
+sudo systemctl enable --now NetworkManager
+
+# Prevent systemd-networkd-wait-online timeout on boot
+sudo systemctl disable systemd-networkd-wait-online.service
+sudo systemctl mask systemd-networkd-wait-online.service

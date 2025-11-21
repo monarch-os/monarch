@@ -1,0 +1,62 @@
+#!/usr/bin/env python
+
+import argparse
+import sys
+import os
+
+from datetime import datetime, timedelta
+from intelxapi import intelx
+
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('domain')
+parser.add_argument('-v', '--verbose',
+                    action='store_true')
+
+args = parser.parse_args()
+domain = args.domain
+verbose = args.verbose
+
+# Retrieve the API Key
+intelx_key = os.environ.get('INTELX_KEY')
+if not intelx_key:
+    print("[!] You need to set INTELX_KEY as environment variable")
+    print("\texport INTELX_KEY=toto")
+    sys.exit(1)
+itx = intelx(intelx_key)
+
+
+if verbose:
+    print(f"[+] Checking for {domain} leaks")
+
+
+# Convert it
+date_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+date_from = (datetime.now() - 2 * timedelta(365)).strftime("%Y-%m-%d %H:%M:%S")
+results = itx.search(domain, datefrom=date_from, dateto=date_now)
+
+# For earch leak found for the domain
+for rec in results['records']:
+
+    leak_url = "https://intelx.io/?s=%s" % rec['systemid']
+    leak_name = rec.get('name')
+    leak_date = rec.get('date')
+    leak_content = []
+
+    if verbose:
+        print(f"[!] New leak found : {leak_url} (kind: {rec['bucket']})")
+        print(f"\tName: {leak_name}")
+        print(f"\tURL: {leak_url}")
+        print(f"\tDate : {leak_date}")
+
+    # Filter to check what kind of leak it is
+    # Only password leak interest us
+    if "leaks.private" not in rec['bucket']:
+        continue
+
+    content = itx.FILE_VIEW(rec['type'], rec['media'], rec['storageid'], rec['bucket'])
+    for line in content.split("\n"):
+        if domain in line:
+            leak_content.append(line)
+            print(line)

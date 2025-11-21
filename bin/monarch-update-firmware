@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -e
+echo -e "\e[32mUpdate Firmware\e[0m"
+
+if monarch-cmd-missing fwupdmgr; then
+  monarch-pkg-add fwupd
+fi
+
+fwupdmgr refresh
+sudo fwupdmgr update

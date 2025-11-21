@@ -1,0 +1,5 @@
+#!/bin/bash
+
+monarch-refresh-config swayosd/config.toml
+monarch-refresh-config swayosd/style.css
+monarch-restart-swayosd

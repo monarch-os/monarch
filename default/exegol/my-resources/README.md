@@ -1,0 +1,1 @@
+These elements are inspired by [3akev work](https://github.com/3akev/exegol-resources/)

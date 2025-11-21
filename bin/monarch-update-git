@@ -1,0 +1,8 @@
+#!/bin/bash
+
+set -e
+
+echo -e "\e[32mUpdate Monarch\e[0m"
+
+git -C $MONARCH_PATH pull --autostash
+git -C $MONARCH_PATH diff --check || git -C $MONARCH_PATH reset --merge

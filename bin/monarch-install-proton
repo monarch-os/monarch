@@ -1,0 +1,10 @@
+#!/bin/bash
+
+echo "Installing all dependencies..."
+sudo pacman -S --noconfirm openvpn wireguard-tools
+
+echo "Ensure systemd resolved is started"
+sudo systemctl enable --now systemd-resolved
+
+echo "Installing Proton suites..."
+yay -S --noconfirm proton-vpn-gtk-app proton-pass-bin proton-mail-bin

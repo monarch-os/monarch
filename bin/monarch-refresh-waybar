@@ -1,0 +1,5 @@
+#!/bin/bash
+
+monarch-refresh-config waybar/config.jsonc
+monarch-refresh-config waybar/style.css
+monarch-restart-waybar

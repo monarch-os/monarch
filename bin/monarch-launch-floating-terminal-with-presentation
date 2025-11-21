@@ -1,0 +1,4 @@
+#!/bin/bash
+
+cmd="$*"
+exec setsid uwsm-app -- xdg-terminal-exec --app-id=com.monarch.Monarch --title=Monarch -e bash -c "monarch-show-logo; $cmd; monarch-show-done"

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+monarch-refresh-config hypr/autostart.conf
+monarch-refresh-config hypr/bindings.conf
+monarch-refresh-config hypr/envs.conf
+monarch-refresh-config hypr/input.conf
+monarch-refresh-config hypr/hyprland.conf

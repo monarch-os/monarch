@@ -1,0 +1,9 @@
+[Unit]
+Description=Monarch Battery Monitor Check
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/share/monarch/bin/monarch-battery-monitor
+Environment=DISPLAY=:0
+LogLevelMax=warning

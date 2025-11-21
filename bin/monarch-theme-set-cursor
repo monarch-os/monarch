@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# Call the VSCode theme setter with Cursor-specific parameters
+monarch-theme-set-vscode cursor "$HOME/.config/Cursor/User/settings.json" "$HOME/.local/state/monarch/toggles/skip-cursor-theme-changes" Cursor

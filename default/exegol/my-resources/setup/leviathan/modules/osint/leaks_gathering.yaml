@@ -1,0 +1,17 @@
+name: leaks_gathering
+description: Gather leaks from various sources
+
+reports:
+  - "{{.Workspace}}/reports/osint/leaks_full.txt"  
+  - "{{.Workspace}}/reports/osint/leaks_creds.txt"  
+
+steps:
+  - requirements:
+      - leakcheck
+    commands:
+      - leakcheck -j {{.Target}} > "{{.TempDir}}/leaks_full.txt"
+      - cat {{.TempDir}}/leaks_full.txt| jq -r '.[] | select(.email and .password) | "\(.email),\(.password)"' > "{{.TempDir}}/leaks_creds.txt"
+
+post_run:
+  - CopyFile("{{.TempDir}}/leaks_creds.txt", "{{.Workspace}}/reports/osint/leaks_creds.txt")
+  - CopyFile("{{.TempDir}}/leaks_full.txt", "{{.Workspace}}/reports/osint/leaks_full.txt")

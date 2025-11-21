@@ -1,0 +1,58 @@
+#!/usr/bin/env python
+
+import argparse
+import json
+import sys
+import os
+
+from leakcheck import LeakCheckAPI_v2
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('domain')
+group = parser.add_mutually_exclusive_group()
+group.add_argument('-v', '--verbose',
+                    action='store_true')
+group.add_argument('-j', '--json', action='store_true')
+
+args = parser.parse_args()
+domain = args.domain
+verbose = args.verbose
+json_output = args.json
+
+# Retrieve the API Key
+lc_key = os.environ.get('LEAKCHECK_APIKEY')
+if not lc_key:
+    print("[!] You need to set LEAKCHECK_APIKEY as environment variable")
+    print("\texport LEAKCHECK_APIKEY=toto")
+    sys.exit(1)
+api = LeakCheckAPI_v2(api_key=lc_key)
+
+
+if verbose:
+    print(f"[+] Checking for {domain} leaks")
+
+
+results = api.lookup(domain, query_type="domain", limit=1000)
+
+# if JSON output
+if json_output:
+    print(json.dumps(results))
+    sys.exit()
+
+# For earch leak found for the domain
+for rec in results:
+
+    if 'password' not in rec['fields']:
+        continue
+
+    source = rec['source']['name']
+    email = rec['email']
+    password = rec['password']
+
+    if verbose:
+        print(f"[!] New leak found : {source}")
+        print(f"\tEmail: {email}")
+        print(f"\tPassword: {password}")
+    else:
+        print(f"{email}:{password}")

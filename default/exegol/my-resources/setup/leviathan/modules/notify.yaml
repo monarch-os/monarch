@@ -1,0 +1,8 @@
+name: notify
+description: Send a file content by notification
+
+steps:
+  - required:
+      - "{{.notifyFile}}"
+    commands:
+      - notify -data {{.notifyFile}} -bulk -silent

@@ -1,0 +1,30 @@
+name: internal_recon
+description: Workflow to scan and retrieve information about internal network
+author: y0no
+validator: cidr
+
+routines:
+  - modules:
+    - pingsweep
+
+  - modules:
+    - scan_port
+    - scan_http
+    - scan_smb
+
+  - params:
+      - targetfile: "{{.Workspace}}/reports/http/alive.txt"
+    modules:
+      - screencapture
+      - vulnscan
+      - dirscan
+
+  - params:
+      - targetfile: "{{.Workspace}}/reports/network/top_1000_ports.txt"
+    modules:
+      - sslscan
+      
+  - params:
+      - notifyFile: "{{.Workspace}}/reports/vulns/summary.txt"
+    modules:
+      - notify

@@ -1,0 +1,5 @@
+environment:
+    binaries: /root/.config/leviathan/binaries
+    modules: /root/.config/leviathan/modules
+    workflows: /root/.config/leviathan/workflows
+    workspaces: /workspace/leviathan/

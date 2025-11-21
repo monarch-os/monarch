@@ -1,0 +1,24 @@
+name: HTTP Directory scan
+
+params:
+  - wordlist: /usr/share/wordlists/seclists/Discovery/Web-Content/quickhits.txt
+
+reports:
+  - "{{.Workspace}}/reports/http/crawling.txt"
+
+pre_run:
+  - CreateFolder("{{.Workspace}}/reports/http/")
+
+steps:
+  - commands:
+      - mkdir "{{.TempDir}}/dirscan"
+
+  - required:
+      - dirsearch
+      - "{{ .wordlist }}"
+    source: "{{.targetfile}}"
+    commands:
+      - dirsearch --disable-cli -r -w {{.wordlist}} -u {{.source}} -O simple -o "{{.TempDir}}/dirscan/{{.source_safe}}.txt"
+
+post_run:
+  - ExecCmd("cat {{.TempDir}}/dirscan/*.txt > {{.Workspace}}/reports/http/crawling.txt")

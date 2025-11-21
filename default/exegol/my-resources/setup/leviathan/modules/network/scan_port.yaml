@@ -1,0 +1,22 @@
+name: scan_port
+description: Scan for open ports
+
+
+reports:
+  - "{{.Workspace}}/reports/network/top_1000_ports.txt"
+
+pre_run:
+  - CreateFolder("{{.Workspace}}/reports/network/")
+
+steps: 
+  - requirements:
+      - naabu
+    conditions:
+      - FileExists("{{.Workspace}}/reports/network/alive.txt")
+    commands:
+      - naabu -silent -l "{{.Workspace}}/reports/network/alive.txt" -tp 1000 -o "{{.TempDir}}/naabu_top_1000.txt"
+    rcommands:
+      - naabu -silent -host "{{.Target}}" -tp 1000 -o "{{.TempDir}}/naabu_top_1000.txt"
+
+post_run:
+  - CopyFile("{{.TempDir}}/naabu_top_1000.txt", "{{.Workspace}}/reports/network/top_1000_ports.txt")

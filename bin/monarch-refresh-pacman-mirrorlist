@@ -1,0 +1,3 @@
+#!/bin/bash
+
+sudo cp -f ~/.local/share/monarch/default/pacman/mirrorlist /etc/pacman.d/mirrorlist

@@ -1,0 +1,10 @@
+#!/bin/bash
+
+sudo cp ~/.local/share/monarch/default/plymouth/* /usr/share/plymouth/themes/monarch/
+sudo plymouth-set-default-theme monarch
+
+if command -v limine-mkinitcpio &>/dev/null; then
+  sudo limine-mkinitcpio
+else
+  sudo mkinitcpio -P
+fi

@@ -1,0 +1,4 @@
+#!/bin/bash
+
+monarch-refresh-config hypr/hyprsunset.conf
+monarch-restart-hyprsunset

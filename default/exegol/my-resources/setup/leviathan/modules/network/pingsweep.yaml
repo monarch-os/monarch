@@ -1,0 +1,13 @@
+name: pingsweep
+description: Module used to retrieve alive host on a CIDR
+reports:
+  - "{{.Workspace}}/reports/network/alive.txt"
+pre_run:
+  - CreateFolder("{{.Workspace}}/reports/network/")
+steps: 
+  - requirements:
+    - nmap
+    commands:
+      - nmap -sn "{{.Target}}" -oG "{{.TempDir}}/nmap_results" -v0
+post_run:
+  - ExtractNmapIP("{{.TempDir}}/nmap_results", "{{.Workspace}}/reports/network/alive.txt")

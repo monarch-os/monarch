@@ -1,0 +1,20 @@
+name: Screen capture
+description: Take a screenshot
+
+reports:
+  - "{{.Workspace}}/reports/http/screenshots.zip"
+
+pre_run:
+  - CreateFolder("{{.Workspace}}/reports/http/")
+
+steps:
+  - requirements:
+      - gowitness
+      - "{{.targetfile}}"
+    commands:
+      - gowitness scan file -f "{{.targetfile}}" --write-db --write-db-uri sqlite://{{.TempDir}}/gowitness.sqlite3 -s "{{.TempDir}}/screencapture"
+    rcommands:
+      - echo "{{.Target}}" | gowitness scan file -f- --write-db --write-db-uri sqlite://{{.TempDir}}/gowitness.sqlite3 -s "{{.TempDir}}/screencapture"
+
+post_run:
+  - ExecCmd("gowitness report generate --screenshot-path {{.TempDir}}/screencapture --db-uri sqlite://{{.TempDir}}/gowitness.sqlite3  --zip-name {{.Workspace}}/reports/http/screenshots.zip")

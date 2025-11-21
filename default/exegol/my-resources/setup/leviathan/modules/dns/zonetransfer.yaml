@@ -1,0 +1,15 @@
+name: Zone transfer
+description: Try to transfer DNS zone
+
+reports:
+  - "{{.Workspace}}/reports/dns/"  
+
+pre_run:
+  - CreateFolder("{{.Workspace}}/reports/dns/")
+
+steps:
+  - requirements:
+      - dig
+    commands:
+      - for ns in $(dig +short ns "{{.Target}}"); do dig axfr "{{.Target}}" @"$ns" >>  "{{.TempDir}}/zonetransfer.txt"; done
+      - if ! grep -q "Transfer failed" "{{.TempDir}}/zonetransfer.txt" ; then mv "{{.TempDir}}/zonetransfer.txt" "{{.Workspace}}/reports/dns/zonetransfer.txt"; fi

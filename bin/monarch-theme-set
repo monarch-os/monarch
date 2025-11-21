@@ -1,0 +1,44 @@
+#!/bin/bash
+
+if [[ -z $1 && $1 != "CNCLD" ]]; then
+  echo "Usage: monarch-theme-set <theme-name>"
+  exit 1
+fi
+
+THEMES_DIR="$HOME/.config/monarch/themes/"
+CURRENT_THEME_DIR="$HOME/.config/monarch/current/theme"
+
+THEME_NAME=$(echo "$1" | sed -E 's/<[^>]+>//g' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+THEME_PATH="$THEMES_DIR/$THEME_NAME"
+
+# Check if the theme entered exists
+if [[ ! -d "$THEME_PATH" ]]; then
+  echo "Theme '$THEME_NAME' does not exist in $THEMES_DIR"
+  exit 1
+fi
+
+# Update theme symlinks
+ln -nsf "$THEME_PATH" "$CURRENT_THEME_DIR"
+
+# Change background with theme
+monarch-theme-bg-next
+
+# Restart components to apply new theme
+if pgrep -x waybar >/dev/null; then
+  monarch-restart-waybar
+fi
+monarch-restart-swayosd
+hyprctl reload
+pkill -SIGUSR2 btop
+makoctl reload
+
+# Change gnome, browser, vscode, cursor themes
+monarch-theme-set-terminal
+monarch-theme-set-gnome
+monarch-theme-set-browser
+monarch-theme-set-vscode
+monarch-theme-set-cursor
+monarch-theme-set-obsidian
+
+# Call hook on theme set
+monarch-hook theme-set "$THEME_NAME"

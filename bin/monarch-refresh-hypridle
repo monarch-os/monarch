@@ -1,0 +1,4 @@
+#!/bin/bash
+
+monarch-refresh-config hypr/hypridle.conf
+monarch-restart-hypridle

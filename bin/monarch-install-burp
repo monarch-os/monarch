@@ -1,0 +1,28 @@
+#!/bin/zsh
+
+
+burp_version=$(gum choose --height 5 --header "Select BURP version" Community Pro)
+
+
+case "$burp_version" in
+Community)
+  if [ -d "/opt/BurpSuiteCommunity" ]; then
+    echo "[!] BurpSuite Community already installed"
+  else
+    echo "[+] Install BurpSuite Community"
+    curl "https://portswigger.net/burp/releases/download?product=community&type=Linux" -o /tmp/burp_install.sh
+    sudo bash /tmp/burp_install.sh -q
+    rm /tmp/burp_install.sh
+  fi
+  ;;
+Pro)
+  if [ -d "/opt/BurpSuitePro" ]; then
+    echo "[!] BurpSuitePro already installed"
+  else
+    echo "[+] Install BurpSuitePro"
+    curl "https://portswigger.net/burp/releases/download?product=pro&type=Linux" -o /tmp/burp_install.sh
+    sudo bash /tmp/burp_install.sh -q
+    rm /tmp/burp_install.sh
+  fi
+  ;;
+esac

@@ -1,0 +1,20 @@
+name: SSL Scan
+description: Retrieve SSL informations from HTTP(s) ports
+
+reports:
+  - "{{.Workspace}}/reports/sslscan/"
+
+pre_run:
+  - CreateFolder("{{.TempDir}}/sslscan/")
+  - CreateFolder("{{.Workspace}}/reports/sslscan/")
+
+steps:
+  - requirements:
+      - sslscan
+      - "{{.targetfile}}"
+    source: "{{.targetfile}}"
+    commands:
+      - "sslscan {{.source}} >> {{.TempDir}}/sslscan/{{.source_safe}}.txt"
+  
+post_run:
+  - CopyDir("{{.TempDir}}/sslscan", "{{.Workspace}}/reports/sslscan/")

@@ -1,0 +1,136 @@
+# File system
+if command -v eza &> /dev/null; then
+  alias ls='eza -lh --group-directories-first --icons=auto --hyperlink'
+  alias lsa='ls -a'
+  alias lt='eza --tree --level=2 --long --icons --git --hyperlink'
+  alias lta='lt -a'
+fi
+alias ff="fzf --preview 'bat --style=numbers --color=always {}'"
+if command -v zoxide &> /dev/null; then
+  alias cd="zd"
+  zd() {
+    if [ $# -eq 0 ]; then
+      builtin cd ~ && return
+    elif [ -d "$1" ]; then
+      builtin cd "$1"
+    else
+      z "$@" && printf "\U000F17A9 " && pwd || echo "Error: Directory not found"
+    fi
+  }
+fi
+
+open() {
+  xdg-open "$@" >/dev/null 2>&1 &
+}
+
+# Directories
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+
+# Tools
+alias d='docker'
+n() { if [ "$#" -eq 0 ]; then nvim .; else nvim "$@"; fi; }
+
+# Git
+alias g='git'
+alias gcm='git commit -m'
+alias gcam='git commit -a -m'
+alias gcad='git commit -a --amend'
+
+
+# Directories, Git, Ide
+alias tn='tmux new'
+alias ta='tmux attach'
+alias b='bat'
+alias v='nvim'
+alias c='code'
+alias C='code .'
+alias k='cursor'
+alias K='cursor .'
+alias p='python'
+alias cdtmp='pushd $(mktemp -d)'
+
+
+# Networking
+alias ipa='ip --brief --color a'
+alias ssh-yolo='ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
+alias wget-yolo="wget --no-check-certificate"
+alias digall='f(){ dig +answer +multiline "$1" any @8.8.8.8;  unset -f f; }; f'
+alias ipv6-disable='sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1; sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1; sudo sysctl -w net.ipv6.conf.lo.disable_ipv6=1'
+alias ipv6-enable='sudo sysctl -w net.ipv6.conf.all.disable_ipv6=0; sudo sysctl -w net.ipv6.conf.default.disable_ipv6=0; sudo sysctl -w net.ipv6.conf.lo.disable_ipv6=0'
+alias dns-127='echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf'
+alias dns-1='echo "nameserver 1.1.1.1" | sudo tee /etc/resolv.conf'
+alias dns-8='echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf'
+alias dns-9='echo "nameserver 9.9.9.9" | sudo tee /etc/resolv.conf'
+alias get-ip='curl -sS ipinfo.io/ip ; echo'
+alias get-ip-cpy='curl -sS ipinfo.io/ip | wl-copy'
+
+# Misc
+alias b64d='base64 -d'
+alias b64e='base64 -w 0'
+alias cheat='f(){ curl -s "cheat.sh/$1";  unset -f f; }; f'
+alias upload='f(){ curl -F"file=@$1" https://0x0.st;  unset -f f; }; f'
+alias cpy='xclip -selection clipboard'
+alias paste='xclip -selection clipboard -o'
+
+# Python
+alias pv='f(){ if [ -z "$1" ] ; then echo "Use: pv 3.12" ; else mise use "python@$1" ; mise config set env._.python.venv.path .venv ; mise config set --type list env._.python.venv.uv_create_args -- --seed ; mise config set --type bool env._.python.venv.create true ; mise exec -- which python ; mise exec -- python --version ; fi;  unset -f f; }; f'
+alias pyreq='pip install -r requirements.txt'
+alias pysrv='mkdir -pv /tmp/empty ; python -m http.server -d /tmp/empty'
+
+# Web Based Recon
+alias getinfo-known-creds='f(){ xdg-open "https://cirt.net/passwords?criteria=$@" ;  unset -f f; }; f'
+alias getinfo-known-port='f(){ xdg-open "https://www.speedguide.net/port.php?port=$@" ;  unset -f f; }; f'
+alias getinfo-bookhacktricks='f(){ xdg-open "https://book.hacktricks.wiki/en/index.html?search=$@" ;  unset -f f; }; f'
+alias getinfo-certspotter='f(){ curl -sS "https://api.certspotter.com/v1/issuances?domain=$1&include_subdomains=true&expand=dns_names&expand=issuer&expand=cert" | jq ;  unset -f f; }; f'
+alias getinfo-virustotal='f(){ xdg-open "https://www.virustotal.com/gui/domain/$1" ;  unset -f f; }; f'
+alias getinfo-crtsh='f(){ curl -sk "https://crt.sh/json?q=$1" | jq . ; unset -f f; }; f'
+alias getinfo-wayback='f(){ curl -sk "https://web.archive.org/cdx/search/cdx?fl=original&collapse=urlkey&url=*.$1" ; unset -f f; }; f'
+alias getinfo-leakix='f(){ curl -sk "https://leakix.net/api/graph/hostname/$1?v[]=hostname&v[]=ip&d=auto&l=auto" | jq | grep -ioP "hostname/[^\"]+" | cut -d/ -f2 | sort -uV ; unset -f f; }; f'
+alias getinfo-ip='f(){ curl -sk "http://ip-api.com/json/$1?fields=66846719" | jq ; unset -f f; }; f'
+unalias gau # gau real tool instead of omz git alias
+
+# Web Fuzzing
+alias probe-urls='f(){ while read url; do curl -sk "$url" -o /dev/null -w "%{http_code}:%{size_download}:%{url_effective}\n" ; done < "$@" ; ; unset -f f; }; f'
+alias fu='ffuf --of json -mc all -t 2 -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"'
+alias cfu='f(){ jq -r ".results[]|[.status,.length,.lines,.words,.url]|@tsv" "$@"|sort -uV; unset -f f; }; f'
+alias lfu='flfu(){ outfile=fu-$(echo -n "$@" | sed -E "s#[/ ]#_#g").json ; ffuf --of json -o "$outfile" -mc all -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36" $@ ; cfu-clean "$outfile" ; unset -f flfu; }; flfu'
+alias cfu-clean='f(){ cfu $@ | cut -d "|" -f1,3- | awk -F/ "!_[\$1]++" | sort -u -t: -k1,1 ;  unset -f f; }; f'
+alias cfu-clean-url='f(){ cfu-clean $@ | cut -d"|" -f4- ;  unset -f f; }; f'
+alias crl='curl -sS --path-as-is -gk -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) snap Chromium/83.0.4103.106 Chrome/83.0.4103.106 Safari/537.36"'
+alias crli='crl -D /dev/stderr'
+alias crlix='crli -x http://127.0.0.1:8080/'
+
+# Docker Utils
+alias dockit='docker run --rm -it -v /tmp:/tmp -v "$PWD":/monhost -w /monhost'
+alias dex='docker exec -it $(docker ps | grep -vF "CONTAINER ID" | fzf | cut -d" " -f1)'
+alias dexr='docker exec -it -u root $(docker ps | grep -vF "CONTAINER ID" | fzf | cut -d" " -f1)'
+alias dockns='sudo nsenter -a -t $(docker inspect -f "{{.State.Pid}}" $(docker ps | grep -vF "CONTAINER ID" | fzf | cut -d" " -f1))'
+alias dnorestart='docker update --restart=no $(docker ps -q)'
+alias dstopall='docker stop $(docker ps -q)'
+alias dkillall='dnorestart && dstopall'
+alias dps='docker ps'
+alias dwipe-all='docker system prune -a -f --volumes'
+alias dwipe-image='docker rmi -f $(docker images -q)'
+alias dwipe-network='docker network rm $(docker network ls -q | tr "\n" " ")'
+alias dwipe-process='docker rm $(docker ps -a -q)'
+alias dwipe-volume='docker volume rm $(docker volume ls -q | tr "\n" " ")'
+alias di='docker inspect $(docker ps | grep -vF "NAMES" | fzf | cut -d" " -f1) | jq'
+alias dip='docker inspect $(docker ps | grep -vF "NAMES" | fzf | cut -d" " -f1) | jq -r ".[0].NetworkSettings.IPAddress"'
+
+
+# Docker Tooling
+## Git stuff
+alias dtrufflehog='dockit trufflesecurity/trufflehog'
+alias dgitleaks="dockit zricethezav/gitleaks"
+
+## Compliance
+alias dssh-audit="dockit positronsecurity/ssh-audit"
+alias dssl-test='dockit drwetter/testssl.sh':w
+
+## Nessus
+alias dnessus-start='if [ $(docker inspect -f "{{.State.Running}}" nessus-pro 2>/dev/null) ]; then docker start nessus-pro; else docker run --name "nessus-pro" -d -p 127.0.0.1:8834:8834  -e ACTIVATION_CODE=$NESSUS_KEY -e USERNAME=admin -e PASSWORD=admin tenable/nessus:latest-ubuntu && dnessus-web; fi'
+alias dnessus-web='if [ $(docker inspect -f "{{.State.Running}}" nessus-pro 2>/dev/null) ]; then xdg-open https://localhost:8834; else echo "nessus is not running, try \"dnessus-start\" to launch it"; fi'
+alias dnessus-stop='if [ $(docker inspect -f "{{.State.Running}}" nessus-pro 2>/dev/null) ]; then docker stop nessus-pro; else echo "nessus is already stopped"; fi'
+alias dnessus-logs='if [ $(docker inspect -f "{{.State.Running}}" nessus-pro 2>/dev/null) ]; then docker logs -f nessus-pro; else echo "nessus is is not running, try \"dnessus-start\" to launch it"; fi'

@@ -1,0 +1,20 @@
+name: scan_smb
+description: Scan for SMB shares
+
+
+reports:
+  - "{{.Workspace}}/reports/network/smb_raw_results.txt"
+  - "{{.Workspace}}/reports/network/smb_relayable_machines.txt"
+
+pre_run:
+  - CreateFolder("{{.Workspace}}/reports/network/")
+
+steps: 
+  - requirements:
+      - nxc
+    commands:
+      - nxc smb "{{.Target}}" --no-progress --gen-relay-list "{{.TempDir}}/relayable_machines.txt" --log "{{.TempDir}}/smb_raw_results.txt"
+
+post_run:
+  - CopyFile("{{.TempDir}}/smb_raw_results.txt", "{{.Workspace}}/reports/network/smb_raw_results.txt")
+  - CopyFile("{{.TempDir}}/relayable_machines.txt", "{{.Workspace}}/reports/network/smb_relayable_machines.txt")

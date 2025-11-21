@@ -1,0 +1,10 @@
+#!/bin/zsh
+
+TOOLS_DIR=/opt/secops
+[ ! -d $TOOLS_DIR ] && sudo chown $USER:$USER /opt && mkdir -p /opt/secops
+
+
+echo "Install sys tools..."
+
+yes|sudo pacman -S --noconfirm --needed xfreerdp
+yay --noconfirm --needed -S goto-ssh-bin

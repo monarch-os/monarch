@@ -1,0 +1,7 @@
+# Config file dedicated to the user's personal history shared between all exegol containers
+leakcheck example.com
+leakcheck -j example.com
+inteleaks example.com
+DonPAPI collect -u $USER -p $PASSWORD -d $DOMAIN -t ALL --fetch-pvk --dc-ip $DC_IP
+DonPAPI gui
+tcpdump -i $INTERFACE icmp and src $VICTIM_IP
