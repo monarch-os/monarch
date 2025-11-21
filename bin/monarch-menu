@@ -32,7 +32,7 @@ menu() {
       args+=("-c" "$index")
     fi
   fi
-  
+
   echo -e "$options" | monarch-launch-walker --dmenu --width 295 --minheight 1 --maxheight 600 -p "$prompt…" "${args[@]}" 2> /dev/null
 }
 
@@ -383,7 +383,7 @@ show_install_elixir_menu() {
 show_install_cyber_menu() {
   case $(menu "Install" "  Burpsuite\n󱉟  Wordlists") in
   *Burpsuite*) present_terminal "monarch-install-burp" ;;
-  *Wordlists*) install "Seclists" "seclists" ;;
+  *Wordlists*) aur_install "Seclists" "seclists" ;;
   *) show_install_menu ;;
   esac
 }
