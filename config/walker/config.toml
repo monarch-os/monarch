@@ -9,6 +9,7 @@ hide_quick_activation = true   # globally hide the quick activation buttons
 "default" = { input = " Search...", list = "No Results" } # placeholders for input and empty list, key is the providers name, so f.e. "desktopapplications" or "menus:other"
 
 [providers]
+max_results = 256 # 256 should be enough for everyone
 default = [
   "desktopapplications",
   "calc",

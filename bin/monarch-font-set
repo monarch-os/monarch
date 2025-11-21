@@ -18,6 +18,7 @@ if [[ -n "$font_name" && "$font_name" != "CNCLD" ]]; then
       pkill -SIGUSR2 ghostty
     fi
 
+    sed -i "s/font_family = .*/font_family = $font_name/g" ~/.config/hypr/hyprlock.conf
     sed -i "s/font-family: .*/font-family: '$font_name';/g" ~/.config/waybar/style.css
     sed -i "s/font-family: .*/font-family: '$font_name';/g" ~/.config/swayosd/style.css
     xmlstarlet ed -L \
@@ -26,8 +27,11 @@ if [[ -n "$font_name" && "$font_name" != "CNCLD" ]]; then
       ~/.config/fontconfig/fonts.conf
 
     monarch-restart-waybar
-    monarch-restart-swayosd
-    monarch-restart-walker
+    monarch-restart-swayosd    
+
+    if pgrep -x ghostty; then
+      notify-send "    You must restart Ghostty to see font change"
+    fi
 
     monarch-hook font-set "$font_name"
   else

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+APP_ID="org.monarch.$(basename $1)"
+LAUNCH_COMMAND="monarch-launch-tui $@"
+
+exec monarch-launch-or-focus "$APP_ID" "$LAUNCH_COMMAND"

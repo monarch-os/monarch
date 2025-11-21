@@ -12,6 +12,7 @@ if [[ -f "$FIRST_RUN_MODE" ]]; then
   bash "$MONARCH_PATH/install/first-run/firewall.sh"
   bash "$MONARCH_PATH/install/first-run/dns-resolver.sh"
   bash "$MONARCH_PATH/install/first-run/gnome-theme.sh"
+  bash "$MONARCH_PATH/install/first-run/elephant.sh"
   sudo rm -f /etc/sudoers.d/first-run
 
   bash "$MONARCH_PATH/install/first-run/welcome.sh"

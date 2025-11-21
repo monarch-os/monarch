@@ -8,9 +8,6 @@ if ! grep -q "map shift+insert paste_from_clipboard" "$KITTY_CONF"; then
   sed -i '/map ctrl+insert copy_to_clipboard/a map shift+insert paste_from_clipboard' "$KITTY_CONF"
 fi
 
-echo "Update Walker configs"
-monarch-refresh-walker
-
 echo "Copy hooks examples"
 cp -r $MONARCH_PATH/config/monarch/* $HOME/.config/monarch/
 

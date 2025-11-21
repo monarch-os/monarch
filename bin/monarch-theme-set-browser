@@ -22,11 +22,6 @@ if monarch-cmd-present chromium || monarch-cmd-present helium-browser || monarch
     fi
   fi
 
-  if monarch-cmd-present helium-browser; then
-    echo "{\"BrowserThemeColor\": \"$THEME_HEX_COLOR\"}" | tee "/etc/chromium/policies/managed/color.json" >/dev/null
-    helium-browser --no-startup-window --refresh-platform-policy
-  fi
-
   if monarch-cmd-present brave; then
     echo "{\"BrowserThemeColor\": \"$THEME_HEX_COLOR\"}" | tee "/etc/brave/policies/managed/color.json" >/dev/null
     brave --refresh-platform-policy --no-startup-window

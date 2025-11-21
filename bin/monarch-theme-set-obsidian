@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch-theme-set-obsidian: Bootstrap and update Omarchy theme for Obsidian
+# monarch-theme-set-obsidian: Bootstrap and update Monarch theme for Obsidian
 #
 # - Ensures registry at ~/.local/state/monarch/obsidian-vaults
 #   - Populates by extracting vault paths from ~/.config/obsidian/obsidian.json
@@ -391,7 +391,7 @@ extract_theme_data() {
   readarray -t color_slots < <(fill_color_slots "${unique_colors[@]}" | tr ' ' '\n')
 
   # Extract fonts
-  local monospace_font="CaskaydiaMono Nerd Font"
+  local monospace_font="JetBrainsMono Nerd Font"
   local ui_font="Liberation Sans"
 
   if [ -f "$CURRENT_THEME_DIR/alacritty.toml" ]; then

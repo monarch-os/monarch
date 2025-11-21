@@ -15,3 +15,7 @@ Description = Restarting Walker services after system update
 When = PostTransaction
 Exec = $MONARCH_PATH/bin/monarch-restart-walker
 EOF
+
+# Link the visual theme menu config
+mkdir -p ~/.config/elephant/menus
+ln -snf $MONARCH_PATH/default/elephant/monarch_themes.lua ~/.config/elephant/menus/monarch_themes.lua
