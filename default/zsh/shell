@@ -1,0 +1,16 @@
+# History control
+HISTFILE=~/.zsh_history           # History file location
+HISTSIZE=10000                    # Number of commands to remember in session
+SAVEHIST=10000                    # Number of commands to save to file
+setopt SHARE_HISTORY              # Share history between all sessions
+setopt INC_APPEND_HISTORY         # Write to history file immediately, not on shell exit
+setopt HIST_IGNORE_ALL_DUPS       # Delete old recorded entry if new entry is a duplicate
+setopt HIST_FIND_NO_DUPS          # Do not display duplicates when searching
+setopt HIST_REDUCE_BLANKS         # Remove superfluous blanks from history
+
+autoload -Uz compinit
+compinit
+zstyle ':completion:*' menu select
+
+source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh 

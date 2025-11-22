@@ -34,6 +34,13 @@ n() { if [ "$#" -eq 0 ]; then nvim .; else nvim "$@"; fi; }
 
 # Git
 alias g='git'
+alias ga='git add'
+alias gaa='git add --all'
+alias gst='git status'
+alias gss='git status --short'
+alias gsb='git status --short --branch'
+alias gsi='git submodule init'
+alias gsu='git submodule update'
 alias gcm='git commit -m'
 alias gcam='git commit -a -m'
 alias gcad='git commit -a --amend'

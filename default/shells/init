@@ -1,0 +1,33 @@
+SHELL_NAME=$(basename $0)
+if [[ "$SHELL_NAME" == "init" ]]; then
+  SHELL_NAME=$(basename "$SHELL")
+fi
+
+if command -v mise &> /dev/null; then
+  eval "$(mise activate $SHELL_NAME)"
+fi
+
+if command -v starship &> /dev/null; then
+  eval "$(starship init $SHELL_NAME)"
+fi
+
+if command -v zoxide &> /dev/null; then
+  eval "$(zoxide init $SHELL_NAME)"
+fi
+
+if command -v fzf &> /dev/null; then
+  if [[ -f /usr/share/fzf/completion.$SHELL_NAME ]]; then
+    source /usr/share/fzf/completion.$SHELL_NAME
+  fi
+  if [[ -f /usr/share/fzf/key-bindings.$SHELL_NAME ]]; then
+    source /usr/share/fzf/key-bindings.$SHELL_NAME
+  fi
+fi
+
+if command -v try &> /dev/null; then
+  eval "$(try init ~/Work/tries)"
+fi
+
+if command -v exegol &> /dev/null; then
+  eval "$(register-python-argcomplete --no-defaults exegol)"
+fi

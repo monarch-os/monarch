@@ -1,5 +1,0 @@
-if command -v try &> /dev/null; then
-  eval "$(try init ~/Work/tries)"
-fi
-
-eval "$(register-python-argcomplete --no-defaults exegol)"
