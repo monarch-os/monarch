@@ -89,7 +89,7 @@ alias getinfo-crtsh='f(){ curl -sk "https://crt.sh/json?q=$1" | jq . ; unset -f 
 alias getinfo-wayback='f(){ curl -sk "https://web.archive.org/cdx/search/cdx?fl=original&collapse=urlkey&url=*.$1" ; unset -f f; }; f'
 alias getinfo-leakix='f(){ curl -sk "https://leakix.net/api/graph/hostname/$1?v[]=hostname&v[]=ip&d=auto&l=auto" | jq | grep -ioP "hostname/[^\"]+" | cut -d/ -f2 | sort -uV ; unset -f f; }; f'
 alias getinfo-ip='f(){ curl -sk "http://ip-api.com/json/$1?fields=66846719" | jq ; unset -f f; }; f'
-unalias gau # gau real tool instead of omz git alias
+unalias gau 2>/dev/null # gau real tool instead of omz git alias
 
 # Web Fuzzing
 alias probe-urls='f(){ while read url; do curl -sk "$url" -o /dev/null -w "%{http_code}:%{size_download}:%{url_effective}\n" ; done < "$@" ; ; unset -f f; }; f'
