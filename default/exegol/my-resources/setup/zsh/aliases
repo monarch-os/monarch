@@ -5,3 +5,33 @@ alias extract_no_smb_signing_hosts='sqlite3 /root/.nxc/workspaces/default/smb.db
 alias extract_obsolete_windows='sqlite3 /root/.nxc/workspaces/default/smb.db -list "SELECT printf('\''%s (%s) : %s'\'', IP, Hostname, OS) FROM hosts WHERE OS LIKE '\''%Windows XP%'\'' OR OS LIKE '\''%Windows Vista%'\'' OR OS LIKE '\''%Windows 5.1%'\'' OR OS LIKE '\''%Windows 7%'\'' OR OS LIKE '\''%Windows 8%'\'' OR OS LIKE '\''%Windows 8.1%'\'' OR OS LIKE '\''%Windows Server 2003%'\'' OR OS LIKE '\''%Windows Server 2008%'\'' OR OS LIKE '\''%Windows Server 2008 R2%'\'' OR OS LIKE '\''%Windows Server 2012%'\'' OR OS LIKE '\''%Windows Server 2012 R2%'\'' OR OS LIKE '\''%Windows Embedded%'\'';" | sort -t . -k 1,1n -k 2,2n -k 3,3n -k 4,4n | tee windows_obsolete_from_nxcdb.txt'
 alias unique_hash='python3 /opt/my-resources/tools/unique_hash.py'
 alias nuclei_report='nuclei -irr -me'
+
+# File listing (eza) - using absolute paths
+alias ls='eza -lh --group-directories-first --icons=auto --hyperlink'
+alias lsa='ls -a'
+alias lt='eza --tree --level=2 --long --icons --git --hyperlink'
+alias lta='lt -a'
+
+# Navigation
+alias home='cd ~'
+alias ..='cd ..'
+alias ...='cd ../..'
+
+# File viewing
+alias cat='bat --style=plain --paging=never'
+alias catp='bat --style=full'
+
+# Better replacements (if tools are available)
+command -v dust &> /dev/null && alias du='dust'
+command -v duf &> /dev/null && alias df='duf'
+command -v procs &> /dev/null && alias ps='procs'
+command -v btop &> /dev/null && alias top='btop'
+
+# Zellij
+alias zj='/opt/my-resources/bin/zellij options --theme dracula'
+alias zellij-clean='/opt/my-resources/bin/zellij list-sessions --no-formatting | cut -d" " -f1 | xargs -I {} /opt/my-resources/bin/zellij delete-session {} --force'
+
+# Quick commands
+alias h='history'
+alias help='tldr'
+alias ports='netstat -tulanp'

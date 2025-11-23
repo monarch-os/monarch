@@ -1,0 +1,81 @@
+command_timeout = 3600
+
+"$schema" = 'https://starship.rs/config-schema.json'
+
+add_newline = false 
+
+# Updated format with Exegol indicator
+format = """
+${custom.logging}\
+$time\
+${custom.exegol}\
+ ➜\
+$directory\
+$fill $python$nodejs$rust$golang$java$php$c$kotlin$haskell$docker_context\
+$line_break\
+$character
+"""
+palette = "catppuccin_mocha"
+
+[palettes.catppuccin_mocha]
+rosewater = "#f5e0dc"
+flamingo = "#f2cdcd"
+pink = "#f5c2e7"
+mauve = "#cba6f7"
+red = "#f38ba8"
+maroon = "#eba0ac"
+peach = "#fab387"
+yellow = "#f9e2af"
+green = "#a6e3a1"
+teal = "#94e2d5"
+sky = "#89dceb"
+sapphire = "#74c7ec"
+blue = "#89b4fa"
+lavender = "#b4befe"
+text = "#cdd6f4"
+subtext1 = "#bac2de"
+subtext0 = "#a6adc8"
+overlay2 = "#9399b2"
+overlay1 = "#7f849c"
+overlay0 = "#6c7086"
+surface2 = "#585b70"
+surface1 = "#45475a"
+surface0 = "#313244"
+base = "#1e1e2e"
+mantle = "#181825"
+crust = "#11111b"
+
+# Custom Exegol indicator
+[custom.exegol]
+description = "Shows Exegol indicator when in Exegol container"
+command = "echo $HOSTNAME | cut -d '-' -f 2"
+when = '[[ $HOSTNAME == exegol-* ]]'
+format = '[\[$output\] ](bold green)'
+shell = ["bash", "--noprofile", "--norc"]
+
+[custom.logging]
+description = "Shows if logging is in progress"
+command = 'echo "[🔴]"'
+style = 'bold yellow'
+when = '[[ -n "${ASCIINEMA_REC:-}" || -n "${ASCIINEMA_SESSION:-}" ]]'
+
+[directory]
+style = "sapphire"
+format = "[ $path ]($style)"
+truncate_to_repo = false
+
+[time]
+disabled = false
+style = 'red'
+format = '[\[$time\]]($style) '
+time_format = '%b %e, %y - %T'
+
+[line_break]
+disabled = false 
+
+[character]
+disabled = false
+
+[fill]
+symbol = '-'
+style = 'bold surface0'

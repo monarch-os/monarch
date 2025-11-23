@@ -1,0 +1,59 @@
+layout {
+    default_tab_template {
+        children
+        pane size=1 borderless=true {
+            plugin location="file:/root/.config/zellij/plugins/zjstatus.wasm" {
+                format_left   "{mode} #[fg=#7aa2f7,bold] {session} #[fg=#565f89]│ #[fg=#7dcfff] {command_pwd}"
+                format_center "{tabs}"
+                format_right  "#[fg=#7aa2f7]VPN: {command_ip} #[fg=#565f89]│ #[fg=#bb9af7] {datetime}"
+                
+                // Mode indicators with hints
+                mode_normal          "#[bg=#9ece6a,fg=#1a1b26,bold]  NORMAL "
+                mode_locked          "#[bg=#f7768e,fg=#1a1b26,bold]  CMD #[bg=#1a1b26,fg=#a9b1d6] c:tab n:→ m:↓ x:close z:zoom R:resize w:float hjkl:nav p/N:tab r:rename [:scroll d:detach"
+                mode_pane            "#[bg=#7aa2f7,fg=#1a1b26,bold]  PANE #[bg=#1a1b26,fg=#a9b1d6] hjkl:navigate Esc/q:exit"
+                mode_tab             "#[bg=#bb9af7,fg=#1a1b26,bold]  TAB #[bg=#1a1b26,fg=#a9b1d6] n:new x:close r:rename hl:navigate Esc/q:exit"
+                mode_scroll          "#[bg=#7dcfff,fg=#1a1b26,bold]  SCROLL #[bg=#1a1b26,fg=#a9b1d6] jk/↑↓:line du:half Ctrl-f/b:page g/G:top/bot Esc/q:exit"
+                mode_enter_search    "#[bg=#9ece6a,fg=#1a1b26,bold]  SEARCH #[bg=#1a1b26,fg=#a9b1d6] type to search, Enter:start Esc:cancel"
+                mode_search          "#[bg=#9ece6a,fg=#1a1b26,bold]  SEARCH #[bg=#1a1b26,fg=#a9b1d6] n:next p:prev c:case w:wrap Esc/q:exit"
+                mode_resize          "#[bg=#e0af68,fg=#1a1b26,bold]  RESIZE #[bg=#1a1b26,fg=#a9b1d6] hjkl/←↓↑→:resize Esc/q:exit"
+                mode_rename_tab      "#[bg=#bb9af7,fg=#1a1b26,bold]  RENAME TAB #[bg=#1a1b26,fg=#a9b1d6] type name, Enter:confirm Esc:cancel"
+                mode_rename_pane     "#[bg=#bb9af7,fg=#1a1b26,bold]  RENAME PANE #[bg=#1a1b26,fg=#a9b1d6] type name, Enter:confirm Esc:cancel"
+                mode_move            "#[bg=#7dcfff,fg=#1a1b26,bold]  MOVE #[bg=#1a1b26,fg=#a9b1d6] hjkl:move pane Esc/q:exit"
+                mode_session         "#[bg=#bb9af7,fg=#1a1b26,bold]  SESSION #[bg=#1a1b26,fg=#a9b1d6] d:detach Esc/q:exit"
+                mode_prompt          "#[bg=#7aa2f7,fg=#1a1b26,bold]  PROMPT "
+                
+                // Tab styling
+                tab_normal              "#[fg=#a9b1d6] {index}: {name} "
+                tab_normal_fullscreen   "#[fg=#a9b1d6] {index}: {name}  "
+                tab_normal_sync         "#[fg=#a9b1d6] {index}: {name}  "
+                tab_active              "#[fg=#1a1b26,bg=#7aa2f7,bold] {index}: {name} "
+                tab_active_fullscreen   "#[fg=#1a1b26,bg=#7aa2f7,bold] {index}: {name}  "
+                tab_active_sync         "#[fg=#1a1b26,bg=#7aa2f7,bold] {index}: {name}  "
+                tab_separator           "#[fg=#565f89]│"
+                
+                // Current working directory
+                command_pwd_command     "pwd | sed 's|^'$HOME'|~|' | awk -F'/' '{if (length($0) > 32) {if (NF>4) print $1\"/\"$2\"/…/\"$(NF-1)\"/\"$NF; else print $0} else print $0}'"
+                command_pwd_interval    "2"
+                command_pwd_format      "{stdout}"
+                command_pwd_rendermode  "dynamic"
+                
+                // tun0 IP address
+                command_ip_command      "bash ~/.config/zellij/scripts/get-tun0-ip.sh"
+                command_ip_interval     "5"
+                command_ip_format       "{stdout}"
+                command_ip_rendermode   "dynamic"
+                
+                // Date and time
+                datetime                "{format}"
+                datetime_format         "%H:%M"
+                datetime_timezone       "America/Los_Angeles"
+                
+                hide_frame_for_single_pane "false"
+            }
+        }
+    }
+    
+    tab name="main" focus=true {
+        pane
+    }
+}
