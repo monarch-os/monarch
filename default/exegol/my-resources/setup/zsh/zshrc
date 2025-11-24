@@ -2,6 +2,144 @@
 # This file is sourced in /root/.zshrc file.
 # Alternatively, the /opt/my-resources/setup/load_user_setup.sh file can be used to operate the change once (instead of sourcing a file for each zsh instance)
 
+# ═══════════════════════════════════════════════════════════════════
+# Custom Zsh Configuration (sourced by Exegol's .zshrc at the end)
+# ═══════════════════════════════════════════════════════════════════
+
+# ───────────────────────────────────────────────────────────────────
+# Disable Exegol's prompt to allow Starship to take over
+# ───────────────────────────────────────────────────────────────────
+precmd_functions=("${(@)precmd_functions:#update_prompt}")
+
+# ───────────────────────────────────────────────────────────────────
+# TERMINAL & EDITOR
+# ───────────────────────────────────────────────────────────────────
+export TERM=xterm-256color
+export EDITOR="nvim"
+
+# ───────────────────────────────────────────────────────────────────
+# PATH CONFIGURATION
+# ───────────────────────────────────────────────────────────────────
+export PATH="$HOME/.local/bin:$PATH"
+
+# ───────────────────────────────────────────────────────────────────
+# PROMPT & THEME
+# ───────────────────────────────────────────────────────────────────
+if command -v /opt/my-resources/bin/starship &> /dev/null; then
+    export STARSHIP_CONFIG=~/.config/starship.toml
+    eval "$(/opt/my-resources/bin/starship init zsh)"
+fi
+
+# ───────────────────────────────────────────────────────────────────
+# MODERN CLI TOOLS
+# ───────────────────────────────────────────────────────────────────
+
+# Zoxide (better cd)
+if command -v /opt/my-resources/bin/zoxide &> /dev/null; then
+    eval "$(/opt/my-resources/bin/zoxide init zsh --cmd cd)"
+fi
+
+# Bat - use Dracula theme
+export BAT_THEME="Dracula"
+
+# FZF - Dracula theme
+export FZF_DEFAULT_OPTS="--color=fg:#f8f8f2,bg:#282a36,hl:#bd93f9 --color=fg+:#f8f8f2,bg+:#44475a,hl+:#bd93f9 --color=info:#ffb86c,prompt:#50fa7b,pointer:#ff79c6 --color=marker:#ff79c6,spinner:#ffb86c,header:#6272a4"
+export FZF_DEFAULT_COMMAND='/opt/my-resources/bin/fd --type f --hidden --follow --exclude .git 2>/dev/null || find . -type f'
+
+# Eza colors
+export EZA_COLORS="da=1;34:gm=1;34"
+
+# Delta (git diff)
+export DELTA_FEATURES="+side-by-side"
+
+# ───────────────────────────────────────────────────────────────────
+# ENVIRONMENT VARIABLE SHARING (for Zellij panes/tabs)
+# ───────────────────────────────────────────────────────────────────
+
+# Shared environment file
+export SHARED_ENV_FILE="${HOME}/.shared_env"
+
+# Function to set and share environment variables across all Zellij panes
+setshared() {
+    if [ $# -eq 0 ]; then
+        echo "Usage: setshared VARIABLE=value"
+        echo "Example: setshared IP=10.4.10.100"
+        return 1
+    fi
+
+    local var_name="${1%%=*}"
+    local var_value="${1#*=}"
+
+    # Export in current shell
+    export "$var_name"="$var_value"
+
+    # Save to shared file (overwrite if exists)
+    if [ -f "$SHARED_ENV_FILE" ]; then
+        # Remove old entry for this variable
+        grep -v "^export ${var_name}=" "$SHARED_ENV_FILE" > "${SHARED_ENV_FILE}.tmp" 2>/dev/null || true
+        mv "${SHARED_ENV_FILE}.tmp" "$SHARED_ENV_FILE"
+    fi
+
+    # Append new entry
+    echo "export ${var_name}=\"${var_value}\"" >> "$SHARED_ENV_FILE"
+
+    echo "✓ Set and shared: ${var_name}=${var_value}"
+    echo "  Run 'loadshared' in other panes to import"
+}
+
+# Function to load shared environment variables
+loadshared() {
+    if [ -f "$SHARED_ENV_FILE" ]; then
+        source "$SHARED_ENV_FILE"
+        echo "✓ Loaded shared environment variables:"
+        cat "$SHARED_ENV_FILE" | sed 's/^export /  /'
+    else
+        echo "No shared environment file found"
+    fi
+}
+
+# Function to list shared variables
+listshared() {
+    if [ -f "$SHARED_ENV_FILE" ]; then
+        echo "Shared environment variables:"
+        cat "$SHARED_ENV_FILE" | sed 's/^export /  /'
+    else
+        echo "No shared environment variables set"
+    fi
+}
+
+# Function to clear all shared variables
+clearshared() {
+    if [ -f "$SHARED_ENV_FILE" ]; then
+        rm "$SHARED_ENV_FILE"
+        echo "✓ Cleared all shared environment variables"
+    else
+        echo "No shared environment file found"
+    fi
+}
+
+# Auto-load shared environment on shell start
+if [ -f "$SHARED_ENV_FILE" ]; then
+    source "$SHARED_ENV_FILE"
+fi
+
+# Auto-reload shared environment before each command (for real-time sync)
+autoload -Uz add-zsh-hook
+reload_shared_env() {
+    if [ -f "$SHARED_ENV_FILE" ]; then
+        source "$SHARED_ENV_FILE" 2>/dev/null
+    fi
+}
+add-zsh-hook precmd reload_shared_env
+
+# Convenient aliases for common pentesting variables
+alias setip='setshared IP='
+alias settarget='setshared TARGET='
+alias setdomain='setshared DOMAIN='
+alias setuser='setshared USER='
+alias setpass='setshared PASS='
+
+
 export INTELX_KEY=YOUR_INTELX_KEY
 export PDCP_API_KEY=YOUR_PROJECT_DISCOVERY_KEY
 export LEAKCHECK_APIKEY=YOUR_LEAKCHECK_KEY
