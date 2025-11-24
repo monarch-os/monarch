@@ -225,11 +225,23 @@ fi
 # subfinder -update
 # asdf reshim
 
-# Install leviathan
-go install forge.tedomum.net/kludge/leviathan@latest
-mkdir -p ~/.config/leviathan/
-cp -r /opt/my-resources/setup/leviathan/* /root/.config/leviathan/
+# ───────────────────────────────────────────────────────────────────
+# Install Leviathan (precompiled)
+# ───────────────────────────────────────────────────────────────────
+# go install github.com/Ether-Security/leviathan@latest
+if [ ! -f "$BIN_DIR/leviathan" ]; then
+    echo -e "${BLUE}[*]${NC} Installing Leviathan..."
+    NOTIFY_VERSION=$(curl -s https://api.github.com/repos/Ether-Security/leviathan/releases/latest | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
+    curl -sL "https://github.com/Ether-Security/leviathan/releases/download/v${NOTIFY_VERSION}/leviathan_${NOTIFY_VERSION}_linux_amd64.tar.gz" | tar -xz -C "$BIN_DIR"
+    chmod +x "$BIN_DIR/notify"
+    echo -e "${GREEN}[✓]${NC} Leviathan installed"
+fi
 
+if [ -d "$SETUP_DIR/leviathan" ] && [ ! -d /root/.config/leviathan ]; then
+    mkdir -p /root/.config/leviathan/
+    cp -r "$SETUP_DIR/leviathan/"* /root/.config/leviathan/
+    echo -e "${GREEN}[✓]${NC} Leviathan config installed"
+fi
 
 echo -e "${GREEN}═══════════════════════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}  Setup Complete! Tools installed in $BIN_DIR${NC}"
