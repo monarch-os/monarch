@@ -14,5 +14,3 @@ setopt HIST_REDUCE_BLANKS         # Remove superfluous blanks from history
 autoload -Uz compinit
 compinit
 zstyle ':completion:*' menu select
-
-unset ZSH_AUTOSUGGEST_USE_ASYNC
