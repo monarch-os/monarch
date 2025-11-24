@@ -1,0 +1,11 @@
+WORDCHARS="${WORDCHARS/\//}"
+
+bindkey '\e[A' history-search-backward
+bindkey '\e[B' history-search-forward
+bindkey '^A' beginning-of-line
+bindkey '^E' end-of-line
+bindkey "^[[1;5C" forward-word
+bindkey "^[[1;5D" backward-word
+bindkey "^[[3~" delete-char
+bindkey '^H' backward-kill-word
+bindkey '^[[3;5~' kill-word

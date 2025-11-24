@@ -7,7 +7,7 @@
 * {
   all: unset;
 
-  font-family: monospace;  
+  font-family: monospace;
 }
 
 .normal-icons {
@@ -170,16 +170,19 @@ child:selected .item-box {
 }
 
 .keybind {
-  font-size: 12px;  
+  font-size: 12px;
 }
 
-.keybind-bind {  
-  font-weight: bold;
+.keybind-bind {
   text-transform: lowercase;
+  opacity: 0.35;
 }
 
 .keybind-label {
-  color: lighter(@selected-text);
+  color: @selected-text;
+  padding: 2px 4px;
+  border-radius: 4px;
+  border: 1px solid darker(@selected-text);
 }
 
 .error {
