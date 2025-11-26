@@ -5,7 +5,12 @@
   "spacing": 0,
   "height": 26,
   "modules-left": ["custom/monarch", "hyprland/workspaces", "mpris"],
-  "modules-center": ["custom/do-not-disturb-indicator", "clock", "custom/update", "custom/screenrecording-indicator"],
+  "modules-center": [
+    "custom/do-not-disturb-indicator",
+    "clock",
+    "custom/update",
+    "custom/screenrecording-indicator",
+  ],
   "modules-right": [
     "group/tray-expander",
     "bluetooth",
@@ -13,7 +18,7 @@
     "pulseaudio#input",
     "pulseaudio#output",
     "cpu",
-    "battery"
+    "battery",
   ],
   "hyprland/workspaces": {
     "on-click": "activate",
@@ -28,14 +33,14 @@
       "7": "7",
       "8": "8",
       "9": "9",
-      "10": "10"
-    }
+      "10": "10",
+    },
   },
   "custom/monarch": {
     "format": "<span font='monarch'></span>",
     "on-click": "monarch-menu",
     "on-click-right": "xdg-terminal-exec",
-    "tooltip-format": "Monarch Menu\n\nSuper + Alt + Space"
+    "tooltip-format": "Monarch Menu\n\nSuper + Alt + Space",
   },
   "custom/update": {
     "format": "",
@@ -43,19 +48,19 @@
     "on-click": "monarch-launch-floating-terminal-with-presentation monarch-update",
     "tooltip-format": "Monarch update available",
     "signal": 7,
-    "interval": 21600
+    "interval": 21600,
   },
 
   "cpu": {
     "interval": 5,
     "format": "󰍛",
-    "on-click": "monarch-launch-or-focus-tui btop"
+    "on-click": "monarch-launch-or-focus-tui btop",
   },
   "clock": {
     "format": "{:L%H:%M %d/%m/%Y}",
     "format-alt": "{:L%A %d %B %Y (W%V)}",
     "tooltip": false,
-    "on-click-right": "monarch-launch-floating-terminal-with-presentation monarch-tz-select"
+    "on-click-right": "monarch-launch-floating-terminal-with-presentation monarch-tz-select",
   },
   "network": {
     "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
@@ -69,7 +74,6 @@
     "interval": 3,
     "spacing": 1,
     "on-click": "monarch-launch-wifi",
-    "on-click-right": "nm-connection-editor"
   },
   "battery": {
     "format": "{capacity}% {icon}",
@@ -78,7 +82,7 @@
     "format-plugged": "",
     "format-icons": {
       "charging": ["󰢜", "󰂆", "󰂇", "󰂈", "󰢝", "󰂉", "󰢞", "󰂊", "󰂋", "󰂅"],
-      "default": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"]
+      "default": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
     },
     "format-full": "󰂅",
     "tooltip-format-discharging": "{power:>1.0f}W↓ {capacity}%",
@@ -87,8 +91,8 @@
     "on-click": "monarch-menu power",
     "states": {
       "warning": 20,
-      "critical": 10
-    }
+      "critical": 10,
+    },
   },
   "bluetooth": {
     "format": "",
@@ -96,7 +100,7 @@
     "format-connected": "󰂱",
     "format-no-controller": "",
     "tooltip-format": "Devices connected: {num_connections}",
-    "on-click": "monarch-launch-bluetooth"
+    "on-click": "monarch-launch-bluetooth",
   },
   "pulseaudio#input": {
     "format-source": "",
@@ -106,37 +110,37 @@
     "smooth-scrolling-threshold": 1,
     "max-volume": 100,
     "on-click": "monarch-launch-audio -v input",
-    "on-click-right": "pactl set-source-mute @DEFAULT_SOURCE@ toggle"
+    "on-click-right": "pactl set-source-mute @DEFAULT_SOURCE@ toggle",
   },
   "pulseaudio#output": {
-      "format": "{icon}",
-      "format-muted": "",
-      "format-icons": {
-          "default": ["", "", ""]
-      },
-      "max-volume": 100,
-      "scroll-step": 5,
-      "smooth-scrolling-threshold": 1,
-      "on-click": "monarch-launch-audio -v output",
-      "on-click-right": "pamixer -t"
+    "format": "{icon}",
+    "format-muted": "",
+    "format-icons": {
+      "default": ["", "", ""],
+    },
+    "max-volume": 100,
+    "scroll-step": 5,
+    "smooth-scrolling-threshold": 1,
+    "on-click": "monarch-launch-audio -v output",
+    "on-click-right": "pamixer -t",
   },
   "group/tray-expander": {
     "orientation": "inherit",
     "drawer": {
       "transition-duration": 600,
-      "children-class": "tray-group-item"
+      "children-class": "tray-group-item",
     },
-    "modules": ["custom/expand-icon", "tray"]
+    "modules": ["custom/expand-icon", "tray"],
   },
   "custom/expand-icon": {
     "format": "",
-    "tooltip": false
+    "tooltip": false,
   },
   "custom/screenrecording-indicator": {
     "on-click": "monarch-cmd-screenrecord",
     "exec": "$MONARCH_PATH/default/waybar/indicators/screen-recording.sh",
     "signal": 8,
-    "return-type": "json"
+    "return-type": "json",
   },
   "mpris": {
     "format": "{player_icon} {status_icon} <i>{artist} - {title}</i>",
@@ -147,21 +151,21 @@
     "player-icons": {
       "default": "",
       "spotify": " ",
-      "mpv": " "
+      "mpv": " ",
     },
     "status-icons": {
       "paused": "⏸",
-      "playing": "▶"
-    }
+      "playing": "▶",
+    },
   },
   "tray": {
     "icon-size": 12,
-    "spacing": 17
+    "spacing": 17,
   },
   "custom/do-not-disturb-indicator": {
     "on-click": "makoctl mode -t do-not-disturb && notify-send 'Enabled notifications'",
     "exec": "$MONARCH_PATH/default/waybar/indicators/do-not-disturb.sh",
     "signal": 9,
-    "return-type": "json"
-  }
+    "return-type": "json",
+  },
 }

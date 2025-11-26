@@ -1,4 +1,4 @@
 #!/bin/bash
 
 rfkill unblock wifi
-monarch-launch-or-focus-tui nmtui
+monarch-launch-or-focus-tui impala
