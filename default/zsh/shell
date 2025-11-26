@@ -1,5 +1,5 @@
 source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh 
+source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
 
 # History control
 HISTFILE=~/.zsh_history           # History file location
@@ -10,6 +10,9 @@ setopt INC_APPEND_HISTORY         # Write to history file immediately, not on sh
 setopt HIST_IGNORE_ALL_DUPS       # Delete old recorded entry if new entry is a duplicate
 setopt HIST_FIND_NO_DUPS          # Do not display duplicates when searching
 setopt HIST_REDUCE_BLANKS         # Remove superfluous blanks from history
+
+autoload -U select-word-style
+select-word-style bash
 
 autoload -Uz compinit
 compinit
