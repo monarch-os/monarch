@@ -49,9 +49,11 @@ hyprlock
 hyprpicker
 hyprsunset
 imagemagick
+impala
 imv
 inetutils
 inxi
+iwd
 jq
 kvantum-qt5
 lazydocker
@@ -68,9 +70,6 @@ man-db
 mise
 mpv
 nautilus
-networkmanager
-networkmanager-openconnect
-network-manager-applet
 noto-fonts
 noto-fonts-cjk
 noto-fonts-emoji
