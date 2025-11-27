@@ -1,7 +1,6 @@
 @define-color error_bg_color #C34043;
 @define-color error_fg_color #DCD7BA;
 
-
 @import "../../../../../../../.config/monarch/current/theme/walker.css";
 
 * {
@@ -90,7 +89,6 @@ child {
   padding: 5px;
 }
 
-
 .item-quick-activation {
   background: alpha(@border, 0.25);
   border-radius: 5px;
@@ -126,7 +124,6 @@ child:selected .item-box {
   color: @foreground;
 }
 
-
 .calc .item-text {
   font-size: 15px;
 }
@@ -142,8 +139,9 @@ child:selected .item-box {
   opacity: 0.25;
 }
 
-.todo.urgent {
-  font-size: 24px;
+.todo.critical {
+  font-weight: bold;
+  color: @error_bg_color;
 }
 
 .todo.active {
@@ -164,7 +162,6 @@ child:selected .item-box {
   opacity: 0.5;
   color: @foreground;
 }
-
 
 .keybinds {
 }
