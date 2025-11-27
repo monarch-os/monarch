@@ -141,3 +141,7 @@ alias dnessus-start='if [ $(docker inspect -f "{{.State.Running}}" nessus-pro 2>
 alias dnessus-web='if [ $(docker inspect -f "{{.State.Running}}" nessus-pro 2>/dev/null) ]; then xdg-open https://localhost:8834; else echo "nessus is not running, try \"dnessus-start\" to launch it"; fi'
 alias dnessus-stop='if [ $(docker inspect -f "{{.State.Running}}" nessus-pro 2>/dev/null) ]; then docker stop nessus-pro; else echo "nessus is already stopped"; fi'
 alias dnessus-logs='if [ $(docker inspect -f "{{.State.Running}}" nessus-pro 2>/dev/null) ]; then docker logs -f nessus-pro; else echo "nessus is is not running, try \"dnessus-start\" to launch it"; fi'
+
+if [[ $TERM = "xterm-kitty" ]]; then
+  alias ssh="kitten ssh"
+fi
