@@ -1,4 +1,3 @@
-echo "Switch to stable Monarch Package Repository builds"
+echo "Switch to stable Omarchy Package Repository builds"
 
 monarch-refresh-pacman
-sudo pacman -Syu --noconfirm
