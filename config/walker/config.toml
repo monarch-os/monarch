@@ -4,9 +4,11 @@ theme = "monarch-default"                                                   # th
 additional_theme_location = "~/.local/share/monarch/default/walker/themes/"
 hide_quick_activation = true   # globally hide the quick activation buttons
 
-
 [placeholders]
 "default" = { input = " Search...", list = "No Results" } # placeholders for input and empty list, key is the providers name, so f.e. "desktopapplications" or "menus:other"
+
+[columns]
+symbols = 1 # providers to be queried by default
 
 [providers]
 max_results = 256 # 256 should be enough for everyone
@@ -14,7 +16,7 @@ default = [
   "desktopapplications",
   "calc",
   "websearch",
-] # providers to be queried by default
+]
 
 empty = ["desktopapplications"] # providers to be queried when query is empty
 ignore_preview = [] # providers that should not show previews
@@ -157,4 +159,3 @@ bookmarks = [
   { action = "change_browser", label = "Change browser", bind = "ctrl b", after = "Nothing" },
   { action = "import", label = "Import", bind = "ctrl i", after = "AsyncClearReload" },
 ]
-
