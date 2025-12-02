@@ -11,7 +11,7 @@ $time\
 ${custom.exegol}\
  ➜\
 $directory\
-$fill $python$nodejs$rust$golang$java$php$c$kotlin$haskell$docker_context\
+$fill ${custom.exh_user}${env_var.TARGET}$python$nodejs$rust$golang$java$php$c$kotlin$haskell$docker_context\
 $line_break\
 $character
 """
@@ -58,6 +58,17 @@ description = "Shows if logging is in progress"
 command = 'echo "[🔴]"'
 style = 'bold yellow'
 when = '[[ -n "${ASCIINEMA_REC:-}" || -n "${ASCIINEMA_SESSION:-}" ]]'
+
+[custom.exh_user]
+command = '[ -n "$DOMAIN" ] && echo "$USER@$DOMAIN" || echo "$USER"'
+when = 'test -n "$USER"'
+style = 'green'
+format = '\[[ $output]($style)\]'
+
+[env_var.TARGET]
+variable = "TARGET"
+style = "yellow"
+format = '\[[󰓾 $env_value]($style)\]'
 
 [directory]
 style = "sapphire"
