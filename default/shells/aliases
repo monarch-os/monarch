@@ -55,12 +55,20 @@ alias c='code'
 alias C='code .'
 alias k='cursor'
 alias K='cursor .'
+alias z='zeditor'
+alias Z='zeditor .'
 alias p='python'
 alias cdtmp='pushd $(mktemp -d)'
 
+## File Management
+alias ll='ls'
+alias rm='trash-put'
+alias te='trash-empty'
+alias cp='cp -i'
 
 # Networking
 alias ipa='ip --brief --color a'
+alias ncl='ncat -lnvp'
 alias ssh-yolo='ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
 alias wget-yolo="wget --no-check-certificate"
 alias digall='f(){ dig +answer +multiline "$1" any @8.8.8.8;  unset -f f; }; f'
@@ -72,6 +80,11 @@ alias dns-8='echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf'
 alias dns-9='echo "nameserver 9.9.9.9" | sudo tee /etc/resolv.conf'
 alias get-ip='curl -sS ipinfo.io/ip ; echo'
 alias get-ip-cpy='curl -sS ipinfo.io/ip | wl-copy'
+
+# System
+alias show-open-ports="sudo ss -latepun | grep -i listen"
+alias sop='show-open-ports'
+alias dirmon='inotifywait -rm -e create -e moved_to -e modify -e access -e attrib -e close_write -e moved_from'
 
 # Misc
 alias b64d='base64 -d'

@@ -25,7 +25,7 @@ format-drive() {
   else
     echo "WARNING: This will completely erase all data on $1 and label it '$2'."
     read -rp "Are you sure you want to continue? (y/N): " confirm
-    
+
     if [[ "$confirm" =~ ^[Yy]$ ]]; then
       sudo wipefs -a "$1"
       sudo dd if=/dev/zero of="$1" bs=1M count=100 status=progress
@@ -80,3 +80,6 @@ img2png() {
     -define png:exclude-chunk=all \
     "${img%.*}-optimized.png"
 }
+
+function mkcd () { mkdir -p "$@" && eval cd "\"\$$#\""; }
+
