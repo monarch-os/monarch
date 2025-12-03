@@ -17,7 +17,9 @@ echo -e "${BLUE}═════════════════════�
 echo -e "${BLUE}  Loading Custom User Setup (Fast Mode)${NC}"
 echo -e "${BLUE}═══════════════════════════════════════════════════════════════════${NC}"
 
-
+echo -e "${BLUE}[*]${NC} Installing Kitty..."
+apt update && apt install -y kitty
+echo -e "${GREEN}[✓]${NC} Kitty installed"
 
 if [ ! -f "$BIN_DIR/starship" ]; then
     echo -e "${BLUE}[*]${NC} Installing Starship..."
@@ -246,5 +248,3 @@ fi
 echo -e "${GREEN}═══════════════════════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}  Setup Complete! Tools installed in $BIN_DIR${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════════════════════════════${NC}"
-
-
