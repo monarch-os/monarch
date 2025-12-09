@@ -1,0 +1,21 @@
+name: DNS Resolver
+description: Resolve DNS records to IP addresses
+
+reports:
+  - "{{.Workspace}}/reports/osint/domain_ips.txt"
+
+pre_run:
+  - CreateFolder("{{.Workspace}}/reports/osint/")
+
+steps:
+  - requirements:
+    - dnsx
+    conditions:
+      - FileExists("{{.targetfile}}")
+    commands:
+      - dnsx -l {{.targetfile}} -ro | sort | uniq > "{{.TempDir}}/domain_ips.txt"
+    rcommands:      
+      - echo "{{.Target}}" | dnsx -ro | sort | uniq > "{{.TempDir}}/domain_ips.txt"
+
+post_run:
+  - CopyFile("{{.TempDir}}/domain_ips.txt", "{{.Workspace}}/reports/osint/domain_ips.txt")

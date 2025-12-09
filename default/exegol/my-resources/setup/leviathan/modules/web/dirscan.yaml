@@ -11,7 +11,7 @@ pre_run:
 
 steps:
   - commands:
-      - mkdir "{{.TempDir}}/dirscan"
+      - mkdir -p "{{.TempDir}}/dirscan"
 
   - required:
       - dirsearch

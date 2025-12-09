@@ -1,0 +1,18 @@
+name: ip_info
+description: Module used to retrieve information about an IP address
+reports:
+  - "{{.Workspace}}/reports/network/ip_info/"
+
+pre_run:
+  - CreateFolder("{{.Workspace}}/reports/network/ip_info/")
+  - CreateFolder("{{.TempDir}}/ip_info/")
+steps: 
+  - requirements:
+    - curl
+    conditions:
+      - FileExists("{{.targetfile}}")
+    source: "{{.targetfile}}"
+    commands:
+      - curl -sk "http://ip-api.com/json/{{.source}}?fields=66846719" > "{{.TempDir}}/ip_info/{{.source_safe}}_info.json"
+post_run:
+  - CopyDir("{{.TempDir}}/ip_info", "{{.Workspace}}/reports/network/ip_info/")

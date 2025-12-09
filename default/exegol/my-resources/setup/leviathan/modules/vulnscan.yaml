@@ -1,7 +1,7 @@
 name: Vuln scan
 
 params:
-  - nucleiThreads: "200"
+  - nucleiThreads: "100"
 
 reports:
   - "{{.Workspace}}/reports/vulns/"
@@ -11,8 +11,8 @@ steps:
     - nuclei
     - "{{.targetfile}}"
     commands:
-      - MarkdownExportSortMode=severity nuclei -silent -l {{.targetfile}} -c c {{.nucleiThreads}} -irr -me {{.TempDir}}/vulns
+      - MarkdownExportSortMode=severity nuclei -silent -l {{.targetfile}} -nmhe -c {{.nucleiThreads}} -irr -me {{.TempDir}}/vulns
 
 post_run:
-  - ExecCmd("mdcat {{.TempDir}}/vulns/index.md {{.TempDir}}/vulns/summary.txt")
+  - ExecCmd("mdcat {{.TempDir}}/vulns/index.md > {{.TempDir}}/vulns/summary.txt")
   - CopyDir("{{.TempDir}}/vulns", "{{.Workspace}}/reports/vulns/")
