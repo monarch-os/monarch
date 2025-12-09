@@ -5,16 +5,13 @@ validator: domain
 
 routines:
   - modules:
-    - domain_info
-    - zonetransfer
-    - subdomain
-    - leaks_gathering
-    
+      - domain_info
+      - dns_resolver
+      - ip_info
+      - zonetransfer
+      - subdomain
+      - leaks_gathering
 
-    # Need a WHOISXML API key
-    # https://github.com/six2dez/reconftw/blob/c8dfd2e7b944bb9806af76be7b5c7158d3f7292a/reconftw.sh#L279
-    #- ip_info
-    
     # - emails
     # - google_dorks
     # - github_dorks
