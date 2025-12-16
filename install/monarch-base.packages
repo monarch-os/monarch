@@ -2,12 +2,14 @@
 # This file is also used by the ISO builder when determining needs
 
 aether
+alacritty
 asdcontrol
 avahi
 bash-completion
 bat
 bind
 bluetui
+bolt
 brightnessctl
 btop
 clang
@@ -45,6 +47,7 @@ gvfs-smb
 hypridle
 hyprland
 hyprland-guiutils
+hyprland-preview-share-picker
 hyprlock
 hyprpicker
 hyprsunset

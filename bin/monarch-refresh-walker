@@ -3,6 +3,7 @@
 # Ensure walker is set to autostart
 mkdir -p ~/.config/autostart/
 cp $MONARCH_PATH/autostart/walker.desktop ~/.config/autostart/
+systemctl --user daemon-reload
 
 monarch-refresh-config walker/config.toml
 monarch-refresh-config elephant/calc.toml

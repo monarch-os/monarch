@@ -10,4 +10,8 @@ mkdir -p ~/.local/share/applications
 cp ~/.local/share/monarch/applications/*.desktop ~/.local/share/applications/
 cp ~/.local/share/monarch/applications/hidden/*.desktop ~/.local/share/applications/
 
+# Refresh the webapps
+bash $MONARCH_PATH/install/packaging/icons.sh
+bash $MONARCH_PATH/install/packaging/webapps.sh
+
 update-desktop-database ~/.local/share/applications

@@ -63,6 +63,10 @@ provider = "websearch"
 prefix = ":"
 provider = "clipboard"
 
+[[emergencies]]
+text = "Restart Walker"
+command = "monarch-restart-walker"
+
 [providers.clipboard]
 time_format = "%d.%m.%Y - %H:%M" # format for the clipboard item date
 
