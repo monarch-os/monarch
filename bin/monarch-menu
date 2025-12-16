@@ -316,11 +316,12 @@ show_install_style_menu() {
 }
 
 show_install_font_menu() {
-  case $(menu "Install" "  Meslo LG Mono\n  Fira Code\n  Victor Code\n  Bistream Vera Mono" "--width 350") in
+  case $(menu "Install" "  Meslo LG Mono\n  Fira Code\n  Victor Code\n  Bistream Vera Mono\n  Iosevka" "--width 350") in
   *Meslo*) install_font "Meslo LG Mono" "ttf-meslo-nerd" "MesloLGL Nerd Font" ;;
   *Fira*) install_font "Fira Code" "ttf-firacode-nerd" "FiraCode Nerd Font" ;;
   *Victor*) install_font "Victor Code" "ttf-victor-mono-nerd" "VictorMono Nerd Font" ;;
   *Bistream*) install_font "Bistream Vera Code" "ttf-bitstream-vera-mono-nerd" "BitstromWera Nerd Font" ;;
+  *Iosevka*) install_font "Iosevka" "ttf-iosevka-nerd" "Iosevka Nerd Font Mono" ;;
   *) show_install_menu ;;
   esac
 }
@@ -392,8 +393,9 @@ show_remove_menu() {
 }
 
 show_update_menu() {
-  case $(menu "Update" "  Monarch\n  Config\n󰸌  Extra Themes\n  Process\n󰇅  Hardware\n  Firmware\n  Password\n  Timezone\n  Time") in
+  case $(menu "Update" "  Monarch\n󰔫  Channel\n  Config\n󰸌  Extra Themes\n  Process\n󰇅  Hardware\n  Firmware\n  Password\n  Timezone\n  Time") in
   *Monarch*) present_terminal monarch-update ;;
+  *Channel*) show_update_channel_menu ;;
   *Config*) show_update_config_menu ;;
   *Themes*) present_terminal monarch-theme-update ;;
   *Process*) show_update_process_menu ;;
@@ -403,6 +405,15 @@ show_update_menu() {
   *Time*) present_terminal monarch-update-time ;;
   *Password*) show_update_password_menu ;;
   *) show_main_menu ;;
+  esac
+}
+
+show_update_channel_menu() {
+  case $(menu "Update channel" "🟢 Stable\n🟡 Edge\n🔴 Dev") in
+  *Stable*) present_terminal "monarch-channel-set stable" ;;
+  *Edge*) present_terminal "monarch-channel-set edge" ;;
+  *Dev*) present_terminal "monarch-channel-set dev" ;;
+  *) show_update_menu ;;
   esac
 }
 
