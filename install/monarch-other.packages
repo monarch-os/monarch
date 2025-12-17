@@ -22,7 +22,7 @@ libva-nvidia-driver
 limine
 limine-mkinitcpio-hook
 limine-snapper-sync
-linux
+linux-cachyos-lts
 linux-firmware
 linux-headers
 macbook12-spi-driver-dkms
