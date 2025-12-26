@@ -9,12 +9,12 @@ pre_run:
 
 steps:
   - requirements:
-    - dnsx
+      - dnsx
     conditions:
       - FileExists("{{.targetfile}}")
     commands:
       - dnsx -l {{.targetfile}} -ro | sort | uniq > "{{.TempDir}}/domain_ips.txt"
-    rcommands:      
+    rcommands:
       - echo "{{.Target}}" | dnsx -ro | sort | uniq > "{{.TempDir}}/domain_ips.txt"
 
 post_run:

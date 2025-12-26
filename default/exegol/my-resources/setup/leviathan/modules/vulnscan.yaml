@@ -8,8 +8,8 @@ reports:
 
 steps:
   - requirements:
-    - nuclei
-    - "{{.targetfile}}"
+      - nuclei
+      - "{{.targetfile}}"
     commands:
       - MarkdownExportSortMode=severity nuclei -silent -l {{.targetfile}} -nmhe -c {{.nucleiThreads}} -irr -me {{.TempDir}}/vulns
 

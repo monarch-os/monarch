@@ -2,8 +2,8 @@ name: leaks_gathering
 description: Gather leaks from various sources
 
 reports:
-  - "{{.Workspace}}/reports/osint/leaks_full.txt"  
-  - "{{.Workspace}}/reports/osint/leaks_creds.txt"  
+  - "{{.Workspace}}/reports/osint/leaks_full.txt"
+  - "{{.Workspace}}/reports/osint/leaks_creds.txt"
 
 steps:
   - requirements:
