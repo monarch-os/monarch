@@ -34,5 +34,12 @@ if [[ $MONARCH_REF != "master" ]]; then
   cd -
 fi
 
+# Set edge mirror for dev installs
+if [[ $MONARCH_REF == "dev" ]]; then
+  export OMARCHY_MIRROR=edge
+else
+  export OMARCHY_MIRROR=stable
+fi
+
 echo -e "\nInstallation starting..."
 source ~/.local/share/monarch/install.sh

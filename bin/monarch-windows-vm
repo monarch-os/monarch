@@ -148,47 +148,6 @@ EOF
     PASSWORD_DISPLAY="(user-defined)"
   fi
 
-  languages=$'Arabic
-Bulgarian
-Chinese
-Croatian
-Czech
-Danish
-Dutch
-English
-Estonian
-Finnish
-French
-German
-Greek
-Hebrew
-Hungarian
-Italian
-Japanese
-Korean
-Latvian
-Lithuanian
-Norwegian
-Polish
-Portuguese
-Romanian
-Russian
-Serbian
-Slovak
-Slovenian
-Spanish
-Swedish
-Thai
-Turkish
-Ukrainian
-  '
-
-  LANGUAGE=$(printf '%s\n' "$languages" | gum choose --selected="French" --header="Select OS language:")
-  if [ -z "$LANGUAGE" ]; then
-    echo "Installation cancelled by user"
-    exit 1
-  fi
-
   # Display configuration summary
   gum style \
     --border normal \
@@ -202,8 +161,7 @@ Ukrainian
     "CPU:       $SELECTED_CORES cores" \
     "Disk:      $SELECTED_DISK" \
     "Username:  $USERNAME" \
-    "Password:  $PASSWORD_DISPLAY" \
-    "Language:  $LANGUAGE"
+    "Password:  $PASSWORD_DISPLAY"
 
   # Ask for confirmation
   echo ""
@@ -224,11 +182,9 @@ services:
       VERSION: "11"
       RAM_SIZE: "$SELECTED_RAM"
       CPU_CORES: "$SELECTED_CORES"
-      DISK_FMT: "qcow2"
       DISK_SIZE: "$SELECTED_DISK"
       USERNAME: "$USERNAME"
       PASSWORD: "$PASSWORD"
-      LANGUAGE: "$LANGUAGE"
     devices:
       - /dev/kvm
       - /dev/net/tun
@@ -298,6 +254,25 @@ remove_windows() {
   echo "Windows VM removal completed!"
 }
 
+wait_for_rdp_ready() {
+  local WIN_USER="$1"
+  local WIN_PASS="$2"
+  local TIMEOUT=240
+  local SECONDS=0
+
+  echo "Waiting for Windows VM to be ready..."
+
+  while ! timeout 5s xfreerdp3 /auth-only /cert:ignore /u:"$WIN_USER" /p:"$WIN_PASS" /v:127.0.0.1:3389 &>/dev/null; do
+    sleep 2
+    if [ $SECONDS -gt $TIMEOUT ]; then
+      echo "❌ Timeout waiting for RDP!"
+      echo "   The VM might still be installing Windows."
+      echo "   Check progress at: http://127.0.0.1:8006"
+      return 1
+    fi
+  done
+}
+
 launch_windows() {
   KEEP_ALIVE=false
   if [ "$1" = "--keep-alive" ] || [ "$1" = "-k" ]; then
@@ -309,6 +284,14 @@ launch_windows() {
     echo "Windows VM not configured. Please run: monarch-windows-vm install"
     exit 1
   fi
+
+  # Extract credentials from compose file
+  WIN_USER=$(grep "USERNAME:" "$COMPOSE_FILE" | sed 's/.*USERNAME: "\(.*\)"/\1/')
+  WIN_PASS=$(grep "PASSWORD:" "$COMPOSE_FILE" | sed 's/.*PASSWORD: "\(.*\)"/\1/')
+
+  # Use defaults if not found
+  [ -z "$WIN_USER" ] && WIN_USER="docker"
+  [ -z "$WIN_PASS" ] && WIN_PASS="admin"
 
   # Check if container is already running
   CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}}' monarch-windows 2>/dev/null)
@@ -326,32 +309,12 @@ launch_windows() {
       notify-send -u critical "Windows VM" "Failed to start Windows VM"
       exit 1
     fi
-
-    # Wait for RDP to be ready
-    echo "Waiting for Windows VM to be ready..."
-    WAIT_COUNT=0
-    while ! nc -z 127.0.0.1 3389 2>/dev/null; do
-      sleep 2
-      WAIT_COUNT=$((WAIT_COUNT + 1))
-      if [ $WAIT_COUNT -gt 60 ]; then  # 2 minutes timeout
-        echo "❌ Timeout waiting for RDP!"
-        echo "   The VM might still be installing Windows."
-        echo "   Check progress at: http://127.0.0.1:8006"
-        exit 1
-      fi
-    done
-
-    # Give it a moment more to fully initialize
-    sleep 15
   fi
 
-  # Extract credentials from compose file
-  WIN_USER=$(grep "USERNAME:" "$COMPOSE_FILE" | sed 's/.*USERNAME: "\(.*\)"/\1/')
-  WIN_PASS=$(grep "PASSWORD:" "$COMPOSE_FILE" | sed 's/.*PASSWORD: "\(.*\)"/\1/')
-
-  # Use defaults if not found
-  [ -z "$WIN_USER" ] && WIN_USER="docker"
-  [ -z "$WIN_PASS" ] && WIN_PASS="admin"
+  if ! wait_for_rdp_ready "$WIN_USER" "$WIN_PASS"; then
+    notify-send -u critical "Windows VM" "Did not come alive in time."
+    exit 1
+  fi
 
   # Build the connection info
   if [ "$KEEP_ALIVE" = true ]; then
@@ -440,302 +403,6 @@ status_windows() {
   fi
 }
 
-check_vm_stopped() {
-  CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}}' monarch-windows 2>/dev/null)
-
-  if [ "$CONTAINER_STATUS" = "running" ]; then
-    echo "❌ The Windows VM must be stopped before managing snapshots!"
-    echo "   Stop it with: monarch-windows-vm stop"
-    return 1
-  fi
-
-  return 0
-}
-
-list_snapshots() {
-  local DISK_FILE="$HOME/.windows/data.qcow2"
-
-  if ! command -v qemu-img >/dev/null 2>&1; then
-    echo "❌ qemu-img not found!"
-    echo "   Install it with: monarch-pkg-add qemu"
-    exit 1
-  fi
-
-  # Use JSON output to reliably handle names with spaces
-  local SNAP_JSON=$(qemu-img info --output=json "$DISK_FILE" 2>/dev/null)
-  if [ -z "$SNAP_JSON" ] || [ "$(echo "$SNAP_JSON" | jq 'has("snapshots") and (.snapshots|length>0)')" != "true" ]; then
-    gum style \
-      --border normal \
-      --padding "1 2" \
-      --margin "1" \
-      --foreground="240" \
-      "No snapshots found"
-    return
-  fi
-
-  local SNAPSHOT_COUNT=$(echo "$SNAP_JSON" | jq '.snapshots|length')
-
-  {
-    echo "ID  Name                 Date"
-    echo "────────────────────────────────────────────────"
-    echo "$SNAP_JSON" | jq -r '.snapshots[] | @base64' | while read -r row; do
-      _jq(){ echo "$row" | base64 -d | jq -r "$1"; }
-      ID=$(_jq '.id')
-      NAME=$(_jq '.name')
-      DATE_SECS=$(_jq '."date-sec" // empty')
-      if [ -n "$DATE_SECS" ]; then
-        DATE=$(date -d "@$DATE_SECS" "+%Y-%m-%d %H:%M:%S")
-      else
-        DATE=""
-      fi
-      printf "%-3s %-20s %s\n" "$ID" "$NAME" "$DATE"
-    done
-  } | gum style \
-    --border normal \
-    --padding "1 2" \
-    --margin "1" \
-    --foreground="250"
-}
-
-create_snapshot() {
-  local SNAPSHOT_NAME="$1"
-
-  if [ -z "$SNAPSHOT_NAME" ]; then
-    SNAPSHOT_NAME=$(gum input --placeholder="snapshot-name" --header="Enter snapshot name:")
-    if [ -z "$SNAPSHOT_NAME" ]; then
-      echo "Snapshot creation cancelled"
-      exit 1
-    fi
-  fi
-
-  # Note: snapshot creation can work while VM is running, but it's safer when stopped
-  CONTAINER_STATUS=$(docker inspect --format='{{.State.Status}}' monarch-windows 2>/dev/null)
-  if [ "$CONTAINER_STATUS" = "running" ]; then
-    echo ""
-    gum style \
-      --border normal \
-      --padding "1 2" \
-      --margin "1" \
-      --foreground="yellow" \
-      "⚠ Warning: VM is currently running" \
-      "" \
-      "Creating snapshot while VM is running may cause inconsistencies."
-    echo ""
-    if ! gum confirm "Continue anyway?"; then
-      echo "Snapshot creation cancelled. Stop VM first: monarch-windows-vm stop"
-      exit 1
-    fi
-  fi
-
-  local DISK_FILE="$HOME/.windows/data.qcow2"
-  [ $? -ne 0 ] && exit 1
-
-  if ! command -v qemu-img >/dev/null 2>&1; then
-    echo "❌ qemu-img not found!"
-    echo "   Install it with: monarch-pkg-add qemu"
-    exit 1
-  fi
-
-  echo "Creating snapshot: $SNAPSHOT_NAME"
-
-  if qemu-img snapshot -c "$SNAPSHOT_NAME" "$DISK_FILE" 2>/dev/null; then
-    gum style \
-      --border normal \
-      --padding "1 2" \
-      --margin "1" \
-      --foreground="green" \
-      "✓ Snapshot '$SNAPSHOT_NAME' created successfully"
-  else
-    echo "❌ Failed to create snapshot: $SNAPSHOT_NAME"
-    exit 1
-  fi
-}
-
-restore_snapshot() {
-  local SNAPSHOT_NAME="$1"
-
-  if ! check_vm_stopped; then
-    exit 1
-  fi
-
-  local DISK_FILE="$HOME/.windows/data.qcow2"
-  [ $? -ne 0 ] && exit 1
-
-  if ! command -v qemu-img >/dev/null 2>&1; then
-    echo "❌ qemu-img not found!"
-    echo "   Install it with: monarch-pkg-add qemu"
-    exit 1
-  fi
-
-  # List available snapshots (support names with spaces)
-  local SNAPSHOTS=$(qemu-img info --output=json "$DISK_FILE" 2>/dev/null | jq -r '.snapshots[].name')
-
-  if [ -z "$SNAPSHOTS" ]; then
-    echo "❌ No snapshots available to restore"
-    exit 1
-  fi
-
-  if [ -z "$SNAPSHOT_NAME" ]; then
-    SNAPSHOT_NAME=$(echo "$SNAPSHOTS" | gum choose --header="Select snapshot to restore:")
-    if [ -z "$SNAPSHOT_NAME" ]; then
-      echo "Snapshot restoration cancelled"
-      exit 1
-    fi
-  fi
-
-  # Verify snapshot exists
-  if ! echo "$SNAPSHOTS" | grep -Fxq "$SNAPSHOT_NAME"; then
-    echo "❌ Snapshot '$SNAPSHOT_NAME' not found"
-    exit 1
-  fi
-
-  echo ""
-  gum style \
-    --border normal \
-    --padding "1 2" \
-    --margin "1" \
-    --foreground="yellow" \
-    "⚠ WARNING: Restoring snapshot '$SNAPSHOT_NAME'" \
-    "" \
-    "This will discard all changes made after this snapshot!"
-  echo ""
-
-  if ! gum confirm "Are you sure you want to continue?"; then
-    echo "Snapshot restoration cancelled"
-    exit 1
-  fi
-
-  echo "Restoring snapshot: $SNAPSHOT_NAME"
-
-  if qemu-img snapshot -a "$SNAPSHOT_NAME" "$DISK_FILE" 2>/dev/null; then
-    gum style \
-      --border normal \
-      --padding "1 2" \
-      --margin "1" \
-      --foreground="green" \
-      "✓ Snapshot '$SNAPSHOT_NAME' restored successfully"
-  else
-    echo "❌ Failed to restore snapshot: $SNAPSHOT_NAME"
-    exit 1
-  fi
-}
-
-delete_snapshot() {
-  local SNAPSHOT_NAME="$1"
-
-  if ! check_vm_stopped; then
-    exit 1
-  fi
-
-  local DISK_FILE="$HOME/.windows/data.qcow2"
-  [ $? -ne 0 ] && exit 1
-
-  if ! command -v qemu-img >/dev/null 2>&1; then
-    echo "❌ qemu-img not found!"
-    echo "   Install it with: monarch-pkg-add qemu"
-    exit 1
-  fi
-
-  # List available snapshots (support names with spaces)
-  local SNAPSHOTS=$(qemu-img info --output=json "$DISK_FILE" 2>/dev/null | jq -r '.snapshots[].name')
-
-  if [ -z "$SNAPSHOTS" ]; then
-    echo "❌ No snapshots available to delete"
-    exit 1
-  fi
-
-  if [ -z "$SNAPSHOT_NAME" ]; then
-    SNAPSHOT_NAME=$(echo "$SNAPSHOTS" | gum choose --header="Select snapshot to delete:")
-    if [ -z "$SNAPSHOT_NAME" ]; then
-      echo "Snapshot deletion cancelled"
-      exit 1
-    fi
-  fi
-
-  # Verify snapshot exists
-  if ! echo "$SNAPSHOTS" | grep -Fxq "$SNAPSHOT_NAME"; then
-    echo "❌ Snapshot '$SNAPSHOT_NAME' not found"
-    exit 1
-  fi
-
-  echo ""
-  gum style \
-    --border normal \
-    --padding "1 2" \
-    --margin "1" \
-    --foreground="red" \
-    "⚠ WARNING: Deleting snapshot '$SNAPSHOT_NAME'" \
-    "" \
-    "This action cannot be undone!"
-  echo ""
-
-  if ! gum confirm "Are you sure you want to delete this snapshot?"; then
-    echo "Snapshot deletion cancelled"
-    exit 1
-  fi
-
-  echo "Deleting snapshot: $SNAPSHOT_NAME"
-
-  if qemu-img snapshot -d "$SNAPSHOT_NAME" "$DISK_FILE" 2>/dev/null; then
-    gum style \
-      --border normal \
-      --padding "1 2" \
-      --margin "1" \
-      --foreground="green" \
-      "✓ Snapshot '$SNAPSHOT_NAME' deleted successfully"
-  else
-    echo "❌ Failed to delete snapshot: $SNAPSHOT_NAME"
-    exit 1
-  fi
-}
-
-manage_snapshots() {
-  local SUBCOMMAND="$1"
-  local SNAPSHOT_NAME="$2"
-
-  case "$SUBCOMMAND" in
-    list|ls)
-      list_snapshots
-      ;;
-    create|add)
-      create_snapshot "$SNAPSHOT_NAME"
-      ;;
-    restore|rollback)
-      restore_snapshot "$SNAPSHOT_NAME"
-      ;;
-    delete|remove|rm)
-      delete_snapshot "$SNAPSHOT_NAME"
-      ;;
-    help|--help|-h|"")
-      echo "Usage: monarch-windows-vm snapshot [command] [name]"
-      echo ""
-      echo "Commands:"
-      echo "  list, ls            List all snapshots"
-      echo "  create, add [name]  Create a new snapshot"
-      echo "                       (works while VM is running, but safer when stopped)"
-      echo "  restore [name]     Restore a snapshot (VM must be stopped)"
-      echo "  delete [name]      Delete a snapshot (VM must be stopped)"
-      echo "  help               Show this help message"
-      echo ""
-      echo "Examples:"
-      echo "  monarch-windows-vm snapshot list              # List all snapshots"
-      echo "  monarch-windows-vm snapshot create            # Create snapshot (interactive)"
-      echo "  monarch-windows-vm snapshot create before-update  # Create named snapshot"
-      echo "  monarch-windows-vm snapshot restore           # Restore snapshot (interactive)"
-      echo "  monarch-windows-vm snapshot restore before-update  # Restore specific snapshot"
-      echo "  monarch-windows-vm snapshot delete            # Delete snapshot (interactive)"
-      echo ""
-      echo "Note: VM must be stopped before restore/delete operations"
-      ;;
-    *)
-      echo "Unknown snapshot command: $SUBCOMMAND" >&2
-      echo "" >&2
-      manage_snapshots help >&2
-      exit 1
-      ;;
-  esac
-}
-
 show_usage() {
   echo "Usage: monarch-windows-vm [command] [options]"
   echo ""
@@ -747,9 +414,6 @@ show_usage() {
   echo "                         --keep-alive, -k   Keep VM running after RDP closes"
   echo "  stop                 Stop the running Windows VM"
   echo "  status               Show current VM status"
-  echo "  snapshot [cmd]       Manage VM snapshots"
-  echo "                       Commands: list, create, restore, delete"
-  echo "                       See: monarch-windows-vm snapshot help"
   echo "  help                 Show this help message"
   echo ""
   echo "Examples:"
@@ -757,8 +421,6 @@ show_usage() {
   echo "  monarch-windows-vm launch            # Connect to VM (auto-stop on exit)"
   echo "  monarch-windows-vm launch -k         # Connect to VM (keep running)"
   echo "  monarch-windows-vm stop              # Shut down the VM"
-  echo "  monarch-windows-vm snapshot list     # List all snapshots"
-  echo "  monarch-windows-vm snapshot create   # Create a snapshot"
 }
 
 # Main command dispatcher
@@ -777,9 +439,6 @@ case "$1" in
     ;;
   status)
     status_windows
-    ;;
-  snapshot)
-    manage_snapshots "$2" "$3"
     ;;
   help|--help|-h|"")
     show_usage

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# Reload opencode configuration (used by the Monarch theme switching).
+#
+pkill -SIGUSR2 opencode
