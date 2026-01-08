@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Overwrite the package configuration for /etc/pacman with the Monarch default of using its dedicated mirrors and repositories, then update all packages.
-# This is used after switching between Omarchy release channels to ensure the right packages for the right channel are available.
+# This is used after switching between Monarch release channels to ensure the right packages for the right channel are available.
 
 # Take backup of existing files
 sudo cp -f /etc/pacman.conf /etc/pacman.conf.bak
