@@ -1,4 +1,4 @@
-accent = "#7aa2f7"
+accent = "#b471de"
 
 cursor = "#c0caf5"
 foreground = "#a9b1d6"
@@ -6,7 +6,7 @@ background = "#1a1b26"
 selection_foreground = "#c0caf5"
 selection_background = "#7e33ff"
 
-color0 = "#32344a"
+color0 = "#3c2a6c"
 color1 = "#f7768e"
 color2 = "#9ece6a"
 color3 = "#e0af68"
