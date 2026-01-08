@@ -18,6 +18,8 @@ run_logged $MONARCH_INSTALL/config/localdb.sh
 run_logged $MONARCH_INSTALL/config/walker-elephant.sh
 run_logged $MONARCH_INSTALL/config/wireshark.sh
 run_logged $MONARCH_INSTALL/config/fast-shutdown.sh
+run_logged $MONARCH_INSTALL/config/input-group.sh
+run_logged $MONARCH_INSTALL/config/monarch-ai-skill.sh
 run_logged $MONARCH_INSTALL/config/sudoless-asdcontrol.sh
 run_logged $MONARCH_INSTALL/config/hardware/network.sh
 run_logged $MONARCH_INSTALL/config/hardware/set-wireless-regdom.sh

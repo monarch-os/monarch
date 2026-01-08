@@ -2,7 +2,7 @@
 
 # Ensure Walker service is started automatically on boot
 mkdir -p ~/.config/autostart/
-cp $MONARCH_PATH/autostart/walker.desktop ~/.config/autostart/
+cp $MONARCH_PATH/default/walker/walker.desktop ~/.config/autostart/
 
 # Create pacman hook to restart walker after updates
 sudo mkdir -p /etc/pacman.d/hooks

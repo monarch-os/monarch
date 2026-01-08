@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Install VSCode and configure it to use the gnome-libsecret password store, not to update automatically, and to use the current Monarch theme.
+
 echo "Installing VSCode..."
 monarch-pkg-add visual-studio-code-bin
 

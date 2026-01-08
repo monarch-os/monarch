@@ -1,3 +1,4 @@
 #!/bin/bash
 
-exec setsid uwsm app -- xdg-terminal-exec --app-id=com.monarch.Wiremix -e wiremix "$@"
+# Launch the Monarch audio controls TUI (provided by wiremix).
+omarchy-launch-or-focus-tui wiremix

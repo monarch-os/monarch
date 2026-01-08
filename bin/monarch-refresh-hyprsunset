@@ -1,4 +1,6 @@
 #!/bin/bash
 
+# Overwrite the user config for hyprsunset with the Monarch default and restart the service.
+
 monarch-refresh-config hypr/hyprsunset.conf
 monarch-restart-hyprsunset
