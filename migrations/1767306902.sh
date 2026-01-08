@@ -49,10 +49,10 @@ CURRENT_THEME_LINK="$HOME/.config/monarch/current/theme"
 CURRENT_THEME_NAME=""
 if [[ -L $CURRENT_THEME_LINK ]]; then
   CURRENT_THEME_NAME=$(basename "$(readlink "$CURRENT_THEME_LINK")")
-elif [[ -d $CURRENT_THEME_LINK ]]; then
-  CURRENT_THEME_NAME=$(basename "$CURRENT_THEME_LINK")
 elif [[ -f "$HOME/.config/monarch/current/theme.name" ]]; then
   CURRENT_THEME_NAME=$(cat "$HOME/.config/monarch/current/theme.name")
+elif [[ -d $CURRENT_THEME_LINK ]]; then
+  CURRENT_THEME_NAME=$(basename "$CURRENT_THEME_LINK")
 fi
 
 # Remove all symlinks from ~/.config/monarch/themes
@@ -62,5 +62,6 @@ find "$THEMES_DIR" -mindepth 1 -maxdepth 1 -type l -delete
 if [[ -n $CURRENT_THEME_NAME ]]; then
   monarch-theme-set "$CURRENT_THEME_NAME"
 else
+  # Backup to ensure a theme is set if we can't deduce the name
   monarch-theme-set "Tokyo Night"
 fi

@@ -2,4 +2,4 @@
 @define-color background {{ background }};
 
 @define-color alert {{ accent }};
-@define-color selected {{ foreground }};
+@define-color selected {{ selection_background }};
