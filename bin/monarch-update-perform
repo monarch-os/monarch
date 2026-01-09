@@ -15,7 +15,7 @@ monarch-update-system-pkgs
 monarch-migrate
 monarch-hook post-update
 
-omarchy-update-analyze-logs
+monarch-update-analyze-logs
 
 monarch-update-restart
 
