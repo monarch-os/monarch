@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Remove LazyVPN - WireGuard VPN manager
+
+echo "Removing monarch-lazyvpn..."
+
+# Disconnect any active VPN connection
+if command -v lazyvpn-disconnect &>/dev/null; then
+  echo "Disconnecting VPN..."
+  lazyvpn-disconnect 2>/dev/null || true
+fi
+
+# Remove the package
+monarch-pkg-drop monarch-lazyvpn
+
+# Remove TUI app entry
+monarch-tui-remove "LazyVPN"
+
+# Remove Hyprland keybinding
+BINDINGS_FILE="$HOME/.config/hypr/bindings.conf"
+if [[ -f "$BINDINGS_FILE" ]] && grep -q "lazyvpn-menu" "$BINDINGS_FILE"; then
+  echo "Removing Hyprland keybinding..."
+  sed -i '/# LazyVPN/d; /lazyvpn-menu/d' "$BINDINGS_FILE"
+fi
+
+echo -e "\nLazyVPN removed!"
