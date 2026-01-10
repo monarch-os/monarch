@@ -7,4 +7,4 @@ TOOLS_DIR=/opt/secops
 echo "Install sys tools..."
 
 yes|sudo pacman -S --noconfirm --needed xfreerdp
-yay --noconfirm --needed -S goto-ssh-bin
+yay --noconfirm --needed -S sshm-bin
