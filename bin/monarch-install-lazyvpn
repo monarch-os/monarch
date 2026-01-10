@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Install LazyVPN - WireGuard VPN manager with TUI
+
+echo "Installing monarch-lazyvpn..."
+monarch-pkg-add monarch-lazyvpn
+
+echo -e "\nInitializing LazyVPN..."
+lazyvpn-init
+
+# Add Hyprland keybinding (WIN+ALT+V)
+BINDINGS_FILE="$HOME/.config/hypr/bindings.conf"
+if [[ -f "$BINDINGS_FILE" ]] && ! grep -q "lazyvpn-menu" "$BINDINGS_FILE"; then
+  echo -e "\nAdding Hyprland keybinding (WIN+ALT+V)..."
+  echo -e "\n# LazyVPN\nbind = SUPER ALT, V, exec, lazyvpn-menu" >> "$BINDINGS_FILE"
+fi
+
+echo -e "\nLazyVPN installed!"
+echo "  - Launch from app menu: LazyVPN"
+echo "  - Keyboard shortcut: WIN+ALT+V"
+echo "  - Command line: lazyvpn-menu"

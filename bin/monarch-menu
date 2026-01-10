@@ -267,12 +267,13 @@ show_install_menu() {
 }
 
 show_install_service_menu() {
-  case $(menu "Install" "  Dropbox\n󰘿  Synology Drive\n  Proton Suite [AUR]\n󰹑  Displaylink [AUR]\n  Tailscale\n󰟵  Bitwarden\n  Creator Apps\n  Chromium Account") in
+  case $(menu "Install" "  Dropbox\n󰘿  Synology Drive\n  Proton Suite [AUR]\n󰹑  Displaylink [AUR]\n  Tailscale\n󰖂  LazyVPN\n󰟵  Bitwarden\n  Creator Apps\n  Chromium Account") in
   *Dropbox*) present_terminal monarch-install-dropbox ;;
   *Synology*) aur_install_and_launch "Synology Driver" "synology-drive" "synology-drive" ;;
   *Proton*) present_terminal monarch-install-proton ;;
   *Displaylink*) present_terminal monarch-install-displaylink ;;
   *Tailscale*) present_terminal monarch-install-tailscale ;;
+  *LazyVPN*) present_terminal monarch-install-lazyvpn ;;
   *Creator*) install "obs-studio" "pinta" "kdenlive";;
   *Bitwarden*) install_and_launch "Bitwarden" "bitwarden bitwarden-cli" "bitwarden" ;;
   *Chromium*) present_terminal monarch-install-chromium-google-account ;;
@@ -407,13 +408,14 @@ show_install_cyber_menu() {
 }
 
 show_remove_menu() {
-  case $(menu "Remove" "󰣇  Package\n  Web App\n  TUI\n󰵮  Development\n  Dictation\n󰸌  Theme\n󰍲  Windows\n󰈷  Fingerprint\n  Fido2") in
+  case $(menu "Remove" "󰣇  Package\n  Web App\n  TUI\n󰵮  Development\n  Dictation\n󰸌  Theme\n󰖂  LazyVPN\n󰍲  Windows\n󰈷  Fingerprint\n  Fido2") in
   *Package*) terminal monarch-pkg-remove ;;
   *Web*) present_terminal monarch-webapp-remove ;;
   *TUI*) present_terminal monarch-tui-remove ;;
   *Development*) show_remove_development_menu ;;
   *Dictation*) present_terminal monarch-voxtype-remove ;;
   *Theme*) present_terminal monarch-theme-remove ;;
+  *LazyVPN*) present_terminal monarch-remove-lazyvpn ;;
   *Windows*) present_terminal "monarch-windows-vm remove" ;;
   *Fingerprint*) present_terminal "monarch-setup-fingerprint --remove" ;;
   *Fido2*) present_terminal "monarch-setup-fido2 --remove" ;;
