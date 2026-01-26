@@ -77,8 +77,8 @@ alias dns-127='echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf'
 alias dns-1='echo "nameserver 1.1.1.1" | sudo tee /etc/resolv.conf'
 alias dns-8='echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf'
 alias dns-9='echo "nameserver 9.9.9.9" | sudo tee /etc/resolv.conf'
-alias get-ip='curl -sS ipinfo.io/ip ; echo'
-alias get-ip-cpy='curl -sS ipinfo.io/ip | wl-copy'
+alias get-ip='curl -s ipv4.ident.me|| curl -sS ifconfig.io ; echo'
+alias get-ip-cpy='export PUBLIC_IP=$(get-ip); echo -n $PUBLIC_IP | wl-copy'
 
 # System
 alias show-open-ports="sudo ss -latepun | grep -i listen"
@@ -136,7 +136,7 @@ alias dwipe-network='docker network rm $(docker network ls -q | tr "\n" " ")'
 alias dwipe-process='docker rm $(docker ps -a -q)'
 alias dwipe-volume='docker volume rm $(docker volume ls -q | tr "\n" " ")'
 alias di='docker inspect $(docker ps | grep -vF "NAMES" | fzf | cut -d" " -f1) | jq'
-alias dip='docker inspect $(docker ps | grep -vF "NAMES" | fzf | cut -d" " -f1) | jq -r ".[0].NetworkSettings.IPAddress"'
+alias dip='docker inspect $(docker ps | grep -vF "NAMES" | fzf | cut -d" " -f1) | jq | grep -P "(172|10)\."'
 
 
 # Docker Tooling
