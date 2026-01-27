@@ -1,14 +1,13 @@
 name: scan_port
 description: Scan for open ports
 
-
 reports:
   - "{{.Workspace}}/reports/network/top_1000_ports.txt"
 
 pre_run:
   - CreateFolder("{{.Workspace}}/reports/network/")
 
-steps: 
+steps:
   - requirements:
       - naabu
     conditions:

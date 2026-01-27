@@ -6,12 +6,19 @@ validator: domain
 routines:
   - modules:
       - domain_info
-      - dns_resolver
-      - ip_info
       - zonetransfer
-      - subdomain
+      - subdomains
       - leaks_gathering
 
+  - params:
+      - targetfile: "{{.Workspace}}/reports/dns/valid_subdomains.txt"
+    modules:
+      - dns_resolver
+
+  - params:
+      - targetfile: "{{.Workspace}}/reports/osint/domain_ips.txt"
+    modules:
+      - ip_info
     # - emails
     # - google_dorks
     # - github_dorks

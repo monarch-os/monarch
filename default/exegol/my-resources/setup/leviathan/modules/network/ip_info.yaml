@@ -6,9 +6,9 @@ reports:
 pre_run:
   - CreateFolder("{{.Workspace}}/reports/network/ip_info/")
   - CreateFolder("{{.TempDir}}/ip_info/")
-steps: 
+steps:
   - requirements:
-    - curl
+      - curl
     conditions:
       - FileExists("{{.targetfile}}")
     source: "{{.targetfile}}"

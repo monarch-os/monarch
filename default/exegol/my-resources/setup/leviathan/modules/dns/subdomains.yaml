@@ -2,7 +2,7 @@ name: Subdomains
 description: Retrieve subdomains
 
 reports:
-  - "{{.Workspace}}/reports/dns/"  
+  - "{{.Workspace}}/reports/dns/"
 
 pre_run:
   - CreateFolder("{{.Workspace}}/reports/dns/")
@@ -22,7 +22,6 @@ steps:
       - dnsx
     commands:
       - cat {{.TempDir}}/subfinder.txt {{.TempDir}}/alterx.txt | dnsx -o {{.TempDir}}/dnsx.txt
-
 
 post_run:
   - Append("{{.Workspace}}/reports/dns/subdomains.txt", "{{.TempDir}}/subfinder.txt")

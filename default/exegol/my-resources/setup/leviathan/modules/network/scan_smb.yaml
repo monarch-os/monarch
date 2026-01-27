@@ -1,7 +1,6 @@
 name: scan_smb
 description: Scan for SMB shares
 
-
 reports:
   - "{{.Workspace}}/reports/network/smb_raw_results.txt"
   - "{{.Workspace}}/reports/network/smb_relayable_machines.txt"
@@ -9,7 +8,7 @@ reports:
 pre_run:
   - CreateFolder("{{.Workspace}}/reports/network/")
 
-steps: 
+steps:
   - requirements:
       - nxc
     commands:

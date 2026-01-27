@@ -4,9 +4,9 @@ reports:
   - "{{.Workspace}}/reports/network/alive.txt"
 pre_run:
   - CreateFolder("{{.Workspace}}/reports/network/")
-steps: 
+steps:
   - requirements:
-    - nmap
+      - nmap
     commands:
       - nmap -sn "{{.Target}}" -oG "{{.TempDir}}/nmap_results" -v0
 post_run:

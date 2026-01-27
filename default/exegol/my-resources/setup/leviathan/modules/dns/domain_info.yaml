@@ -2,14 +2,14 @@ name: domain_info
 description: Retrieve informations about a domain name
 
 reports:
-  - "{{.Workspace}}/reports/osint/domain_info_general.txt"  
+  - "{{.Workspace}}/reports/osint/domain_info_general.txt"
 
 pre_run:
   - CreateFolder("{{.Workspace}}/reports/osint/")
 
 steps:
   - commands:
-      - whois -H "{{.Target}}" > "{{.TempDir}}/domain_info_general.txt"      
+      - whois -H "{{.Target}}" > "{{.TempDir}}/domain_info_general.txt"
 
 post_run:
   - CopyFile("{{.TempDir}}/domain_info_general.txt", "{{.Workspace}}/reports/osint/domain_info_general.txt")
