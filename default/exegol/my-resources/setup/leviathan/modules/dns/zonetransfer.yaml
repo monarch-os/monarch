@@ -2,7 +2,7 @@ name: Zone transfer
 description: Try to transfer DNS zone
 
 reports:
-  - "{{.Workspace}}/reports/dns/"  
+  - "{{.Workspace}}/reports/dns/"
 
 pre_run:
   - CreateFolder("{{.Workspace}}/reports/dns/")

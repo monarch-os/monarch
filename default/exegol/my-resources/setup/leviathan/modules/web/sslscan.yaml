@@ -15,6 +15,6 @@ steps:
     source: "{{.targetfile}}"
     commands:
       - "sslscan {{.source}} >> {{.TempDir}}/sslscan/{{.source_safe}}.txt"
-  
+
 post_run:
   - CopyDir("{{.TempDir}}/sslscan", "{{.Workspace}}/reports/sslscan/")

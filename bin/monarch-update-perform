@@ -2,10 +2,22 @@
 
 set -e
 
+# Ensure screensaver/sleep doesn't set in during updates
+hyprctl dispatch tagwindow +noidle &> /dev/null || true
+
+# Capture update logs
+exec > >(tee "/tmp/monarch-update.log") 2>&1
+
 monarch-update-time
 monarch-update-keyring
 monarch-update-available-reset
 monarch-update-system-pkgs
 monarch-migrate
 monarch-hook post-update
+
+monarch-update-analyze-logs
+
 monarch-update-restart
+
+# Re-enable screensaver/sleep after updates
+hyprctl dispatch tagwindow -- -noidle &> /dev/null || true

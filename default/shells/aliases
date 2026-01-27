@@ -51,8 +51,7 @@ alias tn='tmux new'
 alias ta='tmux attach'
 alias b='bat'
 alias v='nvim'
-alias c='code'
-alias C='code .'
+alias c='opencode'
 alias k='cursor'
 alias K='cursor .'
 alias z='zeditor'
@@ -78,8 +77,8 @@ alias dns-127='echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf'
 alias dns-1='echo "nameserver 1.1.1.1" | sudo tee /etc/resolv.conf'
 alias dns-8='echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf'
 alias dns-9='echo "nameserver 9.9.9.9" | sudo tee /etc/resolv.conf'
-alias get-ip='curl -sS ipinfo.io/ip ; echo'
-alias get-ip-cpy='curl -sS ipinfo.io/ip | wl-copy'
+alias get-ip='curl -s ipv4.ident.me|| curl -sS ifconfig.io ; echo'
+alias get-ip-cpy='export PUBLIC_IP=$(get-ip); echo -n $PUBLIC_IP | wl-copy'
 
 # System
 alias show-open-ports="sudo ss -latepun | grep -i listen"
@@ -137,7 +136,7 @@ alias dwipe-network='docker network rm $(docker network ls -q | tr "\n" " ")'
 alias dwipe-process='docker rm $(docker ps -a -q)'
 alias dwipe-volume='docker volume rm $(docker volume ls -q | tr "\n" " ")'
 alias di='docker inspect $(docker ps | grep -vF "NAMES" | fzf | cut -d" " -f1) | jq'
-alias dip='docker inspect $(docker ps | grep -vF "NAMES" | fzf | cut -d" " -f1) | jq -r ".[0].NetworkSettings.IPAddress"'
+alias dip='docker inspect $(docker ps | grep -vF "NAMES" | fzf | cut -d" " -f1) | jq | grep -P "(172|10)\."'
 
 
 # Docker Tooling
@@ -147,7 +146,7 @@ alias dgitleaks="dockit zricethezav/gitleaks"
 
 ## Compliance
 alias dssh-audit="dockit positronsecurity/ssh-audit"
-alias dssl-test='dockit drwetter/testssl.sh':w
+alias dssl-test='dockit drwetter/testssl.sh'
 
 ## Nessus
 alias dnessus-start='if [ $(docker inspect -f "{{.State.Running}}" nessus-pro 2>/dev/null) ]; then docker start nessus-pro; else docker run --name "nessus-pro" -d -p 127.0.0.1:8834:8834  -e ACTIVATION_CODE=$NESSUS_KEY -e USERNAME=admin -e PASSWORD=admin tenable/nessus:latest-ubuntu && dnessus-web; fi'

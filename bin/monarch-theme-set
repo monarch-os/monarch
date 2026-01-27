@@ -1,24 +1,41 @@
 #!/bin/bash
 
-if [[ -z $1 && $1 != "CNCLD" ]]; then
+if [[ -z $1 ]]; then
   echo "Usage: monarch-theme-set <theme-name>"
   exit 1
 fi
 
-THEMES_DIR="$HOME/.config/monarch/themes/"
-CURRENT_THEME_DIR="$HOME/.config/monarch/current/theme"
+CURRENT_THEME_PATH="$HOME/.config/monarch/current/theme"
+NEXT_THEME_PATH="$HOME/.config/monarch/current/next-theme"
+USER_THEMES_PATH="$HOME/.config/monarch/themes"
+MONARCH_THEMES_PATH="$MONARCH_PATH/themes"
 
 THEME_NAME=$(echo "$1" | sed -E 's/<[^>]+>//g' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
-THEME_PATH="$THEMES_DIR/$THEME_NAME"
 
-# Check if the theme entered exists
-if [[ ! -d "$THEME_PATH" ]]; then
-  echo "Theme '$THEME_NAME' does not exist in $THEMES_DIR"
+if [[ -d "$USER_THEMES_PATH/$THEME_NAME" ]]; then
+  THEME_PATH="$USER_THEMES_PATH/$THEME_NAME"
+elif [[ -d "$MONARCH_THEMES_PATH/$THEME_NAME" ]]; then
+  THEME_PATH="$MONARCH_THEMES_PATH/$THEME_NAME"
+else
   exit 1
 fi
 
-# Update theme symlinks
-ln -nsf "$THEME_PATH" "$CURRENT_THEME_DIR"
+# Setup clean next theme directory (for atomic theme config swapping)
+rm -rf "$NEXT_THEME_PATH"
+mkdir -p "$NEXT_THEME_PATH"
+
+# Copy static configs
+cp -r "$THEME_PATH/"* "$NEXT_THEME_PATH/" 2>/dev/null
+
+# Generate dynamic configs
+monarch-theme-set-templates
+
+# Swap next theme in as current
+rm -rf "$CURRENT_THEME_PATH"
+mv "$NEXT_THEME_PATH" "$CURRENT_THEME_PATH"
+
+# Store theme name for reference
+echo "$THEME_NAME" > "$HOME/.config/monarch/current/theme.name"
 
 # Change background with theme
 monarch-theme-bg-next
@@ -29,15 +46,15 @@ if pgrep -x waybar >/dev/null; then
 fi
 monarch-restart-swayosd
 monarch-restart-terminal
-hyprctl reload
-pkill -SIGUSR2 btop
-makoctl reload
+monarch-restart-hyprctl
+monarch-restart-btop
+monarch-restart-opencode
+monarch-restart-mako
 
-# Change gnome, browser, vscode, cursor themes
+# Change app-specific themes
 monarch-theme-set-gnome
 monarch-theme-set-browser
 monarch-theme-set-vscode
-monarch-theme-set-cursor
 monarch-theme-set-obsidian
 
 # Call hook on theme set
