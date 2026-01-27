@@ -146,7 +146,7 @@ alias dgitleaks="dockit zricethezav/gitleaks"
 
 ## Compliance
 alias dssh-audit="dockit positronsecurity/ssh-audit"
-alias dssl-test='dockit drwetter/testssl.sh':w
+alias dssl-test='dockit drwetter/testssl.sh'
 
 ## Nessus
 alias dnessus-start='if [ $(docker inspect -f "{{.State.Running}}" nessus-pro 2>/dev/null) ]; then docker start nessus-pro; else docker run --name "nessus-pro" -d -p 127.0.0.1:8834:8834  -e ACTIVATION_CODE=$NESSUS_KEY -e USERNAME=admin -e PASSWORD=admin tenable/nessus:latest-ubuntu && dnessus-web; fi'
