@@ -27,12 +27,10 @@ git clone "${MONARCH_REPO}" ~/.local/share/monarch >/dev/null
 
 # Use custom branch if instructed, otherwise default to master
 MONARCH_REF="${MONARCH_REF:-master}"
-if [[ $MONARCH_REF != "master" ]]; then
-  echo -e "\e[32mUsing branch: $MONARCH_REF\e[0m"
-  cd ~/.local/share/monarch
-  git fetch origin "${MONARCH_REF}" && git checkout "${MONARCH_REF}"
-  cd -
-fi
+echo -e "\e[32mUsing branch: $MONARCH_REF\e[0m"
+cd ~/.local/share/monarch
+git fetch origin "${MONARCH_REF}" && git checkout "${MONARCH_REF}"
+cd -
 
 # Set edge mirror for dev installs
 if [[ $MONARCH_REF == "dev" ]]; then
