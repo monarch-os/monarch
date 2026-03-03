@@ -39,7 +39,7 @@ EOF
 
 
   # Remove the original config file if it's not /boot/limine.conf
-  if [[ "$limine_config" != "/boot/limine.conf" ]] && [[ -f "$limine_config" ]]; then
+  if [[ $limine_config != "/boot/limine.conf" ]] && [[ -f $limine_config ]]; then
     sudo rm "$limine_config"
   fi
 
@@ -73,11 +73,11 @@ fi
 echo "Re-enabling mkinitcpio hooks..."
 
 # Restore the specific mkinitcpio pacman hooks
-if [ -f /usr/share/libalpm/hooks/90-mkinitcpio-install.hook.disabled ]; then
+if [[ -f /usr/share/libalpm/hooks/90-mkinitcpio-install.hook.disabled ]]; then
   sudo mv /usr/share/libalpm/hooks/90-mkinitcpio-install.hook.disabled /usr/share/libalpm/hooks/90-mkinitcpio-install.hook
 fi
 
-if [ -f /usr/share/libalpm/hooks/60-mkinitcpio-remove.hook.disabled ]; then
+if [[ -f /usr/share/libalpm/hooks/60-mkinitcpio-remove.hook.disabled ]]; then
   sudo mv /usr/share/libalpm/hooks/60-mkinitcpio-remove.hook.disabled /usr/share/libalpm/hooks/60-mkinitcpio-remove.hook
 fi
 
@@ -85,25 +85,15 @@ echo "mkinitcpio hooks re-enabled"
 
 sudo limine-update
 
+# Verify that limine-update actually added boot entries
+if ! grep -q "^/+" /boot/limine.conf; then
+  echo "Error: limine-update failed to add boot entries to /boot/limine.conf" >&2
+  exit 1
+fi
+
 if [[ -n $EFI ]] && efibootmgr &>/dev/null; then
-    # Remove the archinstall-created Limine entry
+  # Remove the archinstall-created Limine entry
   while IFS= read -r bootnum; do
     sudo efibootmgr -b "$bootnum" -B >/dev/null 2>&1
   done < <(efibootmgr | grep -E "^Boot[0-9]{4}\*? Arch Linux Limine" | sed 's/^Boot\([0-9]\{4\}\).*/\1/')
 fi
-
-# Move this to a utility to allow manual activation
-# if [[ -n $EFI ]] && efibootmgr &>/dev/null &&
-#   ! cat /sys/class/dmi/id/bios_vendor 2>/dev/null | grep -qi "American Megatrends" &&
-#   ! cat /sys/class/dmi/id/bios_vendor 2>/dev/null | grep -qi "Apple"; then
-#
-#   uki_file=$(find /boot/EFI/Linux/ -name "monarch*.efi" -printf "%f\n" 2>/dev/null | head -1)
-#
-#   if [[ -n "$uki_file" ]]; then
-#     sudo efibootmgr --create \
-#       --disk "$(findmnt -n -o SOURCE /boot | sed 's/p\?[0-9]*$//')" \
-#       --part "$(findmnt -n -o SOURCE /boot | grep -o 'p\?[0-9]*$' | sed 's/^p//')" \
-#       --label "Monarch" \
-#       --loader "\\EFI\\Linux\\$uki_file"
-#   fi
-# fi

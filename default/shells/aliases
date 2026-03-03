@@ -5,7 +5,10 @@ if command -v eza &> /dev/null; then
   alias lt='eza --tree --level=2 --long --icons --git --hyperlink'
   alias lta='lt -a'
 fi
+
 alias ff="fzf --preview 'bat --style=numbers --color=always {}'"
+alias eff='$EDITOR "$(ff)"'
+
 if command -v zoxide &> /dev/null; then
   alias cd="zd"
   zd() {
@@ -19,9 +22,9 @@ if command -v zoxide &> /dev/null; then
   }
 fi
 
-open() {
+open() (
   xdg-open "$@" >/dev/null 2>&1 &
-}
+)
 
 # Directories
 alias ..='cd ..'
@@ -30,7 +33,8 @@ alias ....='cd ../../..'
 
 # Tools
 alias d='docker'
-n() { if [ "$#" -eq 0 ]; then nvim .; else nvim "$@"; fi; }
+alias t='tmux attach || tmux new -s Work'
+n() { if [ "$#" -eq 0 ]; then command nvim . ; else command nvim "$@"; fi; }
 
 # Git
 alias g='git'
@@ -52,6 +56,7 @@ alias ta='tmux attach'
 alias b='bat'
 alias v='nvim'
 alias c='opencode'
+alias cx='printf "\033[2J\033[3J\033[H" && claude --allow-dangerously-skip-permissions'
 alias k='cursor'
 alias K='cursor .'
 alias z='zeditor'

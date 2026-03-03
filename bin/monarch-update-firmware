@@ -7,5 +7,5 @@ if monarch-cmd-missing fwupdmgr; then
   monarch-pkg-add fwupd
 fi
 
-fwupdmgr refresh
+fwupdmgr refresh --force
 sudo fwupdmgr update

@@ -12,11 +12,7 @@ MONARCH_THEMES_PATH="$MONARCH_PATH/themes"
 
 THEME_NAME=$(echo "$1" | sed -E 's/<[^>]+>//g' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
 
-if [[ -d "$USER_THEMES_PATH/$THEME_NAME" ]]; then
-  THEME_PATH="$USER_THEMES_PATH/$THEME_NAME"
-elif [[ -d "$MONARCH_THEMES_PATH/$THEME_NAME" ]]; then
-  THEME_PATH="$MONARCH_THEMES_PATH/$THEME_NAME"
-else
+if [[ ! -d $MONARCH_THEMES_PATH/$THEME_NAME ]] && [[ ! -d $USER_THEMES_PATH/$THEME_NAME ]]; then
   exit 1
 fi
 
@@ -24,8 +20,9 @@ fi
 rm -rf "$NEXT_THEME_PATH"
 mkdir -p "$NEXT_THEME_PATH"
 
-# Copy static configs
-cp -r "$THEME_PATH/"* "$NEXT_THEME_PATH/" 2>/dev/null
+# Copy official theme first, then overlay user customizations on top
+cp -r "$MONARCH_THEMES_PATH/$THEME_NAME/"* "$NEXT_THEME_PATH/" 2>/dev/null
+cp -r "$USER_THEMES_PATH/$THEME_NAME/"* "$NEXT_THEME_PATH/" 2>/dev/null
 
 # Generate dynamic configs
 monarch-theme-set-templates
@@ -35,7 +32,7 @@ rm -rf "$CURRENT_THEME_PATH"
 mv "$NEXT_THEME_PATH" "$CURRENT_THEME_PATH"
 
 # Store theme name for reference
-echo "$THEME_NAME" > "$HOME/.config/monarch/current/theme.name"
+echo "$THEME_NAME" >"$HOME/.config/monarch/current/theme.name"
 
 # Change background with theme
 monarch-theme-bg-next
@@ -56,6 +53,7 @@ monarch-theme-set-gnome
 monarch-theme-set-browser
 monarch-theme-set-vscode
 monarch-theme-set-obsidian
+monarch-theme-set-keyboard
 
 # Call hook on theme set
 monarch-hook theme-set "$THEME_NAME"

@@ -1,0 +1,6 @@
+[SddmGreeterTheme]
+Name=Monarch
+Description=Minimal terminal-style login theme matching the Limine bootloader aesthetic
+Author=Monarch
+Type=sddm-theme
+Version=1.0

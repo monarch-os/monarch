@@ -2,13 +2,14 @@
 
 CHROMIUM_THEME=~/.config/monarch/current/theme/chromium.theme
 
-if monarch-cmd-present chromium || monarch-cmd-present helium-browser || monarch-cmd-present brave; then
+if monarch-cmd-present chromium || monarch-cmd-present brave; then
   if [[ -f $CHROMIUM_THEME ]]; then
     THEME_RGB_COLOR=$(<$CHROMIUM_THEME)
     THEME_HEX_COLOR=$(printf '#%02x%02x%02x' ${THEME_RGB_COLOR//,/ })
   else
     # Use a default, neutral grey if theme doesn't have a color
     THEME_RGB_COLOR="28,32,39"
+    THEME_HEX_COLOR="#1c2027"
   fi
 
   if monarch-cmd-present chromium; then
