@@ -12,12 +12,12 @@ echo "Copy hooks examples"
 cp -r $MONARCH_PATH/config/monarch/* $HOME/.config/monarch/
 
 echo "Add packages for updated monarch-cmd-screenshot"
-monarch-pkg-add grim slurp wayfreeze-git
+monarch-pkg-add grim slurp
 
 echo "Add nfs support by default to Nautilus"
 monarch-pkg-add gvfs-nfs
 
-if [ ! -d "$HOME/.config/nvim" ]; then
+if [[ ! -d $HOME/.config/nvim ]]; then
   echo "Add missing nvim config"
-  omarchy-nvim-setup
+  monarch-nvim-setup
 fi

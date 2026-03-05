@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Overwrite the user tmux config with the Omarchy default and reload tmux.
+
+monarch-refresh-config tmux/tmux.conf
+
+monarch-restart-tmux

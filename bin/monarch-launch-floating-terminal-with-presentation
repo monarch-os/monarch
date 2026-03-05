@@ -4,4 +4,4 @@
 # Used by actions such as Update System.
 
 cmd="$*"
-exec setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Monarch -e bash -c "monarch-show-logo; $cmd; monarch-show-done"
+exec setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Monarch -e bash -c "monarch-show-logo; $cmd; if (( \$? != 130 )); then monarch-show-done; fi"

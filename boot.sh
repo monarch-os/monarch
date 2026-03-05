@@ -16,6 +16,16 @@ ansi_art='███████████████████████�
 clear
 echo -e "\n$ansi_art\n"
 
+# Use custom branch if instructed, otherwise default to master
+MONARCH_REF="${MONARCH_REF:-master}"
+
+# Set mirror based on branch
+if [[ $MONARCH_REF == "dev" ]]; then
+  export OMARCHY_MIRROR=edge
+else
+  export OMARCHY_MIRROR=stable
+fi
+
 sudo pacman -Syu --noconfirm --needed git
 
 # Use custom repo if specified, otherwise default to y0no/monarch
@@ -25,19 +35,10 @@ echo -e "\nCloning Monarch from: ${MONARCH_REPO}"
 rm -rf ~/.local/share/monarch/
 git clone "${MONARCH_REPO}" ~/.local/share/monarch >/dev/null
 
-# Use custom branch if instructed, otherwise default to master
-MONARCH_REF="${MONARCH_REF:-master}"
 echo -e "\e[32mUsing branch: $MONARCH_REF\e[0m"
 cd ~/.local/share/monarch
 git fetch origin "${MONARCH_REF}" && git checkout "${MONARCH_REF}"
 cd -
-
-# Set edge mirror for dev installs
-if [[ $MONARCH_REF == "dev" ]]; then
-  export OMARCHY_MIRROR=edge
-else
-  export OMARCHY_MIRROR=stable
-fi
 
 echo -e "\nInstallation starting..."
 source ~/.local/share/monarch/install.sh

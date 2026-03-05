@@ -24,12 +24,12 @@ start_log_output() {
         line="${current_lines[i]:-}"
 
         # Truncate if needed
-        if [ ${#line} -gt $max_line_width ]; then
+        if (( ${#line} > max_line_width )); then
           line="${line:0:$max_line_width}..."
         fi
 
         # Add clear line escape and formatted output for each line
-        if [ -n "$line" ]; then
+        if [[ -n $line ]]; then
           output+="${ANSI_CLEAR_LINE}${ANSI_GRAY}${PADDING_LEFT_SPACES}  → ${line}${ANSI_RESET}\n"
         else
           output+="${ANSI_CLEAR_LINE}${PADDING_LEFT_SPACES}\n"
@@ -45,7 +45,7 @@ start_log_output() {
 }
 
 stop_log_output() {
-  if [ -n "${monitor_pid:-}" ]; then
+  if [[ -n ${monitor_pid:-} ]]; then
     kill $monitor_pid 2>/dev/null || true
     wait $monitor_pid 2>/dev/null || true
     unset monitor_pid
@@ -72,11 +72,11 @@ stop_install_log() {
     echo "" >>"$MONARCH_INSTALL_LOG_FILE"
     echo "=== Installation Time Summary ===" >>"$MONARCH_INSTALL_LOG_FILE"
 
-    if [ -f "/var/log/archinstall/install.log" ]; then
+    if [[ -f "/var/log/archinstall/install.log" ]]; then
       ARCHINSTALL_START=$(grep -m1 '^\[' /var/log/archinstall/install.log 2>/dev/null | sed 's/^\[\([^]]*\)\].*/\1/' || true)
       ARCHINSTALL_END=$(grep 'Installation completed without any errors' /var/log/archinstall/install.log 2>/dev/null | sed 's/^\[\([^]]*\)\].*/\1/' || true)
 
-      if [ -n "$ARCHINSTALL_START" ] && [ -n "$ARCHINSTALL_END" ]; then
+      if [[ -n $ARCHINSTALL_START ]] && [[ -n $ARCHINSTALL_END ]]; then
         ARCH_START_EPOCH=$(date -d "$ARCHINSTALL_START" +%s)
         ARCH_END_EPOCH=$(date -d "$ARCHINSTALL_END" +%s)
         ARCH_DURATION=$((ARCH_END_EPOCH - ARCH_START_EPOCH))
@@ -88,7 +88,7 @@ stop_install_log() {
       fi
     fi
 
-    if [ -n "$MONARCH_START_TIME" ]; then
+    if [[ -n $OMARCHY_START_TIME ]]; then
       MONARCH_START_EPOCH=$(date -d "$MONARCH_START_TIME" +%s)
       MONARCH_END_EPOCH=$(date -d "$MONARCH_END_TIME" +%s)
       MONARCH_DURATION=$((MONARCH_END_EPOCH - MONARCH_START_EPOCH))
@@ -98,7 +98,7 @@ stop_install_log() {
 
       echo "Monarch:     ${MONARCH_MINS}m ${MONARCH_SECS}s" >>"$MONARCH_INSTALL_LOG_FILE"
 
-      if [ -n "$ARCH_DURATION" ]; then
+      if [[ -n $ARCH_DURATION ]]; then
         TOTAL_DURATION=$((ARCH_DURATION + MONARCH_DURATION))
         TOTAL_MINS=$((TOTAL_DURATION / 60))
         TOTAL_SECS=$((TOTAL_DURATION % 60))
@@ -123,7 +123,7 @@ run_logged() {
 
   local exit_code=$?
 
-  if [ $exit_code -eq 0 ]; then
+  if (( exit_code == 0 )); then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Completed: $script" >>"$MONARCH_INSTALL_LOG_FILE"
     unset CURRENT_SCRIPT
   else

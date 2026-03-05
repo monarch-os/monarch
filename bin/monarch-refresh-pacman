@@ -7,15 +7,18 @@
 sudo cp -f /etc/pacman.conf /etc/pacman.conf.bak
 sudo cp -f /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
 
-if [[ $1 == "edge" ]]; then
-  sudo cp -f ~/.local/share/monarch/default/pacman/pacman-edge.conf /etc/pacman.conf
-  echo "Setting channel to edge"
-else
-  sudo cp -f ~/.local/share/monarch/default/pacman/pacman-stable.conf /etc/pacman.conf
-  echo "Setting channel to stable"
-fi
+channel="${1:-stable}"
 
+if [[ $channel != "stable" && $channel != "edge" ]]; then
+  echo "Error: Invalid channel '$channel'. Must be one of: stable, edge"
+  exit 1
+
+echo "Setting channel to $channel"
 echo
 
+sudo cp -f "$MONARCH_PATH/default/pacman/pacman-$channel.conf" /etc/pacman.conf
+sudo cp -f "$MONARCH_PATH/default/pacman/mirrorlist-$channel" /etc/pacman.d/mirrorlist
+
+
 # Reset all package DBs and then update
-sudo pacman -Syyu --noconfirm
+sudo pacman -Syyuu --noconfirm

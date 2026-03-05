@@ -24,3 +24,11 @@ if monarch-pkg-missing monarch-keyring || ! sudo pacman-key --list-keys 519BC3D5
 
   sudo pacman-key --list-keys 519BC3D5AEA652C94F89F0AAC13B3766D969CE82
 fi
+
+# Ensure we have the latest archlinux-keyring, maintainer keys might have changed
+echo -e "\e[32m\nUpdate Arch signing keys\e[0m"
+sudo pacman -Sy --noconfirm archlinux-keyring >/dev/null
+
+# Ensure we have the latest CachyOS-keyring, maintainer keys might have changed
+echo -e "\e[32m\nUpdate CachyOS signing keys\e[0m"
+sudo pacman -Sy --noconfirm cachyos-keyring >/dev/null

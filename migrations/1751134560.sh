@@ -10,6 +10,7 @@ export PATH=$MONARCH_PATH/bin/:$PATH
 EOF
 
 # Ensure we have the latest repos and are ready to pull
+monarch-update-keyring
 monarch-refresh-pacman
 sudo systemctl restart systemd-timesyncd
 sudo pacman -Sy # Normally not advisable, but we'll do a full -Syu before finishing

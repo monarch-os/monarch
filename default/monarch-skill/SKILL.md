@@ -1,22 +1,26 @@
 ---
-name: Monarch
+name: monarch
 description: >
-  REQUIRED for ANY changes to Linux desktop, window manager, or system config.
+  REQUIRED for end-user customization of Linux desktop, window manager, or system config.
   Use when editing ~/.config/hypr/, ~/.config/waybar/, ~/.config/walker/,
   ~/.config/alacritty/, ~/.config/kitty/, ~/.config/ghostty/, ~/.config/mako/,
   or ~/.config/monarch/. Triggers: Hyprland, window rules, animations, keybindings,
   monitors, gaps, borders, blur, opacity, waybar, walker, terminal config, themes,
   wallpaper, night light, idle, lock screen, screenshots, layer rules, workspace
-  settings, display config, or any monarch-* commands.
+  settings, display config, and user-facing monarch commands. Excludes Monarch
+  source development in ~/.local/share/monarch/ and monarch-dev-* workflows.
 ---
 
 # Monarch Skill
 
 Manage [Monarch](https://www.monarchlinux.com/) Linux systems - a beautiful, modern, opinionated Arch Linux distribution with Hyprland.
 
+This skill is for end-user customization on installed systems.
+It is not for contributing to Monarch source code.
+
 ## When This Skill MUST Be Used
 
-**ALWAYS invoke this skill when the user's request involves ANY of these:**
+**ALWAYS invoke this skill for end-user requests involving ANY of these:**
 
 - Editing ANY file in `~/.config/hypr/` (window rules, animations, keybindings, monitors, etc.)
 - Editing ANY file in `~/.config/waybar/`, `~/.config/walker/`, `~/.config/mako/`
@@ -25,14 +29,16 @@ Manage [Monarch](https://www.monarchlinux.com/) Linux systems - a beautiful, mod
 - Window behavior, animations, opacity, blur, gaps, borders
 - Layer rules, workspace settings, display/monitor configuration
 - Themes, wallpapers, fonts, appearance changes
-- Any `monarch-*` command
+- User-facing `monarch-*` commands (`monarch-theme-*`, `monarch-refresh-*`, `monarch-restart-*`, etc.)
 - Screenshots, screen recording, night light, idle behavior, lock screen
 
 **If you're about to edit a config file in ~/.config/ on this system, STOP and use this skill first.**
 
+**Do NOT use this skill for Monarch development tasks** (editing files in `~/.local/share/monarch/`, creating migrations, or running `monarch-dev-*` workflows).
+
 ## Critical Safety Rules
 
-**NEVER modify anything in `~/.local/share/monarch/`** - but READING is safe and encouraged.
+**For end-user customization tasks, NEVER modify anything in `~/.local/share/monarch/`** - but READING is safe and encouraged.
 
 This directory contains Monarch's source files managed by git. Any changes will be:
 - Lost on next `monarch-update`
@@ -59,6 +65,8 @@ This directory contains Monarch's source files managed by git. Any changes will 
 - `~/.config/` - User configuration (safe to edit)
 - `~/.config/monarch/themes/<custom-name>/` - Custom themes (must be real directories)
 - `~/.config/monarch/hooks/` - Custom automation hooks
+
+If the request is to develop Monarch itself, this skill is out of scope. Follow repository development instructions instead of this skill.
 
 ## System Architecture
 
@@ -301,8 +309,8 @@ monarch-update                  # Full system update
 monarch-version                 # Show Monarch version
 monarch-debug --no-sudo --print # Debug info (ALWAYS use these flags)
 monarch-lock-screen             # Lock screen
-monarch-cmd-shutdown            # Shutdown
-monarch-cmd-reboot              # Reboot
+monarch-system-shutdown         # Shutdown
+monarch-system-reboot           # Reboot
 ```
 
 **IMPORTANT:** Always run `monarch-debug` with `--no-sudo --print` flags to avoid interactive sudo prompts that will hang the terminal.
@@ -336,26 +344,15 @@ When user requests system changes:
 2. **Is it a config edit?** Edit in `~/.config/`, never `~/.local/share/monarch/`
 3. **Is it a theme customization?** Create a NEW custom theme directory
 4. **Is it automation?** Use hooks in `~/.config/monarch/hooks/`
-5. **Is it a package install?** Use `yay`
+5. **Is it a package install?** Use `monarch-pkg-add` (or `monarch-pkg-aur-add` for AUR-only packages)
 6. **Unsure if command exists?** Search with `compgen -c | grep monarch`
 
-## Development (AI Agents)
+## Out of Scope
 
-When contributing to Monarch itself (e.g., fixing bugs, adding features), migrations are used to apply changes to existing installations.
-
-### Creating Migrations
-
-```bash
-# ALWAYS use --no-edit flag or you will get stuck
-monarch-dev-add-migration --no-edit
-```
-
-This creates a new migration file and outputs its path without opening an editor. The migration filename is based on the git commit timestamp.
-
-**Migration files** are shell scripts in `~/.local/share/monarch/migrations/` that run once per system during `monarch-update`. Use them for:
-- Updating user configs with new defaults
-- Installing new dependencies
-- Running one-time setup tasks
+This skill intentionally does not cover Monarch source development. Do not use this skill for:
+- Editing files in `~/.local/share/monarch/` (`bin/`, `config/`, `default/`, `themes/`, `migrations/`, etc.)
+- Creating or editing migrations
+- Running `monarch-dev-*` commands
 
 ## Example Requests
 

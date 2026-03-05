@@ -5,10 +5,18 @@
 # Ensure walker is set to autostart
 mkdir -p ~/.config/autostart/
 cp $MONARCH_PATH/default/walker/walker.desktop ~/.config/autostart/
+
+# And restarts if it crashes or is killed
+mkdir -p ~/.config/systemd/user/app-walker@autostart.service.d/
+cp $MONARCH_PATH/default/walker/restart.conf ~/.config/systemd/user/app-walker@autostart.service.d/restart.conf
+
 systemctl --user daemon-reload
 
+# Refresh configs
 monarch-refresh-config walker/config.toml
 monarch-refresh-config elephant/calc.toml
 monarch-refresh-config elephant/desktopapplications.toml
 monarch-refresh-config elephant/websearch.toml
+
+# Restart service
 monarch-restart-walker

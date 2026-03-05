@@ -20,8 +20,8 @@ sudo mkdir -p /etc/systemd/resolved.conf.d
 echo -e '[Resolve]\nDNSStubListenerExtra=10.66.0.1' | sudo tee /etc/systemd/resolved.conf.d/20-docker-dns.conf >/dev/null
 sudo systemctl restart systemd-resolved
 
-# Start Docker automatically
-sudo systemctl enable docker
+# Start Docker on-demand
+sudo systemctl enable docker.socket
 
 # Give this user privileged Docker access
 sudo usermod -aG docker ${USER}

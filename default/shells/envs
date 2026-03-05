@@ -4,3 +4,7 @@ export BAT_THEME=ansi
 
 export PATH=$PATH:~/.local/bin
 export NESSUS_KEY="NESSUS_KEY"
+
+# Duplicated from .config/uwsm/env so SSH works too
+export MONARCH_PATH=$HOME/.local/share/monarch
+export PATH=$MONARCH_PATH/bin:$PATH:$HOME/.local/bin

@@ -1,3 +1,5 @@
 #!/bin/bash
 
-monarch-restart-app fcitx5
+# Restart the XCompose input method service (fcitx5) to apply new compose key settings.
+
+monarch-restart-app fcitx5 --disable notificationitem
