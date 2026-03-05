@@ -10,7 +10,11 @@ fi
 
 running_hyprland=$(readlink /proc/$(pgrep -x Hyprland)/exe 2>/dev/null)
 if [[ $running_hyprland == *"(deleted)"* ]]; then
+<<<<<<< HEAD
   gum confirm "Hyprland has been updated. Reboot?" && monarch-system-reboot
+=======
+  gum confirm "Hyprland has been updated. Reboot?" && omarchy-system-reboot
+>>>>>>> c67c4b3 (Update(Upstream sync with Omarchy 3.4.1))
 fi
 
 for file in "$HOME"/.local/state/monarch/restart-*-required; do
