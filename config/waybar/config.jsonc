@@ -53,7 +53,6 @@
     "signal": 7,
     "interval": 21600,
   },
-
   "cpu": {
     "interval": 5,
     "format": "󰍛",
@@ -65,6 +64,22 @@
     "format-alt": "{:L%A %d %B %Y (W%V)}",
     "tooltip": false,
     "on-click-right": "monarch-launch-floating-terminal-with-presentation monarch-tz-select",
+  },
+  "mpris": {
+    "format": "{player_icon} {status_icon} <i>{artist} - {title}</i>",
+    "player": "playerctld",
+    "max-length": 40,
+    "on-click": "playerctl play-pause",
+    "format-paused": "{player_icon} {status_icon} {artist} - {title}",
+    "player-icons": {
+      "default": "",
+      "spotify": " ",
+      "mpv": " ",
+    },
+    "status-icons": {
+      "paused": "⏸",
+      "playing": "▶",
+    },
   },
   "network": {
     "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
@@ -153,21 +168,17 @@
     "signal": 8,
     "return-type": "json",
   },
-  "mpris": {
-    "format": "{player_icon} {status_icon} <i>{artist} - {title}</i>",
-    "player": "playerctld",
-    "max-length": 40,
-    "on-click": "playerctl play-pause",
-    "format-paused": "{player_icon} {status_icon} {artist} - {title}",
-    "player-icons": {
-      "default": "",
-      "spotify": " ",
-      "mpv": " ",
-    },
-    "status-icons": {
-      "paused": "⏸",
-      "playing": "▶",
-    },
+  "custom/idle-indicator": {
+    "on-click": "monarch-toggle-idle",
+    "exec": "$MONARCH_PATH/default/waybar/indicators/idle.sh",
+    "signal": 9,
+    "return-type": "json",
+  },
+  "custom/notification-silencing-indicator": {
+    "on-click": "monarch-toggle-notification-silencing",
+    "exec": "$MONARCH_PATH/default/waybar/indicators/notification-silencing.sh",
+    "signal": 10,
+    "return-type": "json",
   },
   "custom/idle-indicator": {
     "on-click": "monarch-toggle-idle",
@@ -197,11 +208,5 @@
   "tray": {
     "icon-size": 12,
     "spacing": 17,
-  },
-  "custom/do-not-disturb-indicator": {
-    "on-click": "makoctl mode -t do-not-disturb && notify-send 'Enabled notifications'",
-    "exec": "$MONARCH_PATH/default/waybar/indicators/do-not-disturb.sh",
-    "signal": 9,
-    "return-type": "json",
   },
 }
