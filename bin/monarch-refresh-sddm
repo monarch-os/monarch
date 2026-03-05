@@ -3,4 +3,4 @@
 # Refresh the SDDM theme from default
 
 sudo rm -rf /usr/share/sddm/themes/monarch
-sudo cp -r $MONARCH_PATH/default/sddm/omarchy /usr/share/sddm/themes/monarch
+sudo cp -r $MONARCH_PATH/default/sddm/monarch /usr/share/sddm/themes/monarch

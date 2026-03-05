@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Manage persistent state files for Omarchy toggles and settings.
-# Usage: omarchy-state <set|clear> <state-name-or-pattern>
+# Manage persistent state files for Monarch toggles and settings.
+# Usage: monarch-state <set|clear> <state-name-or-pattern>
 # Used to track whether features like suspend, idle lock, etc are enabled or disabled.
 
 

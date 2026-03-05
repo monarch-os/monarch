@@ -10,7 +10,7 @@ User=$USER
 Session=hyprland-uwsm
 
 [Theme]
-Current=omarchy
+Current=monarch
 EOF
 fi
 
