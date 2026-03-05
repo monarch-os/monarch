@@ -27,4 +27,4 @@ EOF
 # Link the visual theme menu config
 mkdir -p ~/.config/elephant/menus
 ln -snf $MONARCH_PATH/default/elephant/monarch_themes.lua ~/.config/elephant/menus/monarch_themes.lua
-ln -snf $MONARCH_PATH/default/elephant/omarchy_background_selector.lua ~/.config/elephant/menus/monarch_background_selector.lua
+ln -snf $MONARCH_PATH/default/elephant/monarch_background_selector.lua ~/.config/elephant/menus/monarch_background_selector.lua

@@ -60,7 +60,7 @@ install_and_launch() {
 }
 
 install_font() {
-  present_terminal "echo 'Installing $1...'; monarch-pkg-add $2 && sleep 2 && omarchy-font-set '$3'"
+  present_terminal "echo 'Installing $1...'; monarch-pkg-add $2 && sleep 2 && monarch-font-set '$3'"
 }
 
 install_terminal() {

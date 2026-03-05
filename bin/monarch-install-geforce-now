@@ -5,7 +5,7 @@
 
 set -e
 
-omarchy-pkg-add flatpak
+monarch-pkg-add flatpak
 cd /tmp
 
 # Download and run GeForce NOW

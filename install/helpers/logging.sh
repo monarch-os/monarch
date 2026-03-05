@@ -88,7 +88,7 @@ stop_install_log() {
       fi
     fi
 
-    if [[ -n $OMARCHY_START_TIME ]]; then
+    if [[ -n $MONARCH_START_TIME ]]; then
       MONARCH_START_EPOCH=$(date -d "$MONARCH_START_TIME" +%s)
       MONARCH_END_EPOCH=$(date -d "$MONARCH_END_TIME" +%s)
       MONARCH_DURATION=$((MONARCH_END_EPOCH - MONARCH_START_EPOCH))

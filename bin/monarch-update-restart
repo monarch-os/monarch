@@ -4,13 +4,13 @@ echo
 
 if [[ ! -d /usr/lib/modules/$(uname -r) ]]; then
   gum confirm "Linux kernel has been updated. Reboot?" && monarch-system-reboot
-elif [[ -f $HOME/.local/state/omarchy/reboot-required ]]; then
+elif [[ -f $HOME/.local/state/monarch/reboot-required ]]; then
   gum confirm "Updates require reboot. Ready?" && monarch-system-reboot
 fi
 
 running_hyprland=$(readlink /proc/$(pgrep -x Hyprland)/exe 2>/dev/null)
 if [[ $running_hyprland == *"(deleted)"* ]]; then
-  gum confirm "Hyprland has been updated. Reboot?" && omarchy-system-reboot
+  gum confirm "Hyprland has been updated. Reboot?" && monarch-system-reboot
 fi
 
 for file in "$HOME"/.local/state/monarch/restart-*-required; do
