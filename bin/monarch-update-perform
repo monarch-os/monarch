@@ -3,13 +3,12 @@
 set -e
 
 # Ensure screensaver/sleep doesn't set in during updates
-hyprctl dispatch tagwindow +noidle &> /dev/null || true
+hyprctl dispatch tagwindow +noidle &>/dev/null || true
 
 # Capture update logs (CLICOLOR_FORCE keeps gum styled when stdout is piped through tee)
 export CLICOLOR_FORCE=1
 exec > >(tee "/tmp/monarch-update.log") 2>&1
 
-monarch-update-time
 monarch-update-keyring
 monarch-update-available-reset
 monarch-update-system-pkgs
@@ -23,4 +22,4 @@ monarch-update-analyze-logs
 monarch-update-restart
 
 # Re-enable screensaver/sleep after updates
-hyprctl dispatch tagwindow -- -noidle &> /dev/null || true
+hyprctl dispatch tagwindow -- -noidle &>/dev/null || true

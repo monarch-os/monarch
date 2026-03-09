@@ -4,5 +4,7 @@ set -e
 
 echo -e "\e[32mUpdate Monarch\e[0m"
 
+monarch-update-time
+
 git -C $MONARCH_PATH pull --autostash
 git -C $MONARCH_PATH --no-pager diff --check || git -C $MONARCH_PATH reset --merge
