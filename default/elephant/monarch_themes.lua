@@ -3,6 +3,7 @@
 --
 Name = "monarchthemes"
 NamePretty = "Monarch Themes"
+HideFromProviderlist = true
 
 -- Check if file exists using Lua (no subprocess)
 local function file_exists(path)

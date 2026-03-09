@@ -8,4 +8,4 @@ export PATH=$MONARCH_PATH/bin:$PATH
 source ~/.config/uwsm/default
 
 # Activate mise if present on the system
-monarch-cmd-present mise && eval "$(mise activate bash)"
+monarch-cmd-present mise && eval "$(mise activate bash --shims)"

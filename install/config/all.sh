@@ -21,10 +21,12 @@ run_logged $MONARCH_INSTALL/config/walker-elephant.sh
 run_logged $MONARCH_INSTALL/config/wireshark.sh
 run_logged $MONARCH_INSTALL/config/fast-shutdown.sh
 run_logged $MONARCH_INSTALL/config/input-group.sh
+run_logged $MONARCH_INSTALL/config/makima.sh
 run_logged $MONARCH_INSTALL/config/monarch-ai-skill.sh
 run_logged $MONARCH_INSTALL/config/kernel-modules-hook.sh
 run_logged $MONARCH_INSTALL/config/powerprofilesctl-rules.sh
 run_logged $MONARCH_INSTALL/config/wifi-powersave-rules.sh
+run_logged $MONARCH_INSTALL/config/plocate-ac-only.sh
 run_logged $MONARCH_INSTALL/config/sudoless-asdcontrol.sh
 run_logged $MONARCH_INSTALL/config/hardware/network.sh
 run_logged $MONARCH_INSTALL/config/hardware/set-wireless-regdom.sh
@@ -34,7 +36,9 @@ run_logged $MONARCH_INSTALL/config/hardware/printer.sh
 run_logged $MONARCH_INSTALL/config/hardware/usb-autosuspend.sh
 run_logged $MONARCH_INSTALL/config/hardware/ignore-power-button.sh
 run_logged $MONARCH_INSTALL/config/hardware/nvidia.sh
+run_logged $MONARCH_INSTALL/config/hardware/intel.sh
 run_logged $MONARCH_INSTALL/config/hardware/vulkan.sh
+run_logged $MONARCH_INSTALL/config/hardware/fix-intel-panther-lake-display.sh
 run_logged $MONARCH_INSTALL/config/hardware/fix-f13-amd-audio-input.sh
 run_logged $MONARCH_INSTALL/config/hardware/fix-bcm43xx.sh
 run_logged $MONARCH_INSTALL/config/hardware/fix-apple-spi-keyboard.sh
