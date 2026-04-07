@@ -2,7 +2,7 @@
 
 # Ensure Monarch bins are in the path
 export MONARCH_PATH=$HOME/.local/share/monarch
-export PATH=$MONARCH_PATH/bin:$PATH
+export PATH=$MONARCH_PATH/bin:$PATH:$HOME/.local/bin
 
 # Set default terminal and editor
 source ~/.config/uwsm/default
