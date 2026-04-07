@@ -72,7 +72,6 @@ libqalculate
 llvm
 localsend
 luarocks
-makima-bin
 mako
 man-db
 mise
@@ -87,7 +86,6 @@ nvim
 nwg-displays
 obsidian
 omarchy-walker
-opencode
 pamixer
 playerctl
 plocate
