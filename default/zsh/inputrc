@@ -14,6 +14,7 @@ bindkey "^[[1;5D" backward-word
 bindkey "^[[3~" delete-char
 bindkey '^H' backward-kill-word
 bindkey '^[[3;5~' kill-word
+bindkey '^[[3;3~' kill-word
 bindkey  "\e[3;13~" kill-word
 bindkey  "^[[H"   beginning-of-line
 bindkey  "^[[F"   end-of-line
