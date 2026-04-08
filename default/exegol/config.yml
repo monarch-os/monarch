@@ -3,76 +3,75 @@
 
 # Volume path can be changed at any time but existing containers will not be affected by the update
 volumes:
-    # The my-resources volume is a storage space dedicated to the user to customize his environment and tools. This volume can be shared across all exegol containers.
-    # Attention! The permissions of this folder (and subfolders) will be updated to share read/write rights between the host (user) and the container (root). Do not modify this path to a folder on which the permissions (chmod) should not be modified.
-    my_resources_path: ~/.exegol/my-resources
-    
-    # Exegol resources are data and static tools downloaded in addition to docker images. These tools are complementary and are accessible directly from the host.
-    exegol_resources_path: ~/.exegol/exegol-resources
-    
-    # Exegol images are the source of the exegol environments. These sources are needed when locally building an exegol image.
-    exegol_images_path: ~/.exegol/exegol-images
-    
-    # When containers do not have an explicitly declared workspace, a dedicated folder will be created at this location to share the workspace with the host but also to save the data after deleting the container
-    private_workspace_path: ~/Work/exegol/workspaces
+  # The my-resources volume is a storage space dedicated to the user to customize his environment and tools. This volume can be shared across all exegol containers.
+  # Attention! The permissions of this folder (and subfolders) will be updated to share read/write rights between the host (user) and the container (root). Do not modify this path to a folder on which the permissions (chmod) should not be modified.
+  my_resources_path: ~/.exegol/my-resources
+
+  # Exegol resources are data and static tools downloaded in addition to docker images. These tools are complementary and are accessible directly from the host.
+  exegol_resources_path: ~/.exegol/exegol-resources
+
+  # Exegol images are the source of the exegol environments. These sources are needed when locally building an exegol image.
+  exegol_images_path: ~/.exegol/exegol-images
+
+  # When containers do not have an explicitly declared workspace, a dedicated folder will be created at this location to share the workspace with the host but also to save the data after deleting the container
+  private_workspace_path: ~/Work/exegol/workspaces
 
 config:
-    # Enables automatic check for wrapper updates
-    auto_check_update: True
-    
-    # Automatically remove outdated image when they are no longer used
-    auto_remove_image: True
-    
-    # Automatically modifies the permissions of folders and sub-folders in your workspace by default to enable file sharing between the container with your host user.
-    auto_update_workspace_fs: False
-    
-    # Default shell command to start
-    default_start_shell: zsh
-    
-    # Enable Exegol resources
-    enable_exegol_resources: True
-    
-    # Change the configuration of the shell logging functionality
-    shell_logging:
-        # Always enable shell logging
-        always_enable: True
-    
-        #Choice of the method used to record the sessions (script or asciinema)
-        logging_method: asciinema
-        
-        # Enable automatic compression of log files (with gzip)
-        enable_log_compression: True
-        
-    # Configure your Exegol Desktop
-    desktop:
-        # Enables or not the desktop mode by default
-        # If this attribute is set to True, then using the CLI --desktop option will be inverted and will DISABLE the feature
-        enabled_by_default: False
-        
-        # Default desktop protocol,can be "http", or "vnc" (additional protocols to come in the future, check online documentation for updates).
-        default_protocol: http
-        
-        # Desktop service is exposed on localhost by default. If set to true, services will be exposed on localhost (127.0.0.1) otherwise it will be exposed on 0.0.0.0. This setting can be overwritten with --desktop-config
-        localhost_by_default: True
-    
-    # Configure your Exegol networks
-    network:
-    
-        # Default network mode for any new container
-        default_network: host
-        
-        # Fallback bridge network mode
-        # If the default network (host) mode cannot be used, a "bridge" network will automatically be selected as a replacement. (This mode can be "nat" or "docker")
-        fallback_network: nat
-        
-        # Network range dedicated for exegol containers
-        # Each new container using 'nat' network will have a dedicated smaller sub-network within this range (default to the last private /16 class B available)
-        exegol_dedicated_range: 172.31.0.0/16
-        
-        # Exegol dedicated sub-network netmask.
-        # By default, docker creates huge subnets, but exegol overrides this by using a much smaller subnet mask to optimize the use of network slots. (default to /28 with CIDR format)
-        exegol_default_netmask: 28
+  # Enables automatic check for wrapper updates
+  auto_check_update: True
 
-    # List of custom images from non-official private registry. (Enterprise feature only) More info here: https://docs.exegol.com/wrapper/configuration#custom-images
-    custom_images:
-    #  - docker.io/user/registry
+  # Automatically remove outdated image when they are no longer used
+  auto_remove_image: True
+
+  # Automatically modifies the permissions of folders and sub-folders in your workspace by default to enable file sharing between the container with your host user.
+  auto_update_workspace_fs: False
+
+  # Default shell command to start
+  default_start_shell: zsh
+
+  # Enable Exegol resources
+  enable_exegol_resources: True
+
+  # Change the configuration of the shell logging functionality
+  shell_logging:
+    # Always enable shell logging
+    always_enable: False
+
+    #Choice of the method used to record the sessions (script or asciinema)
+    logging_method: asciinema
+
+    # Enable automatic compression of log files (with gzip)
+    enable_log_compression: True
+
+  # Configure your Exegol Desktop
+  desktop:
+    # Enables or not the desktop mode by default
+    # If this attribute is set to True, then using the CLI --desktop option will be inverted and will DISABLE the feature
+    enabled_by_default: False
+
+    # Default desktop protocol,can be "http", or "vnc" (additional protocols to come in the future, check online documentation for updates).
+    default_protocol: http
+
+    # Desktop service is exposed on localhost by default. If set to true, services will be exposed on localhost (127.0.0.1) otherwise it will be exposed on 0.0.0.0. This setting can be overwritten with --desktop-config
+    localhost_by_default: True
+
+  # Configure your Exegol networks
+  network:
+    # Default network mode for any new container
+    default_network: host
+
+    # Fallback bridge network mode
+    # If the default network (host) mode cannot be used, a "bridge" network will automatically be selected as a replacement. (This mode can be "nat" or "docker")
+    fallback_network: nat
+
+    # Network range dedicated for exegol containers
+    # Each new container using 'nat' network will have a dedicated smaller sub-network within this range (default to the last private /16 class B available)
+    exegol_dedicated_range: 172.31.0.0/16
+
+    # Exegol dedicated sub-network netmask.
+    # By default, docker creates huge subnets, but exegol overrides this by using a much smaller subnet mask to optimize the use of network slots. (default to /28 with CIDR format)
+    exegol_default_netmask: 28
+
+  # List of custom images from non-official private registry. (Enterprise feature only) More info here: https://docs.exegol.com/wrapper/configuration#custom-images
+  custom_images:
+  #  - docker.io/user/registry

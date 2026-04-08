@@ -1,114 +1,251 @@
 #!/bin/bash
 
-# A script to display Exegol workspaces defined in your configuration
-# using walker for an interactive search menu.
+# Manage Exegol containers via Walker menu or direct sub-commands.
+# Called directly for the Walker menu, or with sub-commands from the Elephant Lua plugin.
 
 export PATH="$HOME/.local/bin:$PATH"
 
-
-# Get Exegol workspaces from Docker containers
-get_workspaces() {
-  docker ps -a -f "name=exegol" --format json | \
-    jq -r '{Names, State} | "\(.Names),\(.State)"' | \
-    sed -r \
-    -e "s/exegol-//"
-}
-
-
-# Format workspace data for display
-parse_workspaces() {
-  awk -F, '
-    {
-        icon = ($2 == "exited") ? "" : "";
-        printf "%s  %s\n", icon, $1;
-    }
-  '
-}
-
-# Display interactive menu using walker
+# Display interactive menu using walker dmenu (used by creation wizard)
 menu() {
   local prompt="$1"
   local options="$2"
-  local extra="$3"
-  local preselect="$4"
-
-  read -r -a args <<<"$extra"
-
-  if [[ -n "$preselect" ]]; then
-    local index
-    index=$(echo -e "$options" | grep -nxF "$preselect" | cut -d: -f1)
-    if [[ -n "$index" ]]; then
-      args+=("-a" "$index")
-    fi
-  fi
-
-  echo -e "$options" | monarch-launch-walker --dmenu --width 295 --minheight 1 --maxheight 600 -p "$prompt…" "${args[@]}" 2> /dev/null
+  sleep 0.3
+  echo -e "$options" | monarch-launch-walker --dmenu --width 295 --minheight 1 --maxheight 600 -p "$prompt…" 2>/dev/null
 }
 
-# Handle workspace-specific actions
-workspace_actions() {
+# Display a free text input using walker dmenu
+input() {
+  local prompt="$1"
+  sleep 0.3
+  monarch-launch-walker --dmenu --inputonly --width 295 -p "$prompt…" 2>/dev/null
+}
+
+# Show container info (used as preview text by the Lua menu)
+cmd_info() {
   local name="$1"
+  local cname="exegol-$name"
 
-  local action_choice=$(menu "Actions" "Start\nStop\nDelete\nLaunch Bloodhound (old)\nLaunch Firefox")
+  local inspect
+  inspect=$(docker inspect "$cname" --format json 2>/dev/null)
+  if [[ -z "$inspect" ]]; then
+    echo "Container not found: $name"
+    return 1
+  fi
 
-  if [[ -z "$action_choice" ]]; then
+  local jq_get='def get: .[0];'
+
+  local image state status network workspace
+  image=$(echo "$inspect" | jq -r "$jq_get get.Config.Image" | sed 's|.*/||')
+  state=$(echo "$inspect" | jq -r "$jq_get get.State.Status")
+  status=$(docker ps -a -f "name=$cname" --format '{{.Status}}')
+  network=$(echo "$inspect" | jq -r "$jq_get get.HostConfig.NetworkMode")
+  workspace=$(echo "$inspect" | jq -r "$jq_get [get.Mounts[] | select(.Destination == \"/workspace\")] | .[0].Source // \"N/A\"")
+
+  # Exegol features from labels
+  local logging vpn desktop
+  logging=$(echo "$inspect" | jq -r "$jq_get get.Config.Labels[\"org.exegol.feature.shell_logging\"] // empty")
+  desktop=$(echo "$inspect" | jq -r "$jq_get get.Config.Labels[\"org.exegol.feature.desktop\"] // empty")
+
+  # VPN from mounts
+  vpn=$(echo "$inspect" | jq -r "$jq_get [get.Mounts[] | select(.Destination | test(\"vpn|wireguard\"))] | .[0].Source // empty")
+
+  # Ports
+  local ports
+  ports=$(echo "$inspect" | jq -r "$jq_get [get.NetworkSettings.Ports // {} | to_entries[] | select(.value != null) | \"\(.key) → \(.value[0].HostPort)\"] | join(\", \")")
+
+  # Devices
+  local devices
+  devices=$(echo "$inspect" | jq -r "$jq_get [get.HostConfig.Devices // [] | .[].PathOnHost] | join(\", \")")
+
+  # Privileged
+  local privileged
+  privileged=$(echo "$inspect" | jq -r "$jq_get get.HostConfig.Privileged")
+
+  # Exegol metadata
+  local creation_date comment
+  creation_date=$(echo "$inspect" | jq -r "$jq_get get.Config.Labels[\"org.exegol.metadata.creation_date\"] // empty")
+  comment=$(echo "$inspect" | jq -r "$jq_get get.Config.Labels[\"org.exegol.metadata.comment\"] // empty")
+
+  # Format output
+  echo "Image       : $image"
+  echo "State       : $state ($status)"
+  echo "Network     : $network"
+  echo "Workspace   : $workspace"
+  echo ""
+  echo "Logging     : ${logging:-disabled}"
+  echo "VPN         : ${vpn:-none}"
+  echo "Desktop     : ${desktop:-disabled}"
+  echo "Privileged  : $privileged"
+  [[ -n "$devices" ]] && echo "Devices     : $devices"
+  [[ -n "$ports" ]] && echo "Ports       : $ports"
+  [[ -n "$creation_date" ]] && echo ""
+  [[ -n "$creation_date" ]] && echo "Created     : $creation_date"
+  [[ -n "$comment" ]] && echo "Comment     : $comment"
+}
+
+# Open a shell in a running container
+cmd_shell() {
+  local name="$1"
+  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "exegol exec --offline '$name' zsh"
+}
+
+# Start a stopped container
+cmd_start() {
+  local name="$1"
+  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "exegol start --offline '$name'"
+}
+
+# Stop a running container
+cmd_stop() {
+  local name="$1"
+  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "exegol stop '$name'"
+}
+
+# Remove a container
+cmd_remove() {
+  local name="$1"
+  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "exegol remove '$name'"
+}
+
+# Open workspace directory in file manager
+cmd_workspace() {
+  local name="$1"
+  local ws_path
+  ws_path=$(docker inspect "exegol-$name" \
+    --format '{{range .Mounts}}{{if eq .Destination "/workspace"}}{{.Source}}{{end}}{{end}}' 2>/dev/null)
+
+  if [[ -n "$ws_path" && -d "$ws_path" ]]; then
+    nautilus "$ws_path" &
+  else
+    notify-send "Exegol" "Workspace introuvable pour $name"
+  fi
+}
+
+# Launch Firefox inside a container
+cmd_firefox() {
+  local name="$1"
+  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "exegol exec -b --offline '$name' firefox"
+}
+
+# Launch Bloodhound inside a container
+cmd_bloodhound() {
+  local name="$1"
+  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "exegol exec -b --offline '$name' bloodhound"
+}
+
+# Interactive container creation wizard
+cmd_create() {
+  # Step 1: Select image (installed first, then unavailable)
+  local all_images=("full" "ad" "osint" "web" "light" "nightly" "free")
+  local local_tags installed="" not_installed=""
+  local_tags=$(docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -i exegol | sed 's|.*:||' | sort -u)
+
+  for img in "${all_images[@]}"; do
+    if echo "$local_tags" | grep -qx "$img"; then
+      installed="${installed}🟢 ${img}\n"
+    else
+      not_installed="${not_installed}⚫ ${img}  (not installed)\n"
+    fi
+  done
+
+  local images="${installed}${not_installed}"
+
+  local choice
+  choice=$(menu "Image" "$images")
+  [[ -z "$choice" ]] && return 0
+
+  local image
+  image=$(echo "$choice" | awk '{print $2}')
+
+  # If image is not installed, offer to install it first
+  if echo "$choice" | grep -q "not installed"; then
+    local install_choice
+    install_choice=$(menu "Image non installée" "Installer $image puis créer\nAnnuler")
+    [[ -z "$install_choice" || "$install_choice" == *"Annuler"* ]] && return 0
+    setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "exegol install '$image' && monarch-menu-exegol create"
     return 0
   fi
 
-  case $action_choice in
-  *Start*)
-    echo "Starting $name..."
-    xdg-terminal-exec --app-id=com.monarch.Monarch bash -c "exegol exec -b --offline $name kitty"
-    ;;
-  *Stop*)
-    echo "Stopping $name..."
-    xdg-terminal-exec --app-id=com.monarch.Monarch bash -c "exegol stop $name"
-    ;;
-  *Delete*)
-    echo "Deleting $name..."
-    xdg-terminal-exec --app-id=com.monarch.Monarch bash -c "exegol remove $name"
-    ;;
-  *Bloodhound*)
-    echo "Starting old bloodhound for $name..."
-    xdg-terminal-exec --app-id=com.monarch.Monarch bash -c "exegol exec -b --offline $name bloodhound"
-    ;;
-  *Firefox*)
-    echo "Starting Firefox for $name..."
-    xdg-terminal-exec --app-id=com.monarch.Monarch bash -c "exegol exec -b --offline $name firefox"
-    ;;
+  # Step 2: Container name (free text input)
+  local name
+  name=$(input "Nom du conteneur")
+  [[ -z "$name" ]] && return 0
+
+  # Step 3: VPN configuration
+  local vpn_flags=""
+  local vpn_choice
+  vpn_choice=$(menu "VPN" "Pas de VPN\nSélectionner un fichier VPN")
+
+  if [[ "$vpn_choice" == *"Sélectionner"* ]]; then
+    local vpn_path
+    vpn_path=$(zenity --file-selection \
+      --title="Sélectionner la configuration VPN" \
+      --file-filter="Fichiers VPN (ovpn, conf)|*.ovpn *.conf" 2>/dev/null)
+    if [[ -n "$vpn_path" ]]; then
+      vpn_flags="--vpn '$vpn_path'"
+
+      # Optional: VPN auth file
+      local auth_choice
+      auth_choice=$(menu "Auth VPN" "Pas de fichier d'auth\nSélectionner un fichier d'auth")
+      if [[ "$auth_choice" == *"Sélectionner"* ]]; then
+        local auth_path
+        auth_path=$(zenity --file-selection \
+          --title="Sélectionner le fichier d'authentification VPN" \
+          --file-filter="Fichiers texte|*.txt" 2>/dev/null)
+        if [[ -n "$auth_path" ]]; then
+          vpn_flags="$vpn_flags --vpn-auth '$auth_path'"
+        fi
+      fi
+    fi
+  fi
+
+  # Step 4: Shell logging
+  local log_flag=""
+  local log_choice
+  log_choice=$(menu "Journalisation" "Désactiver la journalisation\nActiver la journalisation")
+
+  if [[ "$log_choice" == *"Activer"* ]]; then
+    log_flag="--log"
+  fi
+
+  # Step 5: Desktop mode
+  local desktop_flag=""
+  local desktop_choice
+  desktop_choice=$(menu "Desktop" "Pas de desktop\nHTTP\nVNC")
+
+  case $desktop_choice in
+    *HTTP*) desktop_flag="--desktop --desktop-config http" ;;
+    *VNC*)  desktop_flag="--desktop --desktop-config vnc" ;;
   esac
+
+  # Build and execute command
+  local cmd="exegol start '$name' '$image' $vpn_flags $log_flag $desktop_flag"
+  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "$cmd"
 }
 
-# Check if exegol command is available and install if needed
-if ! command -v exegol &>/dev/null; then
-  monarch-launch-floating-terminal-with-presentation "gum confirm 'Exegol is not installed. Would you like to install it?' && pipx install exegol"
+# Launch the Walker Exegol menu (default, no arguments)
+cmd_menu() {
+  # Check if exegol command is available and install if needed
   if ! command -v exegol &>/dev/null; then
-    exit 1
+    setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "gum confirm 'Exegol is not installed. Would you like to install it?' && pipx install exegol"
+    if ! command -v exegol &>/dev/null; then
+      exit 1
+    fi
   fi
-fi
 
-# Calculate menu dimensions and build workspace list
-monitor_height=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .height')
-menu_height=$((monitor_height * 40 / 100))
+  monarch-launch-walker -m menus:monarchExegol --width 800 --minheight 400
+}
 
-workspaces="  Create workspace
-$(get_workspaces | sort -u | parse_workspaces)"
-
-
-# Display main menu and handle user selection
-choice=$(menu "Exegol Workspaces" "$workspaces")
-
-if [[ -z "$choice" ]]; then
-  exit 0
-fi
-
-case $choice in
-  *Create*)
-    echo "Creating new Exegol workspace..."
-    xdg-terminal-exec bash -c "exegol start"
-    ;;
-  *)
-    name=$(echo "$choice" | awk -F ' ' '{print $2}')
-    workspace_actions "$name"
-    ;;
+# Route sub-commands
+case "${1:-}" in
+  info)       cmd_info "$2" ;;
+  shell)      cmd_shell "$2" ;;
+  start)      cmd_start "$2" ;;
+  stop)       cmd_stop "$2" ;;
+  remove)     cmd_remove "$2" ;;
+  workspace)  cmd_workspace "$2" ;;
+  firefox)    cmd_firefox "$2" ;;
+  bloodhound) cmd_bloodhound "$2" ;;
+  create)     cmd_create ;;
+  *)          cmd_menu ;;
 esac
