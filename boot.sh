@@ -17,13 +17,15 @@ clear
 echo -e "\n$ansi_art\n"
 
 # Use custom branch if instructed, otherwise default to master
-MONARCH_REF="${MONARCH_REF:-master}"
+MONARCH_REF="${MONARCH_REF:-main}"
 
 # Set mirror based on branch
 if [[ $MONARCH_REF == "dev" ]]; then
   export OMARCHY_MIRROR=edge
+  echo 'Server = https://mirror.omarchy.org/$repo/os/$arch' | sudo tee /etc/pacman.d/mirrorlist >/dev/null
 else
   export OMARCHY_MIRROR=stable
+  echo 'Server = https://stable-mirror.omarchy.org/$repo/os/$arch' | sudo tee /etc/pacman.d/mirrorlist >/dev/null
 fi
 
 sudo pacman -Syu --noconfirm --needed git
