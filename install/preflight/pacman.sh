@@ -4,11 +4,17 @@ if [[ -n ${MONARCH_ONLINE_INSTALL:-} ]]; then
 
   # Configure pacman
   sudo cp -f ~/.local/share/monarch/default/pacman/pacman-${OMARCHY_MIRROR:-stable}.conf /etc/pacman.conf
-  sudo cp -f ~/.local/share/monarch/default/pacman/mirrorlist /etc/pacman.d/mirrorlist
+  sudo cp -f ~/.local/share/monarch/default/pacman/mirrorlist-${OMARCHY_MIRROR:-stable} /etc/pacman.d/mirrorlist
 
+  # Cachy OS
+  sudo pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com
+  sudo pacman-key --lsign-key F3B607488DB35A47
+
+  # Omarchy
   sudo pacman-key --recv-keys 40DFB630FF42BCFFB047046CF0134EE680CAC571 --keyserver keys.openpgp.org
   sudo pacman-key --lsign-key 40DFB630FF42BCFFB047046CF0134EE680CAC571
 
+  # Monarch
   sudo pacman-key --recv-keys 519BC3D5AEA652C94F89F0AAC13B3766D969CE82 --keyserver keys.openpgp.org
   sudo pacman-key --lsign-key 519BC3D5AEA652C94F89F0AAC13B3766D969CE82
 
