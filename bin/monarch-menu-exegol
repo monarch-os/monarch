@@ -137,12 +137,16 @@ cmd_bloodhound() {
 cmd_create() {
   # Step 1: Select image (installed first, then unavailable)
   local all_images=("full" "ad" "osint" "web" "light" "nightly" "free")
-  local local_tags installed="" not_installed=""
-  local_tags=$(docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -i exegol | sed 's|.*:||' | sort -u)
+  local installed="" not_installed=""
+  declare -A sizes
+  while IFS='|' read -r repotag size; do
+    [[ -z "$repotag" ]] && continue
+    sizes["${repotag##*:}"]="$size"
+  done < <(docker images --format '{{.Repository}}:{{.Tag}}|{{.Size}}' 2>/dev/null | grep -i exegol)
 
   for img in "${all_images[@]}"; do
-    if echo "$local_tags" | grep -qx "$img"; then
-      installed="${installed}🟢 ${img}\n"
+    if [[ -n "${sizes[$img]:-}" ]]; then
+      installed="${installed}🟢 ${img}  (${sizes[$img]})\n"
     else
       not_installed="${not_installed}⚫ ${img}  (not installed)\n"
     fi
