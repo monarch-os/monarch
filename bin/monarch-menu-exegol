@@ -205,7 +205,9 @@ cmd_create() {
       --title="Sélectionner la configuration VPN" \
       --file-filter="Fichiers VPN (ovpn, conf)|*.ovpn *.conf" 2>/dev/null)
     if [[ -n "$vpn_path" ]]; then
-      printf -v vpn_flags '--vpn %q' "$vpn_path"
+      local vpn_quoted
+      printf -v vpn_quoted '%q' "$vpn_path"
+      vpn_flags="--vpn $vpn_quoted"
 
       # Optional: VPN auth file
       local auth_choice
@@ -216,7 +218,9 @@ cmd_create() {
           --title="Sélectionner le fichier d'authentification VPN" \
           --file-filter="Fichiers texte|*.txt" 2>/dev/null)
         if [[ -n "$auth_path" ]]; then
-          printf -v vpn_flags '%s --vpn-auth %q' "$vpn_flags" "$auth_path"
+          local auth_quoted
+          printf -v auth_quoted '%q' "$auth_path"
+          vpn_flags="$vpn_flags --vpn-auth $auth_quoted"
         fi
       fi
     fi
