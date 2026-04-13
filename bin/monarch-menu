@@ -477,8 +477,9 @@ show_install_elixir_menu() {
 }
 
 show_install_cyber_menu() {
-  case $(menu "Install" "  Burpsuite\n󱉟  Wordlists") in
+  case $(menu "Install" "  Burpsuite\n  RFSwift\n󱉟  Wordlists") in
   *Burpsuite*) present_terminal "monarch-install-burp" ;;
+  *RFSwift*) present_terminal "monarch-install-rfswift" ;;
   *Wordlists*) aur_install "Seclists" "seclists" ;;
   *) show_install_menu ;;
   esac

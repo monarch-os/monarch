@@ -1,0 +1,5 @@
+#!/bin/bash
+
+echo "Retrieve RFSwift installer"
+
+curl -fsSL "https://raw.githubusercontent.com/PentHertz/RF-Swift/refs/heads/main/get_rfswift.sh" | sh
