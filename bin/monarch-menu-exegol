@@ -170,6 +170,11 @@ cmd_create() {
   local name
   name=$(input "Nom du conteneur")
   [[ -z "$name" ]] && return 0
+  # Reject names that aren't safe for an exegol container identifier
+  if [[ ! "$name" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    notify-send "Exegol" "Nom de conteneur invalide: $name"
+    return 1
+  fi
 
   # Step 3: VPN configuration
   local vpn_flags=""
@@ -182,7 +187,7 @@ cmd_create() {
       --title="Sélectionner la configuration VPN" \
       --file-filter="Fichiers VPN (ovpn, conf)|*.ovpn *.conf" 2>/dev/null)
     if [[ -n "$vpn_path" ]]; then
-      vpn_flags="--vpn '$vpn_path'"
+      printf -v vpn_flags '--vpn %q' "$vpn_path"
 
       # Optional: VPN auth file
       local auth_choice
@@ -193,7 +198,7 @@ cmd_create() {
           --title="Sélectionner le fichier d'authentification VPN" \
           --file-filter="Fichiers texte|*.txt" 2>/dev/null)
         if [[ -n "$auth_path" ]]; then
-          vpn_flags="$vpn_flags --vpn-auth '$auth_path'"
+          printf -v vpn_flags '%s --vpn-auth %q' "$vpn_flags" "$auth_path"
         fi
       fi
     fi
@@ -218,8 +223,9 @@ cmd_create() {
     *VNC*)  desktop_flag="--desktop --desktop-config vnc" ;;
   esac
 
-  # Build and execute command
-  local cmd="exegol start '$name' '$image' $vpn_flags $log_flag $desktop_flag"
+  # Build and execute command — quote name/image, vpn_flags is already %q-escaped
+  local cmd
+  printf -v cmd 'exegol start %q %q %s %s %s' "$name" "$image" "$vpn_flags" "$log_flag" "$desktop_flag"
   setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "$cmd"
 }
 
