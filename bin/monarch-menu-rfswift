@@ -6,6 +6,9 @@
 export PATH="$HOME/.local/bin:$PATH"
 
 RFSWIFT_REPO="penthertz/rfswift_noble"
+# rfswift has no config hook for the workspace root (its DefaultWorkspaceRoot()
+# is hardcoded to ~/rfswift-workspace), so we always pass --workspace explicitly.
+RFSWIFT_WORKSPACE_ROOT="$HOME/Work/rfswift"
 
 # Display interactive menu using walker dmenu (used by creation wizard)
 menu() {
@@ -219,9 +222,14 @@ cmd_create() {
     *VNC*)  desktop_flag="--desktop --desktop-config vnc::5900" ;;
   esac
 
+  # Force the workspace under $RFSWIFT_WORKSPACE_ROOT/<name>/ (rfswift will mkdir it)
+  local ws_quoted
+  printf -v ws_quoted '%q' "$RFSWIFT_WORKSPACE_ROOT/$name"
+  local workspace_flag="--workspace $ws_quoted"
+
   # Build and execute command
   local cmd
-  printf -v cmd 'rfswift run -n %q -i %q %s %s %s' "$name" "$image" "$vpn_flags" "$record_flag" "$desktop_flag"
+  printf -v cmd 'rfswift run -n %q -i %q %s %s %s %s' "$name" "$image" "$vpn_flags" "$record_flag" "$desktop_flag" "$workspace_flag"
   setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title="RF Swift" -e bash -c "$cmd"
 }
 
