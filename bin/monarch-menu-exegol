@@ -137,12 +137,30 @@ cmd_bloodhound() {
 cmd_create() {
   # Step 1: Select image (installed first, then unavailable)
   local all_images=("full" "ad" "osint" "web" "light" "nightly" "free")
-  local local_tags installed="" not_installed=""
-  local_tags=$(docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -i exegol | sed 's|.*:||' | sort -u)
+
+  # Approximate download sizes from Docker Hub (nwodtuhs/exegol, snapshot 2026-04)
+  declare -A remote_sizes=(
+    [full]="20GB"
+    [ad]="16GB"
+    [osint]="4.5GB"
+    [web]="9.2GB"
+    [light]="6.8GB"
+    [free]="17GB"
+  )
+
+  # Local images: on-disk (uncompressed) size from docker
+  local installed="" not_installed=""
+  declare -A sizes
+  while IFS='|' read -r repotag size; do
+    [[ -z "$repotag" ]] && continue
+    sizes["${repotag##*:}"]="$size"
+  done < <(docker images --format '{{.Repository}}:{{.Tag}}|{{.Size}}' 2>/dev/null | grep -i exegol)
 
   for img in "${all_images[@]}"; do
-    if echo "$local_tags" | grep -qx "$img"; then
-      installed="${installed}🟢 ${img}\n"
+    if [[ -n "${sizes[$img]:-}" ]]; then
+      installed="${installed}🟢 ${img}  (${sizes[$img]})\n"
+    elif [[ -n "${remote_sizes[$img]:-}" ]]; then
+      not_installed="${not_installed}⚫ ${img}  (~${remote_sizes[$img]}, not installed)\n"
     else
       not_installed="${not_installed}⚫ ${img}  (not installed)\n"
     fi
@@ -158,7 +176,7 @@ cmd_create() {
   image=$(echo "$choice" | awk '{print $2}')
 
   # If image is not installed, offer to install it first
-  if echo "$choice" | grep -q "not installed"; then
+  if [[ "$choice" == *"⚫"* ]]; then
     local install_choice
     install_choice=$(menu "Image non installée" "Installer $image puis créer\nAnnuler")
     [[ -z "$install_choice" || "$install_choice" == *"Annuler"* ]] && return 0
@@ -170,6 +188,11 @@ cmd_create() {
   local name
   name=$(input "Nom du conteneur")
   [[ -z "$name" ]] && return 0
+  # Reject names that aren't safe for an exegol container identifier
+  if [[ ! "$name" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    notify-send "Exegol" "Nom de conteneur invalide: $name"
+    return 1
+  fi
 
   # Step 3: VPN configuration
   local vpn_flags=""
@@ -182,7 +205,9 @@ cmd_create() {
       --title="Sélectionner la configuration VPN" \
       --file-filter="Fichiers VPN (ovpn, conf)|*.ovpn *.conf" 2>/dev/null)
     if [[ -n "$vpn_path" ]]; then
-      vpn_flags="--vpn '$vpn_path'"
+      local vpn_quoted
+      printf -v vpn_quoted '%q' "$vpn_path"
+      vpn_flags="--vpn $vpn_quoted"
 
       # Optional: VPN auth file
       local auth_choice
@@ -193,7 +218,9 @@ cmd_create() {
           --title="Sélectionner le fichier d'authentification VPN" \
           --file-filter="Fichiers texte|*.txt" 2>/dev/null)
         if [[ -n "$auth_path" ]]; then
-          vpn_flags="$vpn_flags --vpn-auth '$auth_path'"
+          local auth_quoted
+          printf -v auth_quoted '%q' "$auth_path"
+          vpn_flags="$vpn_flags --vpn-auth $auth_quoted"
         fi
       fi
     fi
@@ -218,8 +245,9 @@ cmd_create() {
     *VNC*)  desktop_flag="--desktop --desktop-config vnc" ;;
   esac
 
-  # Build and execute command
-  local cmd="exegol start '$name' '$image' $vpn_flags $log_flag $desktop_flag"
+  # Build and execute command — quote name/image, vpn_flags is already %q-escaped
+  local cmd
+  printf -v cmd 'exegol start %q %q %s %s %s' "$name" "$image" "$vpn_flags" "$log_flag" "$desktop_flag"
   setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "$cmd"
 }
 

@@ -29,3 +29,5 @@ mkdir -p ~/.config/elephant/menus
 ln -snf $MONARCH_PATH/default/elephant/monarch_themes.lua ~/.config/elephant/menus/monarch_themes.lua
 ln -snf $MONARCH_PATH/default/elephant/monarch_background_selector.lua ~/.config/elephant/menus/monarch_background_selector.lua
 ln -snf $MONARCH_PATH/default/elephant/monarch_exegol.lua ~/.config/elephant/menus/monarch_exegol.lua
+ln -snf $MONARCH_PATH/default/elephant/monarch_rfswift.lua ~/.config/elephant/menus/monarch_rfswift.lua
+ln -snf $MONARCH_PATH/default/elephant/monarch_pentestenv.lua ~/.config/elephant/menus/monarch_pentestenv.lua

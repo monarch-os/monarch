@@ -1,0 +1,259 @@
+#!/bin/bash
+
+# Manage RF Swift containers via Walker menu or direct sub-commands.
+# Called directly for the Walker menu, or with sub-commands from the Elephant Lua plugin.
+
+export PATH="$HOME/.local/bin:$PATH"
+
+RFSWIFT_REPO="penthertz/rfswift_noble"
+# rfswift has no config hook for the workspace root (its DefaultWorkspaceRoot()
+# is hardcoded to ~/rfswift-workspace), so we always pass --workspace explicitly.
+RFSWIFT_WORKSPACE_ROOT="$HOME/Work/rfswift"
+
+# Display interactive menu using walker dmenu (used by creation wizard)
+menu() {
+  local prompt="$1"
+  local options="$2"
+  sleep 0.3
+  echo -e "$options" | monarch-launch-walker --dmenu --width 295 --minheight 1 --maxheight 600 -p "$prompt…" 2>/dev/null
+}
+
+# Display a free text input using walker dmenu
+input() {
+  local prompt="$1"
+  sleep 0.3
+  monarch-launch-walker --dmenu --inputonly --width 295 -p "$prompt…" 2>/dev/null
+}
+
+# Show container info (used as preview text by the Lua menu)
+cmd_info() {
+  local name="$1"
+
+  local inspect
+  inspect=$(docker inspect "$name" --format json 2>/dev/null)
+  if [[ -z "$inspect" ]]; then
+    echo "Container not found: $name"
+    return 1
+  fi
+
+  local jq_get='def get: .[0];'
+
+  local image state status network workspace
+  image=$(echo "$inspect" | jq -r "$jq_get get.Config.Image" | sed 's|.*:||')
+  state=$(echo "$inspect" | jq -r "$jq_get get.State.Status")
+  status=$(docker ps -a -f "name=^${name}$" --format '{{.Status}}')
+  network=$(echo "$inspect" | jq -r "$jq_get get.HostConfig.NetworkMode")
+  workspace=$(echo "$inspect" | jq -r "$jq_get [get.Mounts[] | select(.Destination == \"/root/workspace\")] | .[0].Source // \"N/A\"")
+
+  # VPN from mounts (rfswift mounts the VPN config inside the container)
+  local vpn
+  vpn=$(echo "$inspect" | jq -r "$jq_get [get.Mounts[] | select(.Destination | test(\"vpn|wireguard|wg|ovpn\"))] | .[0].Source // empty")
+
+  # Ports
+  local ports
+  ports=$(echo "$inspect" | jq -r "$jq_get [get.NetworkSettings.Ports // {} | to_entries[] | select(.value != null) | \"\(.key) → \(.value[0].HostPort)\"] | join(\", \")")
+
+  # Devices
+  local devices
+  devices=$(echo "$inspect" | jq -r "$jq_get [get.HostConfig.Devices // [] | .[].PathOnHost] | join(\", \")")
+
+  # Privileged
+  local privileged
+  privileged=$(echo "$inspect" | jq -r "$jq_get get.HostConfig.Privileged")
+
+  # Format output
+  echo "Image       : $image"
+  echo "State       : $state ($status)"
+  echo "Network     : $network"
+  echo "Workspace   : $workspace"
+  echo ""
+  echo "VPN         : ${vpn:-none}"
+  echo "Privileged  : $privileged"
+  [[ -n "$devices" ]] && echo "Devices     : $devices"
+  [[ -n "$ports" ]] && echo "Ports       : $ports"
+}
+
+# Open a shell in a running container
+cmd_shell() {
+  local name="$1"
+  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title="RF Swift" -e bash -c "rfswift exec -c '$name' -e /bin/bash"
+}
+
+# Start a stopped container (rfswift has no resume command, fall back to docker start)
+cmd_start() {
+  local name="$1"
+  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title="RF Swift" -e bash -c "docker start '$name' && rfswift exec -c '$name' -e /bin/bash"
+}
+
+# Stop a running container
+cmd_stop() {
+  local name="$1"
+  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title="RF Swift" -e bash -c "rfswift stop -c '$name'"
+}
+
+# Remove a container
+cmd_remove() {
+  local name="$1"
+  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title="RF Swift" -e bash -c "rfswift remove -c '$name'"
+}
+
+# Open workspace directory in file manager
+cmd_workspace() {
+  local name="$1"
+  local ws_path
+  ws_path=$(docker inspect "$name" \
+    --format '{{range .Mounts}}{{if eq .Destination "/root/workspace"}}{{.Source}}{{end}}{{end}}' 2>/dev/null)
+
+  if [[ -n "$ws_path" && -d "$ws_path" ]]; then
+    nautilus "$ws_path" &
+  else
+    notify-send "RF Swift" "Workspace introuvable pour $name"
+  fi
+}
+
+# Interactive container creation wizard
+cmd_create() {
+  # Curated subset of useful images. Sizes are a 2026-04 snapshot from
+  # `rfswift images remote` (penthertz/rfswift_noble) — refresh manually.
+  local all_images=("sdr_full" "sdr_light" "wifi" "bluetooth" "hardware" "reversing" "rfid" "automotive" "network")
+  declare -A remote_sizes=(
+    [sdr_full]="15.6GB"
+    [sdr_light]="5.7GB"
+    [wifi]="14.6GB"
+    [bluetooth]="3.8GB"
+    [hardware]="9.0GB"
+    [reversing]="10.4GB"
+    [rfid]="2.4GB"
+    [automotive]="2.1GB"
+    [network]="13.1GB"
+  )
+
+  # Local images: on-disk size from docker
+  local installed="" not_installed=""
+  declare -A sizes
+  while IFS='|' read -r repotag size; do
+    [[ -z "$repotag" ]] && continue
+    sizes["${repotag##*:}"]="$size"
+  done < <(docker images --format '{{.Repository}}:{{.Tag}}|{{.Size}}' 2>/dev/null | grep "^${RFSWIFT_REPO}:")
+
+  for img in "${all_images[@]}"; do
+    if [[ -n "${sizes[$img]:-}" ]]; then
+      installed="${installed}🟢 ${img}  (${sizes[$img]})\n"
+    elif [[ -n "${remote_sizes[$img]:-}" ]]; then
+      not_installed="${not_installed}⚫ ${img}  (~${remote_sizes[$img]}, not installed)\n"
+    else
+      not_installed="${not_installed}⚫ ${img}  (not installed)\n"
+    fi
+  done
+
+  local images="${installed}${not_installed}"
+
+  local choice
+  choice=$(menu "Image" "$images")
+  [[ -z "$choice" ]] && return 0
+
+  local image
+  image=$(echo "$choice" | awk '{print $2}')
+
+  # If image is not installed, offer to pull it first
+  if [[ "$choice" == *"⚫"* ]]; then
+    local install_choice
+    install_choice=$(menu "Image non installée" "Télécharger $image puis créer\nAnnuler")
+    [[ -z "$install_choice" || "$install_choice" == *"Annuler"* ]] && return 0
+    setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title="RF Swift" -e bash -c "rfswift images pull -i '$image' && monarch-menu-rfswift create"
+    return 0
+  fi
+
+  # Step 2: Container name (free text input)
+  local name
+  name=$(input "Nom du conteneur")
+  [[ -z "$name" ]] && return 0
+  if [[ ! "$name" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    notify-send "RF Swift" "Nom de conteneur invalide: $name"
+    return 1
+  fi
+
+  # Step 3: VPN configuration (rfswift uses scheme-prefixed paths)
+  local vpn_flags=""
+  local vpn_choice
+  vpn_choice=$(menu "VPN" "Pas de VPN\nOpenVPN\nWireGuard")
+
+  local vpn_scheme=""
+  case "$vpn_choice" in
+    *OpenVPN*)   vpn_scheme="openvpn" ;;
+    *WireGuard*) vpn_scheme="wireguard" ;;
+  esac
+
+  if [[ -n "$vpn_scheme" ]]; then
+    local filter_label filter_glob
+    if [[ "$vpn_scheme" == "openvpn" ]]; then
+      filter_label="Fichiers OpenVPN"
+      filter_glob="*.ovpn"
+    else
+      filter_label="Fichiers WireGuard"
+      filter_glob="*.conf"
+    fi
+    local vpn_path
+    vpn_path=$(zenity --file-selection \
+      --title="Sélectionner la configuration VPN" \
+      --file-filter="${filter_label}|${filter_glob}" 2>/dev/null)
+    if [[ -n "$vpn_path" ]]; then
+      local vpn_quoted
+      printf -v vpn_quoted '%q' "${vpn_scheme}:${vpn_path}"
+      vpn_flags="--vpn $vpn_quoted"
+    fi
+  fi
+
+  # Step 4: Session recording
+  local record_flag=""
+  local record_choice
+  record_choice=$(menu "Enregistrement" "Désactiver l'enregistrement\nActiver l'enregistrement")
+  if [[ "$record_choice" == *"Activer"* ]]; then
+    record_flag="--record"
+  fi
+
+  # Step 5: Desktop mode
+  local desktop_flag=""
+  local desktop_choice
+  desktop_choice=$(menu "Desktop" "Pas de desktop\nHTTP (noVNC)\nVNC")
+
+  case $desktop_choice in
+    *HTTP*) desktop_flag="--desktop --desktop-config http:0.0.0.0:6080" ;;
+    *VNC*)  desktop_flag="--desktop --desktop-config vnc::5900" ;;
+  esac
+
+  # Force the workspace under $RFSWIFT_WORKSPACE_ROOT/<name>/ (rfswift will mkdir it)
+  local ws_quoted
+  printf -v ws_quoted '%q' "$RFSWIFT_WORKSPACE_ROOT/$name"
+  local workspace_flag="--workspace $ws_quoted"
+
+  # Build and execute command
+  local cmd
+  printf -v cmd 'rfswift run -n %q -i %q %s %s %s %s' "$name" "$image" "$vpn_flags" "$record_flag" "$desktop_flag" "$workspace_flag"
+  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title="RF Swift" -e bash -c "$cmd"
+}
+
+# Launch the Walker RF Swift menu (default, no arguments)
+cmd_menu() {
+  # Check if rfswift command is available and offer to install if missing
+  if ! command -v rfswift &>/dev/null; then
+    setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title="RF Swift" -e bash -c "gum confirm 'RF Swift is not installed. Would you like to install it?' && monarch-install-rfswift"
+    if ! command -v rfswift &>/dev/null; then
+      exit 1
+    fi
+  fi
+
+  monarch-launch-walker -m menus:monarchRFSwift --width 800 --minheight 400
+}
+
+# Route sub-commands
+case "${1:-}" in
+  info)       cmd_info "$2" ;;
+  shell)      cmd_shell "$2" ;;
+  start)      cmd_start "$2" ;;
+  stop)       cmd_stop "$2" ;;
+  remove)     cmd_remove "$2" ;;
+  workspace)  cmd_workspace "$2" ;;
+  create)     cmd_create ;;
+  *)          cmd_menu ;;
+esac
