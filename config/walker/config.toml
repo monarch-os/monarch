@@ -179,3 +179,12 @@ bookmarks = [
   { action = "remove", label = "remove", bind = "ctrl d"},
   { action = "open file browser", label = "workspace", bind = "ctrl o" },
 ]
+
+"menus:monarchPentestEnv" = [
+  { action = "menus:default", label = "shell/start", default = true, bind = "Return" },
+  { action = "stop", label = "stop", bind = "ctrl s", after = "AsyncClearReload" },
+  { action = "remove", label = "remove", bind = "ctrl d"},
+  { action = "open file browser", label = "workspace", bind = "ctrl o" },
+  { action = "firefox", label = "firefox", bind = "ctrl f" },
+  { action = "bloodhound", label = "bloodhound", bind = "ctrl b" },
+]
