@@ -137,6 +137,18 @@ cmd_bloodhound() {
 cmd_create() {
   # Step 1: Select image (installed first, then unavailable)
   local all_images=("full" "ad" "osint" "web" "light" "nightly" "free")
+
+  # Approximate download sizes from Docker Hub (nwodtuhs/exegol, snapshot 2026-04)
+  declare -A remote_sizes=(
+    [full]="20GB"
+    [ad]="16GB"
+    [osint]="4.5GB"
+    [web]="9.2GB"
+    [light]="6.8GB"
+    [free]="17GB"
+  )
+
+  # Local images: on-disk (uncompressed) size from docker
   local installed="" not_installed=""
   declare -A sizes
   while IFS='|' read -r repotag size; do
@@ -147,6 +159,8 @@ cmd_create() {
   for img in "${all_images[@]}"; do
     if [[ -n "${sizes[$img]:-}" ]]; then
       installed="${installed}🟢 ${img}  (${sizes[$img]})\n"
+    elif [[ -n "${remote_sizes[$img]:-}" ]]; then
+      not_installed="${not_installed}⚫ ${img}  (~${remote_sizes[$img]}, not installed)\n"
     else
       not_installed="${not_installed}⚫ ${img}  (not installed)\n"
     fi
@@ -162,7 +176,7 @@ cmd_create() {
   image=$(echo "$choice" | awk '{print $2}')
 
   # If image is not installed, offer to install it first
-  if echo "$choice" | grep -q "not installed"; then
+  if [[ "$choice" == *"⚫"* ]]; then
     local install_choice
     install_choice=$(menu "Image non installée" "Installer $image puis créer\nAnnuler")
     [[ -z "$install_choice" || "$install_choice" == *"Annuler"* ]] && return 0
