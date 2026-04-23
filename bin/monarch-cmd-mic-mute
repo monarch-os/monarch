@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Toggle microphone mute. Dell XPS systems get special handling for the hardware LED.
+
+if monarch-hw-match "XPS"; then
+  monarch-cmd-mic-mute-xps
+else
+  swayosd-client --monitor "$(monarch-hyprland-monitor-focused)" --input-volume mute-toggle
+fi

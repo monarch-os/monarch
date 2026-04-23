@@ -7,7 +7,7 @@ if command -v mise &> /dev/null; then
   eval "$(mise activate $SHELL_NAME)"
 fi
 
-if command -v starship &> /dev/null; then
+if [[ $- == *i* ]] && [[ ${TERM:-} != "dumb" ]] && command -v starship &> /dev/null; then
   eval "$(starship init $SHELL_NAME)"
 fi
 

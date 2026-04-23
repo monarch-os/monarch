@@ -195,7 +195,7 @@ show_share_menu() {
 }
 
 show_toggle_menu() {
-  case $(menu "Toggle" "󱄄  Screensaver\n󰔎  Nightlight\n󱫖  Idle Lock\n󰍜  Top Bar\n󱂬  Workspace Layout\n  Window Gaps\n  1-Window Ratio\n󰍹  Display Scaling") in
+  case $(menu "Toggle" "󱄄  Screensaver\n󰔎  Nightlight\n󱫖  Idle Lock\n󰍜  Top Bar\n󱂬  Workspace Layout\n  Window Gaps\n  1-Window Ratio\n󰍹  Monitor Scaling\n󰛧  Laptop Display") in
   *Screensaver*) monarch-toggle-screensaver ;;
   *Nightlight*) monarch-toggle-nightlight ;;
   *Idle*) monarch-toggle-idle ;;
@@ -204,6 +204,7 @@ show_toggle_menu() {
   *Ratio*) monarch-hyprland-window-single-square-aspect-toggle ;;
   *Gaps*) monarch-hyprland-window-gaps-toggle ;;
   *Scaling*) monarch-hyprland-monitor-scaling-cycle ;;
+  *Laptop*) monarch-hyprland-monitor-internal-toggle ;;
   *) back_to show_trigger_menu ;;
   esac
 }
@@ -247,7 +248,6 @@ show_font_menu() {
 show_setup_menu() {
   local options="  Audio\n  Wifi\n󰂯  Bluetooth\n󱐋  Power Profile\n  System Sleep\n󰍹  Monitors"
   [[ -f ~/.config/hypr/bindings.conf ]] && options="$options\n  Keybindings"
-  options="$options\n  Key Remapping"
   [[ -f ~/.config/hypr/input.conf ]] && options="$options\n  Input"
   options="$options\n󰌌  Language\n󰱔  DNS\n  Security\n  Config"
 
@@ -259,7 +259,6 @@ show_setup_menu() {
   *System*) show_setup_system_menu ;;
   *Monitors*) open_in_editor ~/.config/hypr/monitors.conf ;;
   *Keybindings*) open_in_editor ~/.config/hypr/bindings.conf ;;
-  *Key\ Remapping*) monarch-setup-makima && open_in_editor "$HOME/.config/makima/AT Translated Set 2 keyboard.toml" && monarch-restart-makima ;;
   *Input*) open_in_editor ~/.config/hypr/input.conf ;;
   *Language*) present_terminal monarch-setup-language ;;
   *DNS*) present_terminal monarch-setup-dns ;;
@@ -599,10 +598,11 @@ show_update_config_menu() {
 }
 
 show_update_hardware_menu() {
-  case $(menu "Restart" "  Audio\n󱚾  Wi-Fi\n󰂯  Bluetooth") in
+  case $(menu "Restart" "  Audio\n󱚾  Wi-Fi\n󰂯  Bluetooth\n󰟸  Trackpad") in
   *Audio*) present_terminal monarch-restart-pipewire ;;
   *Wi-Fi*) present_terminal monarch-restart-wifi ;;
   *Bluetooth*) present_terminal monarch-restart-bluetooth ;;
+  *Trackpad*) present_terminal monarch-restart-trackpad ;;
   *) show_update_menu ;;
   esac
 }

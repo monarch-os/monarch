@@ -6,5 +6,10 @@ echo -e "\e[32mUpdate Monarch\e[0m"
 
 monarch-update-time
 
+# Suppress Hyprland config errors while git updates default config files mid-pull
+hyprctl keyword debug:suppress_errors true &>/dev/null || true
+
 git -C $MONARCH_PATH pull --autostash
 git -C $MONARCH_PATH --no-pager diff --check || git -C $MONARCH_PATH reset --merge
+
+hyprctl reload &>/dev/null || true

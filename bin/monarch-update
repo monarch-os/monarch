@@ -2,6 +2,13 @@
 
 set -e
 
+# Run the update inside a PTY so pacman/yay keep showing download progress
+# while still logging the full session for later analysis.
+if [[ -z $MONARCH_UPDATE_LOGGED ]]; then
+  script_command=$(printf '%q ' "$0" "$@")
+  exec env MONARCH_UPDATE_LOGGED=1 script -qefc "$script_command" "/tmp/monarch-update.log"
+fi
+
 trap 'echo ""; echo -e "\033[0;31mSomething went wrong during the update!\n\nPlease review the output above carefully, correct the error, and retry the update.\n\nIf you need assistance, get help from the community at https://monarch-os.github.io\033[0m"' ERR
 
 if [[ $1 == "-y" ]] || monarch-update-confirm; then
