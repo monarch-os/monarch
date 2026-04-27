@@ -1,5 +1,7 @@
 #!/bin/bash
 
+monarch-toggle waybar-off
+
 if pgrep -x waybar >/dev/null; then
   pkill -x waybar
 else

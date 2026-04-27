@@ -1,0 +1,4 @@
+
+#!/bin/bash
+
+(($(lspci | grep -cE 'VGA|3D|Display') >= 2))
