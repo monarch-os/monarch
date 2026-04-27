@@ -23,6 +23,7 @@ run_logged $MONARCH_INSTALL/config/fast-shutdown.sh
 run_logged $MONARCH_INSTALL/config/unmount-fuse.sh
 run_logged $MONARCH_INSTALL/config/input-group.sh
 run_logged $MONARCH_INSTALL/config/monarch-ai-skill.sh
+run_logged $MONARCH_INSTALL/config/omarchy-toggles.sh
 run_logged $MONARCH_INSTALL/config/kernel-modules-hook.sh
 run_logged $MONARCH_INSTALL/config/powerprofilesctl-rules.sh
 run_logged $MONARCH_INSTALL/config/wifi-powersave-rules.sh
@@ -45,10 +46,8 @@ run_logged $MONARCH_INSTALL/config/hardware/intel/thermald.sh
 run_logged $MONARCH_INSTALL/config/hardware/intel/ipu7-camera.sh
 run_logged $MONARCH_INSTALL/config/hardware/intel/ptl-kernel.sh
 run_logged $MONARCH_INSTALL/config/hardware/intel/fix-wifi7-eht.sh
-run_logged $MONARCH_INSTALL/config/hardware/intel/resume-boost.sh
 
 run_logged $MONARCH_INSTALL/config/hardware/dell/fix-xps-haptic-touchpad.sh
-run_logged $MONARCH_INSTALL/config/hardware/dell/fix-xps-ptl-display.sh
 
 run_logged $MONARCH_INSTALL/config/hardware/asus/fix-audio-mixer.sh
 run_logged $MONARCH_INSTALL/config/hardware/asus/fix-mic.sh

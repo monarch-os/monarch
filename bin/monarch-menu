@@ -195,7 +195,8 @@ show_share_menu() {
 }
 
 show_toggle_menu() {
-  case $(menu "Toggle" "󱄄  Screensaver\n󰔎  Nightlight\n󱫖  Idle Lock\n󰍜  Top Bar\n󱂬  Workspace Layout\n  Window Gaps\n  1-Window Ratio\n󰍹  Monitor Scaling\n󰛧  Laptop Display") in
+  local options="󱄄  Screensaver\n󰔎  Nightlight\n󱫖  Idle Lock\n󰍜  Top Bar\n󱂬  Workspace Layout\n  Window Gaps\n  1-Window Ratio\n󰍹  Monitor Scaling\n"
+  case $(menu "Toggle" "$options") in
   *Screensaver*) monarch-toggle-screensaver ;;
   *Nightlight*) monarch-toggle-nightlight ;;
   *Idle*) monarch-toggle-idle ;;
@@ -204,15 +205,26 @@ show_toggle_menu() {
   *Ratio*) monarch-hyprland-window-single-square-aspect-toggle ;;
   *Gaps*) monarch-hyprland-window-gaps-toggle ;;
   *Scaling*) monarch-hyprland-monitor-scaling-cycle ;;
-  *Laptop*) monarch-hyprland-monitor-internal-toggle ;;
   *) back_to show_trigger_menu ;;
   esac
 }
 
 show_hardware_menu() {
-  case $(menu "Toggle" "  Hybrid GPU") in
+  local options="󰛧  Laptop Display"
+
+  if monarch-hw-hybrid-gpu; then
+    options="$options\n  Hybrid GPU"
+  fi
+
+  if monarch-hw-touchpad; then
+    options="$options\n󰟸  Touchpad"
+  fi
+
+  case $(menu "Toggle" "$options") in
+  *Laptop*) monarch-hyprland-monitor-internal toggle ;;
+  *Touchpad*) monarch-toggle-touchpad ;;
   *"Hybrid GPU"*) present_terminal monarch-toggle-hybrid-gpu ;;
-  *) show_trigger_menu ;;
+  *) back_to show_trigger_menu ;;
   esac
 }
 
@@ -304,7 +316,7 @@ show_setup_config_menu() {
 show_setup_system_menu() {
   local options=""
 
-  if [[ -f ~/.local/state/monarch/toggles/suspend-off ]]; then
+  if monarch-toggle-enabled suspend-off; then
     options="$options󰒲  Enable Suspend"
   else
     options="$options󰒲  Disable Suspend"
@@ -572,9 +584,10 @@ show_update_channel_menu() {
 }
 
 show_update_process_menu() {
-  case $(menu "Restart" "  Hypridle\n  Hyprsunset\n  Swayosd\n󰌧  Walker\n󰍜  Waybar") in
+  case $(menu "Restart" "  Hypridle\n  Hyprsunset\n󰎟  Mako\n  Swayosd\n󰌧  Walker\n󰍜  Waybar") in
   *Hypridle*) monarch-restart-hypridle ;;
   *Hyprsunset*) monarch-restart-hyprsunset ;;
+  *Mako*) monarch-restart-mako ;;
   *Swayosd*) monarch-restart-swayosd ;;
   *Walker*) monarch-restart-walker ;;
   *Waybar*) monarch-restart-waybar ;;
@@ -621,7 +634,7 @@ show_about() {
 
 show_system_menu() {
   local options="󱄄  Screensaver\n  Lock"
-  [[ ! -f ~/.local/state/monarch/toggles/suspend-off ]] && options="$options\n󰒲  Suspend"
+  ! monarch-toggle-enabled suspend-off && options="$options\n󰒲  Suspend"
   monarch-hibernation-available && options="$options\n󰤁  Hibernate"
   options="$options\n󰍃  Logout\n󰜉  Restart\n󰐥  Shutdown"
 
@@ -645,8 +658,9 @@ go_to_menu() {
   case "${1,,}" in
   *apps*) walker -p "Launch…" ;;
   *learn*) show_learn_menu ;;
-  *toggle*) show_toggle_menu ;;
   *trigger*) show_trigger_menu ;;
+  *toggle*) show_toggle_menu ;;
+  *hardware*) show_hardware_menu ;;
   *share*) show_share_menu ;;
   *background*) show_background_menu ;;
   *capture*) show_capture_menu ;;

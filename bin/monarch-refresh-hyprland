@@ -7,3 +7,5 @@ monarch-refresh-config hypr/bindings.conf
 monarch-refresh-config hypr/input.conf
 monarch-refresh-config hypr/looknfeel.conf
 monarch-refresh-config hypr/hyprland.conf
+monarch-refresh-config hypr/monitors.conf
+bash "$MONARCH_PATH/install/config/detect-keyboard-layout.sh"

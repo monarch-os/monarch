@@ -1,0 +1,37 @@
+#!/bin/bash
+
+TOGGLE="internal-monitor-disable"
+
+enable() {
+  if monarch-hyprland-toggle-enabled "$TOGGLE"; then
+    monarch-hyprland-toggle --disabled-notification "󰍹    Laptop display enabled" "$TOGGLE"
+  fi
+}
+
+disable() {
+  if monarch-hw-external-monitors; then
+    if monarch-hyprland-toggle-disabled "$TOGGLE"; then
+      monarch-hyprland-toggle --enabled-notification "󰍹    Laptop display disabled" "$TOGGLE"
+    fi
+  else
+    notify-send -u low "󰍹    Can't disable the only active display"
+    exit 1
+  fi
+}
+
+recover() {
+  if ! monarch-hw-external-monitors && monarch-hyprland-toggle-enabled "$TOGGLE"; then
+    monarch-hyprland-toggle "$TOGGLE"
+  fi
+}
+
+case "$1" in
+  on) enable ;;
+  off) disable ;;
+  toggle) if monarch-hyprland-toggle-enabled "$TOGGLE"; then enable; else disable; fi ;;
+  recover) recover ;;
+  *)
+    echo "Usage: $(basename "$0") {on|off|toggle|recover}" >&2
+    exit 1
+    ;;
+esac
