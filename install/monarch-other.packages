@@ -21,7 +21,6 @@ libsass
 intel-ipu7-camera
 intel-lpmd
 intel-media-driver
-intel-media-driver
 libva-intel-driver
 libva-nvidia-driver
 limine
@@ -34,7 +33,6 @@ linux-ptl
 linux-ptl-headers
 macbook12-spi-driver-dkms
 nvidia-580xx-dkms
-nvidia-dkms
 nvidia-open-dkms
 nvidia-580xx-utils
 nvidia-utils
@@ -54,6 +52,10 @@ yay-debug
 tuxedo-drivers-nocompatcheck-dkms
 yt6801-dkms
 zram-generator
+
+# Intel encoding processing
+libvpl
+vpl-gpu-rt
 
 # Vulkan drivers (auto-detected by hardware)
 vulkan-intel
