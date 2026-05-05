@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e
 
 # Run the update inside a PTY so pacman/yay keep showing download progress

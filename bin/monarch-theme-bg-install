@@ -1,5 +1,4 @@
 #!/bin/bash
-
 CURRENT_THEME_NAME=$(cat "$HOME/.config/monarch/current/theme.name")
 THEME_USER_BACKGROUNDS="$HOME/.config/monarch/backgrounds/$CURRENT_THEME_NAME"
 

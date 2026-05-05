@@ -1,7 +1,4 @@
 #!/bin/bash
-
-# Install the NordVPN service with optional GUI.
-
 echo "Installing NordVPN..."
 monarch-pkg-aur-add nordvpn-bin
 

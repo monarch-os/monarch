@@ -1,8 +1,4 @@
 #!/bin/bash
-
-# Creates a new Monarch migration named after the unix timestamp of the last commit.
-# Only intended for Monarch developers.
-
 cd ~/.local/share/monarch
 migration_file="$HOME/.local/share/monarch/migrations/$(git log -1 --format=%cd --date=unix).sh"
 touch $migration_file

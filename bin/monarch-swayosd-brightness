@@ -1,8 +1,4 @@
 #!/bin/bash
-
-# Display brightness level using SwayOSD on the current monitor.
-# Usage: monarch-swayosd-brightness <percent>
-
 percent="$1"
 
 progress="$(awk -v p="$percent" 'BEGIN{printf "%.2f", p/100}')"

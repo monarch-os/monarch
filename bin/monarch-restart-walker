@@ -1,5 +1,4 @@
 #!/bin/bash
-
 restart_services() {
   if systemctl --user is-enabled elephant.service &>/dev/null; then
     systemctl --user restart elephant.service

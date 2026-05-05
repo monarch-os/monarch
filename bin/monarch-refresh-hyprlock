@@ -1,5 +1,2 @@
 #!/bin/bash
-
-# Overwrite the user config for hyprlock with the Monarch default.
-
 monarch-refresh-config hypr/hyprlock.conf

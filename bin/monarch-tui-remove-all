@@ -1,8 +1,4 @@
 #!/bin/bash
-
-# Remove all TUIs installed via monarch-tui-install.
-# Identifies TUIs by their Exec pattern (xdg-terminal-exec --app-id=TUI.).
-
 set -e
 
 APP_DIR="${1:-$HOME/.local/share/applications}"

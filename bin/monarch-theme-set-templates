@@ -1,5 +1,4 @@
 #!/bin/bash
-
 TEMPLATES_DIR="$MONARCH_PATH/default/themed"
 USER_TEMPLATES_DIR="$HOME/.config/monarch/themed"
 NEXT_THEME_DIR="$HOME/.config/monarch/current/next-theme"

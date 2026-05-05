@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e
 
 ICON_DIR="$HOME/.local/share/applications/icons"

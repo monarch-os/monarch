@@ -163,7 +163,7 @@
     "on-scroll-right": "",
   },
   "custom/screenrecording-indicator": {
-    "on-click": "monarch-cmd-screenrecord",
+    "on-click": "monarch-capture-screenrecording",
     "exec": "$MONARCH_PATH/default/waybar/indicators/screen-recording.sh",
     "signal": 8,
     "return-type": "json",

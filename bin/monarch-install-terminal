@@ -1,7 +1,4 @@
 #!/bin/bash
-
-# Install one of the approved terminals and set it as the default for Monarch (Super + Return etc).
-
 if (($# == 0)); then
   echo "Usage: monarch-install-terminal [alacritty|ghostty|kitty]"
   exit 1
@@ -19,6 +16,8 @@ kitty) desktop_id="kitty.desktop" ;;
   exit 1
   ;;
 esac
+
+echo "Installing $package..."
 
 # Install package
 if monarch-pkg-add $package; then

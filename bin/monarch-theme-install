@@ -1,11 +1,7 @@
 #!/bin/bash
-
-# monarch-theme-install: Install a new theme from a git repo for Monarch
-# Usage: monarch-theme-install <git-repo-url>
-
 if [[ -z $1 ]]; then
-  echo -e "\e[32mSee https://manuals.omamix.org/2/the-omarchy-manual/90/extra-themes\n\e[0m"
-  REPO_URL=$(gum input --placeholder="Git repo URL for theme" --header="")
+  echo -e "\e[32mSee https://manuals.omamix.org/2/the-monarch-manual/90/extra-themes\n\e[0m"
+  REPO_URL=$(gum input --placeholder="Git repo URL (https or git@host:org/repo.git)" --header="")
 else
   REPO_URL="$1"
 fi
@@ -15,7 +11,11 @@ if [[ -z $REPO_URL ]]; then
 fi
 
 THEMES_DIR="$HOME/.config/monarch/themes"
-THEME_NAME=$(basename "$REPO_URL" .git | sed -E 's/^monarch-//; s/-theme$//' | tr '[:upper:]' '[:lower:]')
+
+# Strip user@host: prefix from scp-style SSH URLs so basename sees just the path
+REPO_PATH="$REPO_URL"
+[[ $REPO_PATH != *"://"* && $REPO_PATH == *:*/* ]] && REPO_PATH="${REPO_PATH#*:}"
+THEME_NAME=$(basename "$REPO_PATH" .git | sed -E 's/^monarch-//; s/-theme$//' | tr '[:upper:]' '[:lower:]')
 THEME_PATH="$THEMES_DIR/$THEME_NAME"
 
 # Remove existing theme if present

@@ -1,5 +1,4 @@
 #!/bin/bash
-
 makoctl mode -t do-not-disturb
 
 if makoctl mode | grep -q 'do-not-disturb'; then

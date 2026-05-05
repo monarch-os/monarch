@@ -1,9 +1,6 @@
 #!/bin/bash
-
-# Share clipboard, file, or folder using LocalSend. Bound to Super + Ctrl + S by default.
-
 if (($# == 0)); then
-  echo "Usage: monarch-cmd-share [clipboard|file|folder]"
+  echo "Usage: monarch-menu-share [clipboard|file|folder]"
   exit 1
 fi
 

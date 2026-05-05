@@ -1,8 +1,4 @@
 #!/bin/bash
-
-# Remove all web apps installed via monarch-webapp-install.
-# Identifies web apps by their Exec pattern (monarch-launch-webapp or monarch-webapp-handler).
-
 set -e
 
 APP_DIR="${1:-$HOME/.local/share/applications}"
@@ -32,5 +28,7 @@ done
 if command -v update-desktop-database &>/dev/null; then
   update-desktop-database "$APP_DIR" &>/dev/null || true
 fi
+
+monarch-restart-walker
 
 echo "Web apps removed successfully."

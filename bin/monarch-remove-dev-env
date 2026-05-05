@@ -1,8 +1,4 @@
 #!/bin/bash
-
-# Remove a development environment that was previously installed via monarch-install-dev-env.
-# Usage: monarch-remove-dev-env <ruby|node|bun|deno|go|php|laravel|symfony|python|elixir|phoenix|zig|rust|java|dotnet|ocaml|clojure|scala>
-
 if [[ -z $1 ]]; then
   echo "Usage: monarch-remove-dev-env <ruby|node|bun|deno|go|php|laravel|symfony|python|elixir|phoenix|zig|rust|java|dotnet|ocaml|clojure|scala>" >&2
   exit 1

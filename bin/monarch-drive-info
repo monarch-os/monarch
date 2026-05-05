@@ -1,7 +1,4 @@
 #!/bin/bash
-
-# Returns drive information about a given volumne, like /dev/nvme0, which is used by monarch-drive-select.
-
 if (($# == 0)); then
   echo "Usage: monarch-drive-info [/dev/drive]"
   exit 1

@@ -108,7 +108,7 @@ cat $(which monarch-theme-set)
 | `monarch-theme-*` | Theme management | `monarch-theme-set <name>` |
 | `monarch-install-*` | Install optional software | `monarch-install-docker-dbs` |
 | `monarch-launch-*` | Launch apps | `monarch-launch-browser` |
-| `monarch-cmd-*` | System commands | `monarch-cmd-screenshot` |
+| `monarch-cmd-*` | System commands | `monarch-capture-screenshot` |
 | `monarch-pkg-*` | Package management | `monarch-pkg-install <pkg>` |
 | `monarch-setup-*` | Initial setup tasks | `monarch-setup-fingerprint` |
 | `monarch-update-*` | System updates | `monarch-update` |
@@ -308,7 +308,7 @@ monarch-font-set <name>         # Change font
 monarch-update                  # Full system update
 monarch-version                 # Show Monarch version
 monarch-debug --no-sudo --print # Debug info (ALWAYS use these flags)
-monarch-lock-screen             # Lock screen
+monarch-system-lock             # Lock screen
 monarch-system-shutdown         # Shutdown
 monarch-system-reboot           # Reboot
 ```

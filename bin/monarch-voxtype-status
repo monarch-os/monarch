@@ -1,6 +1,4 @@
 #!/bin/bash
-
-# Clean up the voxtype --follow child when Waybar reloads
 trap 'kill 0' EXIT
 
 if monarch-cmd-present voxtype; then

@@ -1,5 +1,4 @@
 #!/bin/bash
-
 update_log="/tmp/monarch-update.log"
 
 # Check for initramfs generation failure

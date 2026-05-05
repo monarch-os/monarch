@@ -1,8 +1,4 @@
 #!/bin/bash
-
-# Ensure all default .desktop, web apps, and TUIs are installed.
-
-# Copy and sync icon files
 mkdir -p ~/.local/share/icons/hicolor/48x48/apps/
 cp ~/.local/share/monarch/applications/icons/*.png ~/.local/share/icons/hicolor/48x48/apps/
 gtk-update-icon-cache ~/.local/share/icons/hicolor &>/dev/null

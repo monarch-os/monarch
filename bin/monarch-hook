@@ -1,7 +1,4 @@
 #!/bin/bash
-
-# Run a named hook, like post-update (available in ~/.config/monarch/hooks/post-update).
-
 set -e
 
 if (( $# < 1 )); then

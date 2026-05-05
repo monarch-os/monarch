@@ -1,7 +1,4 @@
 #!/bin/bash
-
-# Toggle Monarch features between enabled and disabled
-
 ENABLED_NOTIFICATION=""
 DISABLED_NOTIFICATION=""
 

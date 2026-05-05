@@ -1,8 +1,5 @@
 
 #!/bin/bash
-
-# Sets the specified image as the current background
-
 if [[ -z $1 ]]; then
   echo "Usage: monarch-theme-bg-set <path-to-image>" >&2
   exit 1

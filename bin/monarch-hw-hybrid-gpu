@@ -1,4 +1,7 @@
 
 #!/bin/bash
-
-(($(lspci | grep -cE 'VGA|3D|Display') >= 2))
+if command -v supergfxctl &>/dev/null; then
+  supergfxctl -s 2>/dev/null | grep -qw Hybrid
+else
+  (($(lspci | grep -cE 'VGA|3D|Display') >= 2))
+fi

@@ -1,7 +1,4 @@
 #!/bin/bash
-
-# Display Hyprland keybindings defined in your configuration using walker for an interactive search menu.
-
 declare -A KEYCODE_SYM_MAP
 
 build_keymap_cache() {

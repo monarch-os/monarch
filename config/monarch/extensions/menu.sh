@@ -7,7 +7,7 @@
 #
 # show_system_menu() {
 #   case $(menu "System" "  Lock\n󰐥  Shutdown") in
-#   *Lock*) monarch-lock-screen ;;
+#   *Lock*) monarch-system-lock ;;
 #   *Shutdown*) monarch-system-shutdown ;;
 #   *) back_to show_main_menu ;;
 #   esac

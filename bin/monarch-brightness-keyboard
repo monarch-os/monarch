@@ -1,8 +1,4 @@
 #!/bin/bash
-
-# Adjust keyboard backlight brightness using available steps.
-# Usage: monarch-brightness-keyboard <up|down|cycle>
-
 direction="${1:-up}"
 
 # Find keyboard backlight device (look for *kbd_backlight* pattern in leds class).

@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e
 
 COMMAND="$1"
@@ -25,6 +24,7 @@ create)
 
   for config in "${CONFIGS[@]}"; do
     sudo snapper -c "$config" create -c number -d "$DESC"
+    sudo snapper -c "$config" cleanup number
   done
   echo
   ;;

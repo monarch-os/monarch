@@ -1,5 +1,4 @@
 #!/bin/bash
-
 for dir in ~/.config/monarch/themes/*/; do
   if [[ -d $dir ]] && [[ ! -L ${dir%/} ]] && [[ -d $dir/.git ]]; then
     echo "Updating: $(basename "$dir")"

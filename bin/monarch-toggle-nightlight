@@ -1,6 +1,4 @@
 #!/bin/bash
-
-# Default temperature values
 ON_TEMP=4000
 OFF_TEMP=6000
 

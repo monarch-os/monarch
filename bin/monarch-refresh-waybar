@@ -1,7 +1,4 @@
 #!/bin/bash
-
-# Overwrite the user configs for the Waybar menu bar with the Monarch defaults and restart the service.
-
 monarch-refresh-config waybar/config.jsonc
 monarch-refresh-config waybar/style.css
 monarch-restart-waybar

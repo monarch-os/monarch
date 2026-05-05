@@ -1,5 +1,2 @@
 #!/bin/bash
-
-# Reload mako configuration (used by the Monarch theme switching).
-
 makoctl reload

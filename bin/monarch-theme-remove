@@ -1,8 +1,4 @@
 #!/bin/bash
-
-# monarch-theme-remove: Remove a theme from Monarch by name
-# Usage: monarch-theme-remove <theme-name>
-
 if [[ -z $1 ]]; then
   mapfile -t extra_themes < <(find ~/.config/monarch/themes -mindepth 1 -maxdepth 1 -type d ! -xtype l -printf '%f\n')
 

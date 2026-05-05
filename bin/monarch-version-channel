@@ -1,5 +1,4 @@
 #!/bin/bash
-
 if grep -q "https://stable-mirror.omarchy.org/" /etc/pacman.d/mirrorlist; then
   mirror="stable"
 elif grep -q "https://mirror.omarchy.org/" /etc/pacman.d/mirrorlist; then

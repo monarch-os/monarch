@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e
 
 echo -e "\e[32mUpdate Monarch\e[0m"

@@ -1,8 +1,4 @@
 #!/bin/bash
-
-# Copies the named config from ~/.local/share/monarch/config/X/Y/Z -> ~/.config/X/Y/Z.
-# If the config already exists, a backup of the existing will be taken as .bak.TIMESTAMP.
-
 config_file=$1
 
 if [[ -z $config_file ]]; then
@@ -21,6 +17,8 @@ fi
 user_config_file="${HOME}/.config/$config_file"
 default_config_file="${HOME}/.local/share/monarch/config/$config_file"
 backup_config_file="$user_config_file.bak.$(date +%s)"
+
+mkdir -p "$(dirname "$user_config_file")"
 
 if [[ -f $user_config_file ]]; then
   # Create preliminary backup

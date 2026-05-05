@@ -1,7 +1,4 @@
 #!/bin/bash
-
-# Set the branch for Monarch's git repository.
-
 if (($# == 0)); then
   echo "Usage: monarch-branch-set [master|dev]"
   exit 1

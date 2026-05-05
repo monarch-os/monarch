@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 """Haptic feedback daemon for Synaptics touchpads with Manual Trigger.
 
 Monitors touchpad button press events and sends haptic pulses via HID

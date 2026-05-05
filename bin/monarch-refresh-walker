@@ -1,8 +1,4 @@
 #!/bin/bash
-
-# Overwrite the user configs for the Walker application launcher (which also powers the Monarch Menu) and restart the services.
-
-# Ensure walker is set to autostart
 mkdir -p ~/.config/autostart/
 cp $MONARCH_PATH/default/walker/walker.desktop ~/.config/autostart/
 
@@ -17,6 +13,12 @@ monarch-refresh-config walker/config.toml
 monarch-refresh-config elephant/calc.toml
 monarch-refresh-config elephant/desktopapplications.toml
 monarch-refresh-config elephant/websearch.toml
+
+# Link all elephant menus
+mkdir -p ~/.config/elephant/menus
+for menu in $MONARCH_PATH/default/elephant/*.lua; do
+  ln -snf "$menu" ~/.config/elephant/menus/"$(basename "$menu")"
+done
 
 # Restart service
 monarch-restart-walker

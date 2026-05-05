@@ -1,10 +1,8 @@
 
 #!/bin/bash
-
-# Install and launch Geforce Now.
-
 set -e
 
+echo "Installing GeForce NOW..."
 monarch-pkg-add flatpak
 cd /tmp
 
