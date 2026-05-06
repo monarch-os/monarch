@@ -1,4 +1,4 @@
-echo "Add RF Swift + Pentest Environment menus and route CTRL+ALT+E to the dispatcher"
+echo "Add RF Swift + Pentest Environment menus, route CTRL+ALT+E to dispatcher, add Obsidian binding"
 
 # Link the RF Swift and Pentest Environment Elephant menu plugins
 mkdir -p ~/.config/elephant/menus
@@ -33,10 +33,17 @@ if ! grep -q 'menus:monarchPentestEnv' ~/.config/walker/config.toml; then
 EOF
 fi
 
-# Point the CTRL+ALT+E Hyprland binding at the unified pentestenv dispatcher
 HYPR_BINDINGS_FILE="$HOME/.config/hypr/bindings.conf"
 if [[ -f $HYPR_BINDINGS_FILE ]]; then
-  sed -i 's|^bindd = CTRL ALT, E, Exegol, exec, monarch-menu-exegol$|bindd = CTRL ALT, E, Exegol, exec, monarch-menu-pentestenv|' "$HYPR_BINDINGS_FILE"
+  # Point the CTRL+ALT+E Hyprland binding at the unified pentestenv dispatcher
+  # (catches the bare and the setsid/uwsm-app variants)
+  sed -i -E 's|^bindd = CTRL ALT, E, Exegol, exec, (setsid )?(uwsm-app -- )?monarch-menu-exegol$|bindd = CTRL ALT, E, Exegol, exec, monarch-menu-pentestenv|' "$HYPR_BINDINGS_FILE"
+
+  # Add Obsidian binding (introduced in Omarchy 3.7.0 sync)
+  if ! grep -q "bindd = SUPER SHIFT, O, Obsidian" "$HYPR_BINDINGS_FILE"; then
+    sed -i '/bindd = SUPER SHIFT, D, Docker, exec, monarch-launch-tui lazydocker/a \
+bindd = SUPER SHIFT, O, Obsidian, exec, monarch-launch-or-focus ^obsidian$ "uwsm-app -- obsidian"' "$HYPR_BINDINGS_FILE"
+  fi
 fi
 
 monarch-restart-walker
