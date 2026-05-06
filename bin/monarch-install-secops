@@ -1,5 +1,8 @@
 #!/bin/zsh
 
+# monarch:summary=Install SecOps tools like RDP client and SSH manager
+# monarch:requires-sudo=true
+
 TOOLS_DIR=/opt/secops
 [ ! -d $TOOLS_DIR ] && sudo chown $USER:$USER /opt && mkdir -p /opt/secops
 

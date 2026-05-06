@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# monarch:summary=Toggle microphone mute. Drives the hardware mic-mute LED on laptops that expose one.
+
 wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle >/dev/null
 
 if pactl get-source-mute @DEFAULT_SOURCE@ | rg -q 'yes'; then

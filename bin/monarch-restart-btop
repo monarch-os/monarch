@@ -1,2 +1,5 @@
 #!/bin/bash
+
+# monarch:summary=Reload btop configuration (used by the Monarch theme switching).
+
 pkill -SIGUSR2 btop

@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# monarch:summary=Install one of the approved terminals and set it as the default for Monarch (Super + Return etc).
+# monarch:args=<alacritty|ghostty|kitty>
+# monarch:requires-sudo=true
+
 if (($# == 0)); then
   echo "Usage: monarch-install-terminal [alacritty|ghostty|kitty]"
   exit 1

@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Reset all Monarch user configs to the defaults
+# monarch:requires-sudo=true
+
 set -e
 
 # Overwrite all user configs with the Monarch defaults.

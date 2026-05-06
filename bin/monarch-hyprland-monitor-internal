@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Enable, disable, toggle, or recover the internal laptop display
+# monarch:args=<on|off|toggle|recover>
+
 TOGGLE="internal-monitor-disable"
 TOGGLE_FLAG="$HOME/.local/state/monarch/toggles/hypr/$TOGGLE.conf"
 MIRROR_TOGGLE="internal-monitor-mirror"

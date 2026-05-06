@@ -6,7 +6,7 @@ sudo ufw default allow outgoing
 sudo ufw allow 53317/udp
 sudo ufw allow 53317/tcp
 
-# Allow Docker containers to use DNS on host
+# Allow Docker containers to use DNS on host (monarch uses 10.66.0.1/16 bridge — see install/config/docker.sh)
 sudo ufw allow in proto udp from 10.66.0.0/12 to 10.66.0.1 port 53 comment 'allow-docker-dns'
 
 # Turn on the firewall

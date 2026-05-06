@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# monarch:summary=Returns the battery full capacity in Wh (rounded to whole number).
+
 battery_info=$(upower -i $(upower -e | grep BAT))
 
 echo "$battery_info" | awk '/energy-full:/ {

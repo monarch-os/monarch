@@ -1,3 +1,5 @@
 #!/bin/bash
 
+# monarch:summary=Print the installed Monarch version
+
 cat $MONARCH_PATH/version

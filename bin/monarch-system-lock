@@ -1,4 +1,10 @@
 #!/bin/bash
+
+# monarch:summary=Lock the screen
+# monarch:group=system
+# monarch:name=lock
+# monarch:examples=monarch system lock
+
 pidof hyprlock || hyprlock &
 
 # Set keyboard layout to default (first layout)

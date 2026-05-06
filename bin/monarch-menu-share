@@ -1,4 +1,11 @@
 #!/bin/bash
+
+# monarch:summary=Share clipboard, files, or folders with LocalSend
+# monarch:group=share
+# monarch:name=
+# monarch:args=<clipboard|file|folder> [path...]
+# monarch:examples=monarch share clipboard | monarch share file ~/Downloads/example.txt
+
 if (($# == 0)); then
   echo "Usage: monarch-menu-share [clipboard|file|folder]"
   exit 1

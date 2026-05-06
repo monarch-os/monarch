@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Install an npx wrapper for a given npm package.
+# monarch:args=<package> [command-name]
+
 if [[ -z $1 ]]; then
   echo "Usage: monarch-npx-install <package> [command-name]"
   exit 1

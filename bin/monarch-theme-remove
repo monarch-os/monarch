@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# monarch:summary=Remove a user-installed theme
+# monarch:args=[theme-name]
+# monarch:examples=monarch theme remove "Tokyo Night"
+
 if [[ -z $1 ]]; then
   mapfile -t extra_themes < <(find ~/.config/monarch/themes -mindepth 1 -maxdepth 1 -type d ! -xtype l -printf '%f\n')
 

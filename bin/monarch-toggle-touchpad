@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Enable, disable, or toggle the touchpad
+# monarch:args=[on|off|toggle]
+
 STATE_CONF="$HOME/.local/state/monarch/toggles/hypr/touchpad-disabled.conf"
 
 device="$(monarch-hw-touchpad)"

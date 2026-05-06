@@ -1,4 +1,10 @@
 #!/bin/bash
+
+# monarch:summary=Set the Monarch and Monarch channel, which dictates what git branch and package repository is used.
+# monarch:args=<stable|edge|dev>
+# monarch:requires-sudo=true
+
+
 if (($# == 0)); then
   echo "Usage: monarch-channel-set [stable|edge|dev]"
   exit 1

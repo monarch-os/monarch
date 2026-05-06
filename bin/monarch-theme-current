@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Show current theme
+# monarch:examples=monarch theme current
+
 THEME_NAME_PATH="$HOME/.config/monarch/current/theme.name"
 
 if [[ -f $THEME_NAME_PATH ]]; then

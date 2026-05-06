@@ -1,6 +1,9 @@
 #!/bin/bash
 
-# Return exhaustive debugging information about the system to help diagnose problems.
+# monarch:summary=Print debugging information
+# monarch:args=[--no-sudo] [--print]
+# monarch:examples=monarch debug --print --no-sudo
+# monarch:requires-sudo=true
 
 NO_SUDO=false
 PRINT_ONLY=false

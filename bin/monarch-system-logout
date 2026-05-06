@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# monarch:summary=Log out after closing application windows
+# monarch:examples=monarch logout | monarch system logout
+# monarch:aliases=monarch logout
+
 nohup bash -c "sleep 2 && uwsm stop" >/dev/null 2>&1 &
 
 # Now close all windows

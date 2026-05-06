@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Install LazyVPN - WireGuard VPN manager with TUI
+# monarch:summary=Install LazyVPN (a WireGuard VPN manager with TUI)
 
 echo "Installing monarch-lazyvpn..."
 monarch-pkg-add monarch-lazyvpn

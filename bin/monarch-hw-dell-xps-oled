@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Match Dell XPS systems with LG OLED panel on Intel Panther Lake (Xe3) GPU.
+# monarch:summary=Match Dell XPS systems with LG OLED panel on Intel Panther Lake (Xe3) GPU.
 
 monarch-hw-match "XPS" \
   && monarch-hw-intel-ptl \

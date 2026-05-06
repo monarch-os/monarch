@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# monarch:summary=Add the named packages to the system from the AUR if they're missing. Returns false if it couldn't be done.
+# monarch:args=<packages...>
+
+
 if monarch-pkg-missing "$@"; then
   yay -S --noconfirm --needed "$@" || exit 1
 fi

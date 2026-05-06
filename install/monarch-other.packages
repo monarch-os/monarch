@@ -7,7 +7,6 @@ base
 base-devel
 broadcom-wl
 btrfs-progs
-dart
 dkms
 egl-wayland
 git
@@ -17,7 +16,6 @@ htop
 intltool
 jdk-openjdk
 libpulse
-libsass
 intel-ipu7-camera
 intel-lpmd
 intel-media-driver
@@ -43,11 +41,9 @@ pipewire-alsa
 pipewire-jack
 pipewire-pulse
 qt6-wayland
-sassc
 snapper
 thermald
 webp-pixbuf-loader
-wget
 yay-debug
 tuxedo-drivers-nocompatcheck-dkms
 yt6801-dkms

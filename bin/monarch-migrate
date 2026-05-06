@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# monarch:summary=Run all pending migrations to bring the system in line with the installed version.
+
 STATE_DIR="$HOME/.local/state/monarch/migrations"
 mkdir -p "$STATE_DIR"
 

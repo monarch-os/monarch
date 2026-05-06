@@ -11,7 +11,7 @@ fi
 echo "Copy hooks examples"
 cp -r $MONARCH_PATH/config/monarch/* $HOME/.config/monarch/
 
-echo "Add packages for updated monarch-cmd-screenshot"
+echo "Add packages for updated monarch-capture-screenshot"
 monarch-pkg-add grim slurp
 
 echo "Add nfs support by default to Nautilus"

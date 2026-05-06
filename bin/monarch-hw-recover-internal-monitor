@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# monarch:summary=Clear the internal-monitor-disable toggle if no external display is connected.
+
 TOGGLE="$HOME/.local/state/monarch/toggles/hypr/internal-monitor-disable.conf"
 
 if [[ -f $TOGGLE ]] && ! monarch-hw-external-monitors; then

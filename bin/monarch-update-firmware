@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Update system firmware using fwupd. Ensures the fwupd EFI binary is installed
+# monarch:requires-sudo=true
+
 set -e
 echo -e "\e[32mUpdate Firmware\e[0m"
 

@@ -1,5 +1,8 @@
-
 #!/bin/bash
+
+# monarch:summary=Adjust brightness on the most likely display device.
+# monarch:args=<step>
+
 step="${1:-+5%}"
 
 if monarch-hyprland-monitor-focused-apple; then

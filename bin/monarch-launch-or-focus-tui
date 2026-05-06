@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Launch a TUI or focus an existing terminal window for it
+# monarch:args=<command> [args...]
+
 APP_ID="org.monarch.$(basename "$1")"
 LAUNCH_COMMAND="monarch-launch-tui $@"
 

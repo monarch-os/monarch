@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# monarch:summary=Set up or remove fingerprint authentication for sudo, polkit, and lock screen
+# monarch:args=[--remove]
+# monarch:requires-sudo=true
+
 set -e
 
 GREEN='\033[0;32m'

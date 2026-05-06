@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# monarch:summary=Install Proton Suite (VPN, Pass, Mail), enable VPN background service.
+# monarch:requires-sudo=true
+
 echo "Installing all dependencies..."
 monarch-pkg-add openvpn wireguard-tools
 

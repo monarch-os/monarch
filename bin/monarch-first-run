@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Finish the installation of Monarch with items that can only be done after logging in.
+# monarch:requires-sudo=true
+
 set -e
 
 FIRST_RUN_MODE=~/.local/state/monarch/first-run.mode

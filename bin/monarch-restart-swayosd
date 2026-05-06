@@ -1,2 +1,5 @@
 #!/bin/bash
+
+# monarch:summary=Restart the SwayOSD server
+
 monarch-restart-app swayosd-server

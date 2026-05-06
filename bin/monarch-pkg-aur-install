@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Show a fuzzy-finder TUI for picking new AUR packages to install.
+# monarch:requires-sudo=true
+
 fzf_args=(
   --multi
   --preview 'yay -Siia {1}'

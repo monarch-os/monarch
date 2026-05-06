@@ -1,4 +1,10 @@
 #!/bin/bash
+
+# monarch:summary=Update Monarch and system packages
+# monarch:args=[-y]
+# monarch:examples=monarch update | monarch update -y
+# monarch:requires-sudo=true
+
 set -e
 
 # Run the update inside a PTY so pacman/yay keep showing download progress

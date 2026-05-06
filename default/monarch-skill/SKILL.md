@@ -29,19 +29,19 @@ It is not for contributing to Monarch source code.
 - Window behavior, animations, opacity, blur, gaps, borders
 - Layer rules, workspace settings, display/monitor configuration
 - Themes, wallpapers, fonts, appearance changes
-- User-facing `monarch-*` commands (`monarch-theme-*`, `monarch-refresh-*`, `monarch-restart-*`, etc.)
+- User-facing `omarchy` commands (`omarchy theme ...`, `omarchy refresh ...`, `omarchy restart ...`, etc.)
 - Screenshots, screen recording, night light, idle behavior, lock screen
 
 **If you're about to edit a config file in ~/.config/ on this system, STOP and use this skill first.**
 
-**Do NOT use this skill for Monarch development tasks** (editing files in `~/.local/share/monarch/`, creating migrations, or running `monarch-dev-*` workflows).
+**Do NOT use this skill for Monarch development tasks** (editing files in `~/.local/share/monarch/`, creating migrations, or running `omarchy dev ...` workflows).
 
 ## Critical Safety Rules
 
 **For end-user customization tasks, NEVER modify anything in `~/.local/share/monarch/`** - but READING is safe and encouraged.
 
 This directory contains Monarch's source files managed by git. Any changes will be:
-- Lost on next `monarch-update`
+- Lost on next `omarchy update`
 - Cause conflicts with upstream
 - Break the system's update mechanism
 
@@ -84,15 +84,22 @@ Monarch is built on:
 
 ## Command Discovery
 
-Monarch provides ~145 commands following `monarch-<category>-<action>` pattern.
+Monarch ships a single `omarchy` CLI that dispatches to all `monarch-*` binaries via `omarchy <group> <action>`. Always prefer this form — it is self-documenting and stable. The underlying `monarch-*` binaries still exist on `PATH` and remain safe to read for source.
 
 ```bash
 # List all monarch commands
 compgen -c | grep -E '^monarch-' | sort -u
 
-# Find commands by category
-compgen -c | grep -E '^monarch-theme'
-compgen -c | grep -E '^monarch-restart'
+# Show the commands inside a group
+omarchy theme --help
+omarchy refresh --help
+omarchy restart --help
+
+# Show help for a specific command (does not execute it)
+omarchy theme set --help
+
+# Machine-readable listing (binary, route, summary, args, aliases)
+omarchy commands --json
 
 # Read a command's source to understand it
 cat $(which monarch-theme-set)
@@ -134,7 +141,9 @@ cat $(which monarch-theme-set)
 **Key behaviors:**
 - Hyprland auto-reloads on config save (no restart needed for most changes)
 - Use `hyprctl reload` to force reload
-- Use `monarch-refresh-hyprland` to reset to defaults
+- After ANY Hyprland config change, validate with `hyprctl reload` followed by `hyprctl configerrors`
+- If `hyprctl configerrors` reports errors, address them and rerun validation until clean or until a real blocker is identified
+- Use `omarchy refresh hyprland` to reset to defaults
 
 ### Waybar (Status Bar)
 
@@ -144,9 +153,9 @@ cat $(which monarch-theme-set)
 └── style.css          # Styling
 ```
 
-**Waybar does NOT auto-reload.** You MUST run `monarch-restart-waybar` after any config changes.
+**Waybar does NOT auto-reload.** You MUST run `omarchy restart waybar` after any config changes.
 
-**Commands:** `monarch-restart-waybar`, `monarch-refresh-waybar`, `monarch-toggle-waybar`
+**Commands:** `omarchy restart waybar`, `omarchy refresh waybar`, `omarchy toggle waybar`
 
 ### Terminals
 
@@ -156,7 +165,7 @@ cat $(which monarch-theme-set)
 ~/.config/ghostty/config
 ```
 
-**Command:** `monarch-restart-terminal`
+**Command:** `omarchy restart terminal`
 
 ### Other Configs
 
@@ -185,10 +194,10 @@ cp ~/.config/hypr/bindings.conf ~/.config/hypr/bindings.conf.bak.$(date +%s)
 # 3. Make changes with Edit tool
 
 # 4. Apply changes
-# - Hyprland: auto-reloads on save (no restart needed)
-# - Waybar: MUST restart with monarch-restart-waybar
-# - Walker: MUST restart with monarch-restart-walker
-# - Terminals: MUST restart with monarch-restart-terminal
+# - Hyprland: auto-reloads on save, but MUST validate with `hyprctl reload` and `hyprctl configerrors`
+# - Waybar: MUST restart with `omarchy restart waybar`
+# - Walker: MUST restart with `omarchy restart walker`
+# - Terminals: MUST restart with `omarchy restart terminal`
 ```
 
 ### Pattern 2: Make a new theme
@@ -196,7 +205,7 @@ cp ~/.config/hypr/bindings.conf ~/.config/hypr/bindings.conf.bak.$(date +%s)
 1. Create a directory under ~/.config/monarch/themes.
 2. See how an existing theme is done via ~/.local/share/monarch/themes/catppuccin.
 3. Download a matching background (or several) from the internet and put them in ~/.config/monarch/themes/[name-of-new-theme]
-4. When done with the theme, run monarch-theme-set "Name of new theme"
+4. When done with the theme, run `omarchy theme set "Name of new theme"`
 
 ### Pattern 3: Use Hooks for Automation
 
@@ -207,7 +216,7 @@ Create scripts in `~/.config/monarch/hooks/` to run automatically on events:
 ~/.config/monarch/hooks/
 ├── theme-set        # Runs after theme change (receives theme name as $1)
 ├── font-set         # Runs after font change
-└── post-update      # Runs after monarch-update
+└── post-update      # Runs after `omarchy update`
 ```
 
 Example hook (`~/.config/monarch/hooks/theme-set`):
@@ -224,8 +233,8 @@ When customizations go wrong:
 
 ```bash
 # Reset specific config (creates backup automatically)
-monarch-refresh-waybar
-monarch-refresh-hyprland
+omarchy refresh waybar
+omarchy refresh hyprland
 
 # The refresh command:
 # 1. Backs up current config with timestamp
@@ -238,12 +247,11 @@ monarch-refresh-hyprland
 ### Themes
 
 ```bash
-monarch-theme-list              # Show available themes
-monarch-theme-current           # Show current theme
-monarch-theme-set <name>        # Apply theme (use "Tokyo Night" not "tokyo-night")
-monarch-theme-next              # Cycle to next theme
-monarch-theme-bg-next           # Cycle wallpaper
-monarch-theme-install <url>     # Install from git repo
+omarchy theme list              # Show available themes
+omarchy theme current           # Show current theme
+omarchy theme set <name>        # Apply theme (use "Tokyo Night" not "tokyo-night")
+omarchy theme bg next           # Cycle wallpaper
+omarchy theme install <url>     # Install from git repo
 ```
 
 ### Keybindings
@@ -255,11 +263,11 @@ bind = SUPER, Q, killactive
 bind = SUPER SHIFT, E, exit
 ```
 
-View current bindings: `monarch-menu-keybindings --print`
+View current bindings: `omarchy menu keybindings --print`
 
 **IMPORTANT: When re-binding an existing key:**
 
-1. First check existing bindings: `monarch-menu-keybindings --print`
+1. First check existing bindings: `omarchy menu keybindings --print`
 2. If the key is already bound, you MUST add an `unbind` directive BEFORE your new `bind`
 3. Inform the user what the key was previously bound to
 
@@ -297,9 +305,9 @@ Window rules go in `~/.config/hypr/hyprland.conf` or a sourced file. Always veri
 ### Fonts
 
 ```bash
-monarch-font-list               # Available fonts
-monarch-font-current            # Current font
-monarch-font-set <name>         # Change font
+omarchy font list               # Available fonts
+omarchy font current            # Current font
+omarchy font set <name>         # Change font
 ```
 
 ### System
@@ -313,27 +321,27 @@ monarch-system-shutdown         # Shutdown
 monarch-system-reboot           # Reboot
 ```
 
-**IMPORTANT:** Always run `monarch-debug` with `--no-sudo --print` flags to avoid interactive sudo prompts that will hang the terminal.
+**IMPORTANT:** Always run `omarchy debug` with `--no-sudo --print` flags to avoid interactive sudo prompts that will hang the terminal.
 
 ## Troubleshooting
 
 ```bash
 # Get debug information (ALWAYS use these flags to avoid interactive prompts)
-monarch-debug --no-sudo --print
+omarchy debug --no-sudo --print
 
 # Upload logs for support
-monarch-upload-log
+omarchy upload log
 
 # Reset specific config to defaults
-monarch-refresh-<app>
+omarchy refresh <app>
 
 # Refresh specific config file
 # config-file path is relative to ~/.config/
-# eg. monarch-refresh-config hypr/hyprlock.conf will refresh ~/.config/hypr/hyprlock.conf
-monarch-refresh-config <config-file>
+# eg. `omarchy refresh config hypr/hyprlock.conf` will refresh ~/.config/hypr/hyprlock.conf
+omarchy refresh config <config-file>
 
 # Full reinstall of configs (nuclear option)
-monarch-reinstall
+omarchy reinstall
 ```
 
 ## Decision Framework
@@ -352,15 +360,15 @@ When user requests system changes:
 This skill intentionally does not cover Monarch source development. Do not use this skill for:
 - Editing files in `~/.local/share/monarch/` (`bin/`, `config/`, `default/`, `themes/`, `migrations/`, etc.)
 - Creating or editing migrations
-- Running `monarch-dev-*` commands
+- Running `omarchy dev ...` commands
 
 ## Example Requests
 
-- "Change my theme to catppuccin" -> `monarch-theme-set catppuccin`
+- "Change my theme to catppuccin" -> `omarchy theme set catppuccin`
 - "Add a keybinding for Super+E to open file manager" -> Check existing bindings first, add `unbind` if needed, then add `bind` in `~/.config/hypr/bindings.conf`
 - "Configure my external monitor" -> Edit `~/.config/hypr/monitors.conf`
 - "Make the window gaps smaller" -> Edit `~/.config/hypr/looknfeel.conf`
-- "Set up night light to turn on at sunset" -> `monarch-toggle-nightlight` or edit `~/.config/hypr/hyprsunset.conf`
+- "Set up night light to turn on at sunset" -> `omarchy toggle nightlight` or edit `~/.config/hypr/hyprsunset.conf`
 - "Customize the catppuccin theme colors" -> Create `~/.config/monarch/themes/catppuccin-custom/` by copying from stock, then edit
 - "Run a script every time I change themes" -> Create `~/.config/monarch/hooks/theme-set`
-- "Reset waybar to defaults" -> `monarch-refresh-waybar`
+- "Reset waybar to defaults" -> `omarchy refresh waybar`

@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# monarch:summary=Apply an Monarch theme
+# monarch:args=<theme-name>
+# monarch:examples=monarch theme list | monarch theme set "Tokyo Night"
+
 if [[ -z $1 ]]; then
   echo "Usage: monarch-theme-set <theme-name>"
   exit 1

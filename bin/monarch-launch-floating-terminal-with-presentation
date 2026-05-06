@@ -1,3 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Launch a floating terminal with the Monarch presentation wrapper
+# monarch:args=<command>
+
+
 cmd="$*"
 exec setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Monarch -e bash -c "monarch-show-logo; $cmd; if (( \$? != 130 )); then monarch-show-done; fi"

@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# monarch:summary=Launch Walker and ensure its Elephant data provider is running
+
 if ! pgrep -x elephant > /dev/null; then
   setsid uwsm-app -- elephant &
 fi

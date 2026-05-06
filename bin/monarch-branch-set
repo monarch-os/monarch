@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Set the branch for Monarch's git repository.
+# monarch:args=<master|dev>
+
 if (($# == 0)); then
   echo "Usage: monarch-branch-set [master|dev]"
   exit 1

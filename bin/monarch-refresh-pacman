@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Overwrite the package configuration for /etc/pacman with the Monarch default of using its dedicated mirrors and repositories, then update all packages.
+# monarch:requires-sudo=true
+
 sudo cp -f /etc/pacman.conf /etc/pacman.conf.bak
 sudo cp -f /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
 

@@ -1,2 +1,6 @@
 #!/bin/bash
+
+# monarch:summary=Check if a toggle is enabled (flag file exists)
+# monarch:args=<flag-name>
+
 [[ -f "$HOME/.local/state/monarch/toggles/$1" ]]

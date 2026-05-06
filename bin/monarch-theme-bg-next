@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Cycle to the next background for the current theme
+# monarch:examples=monarch theme bg next
+
 THEME_NAME=$(cat "$HOME/.config/monarch/current/theme.name" 2>/dev/null)
 THEME_BACKGROUNDS_PATH="$HOME/.config/monarch/current/theme/backgrounds/"
 USER_BACKGROUNDS_PATH="$HOME/.config/monarch/backgrounds/$THEME_NAME/"

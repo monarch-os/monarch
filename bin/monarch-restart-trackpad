@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Reset the trackpad by unbinding and rebinding its driver.
+# monarch:requires-sudo=true
+
 for dev in /sys/bus/i2c/drivers/i2c_hid_acpi/i2c-*; do
   [ -e "$dev" ] || continue
   I2C_DEVICE=$(basename "$dev")

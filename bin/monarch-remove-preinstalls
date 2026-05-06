@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# monarch:summary=Remove preinstalled Monarch applications (web apps, TUIs, and selected packages).
+
 if gum confirm "Are you sure you want to remove all preinstalled web apps, TUI wrappers, and desktop applications?"; then
   echo -e "Removing preinstalled Monarch applications...\n"
 

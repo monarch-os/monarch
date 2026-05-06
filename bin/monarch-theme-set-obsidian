@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# monarch:summary=Sync Monarch theme to all Obsidian vaults
+
 CURRENT_THEME_DIR="$HOME/.config/monarch/current/theme"
 
 [[ -f $CURRENT_THEME_DIR/obsidian.css ]] || exit 0

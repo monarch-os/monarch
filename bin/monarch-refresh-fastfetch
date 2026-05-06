@@ -1,2 +1,5 @@
 #!/bin/bash
+
+# monarch:summary=Overwrite the user config for fastfetch with the Monarch default.
+
 monarch-refresh-config fastfetch/config.jsonc

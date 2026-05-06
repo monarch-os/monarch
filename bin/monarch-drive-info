@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Print drive information such as size, model, and mount details
+# monarch:args=<drive>
+
 if (($# == 0)); then
   echo "Usage: monarch-drive-info [/dev/drive]"
   exit 1

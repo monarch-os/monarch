@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+# monarch:summary=Run the Synaptics touchpad haptic feedback daemon
+
 """Haptic feedback daemon for Synaptics touchpads with Manual Trigger.
 
 Monitors touchpad button press events and sends haptic pulses via HID

@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# monarch:summary=Check the update log for known failure conditions
+
 update_log="/tmp/monarch-update.log"
 
 # Check for initramfs generation failure

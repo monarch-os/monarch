@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# monarch:summary=Overwrite the user tmux config with the monarch default and reload tmux.
+
 monarch-refresh-config tmux/tmux.conf
 
 monarch-restart-tmux

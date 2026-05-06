@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Toggle to pop-out a tile to stay fixed on a display basis.
+# monarch:args=[width height x y]
+
 width=${1:-1300}
 height=${2:-900}
 x=${3:-}

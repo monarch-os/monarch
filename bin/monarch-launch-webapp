@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Launch a URL as a web app in the default supported browser
+# monarch:args=<url>
+
 browser=$(xdg-settings get default-web-browser)
 
 case $browser in

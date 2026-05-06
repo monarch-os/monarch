@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Install the Tailscale mesh VPN service and a web app for the Tailscale Admin Console.
+# monarch:requires-sudo=true
+
 echo -e "\nInstalling Tailscale..."
 monarch-pkg-add tailscale
 

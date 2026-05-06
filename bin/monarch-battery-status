@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# monarch:summary=Returns a formatted battery status string with percentage and power draw/charge.
+
 battery_info=$(upower -i $(upower -e | grep BAT))
 
 percentage=$(echo "$battery_info" | awk '/percentage/ {

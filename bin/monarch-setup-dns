@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# monarch:summary=Configure the system DNS provider
+# monarch:args=[Cloudflare|Google|DHCP|Custom]
+# monarch:requires-sudo=true
+
 lock_dns_to_resolved() {
   for file in /etc/systemd/network/*.network; do
     [[ -f $file ]] || continue

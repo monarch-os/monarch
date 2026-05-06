@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Add or remove an EFI boot entry for the Monarch UKI, allowing the system to boot directly
+# monarch:requires-sudo=true
+
 if [[ ! -d /sys/firmware/efi ]]; then
   echo "Error: System is not booted in UEFI mode" >&2
   exit 1

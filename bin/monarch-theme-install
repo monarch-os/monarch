@@ -1,4 +1,10 @@
 #!/bin/bash
+
+# monarch:summary=Install a theme from a git repository
+# monarch:args=[git-repo-url]
+# monarch:examples=monarch theme install https://github.com/example/monarch-example-theme.git
+# monarch:examples=monarch theme install git@github.com:example/monarch-example-theme.git
+
 if [[ -z $1 ]]; then
   echo -e "\e[32mSee https://manuals.omamix.org/2/the-monarch-manual/90/extra-themes\n\e[0m"
   REPO_URL=$(gum input --placeholder="Git repo URL (https or git@host:org/repo.git)" --header="")

@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# monarch:summary=Run the Monarch screensaver using random effects from TTE.
+
 screensaver_in_focus() {
   hyprctl activewindow -j | jq -e '.class == "org.monarch.screensaver"' >/dev/null 2>&1
 }

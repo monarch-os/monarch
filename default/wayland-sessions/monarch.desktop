@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Monarch (Hyprland uwsm)
+Comment=Monarch Hyprland session managed by uwsm
+Exec=uwsm start -g -1 -e -D Hyprland hyprland.desktop
+TryExec=uwsm
+Type=Application

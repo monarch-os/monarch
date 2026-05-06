@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# monarch:summary=Create or restore system snapshots with snapper
+# monarch:args=<create|restore>
+# monarch:requires-sudo=true
+
 set -e
 
 COMMAND="$1"

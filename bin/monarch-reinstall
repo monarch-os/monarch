@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# monarch:summary=Reinstall Monarch packages and reset default configs
+# monarch:requires-sudo=true
+
 set -e
 
 # Attempt to reinstall all default Monarch packages and reset all the default configs.

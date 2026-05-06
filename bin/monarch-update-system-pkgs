@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Update system packages with pacman
+# monarch:requires-sudo=true
+
 set -e
 
 echo -e "\e[32m\nUpdate system packages\e[0m"

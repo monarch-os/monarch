@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Upload logs to 0x0.st
+# monarch:args=<log-file>
+
 LOG_TYPE="${1:-install}"
 TEMP_LOG="/tmp/upload-log.txt"
 SYSTEM_INFO="/tmp/system-info.txt"

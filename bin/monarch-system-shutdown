@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# monarch:summary=Shut down after closing application windows
+# monarch:examples=monarch shutdown | monarch system shutdown
+# monarch:aliases=monarch shutdown
+
 monarch-state clear re*-required
 
 # Schedule the shutdown to happen after closing windows (detached from terminal)

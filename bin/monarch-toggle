@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Toggle Monarch features between enabled and disabled
+# monarch:args=[--enabled-notification <text>] [--disabled-notification <text>] <flag-name>
+
 ENABLED_NOTIFICATION=""
 DISABLED_NOTIFICATION=""
 

@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Create a desktop launcher for a terminal UI app
+# monarch:args=[name command window-style icon-url]
+
 set -e
 
 if (( $# != 4 )); then

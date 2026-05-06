@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Copies the named config from ~/.local/share/monarch/config/X/Y/Z -> ~/.config/X/Y/Z.
+# monarch:args=<config-path>
+
 config_file=$1
 
 if [[ -z $config_file ]]; then

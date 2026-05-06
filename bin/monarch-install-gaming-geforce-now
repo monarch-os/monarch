@@ -1,5 +1,7 @@
-
 #!/bin/bash
+
+# monarch:summary=Install and launch Geforce Now.
+
 set -e
 
 echo "Installing GeForce NOW..."

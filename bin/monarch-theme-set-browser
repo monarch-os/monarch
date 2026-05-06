@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# monarch:summary=Apply the current theme color to Chromium and Brave
+
 CHROMIUM_THEME=~/.config/monarch/current/theme/chromium.theme
 
 if monarch-cmd-present chromium || monarch-cmd-present brave || monarch-cmd-present brave-origin-beta; then

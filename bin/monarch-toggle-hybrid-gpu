@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Toggle dedicated vs integrated GPU mode via supergfxd (for hybrid gpu laptops, like Asus G14).
+# monarch:requires-sudo=true
+
 if monarch-cmd-missing supergfxctl; then
   monarch-pkg-add supergfxctl
 

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# monarch:summary=Install displaylink drivers
+# monarch:requires-sudo=true
+
 yay -S --noconfirm linux-headers evdi-dkms displaylink
 
 sudo systemctl enable --now displaylink

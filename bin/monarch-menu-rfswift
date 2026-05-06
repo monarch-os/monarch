@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# Manage RF Swift containers via Walker menu or direct sub-commands.
-# Called directly for the Walker menu, or with sub-commands from the Elephant Lua plugin.
+# monarch:summary=Display RFSwift wrapper
 
 export PATH="$HOME/.local/bin:$PATH"
 

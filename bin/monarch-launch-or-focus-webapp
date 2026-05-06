@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Launch or focus on a given web app identified by the window-pattern.
+# monarch:args=<window-pattern> <url-and-flags...>
+
 if (($# == 0)); then
   echo "Usage: monarch-launch-or-focus-webapp [window-pattern] [url-and-flags...]"
   exit 1

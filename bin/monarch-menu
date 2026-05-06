@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# monarch:summary=Launch the Monarch Menu or takes a parameter to jump straight to a submenu.
+
 # Set to true when going directly to a submenu, so we can exit directly
 BACK_TO_EXIT=false
 
@@ -237,7 +240,7 @@ show_hardware_menu() {
 show_style_menu() {
   case $(menu "Style" "󰸌  Theme\n󰟵  Unlock\n  Font\n  Background\n  Hyprland\n󱄄  Screensaver\n  About") in
   *Theme*) show_theme_menu ;;
-  *Unlock*) monarch-launch-walker -m menus:omarchyunlocks --width 800 --minheight 400 ;;
+  *Unlock*) monarch-launch-walker -m menus:monarchunlocks --width 800 --minheight 400 ;;
   *Font*) show_font_menu ;;
   *Background*) show_background_menu ;;
   *Hyprland*) open_in_editor ~/.config/hypr/looknfeel.conf ;;

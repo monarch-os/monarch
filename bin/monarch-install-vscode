@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# monarch:summary=Install VS Code and configure Monarch defaults for secrets, updates, and theme
+
 echo "Installing VSCode..."
 monarch-pkg-add visual-studio-code-bin
 

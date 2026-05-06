@@ -1,5 +1,9 @@
-
 #!/bin/bash
+
+# monarch:summary=Set the current background image
+# monarch:args=<path-to-image>
+# monarch:examples=monarch theme bg set ~/Pictures/wallpaper.png
+
 if [[ -z $1 ]]; then
   echo "Usage: monarch-theme-bg-set <path-to-image>" >&2
   exit 1

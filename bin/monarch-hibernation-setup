@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# monarch:summary=Set up hibernation with swap and boot resume configuration
+# monarch:requires-sudo=true
+# monarch:args=[--force] [--no-rebuild]
+
 FORCE=false
 NO_REBUILD=false
 for arg in "$@"; do

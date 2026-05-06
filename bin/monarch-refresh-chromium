@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# monarch:summary=Refresh the ~/.config/chromium-flags.conf file from the Monarch defaults.
+
 CONFIG_FILE="$HOME/.config/chromium-flags.conf"
 INSTALL_GOOGLE_ACCOUNTS=false
 

@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# monarch:summary=Watch Hyprland monitor events and recover monitor toggles when a monitor is removed
+
 SOCKET="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock"
 
 socat -U - "UNIX-CONNECT:$SOCKET" | while read -r event; do

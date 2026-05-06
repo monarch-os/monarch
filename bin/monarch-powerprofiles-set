@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Set the power profile to the requested level, falling back to balanced
+# monarch:args=[autodetect|ac|battery]
+
 action="${1-}"
 
 # Auto-detect when called with no argument: treat any Mains or USB

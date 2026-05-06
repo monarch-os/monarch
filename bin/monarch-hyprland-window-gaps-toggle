@@ -1,2 +1,5 @@
 #!/bin/bash
+
+# monarch:summary=Toggles the window gaps globally between no gaps and the default.
+
 monarch-hyprland-toggle window-no-gaps

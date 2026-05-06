@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# monarch:summary=Returns true if all of the named packages are installed on the system (or false if any of them are missing).
+# monarch:args=<packages...>
+
+
 for pkg in "$@"; do
   pacman -Q "$pkg" &>/dev/null || exit 1
 done

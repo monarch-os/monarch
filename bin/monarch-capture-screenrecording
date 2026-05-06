@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# Start and stop a screenrecording, which will be saved to ~/Videos by default.
-# Alternative location can be set via MONARCH_SCREENRECORD_DIR or XDG_VIDEOS_DIR ENVs.
-# Resolution is capped to 4K for monitors above 4K, native otherwise.
-# Override via --resolution= (e.g. --resolution=1920x1080, --resolution=0x0 for native).
+# monarch:summary=Start or stop screen recording
+# monarch:group=capture
+# monarch:args=[--with-desktop-audio] [--with-microphone-audio] [--with-webcam] [--webcam-device=<device>] [--resolution=<size>] [--stop-recording]
+# monarch:examples=monarch screenrecord | monarch capture screenrecord --with-desktop-audio
+# monarch:aliases=monarch screenrecord
 #
 # Env: MONARCH_SCREENRECORD_USE_PORTAL=true skips the built-in slurp picker and
 # uses gpu-screen-recorder's xdg-desktop-portal capture backend instead. The
@@ -36,12 +37,12 @@ LOG_FILE=$([[ ${MONARCH_SCREENRECORD_DEBUG:-false} == "true" ]] && echo "/tmp/mo
 
 for arg in "$@"; do
   case "$arg" in
-    --with-desktop-audio) DESKTOP_AUDIO="true" ;;
-    --with-microphone-audio) MICROPHONE_AUDIO="true" ;;
-    --with-webcam) WEBCAM="true" ;;
-    --webcam-device=*) WEBCAM_DEVICE="${arg#*=}" ;;
-    --resolution=*) RESOLUTION="${arg#*=}" ;;
-    --stop-recording) STOP_RECORDING="true" ;;
+  --with-desktop-audio) DESKTOP_AUDIO="true" ;;
+  --with-microphone-audio) MICROPHONE_AUDIO="true" ;;
+  --with-webcam) WEBCAM="true" ;;
+  --webcam-device=*) WEBCAM_DEVICE="${arg#*=}" ;;
+  --resolution=*) RESOLUTION="${arg#*=}" ;;
+  --stop-recording) STOP_RECORDING="true" ;;
   esac
 done
 
