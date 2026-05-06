@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Remove Voxtype dictation and its configuration
+# monarch:requires-sudo=true
+
 set -e
 
 # Remove voxtype and its configurations.

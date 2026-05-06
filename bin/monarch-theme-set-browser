@@ -1,8 +1,10 @@
 #!/bin/bash
 
+# monarch:summary=Apply the current theme color to Chromium and Brave
+
 CHROMIUM_THEME=~/.config/monarch/current/theme/chromium.theme
 
-if monarch-cmd-present chromium || monarch-cmd-present brave; then
+if monarch-cmd-present chromium || monarch-cmd-present brave || monarch-cmd-present brave-origin-beta; then
   if [[ -f $CHROMIUM_THEME ]]; then
     THEME_RGB_COLOR=$(<$CHROMIUM_THEME)
     THEME_HEX_COLOR=$(printf '#%02x%02x%02x' ${THEME_RGB_COLOR//,/ })
@@ -17,8 +19,12 @@ if monarch-cmd-present chromium || monarch-cmd-present brave; then
     pgrep -x chromium >/dev/null && chromium --refresh-platform-policy --no-startup-window &>/dev/null
   fi
 
-  if monarch-cmd-present brave; then
+  # Brave and Brave Origin Beta share /etc/brave/policies, so a single write covers both
+  if monarch-cmd-present brave || monarch-cmd-present brave-origin-beta; then
     echo "{\"BrowserThemeColor\": \"$THEME_HEX_COLOR\", \"BrowserColorScheme\": \"device\"}" | tee "/etc/brave/policies/managed/color.json" >/dev/null
-    pgrep -x brave >/dev/null && brave --refresh-platform-policy --no-startup-window &>/dev/null
+    if pgrep -x brave >/dev/null; then
+      monarch-cmd-present brave && brave --refresh-platform-policy --no-startup-window &>/dev/null
+      monarch-cmd-present brave-origin-beta && brave-origin-beta --refresh-platform-policy --no-startup-window &>/dev/null
+    fi
   fi
 fi

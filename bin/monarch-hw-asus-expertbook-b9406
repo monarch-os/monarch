@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# monarch:summary=Detect ASUS ExpertBook B9406 series laptops on Intel Panther Lake.
+
+monarch-hw-match "B9406" && monarch-hw-intel-ptl

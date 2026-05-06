@@ -1,5 +1,3 @@
 #!/bin/bash
 
-# No-op now that monarch-update-perform is responsible for idle management.
-# But this file can't be removed since it was referenced in old monarch-update files,
-# which would fail if this file is missing.
+# monarch:summary=No-op now that monarch-update-perform is responsible for idle management.

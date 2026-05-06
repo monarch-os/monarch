@@ -1,8 +1,6 @@
 #!/bin/bash
 
-# Launch the Monarch Menu or takes a parameter to jump straight to a submenu.
-
-export PATH="$HOME/.local/share/monarch/bin:$PATH"
+# monarch:summary=Launch the Monarch Menu or takes a parameter to jump straight to a submenu.
 
 # Set to true when going directly to a submenu, so we can exit directly
 BACK_TO_EXIT=false
@@ -105,9 +103,10 @@ show_trigger_menu() {
 }
 
 show_capture_menu() {
-  case $(menu "Capture" "  Screenshot\n  Screenrecord\n󰃉  Color") in
-  *Screenshot*) monarch-cmd-screenshot ;;
+  case $(menu "Capture" "  Screenshot\n  Screenrecord\n󰴑  Text Extraction\n󰃉  Color") in
+  *Screenshot*) monarch-capture-screenshot ;;
   *Screenrecord*) show_screenrecord_menu ;;
+  *Text*) monarch-capture-text-extraction ;;
   *Color*) pkill hyprpicker || hyprpicker -a ;;
   *) back_to show_trigger_menu ;;
   esac
@@ -168,18 +167,18 @@ show_webcam_select_menu() {
 }
 
 show_screenrecord_menu() {
-  monarch-cmd-screenrecord --stop-recording && exit 0
+  monarch-capture-screenrecording --stop-recording && exit 0
 
- case $(menu "Screenrecord" "  With no audio\n  With desktop audio\n  With desktop + microphone audio\n  With desktop + microphone audio + webcam") in
-  *"With no audio") monarch-cmd-screenrecord ;;
-  *"With desktop audio") monarch-cmd-screenrecord --with-desktop-audio ;;
-  *"With desktop + microphone audio") monarch-cmd-screenrecord --with-desktop-audio --with-microphone-audio ;;
+  case $(menu "Screenrecord" "  With no audio\n  With desktop audio\n  With desktop + microphone audio\n  With desktop + microphone audio + webcam") in
+  *"With no audio") monarch-capture-screenrecording ;;
+  *"With desktop audio") monarch-capture-screenrecording --with-desktop-audio ;;
+  *"With desktop + microphone audio") monarch-capture-screenrecording --with-desktop-audio --with-microphone-audio ;;
   *"With desktop + microphone audio + webcam")
     local device=$(show_webcam_select_menu) || {
       back_to show_capture_menu
       return
     }
-    monarch-cmd-screenrecord --with-desktop-audio --with-microphone-audio --with-webcam --webcam-device="$device"
+    monarch-capture-screenrecording --with-desktop-audio --with-microphone-audio --with-webcam --webcam-device="$device"
     ;;
   *) back_to show_capture_menu ;;
   esac
@@ -187,30 +186,34 @@ show_screenrecord_menu() {
 
 show_share_menu() {
   case $(menu "Share" "  Clipboard\n  File \n  Folder") in
-  *Clipboard*) monarch-cmd-share clipboard ;;
-  *File*) terminal bash -c "monarch-cmd-share file" ;;
-  *Folder*) terminal bash -c "monarch-cmd-share folder" ;;
+  *Clipboard*) monarch-menu-share clipboard ;;
+  *File*) terminal bash -c "monarch-menu-share file" ;;
+  *Folder*) terminal bash -c "monarch-menu-share folder" ;;
   *) back_to show_trigger_menu ;;
   esac
 }
 
 show_toggle_menu() {
-  local options="󱄄  Screensaver\n󰔎  Nightlight\n󱫖  Idle Lock\n󰍜  Top Bar\n󱂬  Workspace Layout\n  Window Gaps\n  1-Window Ratio\n󰍹  Monitor Scaling\n"
+  local options="󱄄  Screensaver\n󰔎  Nightlight\n󱫖  Idle Lock\n󰂛  Notifications\n󰍜  Top Bar\n󱂬  Workspace Layout\n  Window Gaps\n  1-Window Ratio\n󰍹  Monitor Scaling\n  Direct Boot\n󰟵  Passwordless Sudo"
+
   case $(menu "Toggle" "$options") in
   *Screensaver*) monarch-toggle-screensaver ;;
   *Nightlight*) monarch-toggle-nightlight ;;
   *Idle*) monarch-toggle-idle ;;
+  *Notifications*) monarch-toggle-notification-silencing ;;
   *Bar*) monarch-toggle-waybar ;;
   *Layout*) monarch-hyprland-workspace-layout-toggle ;;
   *Ratio*) monarch-hyprland-window-single-square-aspect-toggle ;;
   *Gaps*) monarch-hyprland-window-gaps-toggle ;;
   *Scaling*) monarch-hyprland-monitor-scaling-cycle ;;
+  *"Direct Boot"*) present_terminal monarch-config-direct-boot ;;
+  *"Passwordless Sudo"*) present_terminal monarch-sudo-passwordless ;;
   *) back_to show_trigger_menu ;;
   esac
 }
 
 show_hardware_menu() {
-  local options="󰛧  Laptop Display"
+  local options="󰛧  Laptop Display\n 󰍹  Mirror Display"
 
   if monarch-hw-hybrid-gpu; then
     options="$options\n  Hybrid GPU"
@@ -220,17 +223,24 @@ show_hardware_menu() {
     options="$options\n󰟸  Touchpad"
   fi
 
+  if monarch-hw-touchscreen; then
+    options="$options\n󰆽  Touchscreen"
+  fi
+
   case $(menu "Toggle" "$options") in
   *Laptop*) monarch-hyprland-monitor-internal toggle ;;
+  *Mirror*) monarch-hyprland-monitor-internal-mirror toggle;;
   *Touchpad*) monarch-toggle-touchpad ;;
+  *Touchscreen*) monarch-toggle-touchscreen ;;
   *"Hybrid GPU"*) present_terminal monarch-toggle-hybrid-gpu ;;
   *) back_to show_trigger_menu ;;
   esac
 }
 
 show_style_menu() {
-  case $(menu "Style" "󰸌  Theme\n  Font\n  Background\n  Hyprland\n󱄄  Screensaver\n  About") in
+  case $(menu "Style" "󰸌  Theme\n󰟵  Unlock\n  Font\n  Background\n  Hyprland\n󱄄  Screensaver\n  About") in
   *Theme*) show_theme_menu ;;
+  *Unlock*) monarch-launch-walker -m menus:monarchunlocks --width 800 --minheight 400 ;;
   *Font*) show_font_menu ;;
   *Background*) show_background_menu ;;
   *Hyprland*) open_in_editor ~/.config/hypr/looknfeel.conf ;;
@@ -377,7 +387,7 @@ show_install_editor_menu() {
   *Cursor*) install_and_launch "Cursor" "cursor-bin" "cursor" ;;
   *Zed*) install_and_launch "Zed" "zed" "dev.zed.Zed" ;;
   *Sublime*) install_and_launch "Sublime Text" "sublime-text-4" "sublime_text" ;;
-  *Helix*) install "Helix" "helix" ;;
+  *Helix*) present_terminal monarch-install-helix ;;
   *Emacs*) install "Emacs" "emacs-wayland" && systemctl --user enable --now emacs.service ;;
   *) show_install_menu ;;
   esac
@@ -394,8 +404,8 @@ show_install_terminal_menu() {
 
 show_install_ai_menu() {
   ollama_pkg=$(
-    (command -v nvidia-smi &>/dev/null && echo ollama-cuda) ||
-      (command -v rocminfo &>/dev/null && echo ollama-rocm) ||
+    (monarch-cmd-present nvidia-smi && echo ollama-cuda) ||
+      (monarch-cmd-present rocminfo && echo ollama-rocm) ||
       echo ollama
   )
 
@@ -409,13 +419,16 @@ show_install_ai_menu() {
 }
 
 show_install_gaming_menu() {
-  case $(menu "Install" "  Lutris\n  Steam\n󰢹  NVIDIA GeForce NOW\n  RetroArch [AUR]\n󰍳  Minecraft\n󰖺  Xbox Controller [AUR]") in
-  *Lutris*) install "Lutris" "lutris" ;;
-  *Steam*) present_terminal monarch-install-steam ;;
-  *GeForce*) present_terminal monarch-install-geforce-now ;;
-  *RetroArch*) aur_install_and_launch "RetroArch" "retroarch retroarch-assets libretro libretro-fbneo" "com.libretro.RetroArch.desktop" ;;
+  case $(menu "Install" "  Steam\n  RetroArch\n󰍳  Minecraft\n󰢹  NVIDIA GeForce NOW\n  Xbox Cloud Gaming\n󰖺  Xbox Controller (󰂯)\n󰍹  Moonlight (GameStream)\n  Lutris (Battle.net)\n󱓟  Heroic (Epic Games)") in
+  *Steam*) present_terminal monarch-install-gaming-steam ;;
+  *RetroArch*) present_terminal monarch-install-gaming-retroarch ;;
   *Minecraft*) install_and_launch "Minecraft" "minecraft-launcher" "minecraft-launcher" ;;
-  *Xbox*) present_terminal monarch-install-xbox-controllers ;;
+  *GeForce*) present_terminal monarch-install-gaming-geforce-now ;;
+  *"Xbox Cloud"*) present_terminal monarch-install-gaming-xbox-cloud ;;
+  *Xbox*) present_terminal monarch-install-gaming-xbox-controllers ;;
+  *Lutris*) present_terminal monarch-install-gaming-lutris ;;
+  *Heroic*) present_terminal monarch-install-gaming-heroic ;;
+  *Moonlight*) present_terminal monarch-install-gaming-moonlight ;;
   *) show_install_menu ;;
   esac
 }
@@ -430,12 +443,12 @@ show_install_style_menu() {
 }
 
 show_install_font_menu() {
-  case $(menu "Install" "  Cascadia Mono\n  Meslo LG Mono\n  Fira Code\n  Victor Code\n  Bistream Vera Mono\n  Iosevka" "--width 350") in
+  case $(menu "Install" "  Cascadia Mono\n  Meslo LG Mono\n  Fira Code\n  Victor Code\n  Bitstream Vera Mono\n  Iosevka" "--width 350") in
   *Cascadia*) install_font "Cascadia Mono" "ttf-cascadia-mono-nerd" "CaskaydiaMono Nerd Font" ;;
   *Meslo*) install_font "Meslo LG Mono" "ttf-meslo-nerd" "MesloLGL Nerd Font" ;;
   *Fira*) install_font "Fira Code" "ttf-firacode-nerd" "FiraCode Nerd Font" ;;
   *Victor*) install_font "Victor Code" "ttf-victor-mono-nerd" "VictorMono Nerd Font" ;;
-  *Bistream*) install_font "Bistream Vera Code" "ttf-bitstream-vera-mono-nerd" "BitstromWera Nerd Font" ;;
+  *Bitstream*) install_font "Bitstream Vera Code" "ttf-bitstream-vera-mono-nerd" "BitstromWera Nerd Font" ;;
   *Iosevka*) install_font "Iosevka" "ttf-iosevka-nerd" "Iosevka Nerd Font Mono" ;;
   *) show_install_menu ;;
   esac
@@ -497,11 +510,12 @@ show_install_cyber_menu() {
 }
 
 show_remove_menu() {
-  case $(menu "Remove" "󰣇  Package\n  Web App\n  TUI\n󰵮  Development\n󰏓  Preinstalls\n  Dictation\n󰸌  Theme\n󰖂  LazyVPN\n󰍲  Windows\n󰈷  Fingerprint\n  Fido2") in
+  case $(menu "Remove" "󰣇  Package\n  Web App\n  TUI\n󰵮  Development\n  Gaming\n󰏓  Preinstalls\n  Dictation\n󰸌  Theme\n󰖂  LazyVPN\n󰍲  Windows\n󰈷  Fingerprint\n  Fido2") in
   *Package*) terminal monarch-pkg-remove ;;
   *Web*) present_terminal monarch-webapp-remove ;;
   *TUI*) present_terminal monarch-tui-remove ;;
   *Development*) show_remove_development_menu ;;
+  *Gaming*) show_remove_gaming_menu ;;
   *Preinstalls*) present_terminal monarch-remove-preinstalls ;;
   *Dictation*) present_terminal monarch-voxtype-remove ;;
   *Theme*) present_terminal monarch-theme-remove ;;
@@ -510,6 +524,21 @@ show_remove_menu() {
   *Fingerprint*) present_terminal "monarch-setup-fingerprint --remove" ;;
   *Fido2*) present_terminal "monarch-setup-fido2 --remove" ;;
   *) show_main_menu ;;
+  esac
+}
+
+show_remove_gaming_menu() {
+  case $(menu "Remove" "  Steam\n  RetroArch\n󰍳  Minecraft\n󰢹  NVIDIA GeForce NOW\n  Xbox Cloud Gaming\n󰖺  Xbox Controller (󰂯)\n󰍹  Moonlight (GameStream)\n  Lutris (Battle.net)\n󱓟  Heroic (Epic Games)") in
+  *Steam*) present_terminal monarch-remove-gaming-steam ;;
+  *RetroArch*) present_terminal monarch-remove-gaming-retroarch ;;
+  *Minecraft*) present_terminal monarch-remove-gaming-minecraft ;;
+  *GeForce*) present_terminal monarch-remove-gaming-geforce-now ;;
+  *"Xbox Cloud"*) present_terminal monarch-remove-gaming-xbox-cloud ;;
+  *Xbox*) present_terminal monarch-remove-gaming-xbox-controllers ;;
+  *Moonlight*) present_terminal monarch-remove-gaming-moonlight ;;
+  *Lutris*) present_terminal monarch-remove-gaming-lutris ;;
+  *Heroic*) present_terminal monarch-remove-gaming-heroic ;;
+  *) show_remove_menu ;;
   esac
 }
 
@@ -640,7 +669,7 @@ show_system_menu() {
 
   case $(menu "System" "$options") in
   *Screensaver*) monarch-launch-screensaver force ;;
-  *Lock*) monarch-lock-screen ;;
+  *Lock*) monarch-system-lock ;;
   *Suspend*) systemctl suspend ;;
   *Hibernate*) systemctl hibernate ;;
   *Logout*) monarch-system-logout ;;

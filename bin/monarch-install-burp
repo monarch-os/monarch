@@ -1,5 +1,6 @@
 #!/bin/zsh
 
+# monarch:summary=Install burpsuite community or pro
 
 burp_version=$(gum choose --height 5 --header "Select BURP version" Community Pro)
 

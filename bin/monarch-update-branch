@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# monarch:summary=Switch Monarch branches and update from the selected branch
+# monarch:args=<branch>
+
 set -e
 
 if (($# == 0)); then

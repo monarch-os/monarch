@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# monarch:summary=Launch the termshark TUI with interface selection
+
 if ! command -v gum &>/dev/null; then
   echo "❌ Gum is not installed"
   monarch-pkg-add gum

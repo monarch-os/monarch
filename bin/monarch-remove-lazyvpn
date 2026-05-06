@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Remove LazyVPN - WireGuard VPN manager
+# monarch:summary=Remove LazyVPN
 
 echo "Removing monarch-lazyvpn..."
 

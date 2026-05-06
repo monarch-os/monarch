@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# Launch the Monarch Bluetooth controls TUI (provided by bluetui)
-# Also attempts to unblock bluetooth service if rfkill had blocked it.
+# monarch:summary=Launch the Monarch bluetooth controls TUI (provided by bluetui).
 
 rfkill unblock bluetooth
 exec monarch-launch-or-focus-tui bluetui

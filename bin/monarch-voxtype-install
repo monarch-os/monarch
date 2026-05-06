@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# monarch:summary=Install and configure Voxtype dictation
+# monarch:requires-sudo=true
+
 set -e
 
 # Install voxtype and configure it for use.

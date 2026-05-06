@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# monarch:summary=Set up or remove FIDO2 authentication for sudo and polkit
+# monarch:args=[--remove]
+# monarch:requires-sudo=true
+
 set -e
 
 GREEN='\033[0;32m'

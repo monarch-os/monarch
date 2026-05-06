@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# monarch:summary=Apply an Monarch theme
+# monarch:args=<theme-name>
+# monarch:examples=monarch theme list | monarch theme set "Tokyo Night"
+
 if [[ -z $1 ]]; then
   echo "Usage: monarch-theme-set <theme-name>"
   exit 1
@@ -24,6 +28,11 @@ mkdir -p "$NEXT_THEME_PATH"
 cp -r "$MONARCH_THEMES_PATH/$THEME_NAME/"* "$NEXT_THEME_PATH/" 2>/dev/null
 cp -r "$USER_THEMES_PATH/$THEME_NAME/"* "$NEXT_THEME_PATH/" 2>/dev/null
 
+# Generate colors.toml from alacritty.toml if theme is missing colors.toml
+if [[ ! -f $NEXT_THEME_PATH/colors.toml && -f $NEXT_THEME_PATH/alacritty.toml ]]; then
+  monarch-theme-colors-from-alacritty "$NEXT_THEME_PATH"
+fi
+
 # Generate dynamic configs
 monarch-theme-set-templates
 
@@ -47,6 +56,7 @@ monarch-restart-hyprctl
 monarch-restart-btop
 monarch-restart-opencode
 monarch-restart-mako
+monarch-restart-helix
 
 # Change app-specific themes
 monarch-theme-set-gnome

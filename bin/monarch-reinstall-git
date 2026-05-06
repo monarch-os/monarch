@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# monarch:summary=Reinstall the Monarch source directory from git
+
 set -e
 
 # Reinstall the Monarch configuration directory from the git source.

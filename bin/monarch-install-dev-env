@@ -1,6 +1,11 @@
 #!/bin/bash
 
-# Install one of the supported development environments. Usually called via Install > Development > * in the Monarch Menu.
+
+# monarch:summary=Install a supported development environment
+# monarch:name=dev-env
+# monarch:args=<ruby|node|bun|deno|go|laravel|symfony|php|python|elixir|phoenix|rust|java|zig|ocaml|dotnet|clojure|scala>
+# monarch:examples=monarch install dev-env ruby | monarch install dev-env node
+# monarch:requires-sudo=true
 
 if [[ -z $1 ]]; then
   echo "Usage: monarch-install-dev-env <ruby|node|bun|deno|go|laravel|symfony|php|python|elixir|phoenix|rust|java|zig|ocaml|dotnet|clojure|scala>" >&2

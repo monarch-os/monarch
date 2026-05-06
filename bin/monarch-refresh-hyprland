@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Overwrite all the user configs in ~/.config/hypr with the Monarch defaults.
+# monarch:summary=Overwrite all the user configs in ~/.config/hypr with the Monarch defaults.
 
 monarch-refresh-config hypr/autostart.conf
 monarch-refresh-config hypr/bindings.conf

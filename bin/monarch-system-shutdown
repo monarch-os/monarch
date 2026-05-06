@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# Shutdown command that first closes all application windows (thus giving them a chance to save state).
-# This is particularly helpful for applications like Chromium that otherwise won't shutdown cleanly.
+# monarch:summary=Shut down after closing application windows
+# monarch:examples=monarch shutdown | monarch system shutdown
+# monarch:aliases=monarch shutdown
 
 monarch-state clear re*-required
 

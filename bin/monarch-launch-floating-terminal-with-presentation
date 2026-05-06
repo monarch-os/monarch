@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# Launch a floating terminal with the Monarch logo presentation, then execute the command passed in, and finally end with the monarch-show-done presentation.
-# Used by actions such as Update System.
+# monarch:summary=Launch a floating terminal with the Monarch presentation wrapper
+# monarch:args=<command>
+
 
 cmd="$*"
 exec setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Monarch -e bash -c "monarch-show-logo; $cmd; if (( \$? != 130 )); then monarch-show-done; fi"

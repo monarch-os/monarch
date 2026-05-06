@@ -2,6 +2,10 @@
 export SUDO_EDITOR="$EDITOR"
 export BAT_THEME=ansi
 
+# Color man pages with bat
+export MANROFFOPT="-c"
+export MANPAGER="sh -c 'col -bx | bat -l man -p'"
+
 export PATH=$PATH:~/.local/bin
 export NESSUS_KEY="NESSUS_KEY"
 

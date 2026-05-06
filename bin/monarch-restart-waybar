@@ -1,3 +1,6 @@
 #!/bin/bash
 
+# monarch:summary=Restart Waybar
+# monarch:examples=monarch restart waybar
+
 monarch-restart-app waybar

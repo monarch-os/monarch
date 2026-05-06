@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Toggle single-window square aspect ratio.
+# monarch:summary=Toggle single-window square aspect ratio.
 
 monarch-hyprland-toggle \
   --enabled-notification "      Enable single-window square aspect ratio" \

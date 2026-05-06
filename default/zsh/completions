@@ -1,0 +1,43 @@
+_monarch_complete() {
+  local monarch_path bin_dir
+  monarch_path=$(command -v monarch 2>/dev/null) || return 0
+  bin_dir=${$(readlink -f -- "$monarch_path" 2>/dev/null || print -- "$monarch_path"):h}
+  [[ -d $bin_dir ]] || return 0
+
+  local prefix="monarch"
+  local i part
+  for (( i = 2; i < CURRENT; i++ )); do
+    part="${words[i]}"
+    [[ -z $part || $part == -* ]] && continue
+    prefix+="-$part"
+  done
+
+  local -A seen=()
+  local -a candidates=()
+  local file base rest next
+
+  setopt localoptions nullglob
+  for file in "$bin_dir/$prefix"-*; do
+    [[ -f $file && -x $file ]] || continue
+    base="${file:t}"
+    rest="${base#${prefix}-}"
+    next="${rest%%-*}"
+    if [[ -n $next && -z ${seen[$next]:-} ]]; then
+      seen[$next]=1
+      candidates+=("$next")
+    fi
+  done
+
+  (( CURRENT == 2 )) && candidates+=("commands")
+  if [[ ${words[2]:-} == "commands" ]] && (( CURRENT >= 3 )); then
+    candidates+=("--all" "--json" "--markdown" "--check")
+  fi
+
+  (( ${#candidates[@]} )) && compadd -a candidates
+}
+
+compdef _monarch_complete monarch
+
+# Hide individual monarch-* binaries from command completion;
+# the unified `monarch` dispatcher is the user-facing entry point.
+zstyle ':completion:*:-command-:*' ignored-patterns 'monarch-*'

@@ -1,17 +1,9 @@
 #!/bin/bash
 
-# Set the Monarch channel, which dictates what git branch and package repository is used.
-#
-# Stable uses the master branch, which only sees updates on official releases, and
-# the stable package repository, which typically lags the edge by a month to ensure
-# better compatibility.
-#
-# Edge tracks the latest package repository, but still relies on the master branch,
-# so new packages which require config changes may cause conflicts or errors.
-#
-# Dev tracks the active development dev branch, which may include partial or broken updates,
-# as well as the latest package repository. This should only be used by Monarch developers
-# and people with a lot of experience managing Linux systems.
+# monarch:summary=Set the Monarch and Monarch channel, which dictates what git branch and package repository is used.
+# monarch:args=<stable|edge|dev>
+# monarch:requires-sudo=true
+
 
 if (($# == 0)); then
   echo "Usage: monarch-channel-set [stable|edge|dev]"

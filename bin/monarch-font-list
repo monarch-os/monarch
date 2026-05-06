@@ -1,5 +1,6 @@
 #!/bin/bash
 
-# Returns a list of all the monospace fonts available on the system that can be set using monarch-font-set.
+# monarch:summary=List available monospace fonts
+# monarch:examples=monarch font list | monarch font set "CaskaydiaMono Nerd Font"
 
 fc-list :spacing=100 -f "%{family[0]}\n" | grep -v -i -E 'emoji|signwriting|monarch' | sort -u

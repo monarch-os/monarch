@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# Default temperature values
+# monarch:summary=Toggle nightlight screen temperature
+# monarch:examples=monarch toggle nightlight
+
 ON_TEMP=4000
 OFF_TEMP=6000
 

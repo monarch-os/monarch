@@ -1,7 +1,9 @@
 #!/bin/bash
 
-# Set the system-wide monospace font that should be used by the terminal, hyprlock, waybar, swayosd, etc.
-# The font name must be one of the ones returned by monarch-font-list.
+# monarch:summary=Set the system monospace font
+# monarch:args=<font-name>
+# monarch:examples=monarch font list | monarch font set "CaskaydiaMono Nerd Font"
+
 
 font_name="$1"
 

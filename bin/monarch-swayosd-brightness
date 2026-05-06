@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Display brightness level using SwayOSD on the current monitor.
-# Usage: monarch-swayosd-brightness <percent>
+# monarch:summary=Display brightness level using SwayOSD on the current monitor.
+# monarch:args=<percent>
 
 percent="$1"
 

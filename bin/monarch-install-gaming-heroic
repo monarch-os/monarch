@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# monarch:summary=Install Heroic Games Launcher (Epic, GOG, Amazon Prime Gaming) with graphics drivers.
+# monarch:requires-sudo=true
+
+set -e
+
+echo "Installing Heroic Games Launcher..."
+monarch-pkg-add heroic-games-launcher-bin
+monarch-install-gaming-gpu-lib32
+
+setsid gtk-launch heroic >/dev/null 2>&1 &

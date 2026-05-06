@@ -1,3 +1,5 @@
 #!/bin/bash
 
+# monarch:summary=Print the current Monarch git branch
+
 echo $(git -C "$MONARCH_PATH" rev-parse --abbrev-ref HEAD)

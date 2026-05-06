@@ -23,6 +23,7 @@ cups-pdf
 docker
 docker-buildx
 docker-compose
+dosfstools
 dotnet-runtime-9.0
 dust
 evince
@@ -110,6 +111,8 @@ sushi
 swaybg
 swayosd
 system-config-printer
+tesseract
+tesseract-data-eng
 tmux
 tobi-try
 tree-sitter-cli

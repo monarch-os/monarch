@@ -108,6 +108,14 @@ child:selected .item-box {
   opacity: 0.5;
 }
 
+child:selected {
+  background: alpha(@text, 0.07);
+}
+
+.item-box {
+  padding-left: 14px;
+}
+
 .providerlist .item-subtext {
   font-size: unset;
   opacity: 0.75;
@@ -191,3 +199,4 @@ child:selected .item-box {
 :not(.calc).current {
   font-style: italic;
 }
+

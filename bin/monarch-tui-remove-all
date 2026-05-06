@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# Remove all TUIs installed via monarch-tui-install.
-# Identifies TUIs by their Exec pattern (xdg-terminal-exec --app-id=TUI.).
+# monarch:summary=Remove all TUIs installed via monarch-tui-install.
 
 set -e
 

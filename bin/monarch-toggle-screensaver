@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# monarch:summary=Toggle screensaver availability
+
 monarch-toggle \
   --enabled-notification "󱄄   Screensaver disabled" \
   --disabled-notification "󱄄   Screensaver enabled" \
