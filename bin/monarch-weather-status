@@ -2,7 +2,13 @@
 
 # monarch:summary=Returns a formatted weather status string with temperature and wind speed.
 
-weather=$(curl -fsS --max-time 4 "https://wttr.in?format=%l|%t|%w" 2>/dev/null | tr -d '\n')
+LOCATION="${MONARCH_WEATHER_LOCATION:-}"
+if [[ -z $LOCATION && -f ~/.config/monarch/weather.conf ]]; then
+  LOCATION=$(grep -v '^[[:space:]]*\(#\|$\)' ~/.config/monarch/weather.conf | head -n1)
+fi
+LOCATION="${LOCATION// /+}"
+
+weather=$(curl -fsS --max-time 4 "https://wttr.in/${LOCATION}?format=%l|%t|%w" 2>/dev/null | tr -d '\n')
 
 if [[ -z $weather ]]; then
   echo "Weather unavailable"
@@ -10,8 +16,13 @@ if [[ -z $weather ]]; then
 fi
 
 IFS='|' read -r place temperature wind <<< "$weather"
-place=${place%%,*}
-place=${place^}
 temperature=${temperature#+}
 
-echo "$(monarch-weather-icon)    $place  ·  Temp $temperature  ·  Wind $wind"
+# wttr.in returned raw coordinates: ask wttr.in for the nearest area name instead.
+if [[ $place =~ ^-?[0-9]+\.[0-9]+, ]]; then
+  area=$(curl -fsS --max-time 4 "https://wttr.in/${LOCATION}?format=j1" 2>/dev/null | jq -er '.nearest_area[0].areaName[0].value' 2>/dev/null)
+  place="${area:-$place}"
+fi
+place=${place%%,*}
+
+echo "$(monarch-weather-icon)    ${place^}  ·  Temp $temperature  ·  Wind $wind"
