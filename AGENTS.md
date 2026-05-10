@@ -129,3 +129,20 @@ if monarch-cmd-missing fprintd-list || ! fprintd-list "$USER" 2>/dev/null | grep
   sed -i 's/fingerprint:enabled = .*/fingerprint:enabled = false/' ~/.config/hypr/hyprlock.conf
 fi
 ```
+
+# Upstream Sync
+
+Monarch is a fork of [Omarchy](https://github.com/basecamp/omarchy) and tracks upstream releases via the `omarchy` git remote. The sync renames `omarchy*` → `monarch*` (binaries, paths, `# omarchy:` metadata directives, env vars like `OMARCHY_PATH`).
+
+Some `omarchy` references are intentional and must be preserved:
+
+- AUR package names: `omarchy-keyring`, `omarchy-chromium`
+- Historical migration text that documents past upstream behavior
+
+When Monarch diverges from upstream, mark it clearly:
+
+- `bin/monarch-branch-set` only supports `master|dev` (no `rc` channel)
+- `test/monarch-cli-test.sh` may need assertion adjustments to match Monarch divergences after a sync
+- Some upstream commands (cliamp, etc.) are intentionally not shipped — skip the corresponding migrations
+
+After a sync, run `bash test/monarch-cli-test.sh` and `bin/monarch commands --check` to validate metadata and routes.
