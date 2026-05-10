@@ -1,3 +1,4 @@
 #!/bin/bash
 
 # monarch:summary=No-op now that monarch-update-perform is responsible for idle management.
+# monarch:hidden=true

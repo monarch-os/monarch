@@ -7,4 +7,5 @@ run_logged $MONARCH_INSTALL/packaging/tuis.sh
 run_logged $MONARCH_INSTALL/packaging/python.sh
 run_logged $MONARCH_INSTALL/packaging/asus-rog.sh
 run_logged $MONARCH_INSTALL/packaging/framework16.sh
+run_logged $MONARCH_INSTALL/packaging/dell-xps-touchpad-haptics.sh
 run_logged $MONARCH_INSTALL/packaging/surface.sh

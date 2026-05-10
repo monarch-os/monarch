@@ -1,3 +1,6 @@
-# Place in ~/.claude/skills since all tools populate from there as well as their own sources
-mkdir -p ~/.claude/skills
-ln -s $MONARCH_PATH/default/monarch-skill ~/.claude/skills/monarch
+# Place in each assistant's global skills directory so the Monarch skill is available on first install
+mkdir -p ~/.agents/skills ~/.claude/skills ~/.codex/skills ~/.pi/agent/skills
+ln -sfn "$MONARCH_PATH/default/monarch-skill" ~/.agents/skills/monarch
+ln -sfn "$MONARCH_PATH/default/monarch-skill" ~/.claude/skills/monarch
+ln -sfn "$MONARCH_PATH/default/monarch-skill" ~/.codex/skills/monarch
+ln -sfn "$MONARCH_PATH/default/monarch-skill" ~/.pi/agent/skills/monarch

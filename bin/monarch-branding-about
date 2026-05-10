@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# monarch:summary=Edit, set, or reset About branding
+# monarch:group=branding
+# monarch:name=about
+# monarch:args=<image|text|reset>
+# monarch:examples=monarch branding about image | monarch branding about text | monarch branding about reset
+
+set -euo pipefail
+
+case "${1:-}" in
+image)
+  image=$(monarch-menu-file "Logo image" "$HOME" "svg png")
+  if [[ -n $image ]] && monarch-transcode-ascii "$image" ~/.config/monarch/branding/about.txt --width 54 --height 26 --mode block; then
+    monarch-launch-about >/dev/null 2>&1
+  fi
+  ;;
+text)
+  monarch-launch-editor ~/.config/monarch/branding/about.txt >/dev/null 2>&1 && monarch-launch-about >/dev/null 2>&1
+  ;;
+reset)
+  cp "$MONARCH_PATH/icon.txt" ~/.config/monarch/branding/about.txt && monarch-launch-about >/dev/null 2>&1
+  ;;
+*)
+  echo "Usage: monarch-branding-about <image|text|reset>" >&2
+  exit 1
+  ;;
+esac

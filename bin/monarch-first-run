@@ -16,7 +16,10 @@ if [[ -f $FIRST_RUN_MODE ]]; then
   bash "$MONARCH_PATH/install/first-run/firewall.sh"
   bash "$MONARCH_PATH/install/first-run/dns-resolver.sh"
   bash "$MONARCH_PATH/install/first-run/gnome-theme.sh"
+  bash "$MONARCH_PATH/install/first-run/swayosd.sh"
+  bash "$MONARCH_PATH/install/first-run/gtk-primary-paste.sh"
   bash "$MONARCH_PATH/install/first-run/elephant.sh"
+  monarch-hook-install post-update "$MONARCH_PATH/install/first-run/install-voxtype.hook"
   sudo rm -f /etc/sudoers.d/first-run
 
   bash "$MONARCH_PATH/install/first-run/welcome.sh"

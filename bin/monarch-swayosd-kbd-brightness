@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # monarch:summary=Display keyboard brightness level using SwayOSD on the current monitor.
-# monarch:args=<percent>
+# monarch:args=<0-100>
+# monarch:examples=monarch swayosd kbd brightness 0 | monarch swayosd kbd brightness 50 | monarch swayosd kbd brightness 100
 
 percent="$1"
 

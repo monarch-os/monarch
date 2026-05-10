@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # monarch:summary=Apply the current theme keyboard color to Framework Laptop 16 keyboards
+# monarch:hidden=true
 
 FRAMEWORK16_THEME=~/.config/monarch/current/theme/keyboard.rgb
 

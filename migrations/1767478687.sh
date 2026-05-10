@@ -1,4 +1,4 @@
-echo "Add opencode with system themeing"
+echo "Add opencode with system theming"
 
 monarch-pkg-add opencode
 

@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# monarch:summary=Edit, set, or reset screensaver branding
+# monarch:group=branding
+# monarch:name=screensaver
+# monarch:args=<image|text|reset>
+# monarch:examples=monarch branding screensaver image | monarch branding screensaver text | monarch branding screensaver reset
+
+set -euo pipefail
+
+case "${1:-}" in
+image)
+  image=$(monarch-menu-file "Logo image" "$HOME" "svg png")
+  if [[ -n $image ]] && monarch-transcode-ascii "$image" ~/.config/monarch/branding/screensaver.txt; then
+    monarch-launch-screensaver force >/dev/null 2>&1
+  fi
+  ;;
+text)
+  monarch-launch-editor ~/.config/monarch/branding/screensaver.txt >/dev/null 2>&1 && monarch-launch-screensaver force >/dev/null 2>&1
+  ;;
+reset)
+  cp "$MONARCH_PATH/logo.txt" ~/.config/monarch/branding/screensaver.txt && monarch-launch-screensaver force >/dev/null 2>&1
+  ;;
+*)
+  echo "Usage: monarch-branding-screensaver <image|text|reset>" >&2
+  exit 1
+  ;;
+esac

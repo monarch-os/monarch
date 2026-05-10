@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# monarch:summary=Configure system locale and language
+
 set -Eeuo pipefail
 
 SUDO=""

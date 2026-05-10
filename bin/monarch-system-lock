@@ -1,11 +1,16 @@
 #!/bin/bash
 
-# monarch:summary=Lock the screen
+# monarch:summary=Lock the computer and turn off the display
 # monarch:group=system
 # monarch:name=lock
 # monarch:examples=monarch system lock
 
-pidof hyprlock || hyprlock &
+if ! pidof hyprlock >/dev/null; then
+  (
+    hyprlock
+    monarch-system-wake
+  ) &
+fi
 
 # Set keyboard layout to default (first layout)
 hyprctl switchxkblayout all 0 > /dev/null 2>&1
@@ -17,3 +22,13 @@ fi
 
 # Avoid running screensaver when locked
 pkill -f org.monarch.screensaver
+
+
+if [[ ${MONARCH_LOCK_ONLY:-false} != "true" ]]; then
+  (
+    sleep 3
+    pidof hyprlock >/dev/null || exit 0
+    monarch-brightness-keyboard off
+    monarch-brightness-display off
+  ) &
+fi

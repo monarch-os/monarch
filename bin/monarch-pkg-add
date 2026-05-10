@@ -1,10 +1,8 @@
 #!/bin/bash
 
 # monarch:summary=Install Arch packages if they are missing
-# monarch:group=install
-# monarch:name=package
 # monarch:args=<packages...>
-# monarch:examples=monarch install package jq ripgrep
+# monarch:examples=monarch pkg add jq ripgrep
 # monarch:requires-sudo=true
 
 if monarch-pkg-missing "$@"; then
