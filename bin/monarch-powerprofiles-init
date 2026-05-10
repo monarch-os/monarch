@@ -1,9 +1,0 @@
-#!/bin/bash
-
-# monarch:summary=Set the correct power profile on boot based on current AC/battery state.
-
-if monarch-battery-present && ! monarch-ac-present; then
-  monarch-powerprofiles-set battery
-else
-  monarch-powerprofiles-set ac
-fi
