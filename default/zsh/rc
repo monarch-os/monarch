@@ -1,6 +1,5 @@
 source ~/.local/share/monarch/default/zsh/shell
 source ~/.local/share/monarch/default/zsh/inputrc
-source ~/.local/share/monarch/default/zsh/completions
 source ~/.local/share/monarch/default/shells/init
 source ~/.local/share/monarch/default/shells/aliases
 source ~/.local/share/monarch/default/shells/functions
