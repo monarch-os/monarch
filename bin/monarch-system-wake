@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# monarch:summary=Wake displays and restore brightness after idle
+# monarch:group=system
+# monarch:name=wake
+# monarch:examples=monarch system wake
+
+monarch-brightness-display on
+monarch-brightness-keyboard restore

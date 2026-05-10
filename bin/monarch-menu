@@ -93,13 +93,50 @@ show_learn_menu() {
 }
 
 show_trigger_menu() {
-  case $(menu "Trigger" "  Capture\n  Share\n󰔎  Toggle\n  Hardware") in
+  case $(menu "Trigger" "󰔛  Reminder\n  Capture\n󰧸  Transcode\n  Share\n󰔎  Toggle\n  Hardware") in
+  *Reminder*) show_reminder_menu ;;
   *Capture*) show_capture_menu ;;
   *Share*) show_share_menu ;;
+  *Transcode*) monarch-transcode || back_to show_trigger_menu ;;
   *Toggle*) show_toggle_menu ;;
   *Hardware*) show_hardware_menu ;;
   *) show_main_menu ;;
   esac
+}
+
+show_reminder_menu() {
+  case $(menu "Reminder" "󰔛  Set one\n󰔛  Show all\n󰔛  Clear all") in
+  *Set*) show_custom_reminder_input ;;
+  *"Show all"*) monarch-reminder show ;;
+  *"Clear all"*) monarch-reminder clear ;;
+  *) back_to show_trigger_menu ;;
+  esac
+}
+
+show_custom_reminder_input() {
+  local minutes
+  minutes=$(monarch-menu-input "Remind in minutes")
+
+  if [[ $minutes =~ ^[0-9]+$ ]] && ((minutes > 0)); then
+    show_reminder_message_input "$minutes"
+  elif [[ -n $minutes ]]; then
+    monarch-notification-send "󰔛" "Invalid reminder" "Enter the number of minutes" -u critical
+    show_custom_reminder_input
+  else
+    back_to show_reminder_menu
+  fi
+}
+
+show_reminder_message_input() {
+  local minutes="$1"
+  local message
+  message=$(monarch-menu-input "Reminder message")
+
+  if [[ -n $message ]]; then
+    monarch-reminder "$minutes" "$message"
+  else
+    monarch-reminder "$minutes"
+  fi
 }
 
 show_capture_menu() {
@@ -133,33 +170,6 @@ show_webcam_select_menu() {
   fi
 
   if ((count == 1)); then
-    echo "$devices" | awk '{print $1}'
-  else
-    menu "Select Webcam" "$devices" | awk '{print $1}'
-  fi
-}
-
-get_webcam_list() {
-  v4l2-ctl --list-devices 2>/dev/null | while IFS= read -r line; do
-    if [[ "$line" != $'\t'* && -n "$line" ]]; then
-      local name="$line"
-      IFS= read -r device || break
-      device=$(echo "$device" | tr -d '\t' | head -1)
-      [[ -n "$device" ]] && echo "$device  $name"
-    fi
-  done
-}
-
-show_webcam_select_menu() {
-  local devices=$(get_webcam_list)
-  local count=$(echo "$devices" | grep -c . 2>/dev/null || echo 0)
-
-  if [[ -z "$devices" || "$count" -eq 0 ]]; then
-    notify-send "No webcam devices found" -u critical -t 3000
-    return 1
-  fi
-
-  if [[ "$count" -eq 1 ]]; then
     echo "$devices" | awk '{print $1}'
   else
     menu "Select Webcam" "$devices" | awk '{print $1}'
@@ -223,18 +233,34 @@ show_hardware_menu() {
     options="$options\n󰟸  Touchpad"
   fi
 
+  if monarch-hw-dell-xps-haptic-touchpad && monarch-cmd-present dell-xps-touchpad-haptics; then
+    options="$options\n󰌌  Touchpad Haptics"
+  fi
+
   if monarch-hw-touchscreen; then
     options="$options\n󰆽  Touchscreen"
   fi
 
   case $(menu "Toggle" "$options") in
   *Laptop*) monarch-hyprland-monitor-internal toggle ;;
-  *Mirror*) monarch-hyprland-monitor-internal-mirror toggle;;
+  *Mirror*) monarch-hyprland-monitor-internal-mirror toggle ;;
+  *Haptics*) show_hardware_touchpad_haptics_menu ;;
   *Touchpad*) monarch-toggle-touchpad ;;
   *Touchscreen*) monarch-toggle-touchscreen ;;
   *"Hybrid GPU"*) present_terminal monarch-toggle-hybrid-gpu ;;
   *) back_to show_trigger_menu ;;
   esac
+}
+
+show_hardware_touchpad_haptics_menu() {
+  local current=$(dell-xps-touchpad-haptics get)
+  local selected=$(menu "Touchpad Haptics" "low\nmid\nhigh" "" "$current")
+
+  if [[ -n $selected ]]; then
+    dell-xps-touchpad-haptics set "$selected"
+  else
+    back_to show_hardware_menu
+  fi
 }
 
 show_style_menu() {
@@ -244,9 +270,27 @@ show_style_menu() {
   *Font*) show_font_menu ;;
   *Background*) show_background_menu ;;
   *Hyprland*) open_in_editor ~/.config/hypr/looknfeel.conf ;;
-  *Screensaver*) open_in_editor ~/.config/monarch/branding/screensaver.txt ;;
-  *About*) open_in_editor ~/.config/monarch/branding/about.txt ;;
+  *Screensaver*) show_screensaver_menu ;;
+  *About*) show_about_menu ;;
   *) show_main_menu ;;
+  esac
+}
+
+show_about_menu() {
+  case $(menu "About" "  Edit Text\n  Set From Image\n  Restore Default") in
+  *Text*) monarch-branding-about text ;;
+  *Image*) monarch-branding-about image ;;
+  *Default*) monarch-branding-about reset ;;
+  *) show_style_menu ;;
+  esac
+}
+
+show_screensaver_menu() {
+  case $(menu "Screensaver" "  Edit Text\n  Set From Image\n  Restore Default") in
+  *Text*) monarch-branding-screensaver text ;;
+  *Image*) monarch-branding-screensaver image ;;
+  *Default*) monarch-branding-screensaver reset ;;
+  *) show_style_menu ;;
   esac
 }
 
@@ -271,7 +315,7 @@ show_setup_menu() {
   local options="  Audio\n  Wifi\n󰂯  Bluetooth\n󱐋  Power Profile\n  System Sleep\n󰍹  Monitors"
   [[ -f ~/.config/hypr/bindings.conf ]] && options="$options\n  Keybindings"
   [[ -f ~/.config/hypr/input.conf ]] && options="$options\n  Input"
-  options="$options\n󰌌  Language\n󰱔  DNS\n  Security\n  Config"
+  options="$options\n  Defaults\n󰱔  DNS\n󰗊  Language\n  Security\n  Config"
 
   case $(menu "Setup" "$options") in
   *Audio*) monarch-launch-audio ;;
@@ -282,8 +326,9 @@ show_setup_menu() {
   *Monitors*) open_in_editor ~/.config/hypr/monitors.conf ;;
   *Keybindings*) open_in_editor ~/.config/hypr/bindings.conf ;;
   *Input*) open_in_editor ~/.config/hypr/input.conf ;;
-  *Language*) present_terminal monarch-setup-language ;;
+  *Defaults*) show_setup_default_menu ;;
   *DNS*) present_terminal monarch-setup-dns ;;
+  *Language*) present_terminal monarch-setup-language ;;
   *Security*) show_setup_security_menu ;;
   *Config*) show_setup_config_menu ;;
   *) show_main_menu ;;
@@ -302,15 +347,120 @@ show_setup_power_menu() {
 
 show_setup_security_menu() {
   case $(menu "Setup" "󰈷  Fingerprint\n  Fido2") in
-  *Fingerprint*) present_terminal monarch-setup-fingerprint ;;
-  *Fido2*) present_terminal monarch-setup-fido2 ;;
+    *Fingerprint*) present_terminal monarch-setup-security-fingerprint ;;
+    *Fido2*) present_terminal monarch-setup-security-fido2 ;;
+    *) show_setup_menu ;;
+    esac
+  }
+
+  show_setup_default_menu() {
+    case $(menu "Default" "  Browser\n  Terminal\n  Editor") in
+    *Browser*) show_setup_default_browser_menu ;;
+    *Terminal*) show_setup_default_terminal_menu ;;
+    *Editor*) show_setup_default_editor_menu ;;
   *) show_setup_menu ;;
   esac
 }
 
+browser_desktop_exists() {
+  [[ -f ~/.local/share/applications/$1 || -f ~/.nix-profile/share/applications/$1 || -f /usr/share/applications/$1 ]]
+}
+
+show_setup_default_browser_menu() {
+  local options=""
+  browser_desktop_exists chromium.desktop && options="$options  Chromium"
+  browser_desktop_exists google-chrome.desktop && options="${options:+$options\n}󰊯  Chrome"
+  browser_desktop_exists brave-browser.desktop && options="${options:+$options\n}󰖟  Brave"
+  browser_desktop_exists brave-origin-beta.desktop && options="${options:+$options\n}󰖟  Brave Origin"
+  browser_desktop_exists microsoft-edge.desktop && options="${options:+$options\n}󰇩  Edge"
+  browser_desktop_exists firefox.desktop && options="${options:+$options\n}󰈹  Firefox"
+  browser_desktop_exists zen.desktop && options="${options:+$options\n}󰖟  Zen"
+
+  local current=""
+  case "$(monarch-default-browser)" in
+  chromium) current="  Chromium" ;;
+  chrome) current="󰊯  Chrome" ;;
+  brave) current="󰖟  Brave" ;;
+  brave-origin) current="󰖟  Brave Origin" ;;
+  edge) current="󰇩  Edge" ;;
+  firefox) current="󰈹  Firefox" ;;
+  zen) current="󰖟  Zen" ;;
+  esac
+
+  case $(menu "Default Browser" "$options" "" "$current") in
+  *Chromium*) monarch-default-browser chromium ;;
+  *Chrome*) monarch-default-browser chrome ;;
+  *"Brave Origin"*) monarch-default-browser brave-origin ;;
+  *Brave*) monarch-default-browser brave ;;
+  *Edge*) monarch-default-browser edge ;;
+  *Firefox*) monarch-default-browser firefox ;;
+  *Zen*) monarch-default-browser zen ;;
+  *) show_setup_default_menu ;;
+  esac
+}
+
+show_setup_default_terminal_menu() {
+  local options=""
+  monarch-cmd-present alacritty && options="$options  Alacritty"
+  monarch-cmd-present foot && options="${options:+$options\n}  Foot"
+  monarch-cmd-present ghostty && options="${options:+$options\n}  Ghostty"
+  monarch-cmd-present kitty && options="${options:+$options\n}  Kitty"
+
+  local current=""
+  case "$(monarch-default-terminal)" in
+  alacritty) current="  Alacritty" ;;
+  foot) current="  Foot" ;;
+  ghostty) current="  Ghostty" ;;
+  kitty) current="  Kitty" ;;
+  esac
+
+  case $(menu "Default Terminal" "$options" "" "$current") in
+  *Alacritty*) monarch-default-terminal alacritty ;;
+  *Foot*) monarch-default-terminal foot ;;
+  *Ghostty*) monarch-default-terminal ghostty ;;
+  *Kitty*) monarch-default-terminal kitty ;;
+  *) show_setup_default_menu ;;
+  esac
+}
+
+show_setup_default_editor_menu() {
+  local options=""
+  monarch-cmd-present nvim && options="$options  Neovim"
+  monarch-cmd-present code && options="${options:+$options\n}  VSCode"
+  monarch-cmd-present cursor && options="${options:+$options\n}  Cursor"
+  monarch-cmd-present zeditor && options="${options:+$options\n}  Zed"
+  monarch-cmd-present sublime_text && options="${options:+$options\n}  Sublime Text"
+  monarch-cmd-present helix && options="${options:+$options\n}  Helix"
+  monarch-cmd-present vim && options="${options:+$options\n}  Vim"
+  monarch-cmd-present emacs && options="${options:+$options\n}  Emacs"
+
+  local current=""
+  case "$(monarch-default-editor)" in
+  nvim) current="  Neovim" ;;
+  code) current="  VSCode" ;;
+  cursor) current="  Cursor" ;;
+  zed | zeditor) current="  Zed" ;;
+  sublime_text) current="  Sublime Text" ;;
+  helix) current="  Helix" ;;
+  vim) current="  Vim" ;;
+  emacs) current="  Emacs" ;;
+  esac
+
+  case $(menu "Default Editor" "$options" "" "$current") in
+  *Neovim*) monarch-default-editor nvim ;;
+  *VSCode*) monarch-default-editor code ;;
+  *Cursor*) monarch-default-editor cursor ;;
+  *Zed*) monarch-default-editor zed ;;
+  *Sublime*) monarch-default-editor sublime_text ;;
+  *Helix*) monarch-default-editor helix ;;
+  *Vim*) monarch-default-editor vim ;;
+  *Emacs*) monarch-default-editor emacs ;;
+  *) show_setup_default_menu ;;
+  esac
+}
+
 show_setup_config_menu() {
-  case $(menu "Setup" "  Defaults\n  Hyprland\n  Hypridle\n  Hyprlock\n  Hyprsunset\n  Swayosd\n󰌧  Walker\n󰍜  Waybar\n󰞅  XCompose") in
-  *Defaults*) open_in_editor ~/.config/uwsm/default ;;
+  case $(menu "Setup" "  Hyprland\n  Hypridle\n  Hyprlock\n  Hyprsunset\n  Swayosd\n󰌧  Walker\n󰍜  Waybar\n󰞅  XCompose") in
   *Hyprland*) open_in_editor ~/.config/hypr/hyprland.conf ;;
   *Hypridle*) open_in_editor ~/.config/hypr/hypridle.conf && monarch-restart-hypridle ;;
   *Hyprlock*) open_in_editor ~/.config/hypr/hyprlock.conf ;;
@@ -347,7 +497,7 @@ show_setup_system_menu() {
 }
 
 show_install_menu() {
-  case $(menu "Install" "󰣇  Package\n󰣇  AUR\n  Web App\n  TUI\n  Service\n  Style\n󰵮  Development\n󰨈  Cyber\n  Editor\n  Terminal\n󱚤  AI\n󰍲  Windows\n  Gaming") in
+  case $(menu "Install" "󰣇  Package\n󰣇  AUR\n  Web App\n  TUI\n  Service\n  Style\n󰵮  Development\n󰨈  Cyber\n  Editor\n  Terminal\n  Browser\n󱚤  AI\n  Gaming\n󰍲  Windows") in
   *Package*) terminal monarch-pkg-install ;;
   *AUR*) terminal monarch-pkg-aur-install ;;
   *Web*) present_terminal monarch-webapp-install ;;
@@ -358,10 +508,23 @@ show_install_menu() {
   *Cyber*) show_install_cyber_menu ;;
   *Editor*) show_install_editor_menu ;;
   *Terminal*) show_install_terminal_menu ;;
+  *Browser*) show_install_browser_menu ;;
+  *Gaming*) show_install_gaming_menu ;;
   *AI*) show_install_ai_menu ;;
   *Windows*) present_terminal "monarch-windows-vm install" ;;
-  *Gaming*) show_install_gaming_menu ;;
   *) show_main_menu ;;
+  esac
+}
+
+show_install_browser_menu() {
+  case $(menu "Install" "  Chrome\n  Edge\n  Brave\n  Brave Origin\n  Firefox\n󰖟  Zen") in
+  *Chrome*) present_terminal "monarch-install-browser chrome" ;;
+  *Edge*) present_terminal "monarch-install-browser edge" ;;
+  *"Brave Origin"*) present_terminal "monarch-install-browser brave-origin" ;;
+  *Brave*) present_terminal "monarch-install-browser brave" ;;
+  *Firefox*) present_terminal "monarch-install-browser firefox" ;;
+  *Zen*) present_terminal "monarch-install-browser zen" ;;
+  *) show_install_menu ;;
   esac
 }
 
@@ -382,20 +545,22 @@ show_install_service_menu() {
 }
 
 show_install_editor_menu() {
-  case $(menu "Install" "  VSCode\n  Cursor\n  Zed\n  Sublime Text\n  Helix\n  Emacs") in
+  case $(menu "Install" "  VSCode\n  Cursor\n  Zed\n  Sublime Text\n  Helix\n  Vim\n  Emacs") in
   *VSCode*) present_terminal monarch-install-vscode ;;
   *Cursor*) install_and_launch "Cursor" "cursor-bin" "cursor" ;;
-  *Zed*) install_and_launch "Zed" "zed" "dev.zed.Zed" ;;
+  *Zed*) present_terminal monarch-install-zed ;;
   *Sublime*) install_and_launch "Sublime Text" "sublime-text-4" "sublime_text" ;;
   *Helix*) present_terminal monarch-install-helix ;;
+  *Vim*) install "Vim" "vim" ;;
   *Emacs*) install "Emacs" "emacs-wayland" && systemctl --user enable --now emacs.service ;;
   *) show_install_menu ;;
   esac
 }
 
 show_install_terminal_menu() {
-  case $(menu "Install" "  Alacritty\n  Ghostty\n  Kitty") in
+  case $(menu "Install" "  Alacritty\n  Foot\n  Ghostty\n  Kitty") in
   *Alacritty*) install_terminal "alacritty" ;;
+  *Foot*) install_terminal "foot" ;;
   *Ghostty*) install_terminal "ghostty" ;;
   *Kitty*) install_terminal "kitty" ;;
   *) show_install_menu ;;
@@ -419,7 +584,7 @@ show_install_ai_menu() {
 }
 
 show_install_gaming_menu() {
-  case $(menu "Install" "  Steam\n  RetroArch\n󰍳  Minecraft\n󰢹  NVIDIA GeForce NOW\n  Xbox Cloud Gaming\n󰖺  Xbox Controller (󰂯)\n󰍹  Moonlight (GameStream)\n  Lutris (Battle.net)\n󱓟  Heroic (Epic Games)") in
+  case $(menu "Install" "  Steam\n  RetroArch\n󰍳  Minecraft\n󰢹  NVIDIA GeForce NOW\n  Xbox Cloud Gaming\n󰂯  Xbox Controller\n󰍹  Moonlight (GameStream)\n  Lutris (Battle.net)\n󱓟  Heroic (Epic Games)") in
   *Steam*) present_terminal monarch-install-gaming-steam ;;
   *RetroArch*) present_terminal monarch-install-gaming-retroarch ;;
   *Minecraft*) install_and_launch "Minecraft" "minecraft-launcher" "minecraft-launcher" ;;
@@ -510,20 +675,40 @@ show_install_cyber_menu() {
 }
 
 show_remove_menu() {
-  case $(menu "Remove" "󰣇  Package\n  Web App\n  TUI\n󰵮  Development\n  Gaming\n󰏓  Preinstalls\n  Dictation\n󰸌  Theme\n󰖂  LazyVPN\n󰍲  Windows\n󰈷  Fingerprint\n  Fido2") in
+  case $(menu "Remove" "󰣇  Package\n  Web App\n  TUI\n󰵮  Development\n󰸌  Theme\n  Browser\n  Dictation\n  Gaming\n󰖂  LazyVPN\n󰍲  Windows\n󰏓  Preinstalls\n󰗊  Language\n  Security") in
   *Package*) terminal monarch-pkg-remove ;;
   *Web*) present_terminal monarch-webapp-remove ;;
   *TUI*) present_terminal monarch-tui-remove ;;
   *Development*) show_remove_development_menu ;;
-  *Gaming*) show_remove_gaming_menu ;;
-  *Preinstalls*) present_terminal monarch-remove-preinstalls ;;
-  *Dictation*) present_terminal monarch-voxtype-remove ;;
   *Theme*) present_terminal monarch-theme-remove ;;
+  *Browser*) show_remove_browser_menu ;;
+  *Dictation*) present_terminal monarch-voxtype-remove ;;
+  *Gaming*) show_remove_gaming_menu ;;
   *LazyVPN*) present_terminal monarch-remove-lazyvpn ;;
   *Windows*) present_terminal "monarch-windows-vm remove" ;;
-  *Fingerprint*) present_terminal "monarch-setup-fingerprint --remove" ;;
-  *Fido2*) present_terminal "monarch-setup-fido2 --remove" ;;
+  *Preinstalls*) present_terminal monarch-remove-preinstalls ;;
+  *Security*) show_remove_security_menu ;;
   *) show_main_menu ;;
+  esac
+}
+
+show_remove_security_menu() {
+  case $(menu "Remove" "󰈷  Fingerprint\n  Fido2") in
+  *Fingerprint*) present_terminal monarch-remove-security-fingerprint ;;
+  *Fido2*) present_terminal monarch-remove-security-fido2 ;;
+  *) show_remove_menu ;;
+  esac
+}
+
+show_remove_browser_menu() {
+  case $(menu "Remove" "  Chrome\n  Edge\n  Brave\n  Brave Origin\n  Firefox\n  Zen") in
+  *Chrome*) present_terminal "monarch-remove-browser chrome" ;;
+  *Edge*) present_terminal "monarch-remove-browser edge" ;;
+  *"Brave Origin"*) present_terminal "monarch-remove-browser brave-origin" ;;
+  *Brave*) present_terminal "monarch-remove-browser brave" ;;
+  *Firefox*) present_terminal "monarch-remove-browser firefox" ;;
+  *Zen*) present_terminal "monarch-remove-browser zen" ;;
+  *) show_remove_menu ;;
   esac
 }
 
@@ -651,7 +836,7 @@ show_update_hardware_menu() {
 
 show_update_password_menu() {
   case $(menu "Update Password" "  Drive Encryption\n  User") in
-  *Drive*) present_terminal monarch-drive-set-password ;;
+  *Drive*) present_terminal monarch-drive-password ;;
   *User*) present_terminal passwd ;;
   *) show_update_menu ;;
   esac
@@ -691,6 +876,8 @@ go_to_menu() {
   *toggle*) show_toggle_menu ;;
   *hardware*) show_hardware_menu ;;
   *share*) show_share_menu ;;
+  *reminder-set*) show_custom_reminder_input ;;
+  *reminder*) show_reminder_menu ;;
   *background*) show_background_menu ;;
   *capture*) show_capture_menu ;;
   *style*) show_style_menu ;;

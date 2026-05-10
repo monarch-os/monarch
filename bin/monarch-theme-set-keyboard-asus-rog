@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # monarch:summary=Apply the current theme keyboard color to ASUS ROG keyboards
+# monarch:hidden=true
 
 ASUSCTL_THEME=~/.config/monarch/current/theme/keyboard.rgb
 

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # monarch:summary=Designed to be run by systemd timer every 30 seconds and alerts if battery is low
+# monarch:hidden=true
 
 BATTERY_THRESHOLD=10
 NOTIFICATION_FLAG="/run/user/$UID/monarch_battery_notified"

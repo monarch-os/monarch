@@ -8,6 +8,7 @@
   "modules-center": [
     "custom/do-not-disturb-indicator",
     "clock",
+    "custom/weather",
     "custom/update",
     "custom/voxtype",
     "custom/screenrecording-indicator",
@@ -80,6 +81,13 @@
       "paused": "⏸",
       "playing": "▶",
     },
+  },
+  "custom/weather": {
+    "exec": "$MONARCH_PATH/default/waybar/weather.sh",
+    "return-type": "json",
+    "interval": 60,
+    "tooltip": false,
+    "on-click": "notify-send -u low \"$(monarch-weather-status)\"",
   },
   "network": {
     "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],

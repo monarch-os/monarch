@@ -5,5 +5,5 @@
 THEME_NAME_PATH="$HOME/.config/monarch/current/theme.name"
 
 if [[ -f $THEME_NAME_PATH ]]; then
-  monarch-theme-set "$(cat $THEME_NAME_PATH)"
+  MONARCH_THEME_SKIP_BACKGROUND=1 monarch-theme-set "$(cat $THEME_NAME_PATH)"
 fi

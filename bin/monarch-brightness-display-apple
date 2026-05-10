@@ -1,6 +1,8 @@
 #!/bin/bash
 
 # monarch:summary=Adjust the brightness on Apple Studio Displays and Apple XDR Displays using asdcontrol.
+# monarch:args=<+N%|N%-|N%>
+# monarch:examples=monarch brightness display apple +5% | monarch brightness display apple 5%- | monarch brightness display apple 50%
 
 if (( $# == 0 )); then
   echo "Adjust Apple Display brightness by passing +5%, 5%-, or 100%"

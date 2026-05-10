@@ -69,8 +69,8 @@ pass "fallback commands are inferred and documented"
 "$CLI" commands --all --json | jq -e '.commands[] | select(.route == "monarch dev benchmark")' >/dev/null
 pass "benchmark command is discoverable in all commands"
 
-"$CLI" commands --json | jq -e '.commands[] | select(.binary == "monarch-pkg-add" and .route == "monarch install package" and .filename_route == "monarch pkg add" and (.routes | index("monarch pkg add")))' >/dev/null
-pass "JSON exposes canonical and filename-derived routes"
+"$CLI" commands --json | jq -e '.commands[] | select(.binary == "monarch-pkg-add" and .route == "monarch pkg add" and .filename_route == "monarch pkg add" and (.routes | index("monarch pkg add")))' >/dev/null
+pass "JSON exposes direct pkg add route"
 
 "$CLI" commands --json | jq -e '.commands[] | select(.binary == "monarch-refresh-pacman" and .requires_sudo == true)' >/dev/null
 pass "sudo metadata marks sudo commands"
@@ -79,11 +79,12 @@ output=$("$CLI" theme --help)
 assert_output_contains "group help renders" "$output" "Theme commands"
 
 output=$("$CLI" install --help)
-assert_output_contains "install group help renders" "$output" "monarch install package <packages...>"
+assert_output_contains "install group help renders" "$output" "Install commands"
+assert_output_contains "install group includes browser route" "$output" "monarch install browser"
 
 output=$("$CLI" install)
 assert_output_contains "bare group renders help instead of picker" "$output" "Install commands"
-assert_output_contains "bare group includes package route" "$output" "monarch install package <packages...>"
+assert_output_contains "bare group includes browser route" "$output" "monarch install browser"
 
 output=$("$CLI" toggle)
 assert_output_contains "bare root command with children renders help" "$output" "Toggle commands"
@@ -100,6 +101,10 @@ output=$("$CLI" hw --help)
 assert_output_contains "hardware group help renders" "$output" "monarch hw asus rog"
 assert_output_contains "hardware group includes touchpad" "$output" "monarch hw touchpad"
 
+output=$("$CLI" hw asus)
+assert_output_contains "partial hardware prefix renders matching commands" "$output" "monarch hw asus rog"
+assert_output_contains "partial hardware prefix includes nested match" "$output" "monarch hw asus zenbook ux5406aa"
+
 output=$("$CLI" menu --help)
 assert_output_contains "menu group includes share fallback route" "$output" "monarch menu share"
 
@@ -111,13 +116,14 @@ output=$("$CLI" menu share)
 assert_output_contains "bare required-arg filename route renders CLI help" "$output" "monarch share <clipboard|file|folder> [path...]"
 
 output=$("$CLI" branch set)
-assert_output_contains "bare required-choice route renders CLI help" "$output" "monarch branch set <master|rc|dev>"
+assert_output_contains "bare required-choice route renders CLI help" "$output" "monarch branch set <master|dev>"
 
 CLI="$CLI" python3 <<'PY'
 import json
 import os
 import subprocess
 import sys
+
 cli = os.environ['CLI']
 commands = json.loads(subprocess.check_output([cli, 'commands', '--json'], text=True))['commands']
 by_group = {}
@@ -127,6 +133,7 @@ for command in commands:
   group = stem.split('-', 1)[0]
   filename_route = 'monarch ' + stem.replace('-', ' ')
   by_group.setdefault(group, []).append((binary, filename_route, command['route']))
+
 missing = []
 for group, rows in sorted(by_group.items()):
   proc = subprocess.run([cli, group, '--help'], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -137,6 +144,7 @@ for group, rows in sorted(by_group.items()):
   for binary, filename_route, canonical_route in rows:
     if filename_route not in output and canonical_route not in output and binary not in output:
       missing.append((group, binary, filename_route))
+
 if missing:
   for row in missing:
     print('\t'.join(row), file=sys.stderr)
@@ -159,8 +167,8 @@ assert_output_contains "root alias resolves to command help" "$output" "monarch-
 pass "aliases are included in JSON metadata"
 
 output=$("$CLI" pkg add --help)
-assert_output_contains "fallback route resolves to curated metadata" "$output" "monarch-pkg-add"
-assert_output_contains "fallback route shows canonical route" "$output" "monarch install package <packages...>"
+assert_output_contains "pkg add help resolves" "$output" "monarch-pkg-add"
+assert_output_contains "pkg add help shows direct route" "$output" "monarch pkg add <packages...>"
 
 output=$("$CLI" system reboot --help)
 assert_output_contains "system command help is safe" "$output" "monarch-system-reboot"

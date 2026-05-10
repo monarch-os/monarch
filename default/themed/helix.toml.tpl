@@ -61,7 +61,7 @@
 "ui.linenr.selected" = { fg = "foreground" }
 
 # Statusline uses an inverted band (background-color text on foreground-color
-# background) to guarantee contrast across both light and dark Omarchy themes.
+# background) to guarantee contrast across both light and dark Monarch themes.
 "ui.statusline" = { fg = "background", bg = "foreground" }
 "ui.statusline.inactive" = { fg = "background", bg = "color8" }
 "ui.statusline.normal" = { fg = "background", bg = "color4", modifiers = ["bold"] }
@@ -87,7 +87,7 @@
 "ui.virtual.jump-label" = { fg = "color1", modifiers = ["bold"] }
 "ui.virtual.whitespace" = "color8"
 
-"ui.selection" = { bg = "color0" }
+"ui.selection" = { bg = "selection_background", fg = "selection_foreground" }
 
 "ui.cursor" = { fg = "background", bg = "cursor" }
 "ui.cursor.primary" = { fg = "background", bg = "cursor" }

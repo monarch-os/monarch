@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# monarch:summary=Install Zed Editor and configure it with the current Monarch theme
+
+echo "Installing Zed Editor..."
+monarch-pkg-add zed monzed
+
+# Apply monarch theme to Zed
+omazed setup
+
+setsid gtk-launch dev.zed.Zed

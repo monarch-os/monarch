@@ -44,7 +44,9 @@ mv "$NEXT_THEME_PATH" "$CURRENT_THEME_PATH"
 echo "$THEME_NAME" >"$HOME/.config/monarch/current/theme.name"
 
 # Change background with theme
-monarch-theme-bg-next
+if [[ $MONARCH_THEME_SKIP_BACKGROUND != "1" ]]; then
+  monarch-theme-bg-next
+fi
 
 # Restart components to apply new theme
 if pgrep -x waybar >/dev/null; then
@@ -59,6 +61,7 @@ monarch-restart-mako
 monarch-restart-helix
 
 # Change app-specific themes
+monarch-theme-set-foot
 monarch-theme-set-gnome
 monarch-theme-set-browser
 monarch-theme-set-vscode
@@ -66,4 +69,4 @@ monarch-theme-set-obsidian
 monarch-theme-set-keyboard
 
 # Call hook on theme set
-monarch-hook theme-set "$THEME_NAME"
+monarch-hook theme-set "$THEME_NAME" >/dev/null

@@ -40,13 +40,24 @@ _monarch_complete() {
     candidates+=("--all" "--json" "--markdown" "--check")
   fi
 
+  if (( ${#candidates[@]} == 0 )) && [[ -x $bin_dir/$prefix ]]; then
+    local args enum
+    args=$(grep -m 1 '^# monarch:args=<' "$bin_dir/$prefix" 2>/dev/null)
+    enum="${args#*<}"
+    enum="${enum%%>*}"
+
+    if [[ $enum == *"|"* && $enum != *" "* ]]; then
+      read -r -a candidates <<<"${enum//|/ }"
+    fi
+  fi
+
   if (( ${#candidates[@]} > 0 )); then
     local IFS=$'\n'
     COMPREPLY=($(compgen -W "${candidates[*]}" -- "$cur"))
   fi
 }
 
-complete -F _monarch_complete monarch
+complete -o default -F _monarch_complete monarch
 
 # Hide individual monarch-* binaries from initial-word command completion;
 # the unified `monarch` dispatcher is the user-facing entry point.

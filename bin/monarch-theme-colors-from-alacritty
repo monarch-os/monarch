@@ -2,6 +2,7 @@
 
 # monarch:summary=Generate a theme's colors.toml from its alacritty.toml palette
 # monarch:args=<theme-dir>
+# monarch:hidden=true
 
 set -e
 

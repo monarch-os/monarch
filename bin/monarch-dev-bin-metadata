@@ -22,7 +22,8 @@ show_json() {
       {name: "args", required: false, type: "string", note: "Only set when the command accepts arguments."},
       {name: "examples", required: false, type: "string", note: "Pipe-separated examples."},
       {name: "aliases", required: false, type: "string", note: "Pipe-separated alternate routes, e.g. monarch screenshot."},
-      {name: "requires-sudo", required: false, type: "true", default: false, note: "Only include when true."}
+      {name: "requires-sudo", required: false, type: "true", default: false, note: "Only include when true."},
+      {name: "hidden", required: false, type: "true", default: false, note: "Hide from default command listings; visible with --all."}
     ]
   }'
 }
@@ -30,16 +31,21 @@ show_json() {
 show_help() {
   cat <<'EOF'
 Monarch bin metadata
+
 Metadata lives in the top comment block of each executable bin/monarch-* file.
 Keep it slim: define only fields that are required or override defaults.
+
 Required:
   # monarch:summary=<one-line description>
+
 Inferred defaults:
   group         first filename segment after monarch-
   name          remaining filename segments, with dashes converted to spaces
   route         monarch <group> <name>
   binary        filename
   requires-sudo false
+  hidden        false
+
 Optional fields:
   # monarch:group=<group>                  route override only
   # monarch:name=<name>                    route override only; may be empty
@@ -47,12 +53,16 @@ Optional fields:
   # monarch:examples=<cmd> | <cmd>         pipe-separated examples
   # monarch:aliases=<route> | <route>      pipe-separated alternate routes
   # monarch:requires-sudo=true             only when true
+  # monarch:hidden=true                    hide from default command listings
+
 Do not define:
   binary      inferred from filename
   usage       derived from route + args
   false flags or empty args
+
 Examples:
   # monarch:summary=Restart Walker and related user services
+
   # monarch:summary=Take a screenshot
   # monarch:group=capture
   # monarch:args=[smart|region|windows|fullscreen] [slurp|copy] [--editor=<name>]

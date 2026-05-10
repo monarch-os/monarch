@@ -3,11 +3,11 @@ name: monarch
 description: >
   REQUIRED for end-user customization of Linux desktop, window manager, or system config.
   Use when editing ~/.config/hypr/, ~/.config/waybar/, ~/.config/walker/,
-  ~/.config/alacritty/, ~/.config/kitty/, ~/.config/ghostty/, ~/.config/mako/,
+  ~/.config/alacritty/, ~/.config/foot/, ~/.config/kitty/, ~/.config/ghostty/, ~/.config/mako/,
   or ~/.config/monarch/. Triggers: Hyprland, window rules, animations, keybindings,
   monitors, gaps, borders, blur, opacity, waybar, walker, terminal config, themes,
-  wallpaper, night light, idle, lock screen, screenshots, layer rules, workspace
-  settings, display config, and user-facing monarch commands. Excludes Monarch
+  wallpaper, night light, idle, lock screen, screenshots, reminders, layer rules,
+  workspace settings, display config, and user-facing monarch commands. Excludes Monarch
   source development in ~/.local/share/monarch/ and `monarch dev` workflows.
 ---
 
@@ -24,13 +24,13 @@ It is not for contributing to Monarch source code.
 
 - Editing ANY file in `~/.config/hypr/` (window rules, animations, keybindings, monitors, etc.)
 - Editing ANY file in `~/.config/waybar/`, `~/.config/walker/`, `~/.config/mako/`
-- Editing terminal configs (alacritty, kitty, ghostty)
+- Editing terminal configs (alacritty, foot, kitty, ghostty)
 - Editing ANY file in `~/.config/monarch/`
 - Window behavior, animations, opacity, blur, gaps, borders
 - Layer rules, workspace settings, display/monitor configuration
 - Themes, wallpapers, fonts, appearance changes
 - User-facing `monarch` commands (`monarch theme ...`, `monarch refresh ...`, `monarch restart ...`, etc.)
-- Screenshots, screen recording, night light, idle behavior, lock screen
+- Screenshots, screen recording, reminders, night light, idle behavior, lock screen
 
 **If you're about to edit a config file in ~/.config/ on this system, STOP and use this skill first.**
 
@@ -78,7 +78,7 @@ Monarch is built on:
 | **Hyprland** | Wayland compositor/WM | `~/.config/hypr/` |
 | **Waybar** | Status bar | `~/.config/waybar/` |
 | **Walker** | App launcher | `~/.config/walker/` |
-| **Alacritty/Kitty/Ghostty** | Terminals | `~/.config/<terminal>/` |
+| **Alacritty/Foot/Kitty/Ghostty** | Terminals | `~/.config/<terminal>/` |
 | **Mako** | Notifications | `~/.config/mako/` |
 | **SwayOSD** | On-screen display | `~/.config/swayosd/` |
 
@@ -118,6 +118,7 @@ Run `monarch --help` for the full list. The most common groups:
 | `monarch install` | Install optional software / packages | `monarch install docker dbs` |
 | `monarch launch` | Launch apps | `monarch launch browser` |
 | `monarch capture` | Screenshots and recordings | `monarch capture screenshot` |
+| `monarch reminder` | Desktop notification reminders | `monarch reminder 15 "Pickup Jack"` |
 | `monarch pkg` | Package management | `monarch pkg install <pkg>` |
 | `monarch setup` | Initial setup tasks | `monarch setup fingerprint` |
 | `monarch update` | System updates | `monarch update` |
@@ -163,6 +164,7 @@ Run `monarch --help` for the full list. The most common groups:
 
 ```
 ~/.config/alacritty/alacritty.toml
+~/.config/foot/foot.ini
 ~/.config/kitty/kitty.conf
 ~/.config/ghostty/config
 ```
@@ -357,6 +359,17 @@ When user requests system changes:
 5. **Is it a package install?** Use `monarch pkg add` (or `monarch pkg aur add` for AUR-only packages)
 6. **Unsure if command exists?** Run `monarch commands` or `monarch <group> --help`
 
+### Reminder Requests
+
+When the user asks to set a reminder, use `monarch reminder <minutes> [message]` directly. Convert natural language durations to minutes and title-case short reminder labels when appropriate.
+
+```bash
+monarch reminder 15 "Pickup Jack"
+monarch reminder 60 "Check laundry"
+monarch reminder show
+monarch reminder clear
+```
+
 ## Out of Scope
 
 This skill intentionally does not cover Monarch source development. Do not use this skill for:
@@ -371,6 +384,9 @@ This skill intentionally does not cover Monarch source development. Do not use t
 - "Configure my external monitor" -> Edit `~/.config/hypr/monitors.conf`
 - "Make the window gaps smaller" -> Edit `~/.config/hypr/looknfeel.conf`
 - "Set up night light to turn on at sunset" -> `monarch toggle nightlight` or edit `~/.config/hypr/hyprsunset.conf`
+- "Set a reminder to pickup jack in 15 minutes" -> `monarch reminder 15 "Pickup Jack"`
+- "Show my reminders" -> `monarch reminder show`
+- "Clear all reminders" -> `monarch reminder clear`
 - "Customize the catppuccin theme colors" -> Create `~/.config/monarch/themes/catppuccin-custom/` by copying from stock, then edit
 - "Run a script every time I change themes" -> Create `~/.config/monarch/hooks/theme-set`
 - "Reset waybar to defaults" -> `monarch refresh waybar`

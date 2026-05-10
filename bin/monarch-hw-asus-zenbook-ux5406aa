@@ -1,0 +1,6 @@
+
+#!/bin/bash
+
+# monarch:summary=Detect ASUS Zenbook UX5406AA series laptops on Intel Panther Lake.
+
+monarch-hw-match "ux5406aa" && monarch-hw-intel-ptl
