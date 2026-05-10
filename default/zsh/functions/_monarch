@@ -1,0 +1,5 @@
+#compdef monarch
+
+local -a candidates
+candidates=(${(@f)"$(_monarch_candidates "$CURRENT" "${(@)words}")"})
+(( ${#candidates[@]} )) && compadd -a candidates

@@ -1,0 +1,84 @@
+# Shared candidate enumerator for `monarch` completion.
+# Sourced into the user's shell so both bash and zsh can call it from
+# their respective completion shims.
+#
+# Usage:
+#   _monarch_candidates <cursor> <word>...
+# Where:
+#   <cursor>   1-indexed position of the word being completed (1 = "monarch").
+#   <word>...  the command line words, with $1 == "monarch".
+# Emits candidates one per line on stdout.
+
+_monarch_candidates() {
+  local cursor=$1
+  shift
+
+  local monarch_path bin_dir
+  monarch_path=$(command -v monarch 2>/dev/null) || return 0
+  bin_dir=$(dirname -- "$(readlink -f -- "$monarch_path" 2>/dev/null || printf '%s' "$monarch_path")")
+  [ -d "$bin_dir" ] || return 0
+
+  # Build the dispatcher prefix from non-flag words before the cursor.
+  local prefix="monarch"
+  local i=2 part
+  while [ "$i" -lt "$cursor" ]; do
+    eval "part=\${$i:-}"
+    case "$part" in
+      ""|-*) ;;
+      *) prefix="$prefix-$part" ;;
+    esac
+    i=$((i + 1))
+  done
+
+  local second_word=${2:-}
+
+  # Make unmatched globs expand to nothing in either shell.
+  if [ -n "${ZSH_VERSION:-}" ]; then
+    setopt localoptions nullglob
+  else
+    shopt -s nullglob
+  fi
+
+  local file base rest next emitted=
+  for file in "$bin_dir/$prefix"-*; do
+    [ -f "$file" ] && [ -x "$file" ] || continue
+    base=${file##*/}
+    rest=${base#"$prefix-"}
+    next=${rest%%-*}
+    [ -n "$next" ] || continue
+    case " $emitted " in *" $next "*) continue ;; esac
+    emitted="$emitted $next"
+    printf '%s\n' "$next"
+  done
+
+  [ -z "${ZSH_VERSION:-}" ] && shopt -u nullglob
+
+  if [ "$cursor" -eq 2 ]; then
+    printf '%s\n' "commands"
+  fi
+
+  if [ "$second_word" = "commands" ] && [ "$cursor" -ge 3 ]; then
+    printf '%s\n' --all --json --markdown --check
+  fi
+
+  # Fallback: parse `# monarch:args=<a|b|c>` from the leaf binary.
+  if [ -z "$emitted" ] && [ -x "$bin_dir/$prefix" ]; then
+    local args_line enum rest
+    args_line=$(grep -m 1 '^# monarch:args=<' "$bin_dir/$prefix" 2>/dev/null) || args_line=
+    enum=${args_line#*<}
+    enum=${enum%%>*}
+    case "$enum" in
+      *" "*|"") ;;
+      *"|"*)
+        rest=$enum
+        while [ -n "$rest" ]; do
+          case "$rest" in
+            *"|"*) next=${rest%%|*}; rest=${rest#*|} ;;
+            *)     next=$rest;       rest= ;;
+          esac
+          [ -n "$next" ] && printf '%s\n' "$next"
+        done
+        ;;
+    esac
+  fi
+}

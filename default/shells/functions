@@ -1,3 +1,4 @@
 for f in $MONARCH_PATH/default/shells/fns/*; do source "$f"; done
+source $MONARCH_PATH/default/shells/completion-monarch
 
 function mkcd () { mkdir -p "$@" && eval cd "\"\$$#\""; }

@@ -1,0 +1,10 @@
+# Set your city name for weather status.
+# Examples: Paris, Lyon, "New York", "Buenos Aires"
+#
+# To activate: copy this file to ~/.config/monarch/weather.conf
+# and edit the city name.
+#
+# You can also override temporarily with:
+#   MONARCH_WEATHER_LOCATION=Lyon monarch weather-status
+
+Paris
