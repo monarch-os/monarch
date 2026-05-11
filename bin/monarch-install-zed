@@ -6,6 +6,6 @@ echo "Installing Zed Editor..."
 monarch-pkg-add zed monzed
 
 # Apply monarch theme to Zed
-omazed setup
+monzed setup
 
 setsid gtk-launch dev.zed.Zed
