@@ -2,12 +2,6 @@
 
 input {
     keyboard {
-        xkb {
-            layout "us"
-            options "compose:caps"
-        }
-        repeat-delay 250
-        repeat-rate 40
         numlock
     }
 

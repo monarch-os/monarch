@@ -3,8 +3,8 @@
 // Force all apps to use Wayland and identify the session as Niri.
 environment {
     XCURSOR_SIZE "24"
-    GDK_BACKEND "wayland,x11,*"
-    QT_QPA_PLATFORM "wayland;xcb"
+    GDK_BACKEND "wayland"
+    QT_QPA_PLATFORM "wayland"
     QT_STYLE_OVERRIDE "kvantum"
     MOZ_ENABLE_WAYLAND "1"
     ELECTRON_OZONE_PLATFORM_HINT "wayland"

@@ -1,14 +1,19 @@
 // Monarch — services and helpers launched at session start.
 
-// Niri does NOT expand ~ or $HOME in spawn-at-startup args, so any entry
-// that references a file under $HOME has to go through `sh -c`.
-
 spawn-at-startup "uwsm-app" "--" "mako"
 spawn-at-startup "sh" "-c" "monarch-toggle-enabled waybar-off || uwsm-app -- waybar"
 spawn-at-startup "uwsm-app" "--" "fcitx5" "--disable" "notificationitem"
+
+// Background settings
 spawn-at-startup "sh" "-c" "if [ -e ~/.config/monarch/current/background ]; then exec uwsm-app -- swaybg -i ~/.config/monarch/current/background -m fill; else exec uwsm-app -- swaybg --color '#000000'; fi"
+
+// Authentication agent
 spawn-at-startup "/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1"
+
+// Screenlocking and power management
 spawn-at-startup "sh" "-c" "exec uwsm-app -- swayidle -w -C ~/.config/swayidle/config"
-spawn-at-startup "monarch-first-run"
 spawn-at-startup "monarch-powerprofiles-set"
+
+
+spawn-at-startup "monarch-first-run"
 spawn-at-startup "sh" "-c" "sleep 2 && monarch-hook post-boot"
