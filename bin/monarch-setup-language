@@ -44,13 +44,16 @@ normalize_locale_key() {
 
 get_locale_gen_candidates() {
   [[ -f "$LOCALE_GEN_FILE" ]] || return 0
+  # Only UTF-8 entries. Non-UTF-8 names like `fr_FR ISO-8859-1` are rejected
+  # by `localectl set-locale` and would produce
+  # "Cannot enable locale generation for invalid locale".
   awk '
     {
       line=$0
       sub(/^[[:space:]]*#[[:space:]]*/, "", line)
       if (line == "") next
       split(line, parts)
-      if (parts[1] != "" && parts[2] ~ /^[A-Z0-9_.-]+$/) print parts[1]
+      if (parts[1] != "" && parts[2] == "UTF-8") print parts[1]
     }
   ' "$LOCALE_GEN_FILE" | awk '!seen[$0]++'
 }

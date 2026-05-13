@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Display Hyprland keybindings defined in your configuration using walker for an interactive search menu.
+# monarch:summary=Display Niri keybindings defined in your configuration using walker for an interactive search menu.
 
 declare -A KEYCODE_SYM_MAP
 
@@ -80,39 +80,51 @@ parse_keycodes() {
   fi
 }
 
-# Fetch dynamic keybindings from Hyprland
+# Fetch dynamic keybindings from Niri.
 #
-# Also do some pre-processing:
-# - Remove standard Monarch bin path prefix
-# - Remove uwsm prefix
-# - Map numeric modifier key mask to a textual rendition
-# - Output comma-separated values that the parser can understand
+# Niri does not expose binds via IPC (yet), so we parse the live config file.
+# Each line of the form `<KEY-CHORD> { <action> "<args>"; }` inside a `binds {}`
+# block is converted into the same comma-separated layout the rest of this
+# script expects: modifiers,key,description,dispatcher,arg
 dynamic_bindings() {
-  hyprctl -j binds |
-    jq -r '.[] | {modmask, key, keycode, description, dispatcher, arg} | "\(.modmask),\(.key)@\(.keycode),\(.description),\(.dispatcher),\(.arg)"' |
-    sed -r \
-      -e 's/null//' \
-      -e 's,~/.local/share/monarch/bin/,,' \
-      -e 's,uwsm app -- ,,' \
-      -e 's,uwsm-app -- ,,' \
-      -e 's/@0//' \
-      -e 's/,@/,code:/' \
-      -e 's/^0,/,/' \
-      -e 's/^1,/SHIFT,/' \
-      -e 's/^4,/CTRL,/' \
-      -e 's/^5,/SHIFT CTRL,/' \
-      -e 's/^8,/ALT,/' \
-      -e 's/^9,/SHIFT ALT,/' \
-      -e 's/^12,/CTRL ALT,/' \
-      -e 's/^13,/SHIFT CTRL ALT,/' \
-      -e 's/^64,/SUPER,/' \
-      -e 's/^65,/SUPER SHIFT,/' \
-      -e 's/^68,/SUPER CTRL,/' \
-      -e 's/^69,/SUPER SHIFT CTRL,/' \
-      -e 's/^72,/SUPER ALT,/' \
-      -e 's/^73,/SUPER SHIFT ALT,/' \
-      -e 's/^76,/SUPER CTRL ALT,/' \
-      -e 's/^77,/SUPER SHIFT CTRL ALT,/'
+  local config="$HOME/.config/niri/config.kdl"
+  [[ -f $config ]] || return 0
+
+  awk '
+    /^binds\s*\{/ { in_binds = 1; depth = 1; next }
+    in_binds {
+      # Track brace depth so nested blocks (e.g. options on the binding itself)
+      # do not confuse us.
+      n_open = gsub(/\{/, "{")
+      n_close = gsub(/\}/, "}")
+      depth += n_open - n_close
+      if (depth <= 0) { in_binds = 0; next }
+    }
+    !in_binds { next }
+    /hotkey-overlay-title=/ {
+      # Pull "<modifiers>+<key>" left of the first space.
+      key_chord = $1
+      # Extract the hotkey-overlay-title="…" value as the description.
+      title = $0
+      sub(/.*hotkey-overlay-title="/, "", title)
+      sub(/".*/, "", title)
+      # Extract the action: text between the first "{" and "}".
+      action = $0
+      sub(/^[^{]*\{[[:space:]]*/, "", action)
+      sub(/;[[:space:]]*\}.*$/, "", action)
+      # Split modifiers on "+", treat the last token as the key.
+      n = split(key_chord, parts, /\+/)
+      key = parts[n]
+      mods = ""
+      for (i = 1; i < n; i++) {
+        token = toupper(parts[i])
+        if (token == "MOD") token = "SUPER"
+        mods = (mods == "") ? token : mods " " token
+      }
+      # description, dispatcher, arg: only description is meaningful here.
+      printf "%s,%s,%s,,\n", mods, key, title
+    }
+  ' "$config"
 }
 
 # Hardcoded bindings, like the copy-url extension and such
@@ -243,7 +255,7 @@ output_keybindings() {
 if [[ $1 == "--print" || $1 == "-p" ]]; then
   output_keybindings
 else
-  monitor_height=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .height')
+  monitor_height=$(niri msg --json focused-output 2>/dev/null | jq -r '.current_mode.height // 1080')
   menu_height=$((monitor_height * 40 / 100))
 
   output_keybindings |

@@ -31,7 +31,7 @@ Common prefixes include:
 
 Other current prefixes include:
 
-- `ac-`, `audio-`, `battery-`, `branch-`, `brightness-`, `channel-`, `config-`, `debug-`, `dev-`, `drive-`, `first-`, `font-`, `haptic-`, `hibernation-`, `hook-`, `hyprland-`, `menu-`, `migrate-`, `notification-`, `npx-`, `plymouth-`, `powerprofiles-`, `reinstall-`, `remove-`, `screensaver-`, `show-`, `snapshot-`, `state-`, `sudo-`, `swayosd-`, `system-`, `transcode-`, `tui-`, `tz-`, `upload-`, `version-`, `voxtype-`, `webapp-`, `wifi-`, `windows-`
+- `ac-`, `audio-`, `battery-`, `branch-`, `brightness-`, `channel-`, `config-`, `debug-`, `dev-`, `drive-`, `first-`, `font-`, `haptic-`, `hibernation-`, `hook-`, `menu-`, `migrate-`, `niri-`, `notification-`, `npx-`, `plymouth-`, `powerprofiles-`, `reinstall-`, `remove-`, `screensaver-`, `show-`, `snapshot-`, `state-`, `sudo-`, `swayosd-`, `system-`, `transcode-`, `tui-`, `tz-`, `upload-`, `version-`, `voxtype-`, `webapp-`, `wifi-`, `windows-`
 
 # Command Metadata
 
@@ -101,10 +101,12 @@ When making visual changes, such as Waybar styles or desktop appearance, always 
 To copy a default config to user config with automatic backup:
 
 ```bash
-monarch-refresh-config hypr/hyprlock.conf
+monarch-refresh-config hyprlock/hyprlock.conf
 ```
 
-This copies `~/.local/share/monarch/config/hypr/hyprlock.conf` to `~/.config/hypr/hyprlock.conf`.
+This copies `~/.local/share/monarch/config/hyprlock/hyprlock.conf` to `~/.config/hyprlock/hyprlock.conf`.
+
+For the Niri compositor specifically, prefer `monarch-refresh-niri` — it rebuilds `~/.config/niri/config.kdl` by concatenating the Monarch default, the current theme overlay, and the user override (`~/.config/niri/user.kdl`), then validates and reloads.
 
 # Migrations
 
@@ -123,10 +125,10 @@ Migrations may use raw `pacman`, `command -v`, or direct config edits when neede
 
 Example:
 ```bash
-echo "Disable fingerprint in hyprlock if fingerprint auth is not configured"
+echo "Drop fingerprint marker if no fingerprint device is enrolled"
 
 if monarch-cmd-missing fprintd-list || ! fprintd-list "$USER" 2>/dev/null | grep -q "finger"; then
-  sed -i 's/fingerprint:enabled = .*/fingerprint:enabled = false/' ~/.config/hypr/hyprlock.conf
+  rm -f "$HOME/.local/state/monarch/fingerprint-enabled"
 fi
 ```
 
@@ -144,5 +146,6 @@ When Monarch diverges from upstream, mark it clearly:
 - `bin/monarch-branch-set` only supports `master|dev` (no `rc` channel)
 - `test/monarch-cli-test.sh` may need assertion adjustments to match Monarch divergences after a sync
 - Some upstream commands (cliamp, etc.) are intentionally not shipped — skip the corresponding migrations
+- **Compositor: Monarch replaces Hyprland with Niri.** Hyprland-the-compositor and its tightly-coupled daemons (`hypridle`, `hyprsunset`, `xdg-desktop-portal-hyprland`) are dropped in favour of `niri`, `swayidle`, `wlsunset`, and `xdg-desktop-portal-gnome`. `hyprlock` and `hyprpicker` are kept — both are wlroots-compatible (`ext-session-lock-v1` / wlr-screencopy) and run cleanly under Niri without the rest of the Hyprland stack. Configs live under `config/niri/`, `default/niri/`, `config/swayidle/`, `config/hyprlock/`, `config/wlsunset/`. During upstream syncs, drop any new Hyprland compositor configs that come from Omarchy and keep their Niri equivalents.
 
 After a sync, run `bash test/monarch-cli-test.sh` and `bin/monarch commands --check` to validate metadata and routes.

@@ -1,0 +1,195 @@
+// Monarch — key bindings.
+//
+// User overrides live in ~/.config/niri/user.kdl. Niri merges binds by key,
+// so re-declaring a single Mod+X in user.kdl replaces it without touching
+// the others.
+
+binds {
+    // --- System ---
+    Mod+Shift+Q hotkey-overlay-title="Close active window" { close-window; }
+    Mod+L hotkey-overlay-title="Lock screen" allow-inhibiting=false { spawn "monarch-system-lock"; }
+    Mod+Shift+L hotkey-overlay-title="Power menu" { spawn "monarch-menu" "system"; }
+    XF86PowerOff hotkey-overlay-title="Power menu" { spawn "monarch-menu" "system"; }
+
+    // --- Applications ---
+    Mod+Return hotkey-overlay-title="Terminal" { spawn-sh "uwsm-app -- xdg-terminal-exec --dir=\"$(monarch-cmd-terminal-cwd)\""; }
+    Mod+Shift+Return hotkey-overlay-title="Tmux terminal" { spawn-sh "uwsm-app -- xdg-terminal-exec --dir=\"$(monarch-cmd-terminal-cwd)\" bash -c 'tmux attach || tmux new -s Work'"; }
+    Ctrl+Alt+F hotkey-overlay-title="File manager" { spawn "uwsm-app" "--" "nautilus" "--new-window"; }
+    Ctrl+Alt+Shift+F hotkey-overlay-title="File manager (cwd)" { spawn-sh "uwsm-app -- nautilus --new-window \"$(monarch-cmd-terminal-cwd)\""; }
+    Ctrl+Alt+E hotkey-overlay-title="Exegol" { spawn "monarch-menu-pentestenv"; }
+    Ctrl+Alt+S hotkey-overlay-title="SSH manager" { spawn "monarch-launch-floating-terminal-with-presentation" "sshm"; }
+    Ctrl+Alt+W hotkey-overlay-title="Browser" { spawn "monarch-launch-browser"; }
+    Alt+Shift+W hotkey-overlay-title="Browser (private)" { spawn "monarch-launch-browser" "--private"; }
+    Mod+Shift+M hotkey-overlay-title="Music" { spawn "monarch-launch-or-focus" "deezer-desktop"; }
+    Mod+Shift+N hotkey-overlay-title="Editor" { spawn "monarch-launch-editor"; }
+    Mod+Shift+D hotkey-overlay-title="Docker (lazydocker)" { spawn "monarch-launch-tui" "lazydocker"; }
+    Mod+Shift+O hotkey-overlay-title="Obsidian" { spawn "monarch-launch-or-focus" "^obsidian$" "uwsm-app -- obsidian"; }
+    Mod+Shift+E hotkey-overlay-title="Email (Outlook)" { spawn "monarch-launch-or-focus-webapp" "Outlook" "https://outlook.office.com"; }
+    Mod+Shift+C hotkey-overlay-title="Cyberchef" { spawn "monarch-launch-webapp" "Cyberchef" "https://gchq.github.io/CyberChef/"; }
+    Mod+Shift+T hotkey-overlay-title="Teams" { spawn "monarch-launch-or-focus-webapp" "Teams" "https://teams.microsoft.com/"; }
+    Mod+Shift+Y hotkey-overlay-title="YouTube" { spawn "monarch-launch-or-focus-webapp" "YouTube" "https://youtube.com/"; }
+
+    // --- Menus & utilities ---
+    Mod+Space hotkey-overlay-title="Launch apps (walker)" { spawn "monarch-launch-walker"; }
+    Mod+Ctrl+E hotkey-overlay-title="Emoji picker" { spawn "monarch-launch-walker" "-m" "symbols"; }
+    Mod+Ctrl+C hotkey-overlay-title="Capture menu" { spawn "monarch-menu" "capture"; }
+    Mod+Ctrl+O hotkey-overlay-title="Toggle menu" { spawn "monarch-menu" "toggle"; }
+    Mod+Ctrl+H hotkey-overlay-title="Hardware menu" { spawn "monarch-menu" "hardware"; }
+    Mod+Alt+Space hotkey-overlay-title="Monarch menu" { spawn "monarch-menu"; }
+    Mod+K hotkey-overlay-title="Show key bindings" { spawn "monarch-menu-keybindings"; }
+    XF86Calculator hotkey-overlay-title="Calculator" { spawn "gnome-calculator"; }
+
+    // --- Aesthetics ---
+    Mod+Ctrl+Space hotkey-overlay-title="Theme background menu" { spawn "monarch-menu" "background"; }
+    Mod+Shift+Ctrl+Space hotkey-overlay-title="Theme menu" { spawn "monarch-menu" "theme"; }
+
+    // --- Notifications (mako) ---
+    Mod+Comma hotkey-overlay-title="Dismiss last notification" { spawn "makoctl" "dismiss"; }
+    Mod+Shift+Comma hotkey-overlay-title="Dismiss all notifications" { spawn "makoctl" "dismiss" "--all"; }
+    Mod+Ctrl+Comma hotkey-overlay-title="Toggle notification silencing" { spawn "monarch-toggle-notification-silencing"; }
+    Mod+Alt+Comma hotkey-overlay-title="Invoke last notification" { spawn "makoctl" "invoke"; }
+    Mod+Shift+Alt+Comma hotkey-overlay-title="Restore last notification" { spawn "makoctl" "restore"; }
+
+    // --- Toggles ---
+    Mod+Ctrl+I hotkey-overlay-title="Toggle idle lock" { spawn "monarch-toggle-idle"; }
+    Mod+Ctrl+N hotkey-overlay-title="Toggle nightlight" { spawn "monarch-toggle-nightlight"; }
+
+    // --- Captures ---
+    Print hotkey-overlay-title="Screenshot (with editor)" { spawn "monarch-capture-screenshot"; }
+    Mod+Shift+S hotkey-overlay-title="Screenshot to clipboard" { spawn "monarch-capture-screenshot" "smart" "copy"; }
+    Alt+Print hotkey-overlay-title="Screen recording" { spawn "monarch-menu" "screenrecord"; }
+    Mod+Print hotkey-overlay-title="Color picker" { spawn-sh "pkill hyprpicker || hyprpicker -a"; }
+    Mod+Ctrl+Print hotkey-overlay-title="OCR from screenshot" { spawn "monarch-capture-text-extraction"; }
+
+    // --- Sharing / transcoding / reminders ---
+    Mod+Ctrl+S hotkey-overlay-title="Share" { spawn "monarch-menu" "share"; }
+    Mod+Ctrl+Semicolon hotkey-overlay-title="Transcode" { spawn "monarch-transcode"; }
+    Mod+Ctrl+R hotkey-overlay-title="Set reminder" { spawn "monarch-menu" "reminder-set"; }
+    Mod+Ctrl+Alt+R hotkey-overlay-title="Show reminders" { spawn "monarch-reminder" "show"; }
+    Mod+Shift+Ctrl+R hotkey-overlay-title="Clear reminders" { spawn "monarch-reminder" "clear"; }
+
+    // --- Quick-info ---
+    Mod+Ctrl+Alt+T hotkey-overlay-title="Show time" { spawn-sh "notify-send -u low \"$(date +'%A %H:%M  —  %d %B W%V %Y')\""; }
+    Mod+Ctrl+Alt+B hotkey-overlay-title="Show battery" { spawn-sh "notify-send -u low \"$(monarch-battery-status)\""; }
+    Mod+Ctrl+Alt+W hotkey-overlay-title="Show weather" { spawn-sh "notify-send -u low \"$(monarch-weather-status)\""; }
+
+    // --- Control panels ---
+    Mod+Ctrl+A hotkey-overlay-title="Audio controls" { spawn "monarch-launch-audio"; }
+    Mod+Ctrl+B hotkey-overlay-title="Bluetooth controls" { spawn "monarch-launch-bluetooth"; }
+    Mod+Ctrl+W hotkey-overlay-title="Wifi controls" { spawn "monarch-launch-wifi"; }
+    Mod+Ctrl+T hotkey-overlay-title="Activity (btop)" { spawn "monarch-launch-tui" "btop"; }
+
+    // --- Dictation (voxtype) ---
+    Mod+Ctrl+X hotkey-overlay-title="Toggle dictation" { spawn "voxtype" "record" "toggle"; }
+    F9         hotkey-overlay-title="Dictation (push-to-talk start)" { spawn "voxtype" "record" "start"; }
+
+    // --- Clipboard manager ---
+    Mod+Shift+V hotkey-overlay-title="Clipboard manager" { spawn "monarch-launch-walker" "-m" "clipboard"; }
+
+    // --- Media keys (XF86*) ---
+    XF86AudioRaiseVolume       allow-when-locked=true { spawn "monarch-swayosd-client" "--output-volume" "raise"; }
+    XF86AudioLowerVolume       allow-when-locked=true { spawn "monarch-swayosd-client" "--output-volume" "lower"; }
+    XF86AudioMute              allow-when-locked=true { spawn "monarch-swayosd-client" "--output-volume" "mute-toggle"; }
+    XF86AudioMicMute           allow-when-locked=true { spawn "monarch-audio-input-mute"; }
+    XF86MonBrightnessUp        allow-when-locked=true { spawn "monarch-brightness-display" "+5%"; }
+    XF86MonBrightnessDown      allow-when-locked=true { spawn "monarch-brightness-display" "5%-"; }
+    Shift+XF86MonBrightnessUp   allow-when-locked=true { spawn "monarch-brightness-display" "100%"; }
+    Shift+XF86MonBrightnessDown allow-when-locked=true { spawn "monarch-brightness-display" "1%"; }
+    XF86KbdBrightnessUp        allow-when-locked=true { spawn "monarch-brightness-keyboard" "up"; }
+    XF86KbdBrightnessDown      allow-when-locked=true { spawn "monarch-brightness-keyboard" "down"; }
+    XF86KbdLightOnOff          allow-when-locked=true { spawn "monarch-brightness-keyboard" "cycle"; }
+    XF86TouchpadToggle         { spawn "monarch-toggle-touchpad"; }
+    XF86TouchpadOn             { spawn "monarch-toggle-touchpad" "on"; }
+    XF86TouchpadOff            { spawn "monarch-toggle-touchpad" "off"; }
+    XF86AudioNext              { spawn "monarch-swayosd-client" "--playerctl" "next"; }
+    XF86AudioPause             { spawn "monarch-swayosd-client" "--playerctl" "play-pause"; }
+    XF86AudioPlay              { spawn "monarch-swayosd-client" "--playerctl" "play-pause"; }
+    XF86AudioPrev              { spawn "monarch-swayosd-client" "--playerctl" "previous"; }
+    Mod+XF86AudioMute          { spawn "monarch-audio-output-switch"; }
+    Alt+XF86AudioRaiseVolume   { spawn "monarch-swayosd-client" "--output-volume" "+1"; }
+    Alt+XF86AudioLowerVolume   { spawn "monarch-swayosd-client" "--output-volume" "-1"; }
+    Alt+XF86MonBrightnessUp    { spawn "monarch-brightness-display" "+1%"; }
+    Alt+XF86MonBrightnessDown  { spawn "monarch-brightness-display" "-1%"; }
+
+    // --- Tiling: focus columns / windows ---
+    Mod+Left  hotkey-overlay-title="Focus column left"  { focus-column-left; }
+    Mod+Right hotkey-overlay-title="Focus column right" { focus-column-right; }
+    Mod+Up    hotkey-overlay-title="Focus window up"    { focus-window-up; }
+    Mod+Down  hotkey-overlay-title="Focus window down"  { focus-window-down; }
+
+    // --- Tiling: swap / move columns and windows ---
+    Mod+Shift+Left  hotkey-overlay-title="Move column left"  { move-column-left; }
+    Mod+Shift+Right hotkey-overlay-title="Move column right" { move-column-right; }
+    Mod+Shift+Up    hotkey-overlay-title="Move window up"    { move-window-up; }
+    Mod+Shift+Down  hotkey-overlay-title="Move window down"  { move-window-down; }
+
+    // --- Resize column ---
+    Mod+Minus hotkey-overlay-title="Shrink column"  { set-column-width "-10%"; }
+    Mod+Equal hotkey-overlay-title="Expand column"  { set-column-width "+10%"; }
+    Mod+Shift+Minus hotkey-overlay-title="Shrink window height" { set-window-height "-10%"; }
+    Mod+Shift+Equal hotkey-overlay-title="Expand window height" { set-window-height "+10%"; }
+
+    // --- Fullscreen / preset width ---
+    Mod+F        hotkey-overlay-title="Fullscreen window"          { fullscreen-window; }
+    Mod+Shift+F  hotkey-overlay-title="Expand column to available" { expand-column-to-available-width; }
+    Mod+R        hotkey-overlay-title="Cycle preset column width"  { switch-preset-column-width; }
+    Mod+Shift+R  hotkey-overlay-title="Cycle preset window height" { switch-preset-window-height; }
+
+    // --- Float / pop ---
+    Mod+Shift+Space hotkey-overlay-title="Toggle floating" { toggle-window-floating; }
+
+    // --- Workspaces (named 1..10 — declared persistent in misc.kdl) ---
+    Mod+1 hotkey-overlay-title="Workspace 1"  { focus-workspace "1"; }
+    Mod+2 hotkey-overlay-title="Workspace 2"  { focus-workspace "2"; }
+    Mod+3 hotkey-overlay-title="Workspace 3"  { focus-workspace "3"; }
+    Mod+4 hotkey-overlay-title="Workspace 4"  { focus-workspace "4"; }
+    Mod+5 hotkey-overlay-title="Workspace 5"  { focus-workspace "5"; }
+    Mod+6 hotkey-overlay-title="Workspace 6"  { focus-workspace "6"; }
+    Mod+7 hotkey-overlay-title="Workspace 7"  { focus-workspace "7"; }
+    Mod+8 hotkey-overlay-title="Workspace 8"  { focus-workspace "8"; }
+    Mod+9 hotkey-overlay-title="Workspace 9"  { focus-workspace "9"; }
+    Mod+0 hotkey-overlay-title="Workspace 10" { focus-workspace "10"; }
+
+    Mod+Shift+1 hotkey-overlay-title="Move column to workspace 1"  { move-column-to-workspace "1"; }
+    Mod+Shift+2 hotkey-overlay-title="Move column to workspace 2"  { move-column-to-workspace "2"; }
+    Mod+Shift+3 hotkey-overlay-title="Move column to workspace 3"  { move-column-to-workspace "3"; }
+    Mod+Shift+4 hotkey-overlay-title="Move column to workspace 4"  { move-column-to-workspace "4"; }
+    Mod+Shift+5 hotkey-overlay-title="Move column to workspace 5"  { move-column-to-workspace "5"; }
+    Mod+Shift+6 hotkey-overlay-title="Move column to workspace 6"  { move-column-to-workspace "6"; }
+    Mod+Shift+7 hotkey-overlay-title="Move column to workspace 7"  { move-column-to-workspace "7"; }
+    Mod+Shift+8 hotkey-overlay-title="Move column to workspace 8"  { move-column-to-workspace "8"; }
+    Mod+Shift+9 hotkey-overlay-title="Move column to workspace 9"  { move-column-to-workspace "9"; }
+    Mod+Shift+0 hotkey-overlay-title="Move column to workspace 10" { move-column-to-workspace "10"; }
+
+    Mod+Tab       hotkey-overlay-title="Next workspace"     { focus-workspace-down; }
+    Mod+Shift+Tab hotkey-overlay-title="Previous workspace" { focus-workspace-up; }
+
+    // --- Scratchpad (named workspace equivalent) ---
+    Mod+S      hotkey-overlay-title="Scratchpad"            { focus-workspace "scratchpad"; }
+    Mod+Alt+S  hotkey-overlay-title="Send to scratchpad"    { move-column-to-workspace "scratchpad"; }
+
+    // --- Monitors ---
+    Mod+Ctrl+Left   hotkey-overlay-title="Move workspace to monitor left"   { move-workspace-to-monitor-left; }
+    Mod+Ctrl+Right  hotkey-overlay-title="Move workspace to monitor right"  { move-workspace-to-monitor-right; }
+    Mod+Ctrl+Up     hotkey-overlay-title="Move workspace to monitor up"     { move-workspace-to-monitor-up; }
+    Mod+Ctrl+Down   hotkey-overlay-title="Move workspace to monitor down"   { move-workspace-to-monitor-down; }
+    Ctrl+Alt+Tab        hotkey-overlay-title="Focus next monitor"     { focus-monitor-next; }
+    Ctrl+Alt+Shift+Tab  hotkey-overlay-title="Focus previous monitor" { focus-monitor-previous; }
+
+    // --- Mouse-wheel workspace switch ---
+    Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
+    Mod+WheelScrollUp   cooldown-ms=150 { focus-workspace-up;   }
+
+    // --- Alt+Tab window cycling within current workspace ---
+    Alt+Tab       hotkey-overlay-title="Cycle next window"     { focus-window-or-workspace-down; }
+    Alt+Shift+Tab hotkey-overlay-title="Cycle previous window" { focus-window-or-workspace-up; }
+
+    // --- Apple Display brightness (asdcontrol via monarch wrapper) ---
+    Ctrl+F1       { spawn "monarch-brightness-display-apple" "-5000"; }
+    Ctrl+F2       { spawn "monarch-brightness-display-apple" "+5000"; }
+    Shift+Ctrl+F2 { spawn "monarch-brightness-display-apple" "+60000"; }
+
+    // --- Quit / reload ---
+    Mod+Ctrl+Alt+Q { quit; }
+    Ctrl+Alt+Delete hotkey-overlay-title="Close all windows" { spawn "monarch-niri-window-close-all"; }
+}

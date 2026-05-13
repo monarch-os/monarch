@@ -4,14 +4,14 @@ monarch-refresh-sddm
 # Setup SDDM login service
 sudo mkdir -p /usr/local/share/wayland-sessions
 sudo cp "$MONARCH_PATH/default/wayland-sessions/monarch.desktop" /usr/local/share/wayland-sessions/monarch.desktop
-sudo cp "$MONARCH_PATH/default/sddm/hyprland.conf" /usr/share/sddm/hyprland.conf
+sudo cp "$MONARCH_PATH/default/sddm/niri.kdl" /usr/share/sddm/niri.kdl
 
 sudo mkdir -p /etc/sddm.conf.d
 cat <<EOF | sudo tee /etc/sddm.conf.d/10-wayland.conf >/dev/null
 [General]
 DisplayServer=wayland
 [Wayland]
-CompositorCommand=start-hyprland -- --config /usr/share/sddm/hyprland.conf
+CompositorCommand=niri --config /usr/share/sddm/niri.kdl
 EOF
 
 if [[ ! -f /etc/sddm.conf.d/autologin.conf ]]; then
@@ -24,7 +24,7 @@ Session=monarch
 Current=monarch
 EOF
 else
-  sudo sed -i 's/^Session=hyprland-uwsm$/Session=monarch/' /etc/sddm.conf.d/autologin.conf
+  sudo sed -i -e 's/^Session=hyprland-uwsm$/Session=monarch/' -e 's/^Session=niri$/Session=monarch/' /etc/sddm.conf.d/autologin.conf
 fi
 
 # Prevent password-based SDDM logins from creating an encrypted login keyring

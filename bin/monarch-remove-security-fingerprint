@@ -20,16 +20,14 @@ remove_pam_config() {
   fi
 }
 
-remove_hyprlock_fingerprint_icon() {
-  echo "Removing fingerprint icon from hyprlock placeholder text..."
-  sed -i 's/placeholder_text = .*/placeholder_text = Enter Password/' ~/.config/hypr/hyprlock.conf
-  sed -i 's/fingerprint:enabled = .*/fingerprint:enabled = false/' ~/.config/hypr/hyprlock.conf
+remove_fingerprint_marker() {
+  rm -f "$HOME/.local/state/monarch/fingerprint-enabled"
 }
 
 echo -e "\e[32mRemoving fingerprint scanner from authentication.\n\e[0m"
 
 remove_pam_config
-remove_hyprlock_fingerprint_icon
+remove_fingerprint_marker
 
 echo "Removing fingerprint packages..."
 monarch-pkg-drop fprintd libfprint-git

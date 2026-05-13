@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Print the detected Hyprland touchpad or trackpad device name
+# monarch:summary=Print the detected touchpad or trackpad device name
 
-device=$(hyprctl devices -j | jq -r '[.mice[] | .name | select(test("touchpad|trackpad"; "i"))] | first // empty')
+device=$(libinput list-devices 2>/dev/null | awk -F': *' '/^Device:/ {name=$2} /^Tap-to-click:/ {if (name ~ /[Tt]ouchpad|[Tt]rackpad/) {print name; exit}}')
 [[ -n $device ]] && echo "$device"

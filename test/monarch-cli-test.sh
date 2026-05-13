@@ -63,7 +63,7 @@ pass "commands --check passes"
 "$CLI" commands --all >/dev/null
 pass "commands --all does not crash"
 
-"$CLI" commands --all --json | jq -e '.commands[] | select(.route == "monarch hyprland window gaps toggle" and .summary != "undocumented")' >/dev/null
+"$CLI" commands --all --json | jq -e '.commands[] | select(.route == "monarch niri monitor focused" and .summary != "undocumented")' >/dev/null
 pass "fallback commands are inferred and documented"
 
 "$CLI" commands --all --json | jq -e '.commands[] | select(.route == "monarch dev benchmark")' >/dev/null

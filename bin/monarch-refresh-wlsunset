@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# monarch:summary=Overwrite the user config for wlsunset with the Monarch default and restart it.
+
+monarch-refresh-config wlsunset/wlsunset.conf
+monarch-restart-wlsunset

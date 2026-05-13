@@ -48,13 +48,7 @@ gum
 gvfs-mtp
 gvfs-nfs
 gvfs-smb
-hypridle
-hyprland
-hyprland-guiutils
-hyprland-preview-share-picker
-hyprlock
 hyprpicker
-hyprsunset
 imagemagick
 impala
 imv
@@ -79,6 +73,7 @@ mise
 mpv
 nautilus
 nautilus-python
+niri
 noto-fonts
 noto-fonts-cjk
 noto-fonts-emoji
@@ -108,7 +103,9 @@ signal-desktop
 slurp
 starship
 sushi
+hyprlock
 swaybg
+swayidle
 swayosd
 system-config-printer
 tesseract
@@ -130,9 +127,11 @@ wireless-regdb
 wiremix
 wireplumber
 wl-clipboard
+wlsunset
+wtype
 woff2-font-awesome
+xdg-desktop-portal-gnome
 xdg-desktop-portal-gtk
-xdg-desktop-portal-hyprland
 xdg-terminal-exec
 xmlstarlet
 xournalpp

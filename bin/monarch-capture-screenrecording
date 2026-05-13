@@ -59,7 +59,7 @@ start_webcam_overlay() {
   fi
 
   # Get monitor scale
-  local scale=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .scale')
+  local scale=$(niri msg --json focused-output 2>/dev/null | jq -r '.logical.scale // 1')
 
   # Target width (base 360px, scaled to monitor)
   local target_width=$(awk "BEGIN {printf \"%.0f\", 360 * $scale}")
@@ -92,7 +92,7 @@ cleanup_webcam() {
 
 default_resolution() {
   local width height
-  read -r width height < <(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | "\(.width) \(.height)"')
+  read -r width height < <(niri msg --json focused-output 2>/dev/null | jq -r '"\(.current_mode.width // 0) \(.current_mode.height // 0)"')
   if ((width > 3840 || height > 2160)); then
     echo "3840x2160"
   else
@@ -103,13 +103,15 @@ default_resolution() {
 # Monitor + window rectangles on the focused workspace, in slurp's "X,Y WxH" format.
 # Mirrors monarch-capture-screenshot so the picker UX is identical.
 get_rectangles() {
-  local active_workspace=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .activeWorkspace.id')
-  hyprctl monitors -j | jq -r --arg ws "$active_workspace" '
-    .[] | select(.activeWorkspace.id == ($ws | tonumber)) |
-    "\(.x),\(.y) \(.width / .scale | floor)x\(.height / .scale | floor)"'
-  hyprctl clients -j | jq -r --arg ws "$active_workspace" '
-    .[] | select(.workspace.id == ($ws | tonumber)) |
-    "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"'
+  niri msg --json outputs 2>/dev/null | jq -r '
+    to_entries[] | .value |
+    select(.logical != null) |
+    "\(.logical.x),\(.logical.y) \(.logical.width)x\(.logical.height)"'
+  local focused_workspace
+  focused_workspace=$(niri msg --json workspaces 2>/dev/null | jq -r '.[] | select(.is_focused == true) | .id')
+  niri msg --json windows 2>/dev/null | jq -r --arg ws "$focused_workspace" '
+    .[] | select(.workspace_id == ($ws | tonumber)) | select(.layout.pos_in_scrolling_layout != null) |
+    "\(.layout.pos_in_scrolling_layout[0]),\(.layout.pos_in_scrolling_layout[1]) \(.layout.window_size[0])x\(.layout.window_size[1])"'
 }
 
 # Echoes "monitor:NAME" when the selection matches an entire monitor, otherwise
@@ -123,8 +125,8 @@ select_capture_target() {
   local selection=$(echo "$rects" | slurp 2>/dev/null)
   kill $picker_pid 2>/dev/null
 
-  # X and Y can be negative (Hyprland monitor positions in multi-display layouts);
-  # widths and heights are always positive.
+  # X and Y can be negative (Niri places monitors at signed coordinates in
+  # multi-display layouts); widths and heights are always positive.
   [[ $selection =~ ^(-?[0-9]+),(-?[0-9]+)[[:space:]]([0-9]+)x([0-9]+)$ ]] || return 1
   local sx=${BASH_REMATCH[1]} sy=${BASH_REMATCH[2]}
   local sw=${BASH_REMATCH[3]} sh=${BASH_REMATCH[4]}
@@ -145,8 +147,10 @@ select_capture_target() {
 
   # When the selection exactly matches a monitor, prefer -w <monitor> over a
   # region capture — same kms backend, but no scaling math and full native res.
-  local monitor=$(hyprctl monitors -j | jq -r --argjson x "$sx" --argjson y "$sy" --argjson w "$sw" --argjson h "$sh" '
-    .[] | select(.x == $x and .y == $y and (.width / .scale | floor) == $w and (.height / .scale | floor) == $h) | .name' | head -1)
+  local monitor=$(niri msg --json outputs 2>/dev/null | jq -r --argjson x "$sx" --argjson y "$sy" --argjson w "$sw" --argjson h "$sh" '
+    to_entries[] | .value |
+    select(.logical != null) |
+    select(.logical.x == $x and .logical.y == $y and .logical.width == $w and .logical.height == $h) | .name' | head -1)
 
   if [[ -n $monitor ]]; then
     echo "monitor:$monitor"

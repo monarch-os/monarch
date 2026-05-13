@@ -27,22 +27,24 @@ EOF
 MODULES+=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)
 EOF
 
-  # Add NVIDIA environment variables based on GPU architecture
+  # Add NVIDIA environment variables based on GPU architecture.
+  # systemd's environment.d propagates these to every user-session child,
+  # so uwsm/niri and all spawned apps inherit them — no compositor-specific
+  # config needed.
+  mkdir -p "$HOME/.config/environment.d"
+  ENV_FILE="$HOME/.config/environment.d/nvidia.conf"
   if [[ $GPU_ARCH = "turing_plus" ]]; then
-    # Turing+ (RTX 20xx, GTX 16xx, and newer) with GSP firmware support
-    cat >>"$HOME/.config/hypr/envs.conf" <<'EOF'
-
-# NVIDIA (Turing+ with GSP firmware)
-env = NVD_BACKEND,direct
-env = LIBVA_DRIVER_NAME,nvidia
-env = __GLX_VENDOR_LIBRARY_NAME,nvidia
+    cat >"$ENV_FILE" <<'EOF'
+# NVIDIA (Turing+ with GSP firmware) — managed by monarch nvidia.sh
+NVD_BACKEND=direct
+LIBVA_DRIVER_NAME=nvidia
+__GLX_VENDOR_LIBRARY_NAME=nvidia
 EOF
   elif [[ $GPU_ARCH = "maxwell_pascal_volta" ]]; then
-    # Maxwell/Pascal/Volta (GTX 9xx/10xx, GT 10xx, Quadro P/M/GV, MX series, Titan X/Xp/V) lack GSP firmware
-    cat >>"$HOME/.config/hypr/envs.conf" <<'EOF'
-# NVIDIA (Maxwell/Pascal/Volta without GSP firmware)
-env = NVD_BACKEND,egl
-env = __GLX_VENDOR_LIBRARY_NAME,nvidia
+    cat >"$ENV_FILE" <<'EOF'
+# NVIDIA (Maxwell/Pascal/Volta without GSP firmware) — managed by monarch nvidia.sh
+NVD_BACKEND=egl
+__GLX_VENDOR_LIBRARY_NAME=nvidia
 EOF
   fi
 fi

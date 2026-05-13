@@ -26,7 +26,11 @@ if [[ -n $font_name ]]; then
       sed -i "s/^font=.*/font=$font_name:size=9/g" ~/.config/foot/foot.ini
     fi
 
-    sed -i "s/font_family = .*/font_family = $font_name/g" ~/.config/hypr/hyprlock.conf
+    if [[ -f ~/.config/hyprlock/hyprlock.conf ]]; then
+      # font_family lives inside the input-field { ... } block. The leading
+      # whitespace is preserved by capturing the indent.
+      sed -i "s|^\([[:space:]]*\)font_family = .*|\1font_family = $font_name|" ~/.config/hyprlock/hyprlock.conf
+    fi
     sed -i "s/font-family: .*/font-family: '$font_name';/g" ~/.config/waybar/style.css
     sed -i "s/font-family: .*/font-family: '$font_name';/g" ~/.config/swayosd/style.css
     xmlstarlet ed -L \

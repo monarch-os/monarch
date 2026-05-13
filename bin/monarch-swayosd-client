@@ -3,4 +3,4 @@
 # monarch:summary=Wrapper for swayosd-client that targets the currently focused monitor.
 # monarch:args=<swayosd-client-args...>
 
-exec swayosd-client --monitor "$(monarch-hyprland-monitor-focused)" "$@"
+exec swayosd-client --monitor "$(monarch-niri-monitor-focused)" "$@"

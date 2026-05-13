@@ -11,7 +11,7 @@
 state_file = "auto"
 
 [hotkey]
-# Hotkey is configured in Hyprland. Default is Super + Ctrl + X
+# Hotkey is configured in Niri (binds.kdl). Default is Mod + Ctrl + X.
 enabled = false
 
 [audio]

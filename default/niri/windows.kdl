@@ -1,0 +1,159 @@
+// Monarch — window-rules and layer-rules.
+
+// 1Password / Bitwarden — block screen-share + treat as floating.
+window-rule {
+    match app-id=r#"^1[pP]assword$"#
+    block-out-from "screencast"
+    open-floating true
+    default-column-width { fixed 875; }
+}
+
+window-rule {
+    match app-id=r#"^Bitwarden$"#
+    block-out-from "screencast"
+    open-floating true
+    default-column-width { fixed 875; }
+}
+
+window-rule {
+    match app-id=r#"^chrome-nngceckbapebfimnlniiiahkandclblb-Default$"#
+    block-out-from "screencast"
+    open-floating true
+}
+
+// Force tile for chromium-based browser app windows (workaround for --app bug).
+window-rule {
+    match app-id=r#"^((google-)?[cC]hrom(e|ium)|[bB]rave-browser|[mM]icrosoft-edge|Vivaldi-stable|helium)$"#
+    open-floating false
+}
+
+// Hide screen-sharing notification bars on the scratchpad.
+window-rule {
+    match title="^.*is sharing.*$"
+    open-on-workspace "scratchpad"
+}
+
+// LocalSend / Share.
+window-rule {
+    match app-id=r#"^(Share|localsend)$"#
+    open-floating true
+    default-column-width { fixed 1100; }
+}
+
+// Steam main window.
+window-rule {
+    match app-id="steam" title="^Steam$"
+    open-floating true
+    default-column-width { fixed 1100; }
+}
+
+window-rule {
+    match app-id="steam" title="^Friends List$"
+    open-floating true
+    default-column-width { fixed 460; }
+}
+
+// Picture-in-picture overlays.
+window-rule {
+    match title=r#"Picture.?in.?[Pp]icture"#
+    open-floating true
+    default-column-width { fixed 600; }
+    border { off; }
+}
+
+// Calculator.
+window-rule {
+    match app-id="org.gnome.Calculator"
+    open-floating true
+}
+
+// Floating helper apps (TUIs, image viewers, etc.).
+window-rule {
+    match app-id=r#"^(org\.monarch\.(bluetui|impala|wiremix|btop|terminal|bash)|org\.codeberg\.dnkl\.foot|org\.gnome\.NautilusPreviewer|org\.gnome\.Evince|com\.gabm\.satty|Monarch|About|TUI\.float|imv|mpv)$"#
+    open-floating true
+    default-column-width { fixed 875; }
+}
+
+// File-picker dialogs.
+window-rule {
+    match app-id=r#"^(xdg-desktop-portal-gtk|sublime_text|DesktopEditors|org\.gnome\.Nautilus)$"# title=r#"^(Open.*Files?|Open [Ff]older.*|Save.*Files?|Save.*As|Save|All Files|.*wants to (open|save).*|[Cc]hoose.*)"#
+    open-floating true
+}
+
+// Screensaver: fullscreen.
+window-rule {
+    match app-id="org.monarch.screensaver"
+    open-fullscreen true
+    open-floating true
+}
+
+// Telegram should not steal focus.
+window-rule {
+    match app-id="org.telegram.desktop"
+    focus-ring { off; }
+}
+
+// QEMU/RetroArch/Moonlight: no opacity, fullscreen-friendly.
+window-rule {
+    match app-id="qemu"
+    opacity 1.0
+}
+
+window-rule {
+    match app-id="com.libretro.RetroArch"
+    open-fullscreen true
+    opacity 1.0
+}
+
+window-rule {
+    match app-id="com.moonlight_stream.Moonlight"
+    open-fullscreen true
+}
+
+// Default opacity for everything else (subtle).
+window-rule {
+    opacity 0.97
+}
+
+// Browsers: keep them fully opaque.
+window-rule {
+    match app-id=r#"^((google-)?[cC]hrom(e|ium)|[bB]rave-browser|[mM]icrosoft-edge|Vivaldi-stable|helium|[fF]irefox|zen|librewolf)$"#
+    opacity 1.0
+}
+
+// Video-sites in Chromium apps: fully opaque.
+window-rule {
+    match app-id=r#"^(chrome-youtube\.com__-Default|chrome-app\.zoom\.us__wc_home-Default)$"#
+    opacity 1.0
+}
+
+// Terminals: a touch more transparency.
+window-rule {
+    match app-id=r#"^(Alacritty|kitty|com\.mitchellh\.ghostty|foot)$"#
+    opacity 0.95
+}
+
+// Media apps: never transparent.
+window-rule {
+    match app-id=r#"^(zoom|vlc|mpv|org\.kde\.kdenlive|com\.obsproject\.Studio|com\.github\.PintaProject\.Pinta|imv|org\.gnome\.NautilusPreviewer)$"#
+    opacity 1.0
+}
+
+// Screencast indicator: red border around windows being cast.
+window-rule {
+    match is-window-cast-target=true
+    focus-ring {
+        active-color "#f38ba8"
+        inactive-color "#7d0d2d"
+    }
+    border {
+        on
+        inactive-color "#7d0d2d"
+    }
+}
+
+// Layer rules — render walker behind the backdrop.
+layer-rule {
+    match namespace="^walker$"
+    place-within-backdrop true
+}

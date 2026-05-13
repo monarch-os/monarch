@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# monarch:summary=Toggle hypridle idle locking
+# monarch:summary=Toggle swayidle idle locking
 
-if pgrep -x hypridle >/dev/null; then
-  pkill -x hypridle
+if pgrep -x swayidle >/dev/null; then
+  pkill -x swayidle
   notify-send -u low "󱫖    Stop locking computer when idle"
 else
-  uwsm-app -- hypridle >/dev/null 2>&1 &
+  uwsm-app -- swayidle -w -C ~/.config/swayidle/config >/dev/null 2>&1 &
   notify-send -u low "󱫖    Now locking computer when idle"
 fi
 

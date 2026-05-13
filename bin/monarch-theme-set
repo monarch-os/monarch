@@ -54,7 +54,7 @@ if pgrep -x waybar >/dev/null; then
 fi
 monarch-restart-swayosd
 monarch-restart-terminal
-monarch-restart-hyprctl
+monarch-refresh-niri
 monarch-restart-btop
 monarch-restart-opencode
 monarch-restart-mako

@@ -24,9 +24,9 @@ elif [[ -f $HOME/.local/state/monarch/reboot-required ]]; then
   gum confirm "Updates require reboot. Ready?" && monarch-system-reboot
 fi
 
-running_hyprland=$(readlink /proc/$(pgrep -x Hyprland)/exe 2>/dev/null)
-if [[ $running_hyprland == *"(deleted)"* ]]; then
-  gum confirm "Hyprland has been updated. Reboot?" && monarch-system-reboot
+running_niri=$(readlink /proc/$(pgrep -x niri)/exe 2>/dev/null)
+if [[ $running_niri == *"(deleted)"* ]]; then
+  gum confirm "Niri has been updated. Reboot?" && monarch-system-reboot
 fi
 
 for file in "$HOME"/.local/state/monarch/restart-*-required; do

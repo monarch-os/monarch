@@ -16,11 +16,14 @@ monarch-pkg-drop monarch-lazyvpn
 # Remove TUI app entry
 monarch-tui-remove "LazyVPN"
 
-# Remove Hyprland keybinding
-BINDINGS_FILE="$HOME/.config/hypr/bindings.conf"
-if [[ -f "$BINDINGS_FILE" ]] && grep -q "lazyvpn-menu" "$BINDINGS_FILE"; then
-  echo "Removing Hyprland keybinding..."
-  sed -i '/# LazyVPN/d; /lazyvpn-menu/d' "$BINDINGS_FILE"
+# Remove Niri keybinding (marker block in ~/.config/niri/user.kdl).
+USER_KDL="$HOME/.config/niri/user.kdl"
+if [[ -f "$USER_KDL" ]] && grep -q 'monarch:lazyvpn:begin' "$USER_KDL"; then
+  echo "Removing Niri keybinding..."
+  sed -i '/\/\/ monarch:lazyvpn:begin/,/\/\/ monarch:lazyvpn:end/d' "$USER_KDL"
+  if pgrep -x niri >/dev/null 2>&1; then
+    niri msg action reload-config >/dev/null 2>&1 || true
+  fi
 fi
 
 echo -e "\nLazyVPN removed!"

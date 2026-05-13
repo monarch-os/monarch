@@ -8,11 +8,22 @@ monarch-pkg-add monarch-lazyvpn
 echo -e "\nInitializing LazyVPN..."
 lazyvpn-init
 
-# Add Hyprland keybinding (WIN+ALT+V)
-BINDINGS_FILE="$HOME/.config/hypr/bindings.conf"
-if [[ -f "$BINDINGS_FILE" ]] && ! grep -q "lazyvpn-menu" "$BINDINGS_FILE"; then
-  echo -e "\nAdding Hyprland keybinding (WIN+ALT+V)..."
-  echo -e "\n# LazyVPN\nbind = SUPER ALT, V, exec, lazyvpn-menu" >> "$BINDINGS_FILE"
+# Add Niri keybinding (Mod+Alt+V) via the user override file. The block is
+# wrapped in unique markers so monarch-remove-lazyvpn can strip it later.
+USER_KDL="$HOME/.config/niri/user.kdl"
+if [[ -f "$USER_KDL" ]] && ! grep -q 'monarch:lazyvpn:begin' "$USER_KDL"; then
+  echo -e "\nAdding Niri keybinding (Mod+Alt+V)..."
+  cat >>"$USER_KDL" <<'EOF'
+
+// monarch:lazyvpn:begin
+binds {
+    Mod+Alt+V hotkey-overlay-title="LazyVPN menu" { spawn "lazyvpn-menu"; }
+}
+// monarch:lazyvpn:end
+EOF
+  if pgrep -x niri >/dev/null 2>&1; then
+    niri msg action reload-config >/dev/null 2>&1 || true
+  fi
 fi
 
 echo -e "\nLazyVPN installed!"

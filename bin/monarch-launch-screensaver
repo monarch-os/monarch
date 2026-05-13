@@ -17,35 +17,31 @@ fi
 # Silently quit Walker on overlay
 walker -q
 
-focused=$(monarch-hyprland-monitor-focused)
+focused=$(monarch-niri-monitor-focused)
 terminal=$(xdg-terminal-exec --print-id)
 
-for m in $(hyprctl monitors -j | jq -r '.[] | .name'); do
-  hyprctl dispatch focusmonitor $m
+for m in $(niri msg --json outputs 2>/dev/null | jq -r 'to_entries[].value.name'); do
+  niri msg action focus-monitor "$m" >/dev/null 2>&1
 
   case $terminal in
   *Alacritty*)
-    hyprctl dispatch exec -- \
-      alacritty --class=org.monarch.screensaver \
+    setsid -f alacritty --class=org.monarch.screensaver \
       --config-file ~/.local/share/monarch/default/alacritty/screensaver.toml \
       -e monarch-screensaver
     ;;
   *ghostty*)
-    hyprctl dispatch exec -- \
-      ghostty --class=org.monarch.screensaver \
+    setsid -f ghostty --class=org.monarch.screensaver \
       --config-file=~/.local/share/monarch/default/ghostty/screensaver \
       --font-size=18 \
       -e monarch-screensaver
     ;;
   *foot*)
-    hyprctl dispatch exec -- \
-      foot --app-id=org.monarch.screensaver \
+    setsid -f foot --app-id=org.monarch.screensaver \
       --config="$MONARCH_PATH/default/foot/screensaver.ini" \
       -e monarch-screensaver
     ;;
   *kitty*)
-    hyprctl dispatch exec -- \
-      kitty --class=org.monarch.screensaver \
+    setsid -f kitty --class=org.monarch.screensaver \
       --override font_size=18 \
       --override window_padding_width=0 \
       -e monarch-screensaver
@@ -56,4 +52,4 @@ for m in $(hyprctl monitors -j | jq -r '.[] | .name'); do
   esac
 done
 
-hyprctl dispatch focusmonitor $focused
+[[ -n $focused ]] && niri msg action focus-monitor "$focused" >/dev/null 2>&1

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# monarch:summary=Print the name of the currently focused Niri output.
+# monarch:hidden=true
+
+niri msg --json focused-output 2>/dev/null | jq -r '.name // empty'

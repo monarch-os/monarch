@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# monarch:summary=Install the Monarch Niri entry-point at ~/.config/niri/config.kdl, bootstrap user.kdl, and reload a running Niri.
+# monarch:group=refresh
+# monarch:name=niri
+
+set -euo pipefail
+
+SOURCE="$HOME/.local/share/monarch/default/niri/config.kdl"
+TARGET="$HOME/.config/niri/config.kdl"
+USER_OVERRIDE="$HOME/.config/niri/user.kdl"
+USER_DEFAULT_OVERRIDE="$HOME/.local/share/monarch/config/niri/user.kdl"
+
+mkdir -p "$(dirname "$TARGET")"
+
+# Bootstrap the user override file so the include in config.kdl always
+# resolves to a real file.
+if [[ ! -f $USER_OVERRIDE && -f $USER_DEFAULT_OVERRIDE ]]; then
+  cp "$USER_DEFAULT_OVERRIDE" "$USER_OVERRIDE"
+fi
+
+# Bootstrap keyboard.kdl so the include always resolves even before
+# detect-keyboard-layout.sh has run.
+if [[ ! -f $HOME/.config/niri/keyboard.kdl ]]; then
+  : >"$HOME/.config/niri/keyboard.kdl"
+fi
+
+# Back up an existing target before we overwrite it.
+if [[ -f $TARGET ]] && ! cmp -s "$SOURCE" "$TARGET"; then
+  cp -f "$TARGET" "$TARGET.bak.$(date +%s)"
+fi
+
+cp -f "$SOURCE" "$TARGET"
+
+# Validate the assembled config (Niri reads through the include chain).
+if command -v niri >/dev/null 2>&1; then
+  if ! niri validate -c "$TARGET"; then
+    echo "monarch-refresh-niri: niri validate failed for $TARGET" >&2
+    exit 1
+  fi
+fi
+
+# Reload the live config if a Niri instance is already running.
+if pgrep -x niri >/dev/null 2>&1; then
+  niri msg action reload-config >/dev/null 2>&1 || true
+fi
+
+if [[ -f $MONARCH_PATH/install/config/detect-keyboard-layout.sh ]]; then
+  bash "$MONARCH_PATH/install/config/detect-keyboard-layout.sh"
+fi

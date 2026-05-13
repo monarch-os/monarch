@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# monarch:summary=Overwrite the user config for swayidle with the Monarch default and restart the daemon.
+
+monarch-refresh-config swayidle/config
+monarch-restart-swayidle

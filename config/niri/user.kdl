@@ -1,0 +1,44 @@
+// User overrides for the Monarch Niri configuration.
+//
+// ~/.config/niri/config.kdl is installed and maintained by Monarch — do not
+// edit it. This file is included LAST from there, so anything you set here
+// wins over Monarch defaults via Niri's include-merging rules:
+//
+//   - For singleton sections (layout, input, environment, cursor, ...) only
+//     the keys you redefine are overridden; the rest stays untouched.
+//   - For binds, redefining a single shortcut replaces just that one.
+//   - For window-rule / layer-rule / spawn-at-startup blocks, entries are
+//     appended (not merged), so feel free to add new ones here.
+//
+// See: https://niri-wm.github.io/niri/Configuration%3A-Include.html
+
+// Example: pin a per-monitor configuration
+// output "DP-1" {
+//     mode "3840x2160@60.000"
+//     scale 1.5
+//     position x=0 y=0
+// }
+
+// Example: change the keyboard layout
+// input {
+//     keyboard {
+//         xkb { layout "fr"; }
+//     }
+// }
+
+// Example: override a single binding
+// binds {
+//     Mod+Return { spawn "kitty"; }
+// }
+
+// Example: route an app to its own workspace
+// workspace "chat" {
+//     open-on-output "DP-1"
+// }
+// window-rule {
+//     match at-startup=true app-id=r#"^org\.telegram\.desktop$"#
+//     open-on-workspace "chat"
+// }
+
+// Example: extra autostart
+// spawn-at-startup "uwsm-app" "--" "my-service"

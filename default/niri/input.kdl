@@ -1,0 +1,30 @@
+// Monarch — keyboard, touchpad and default output configuration.
+
+input {
+    keyboard {
+        xkb {
+            layout "us"
+            options "compose:caps"
+        }
+        repeat-delay 250
+        repeat-rate 40
+        numlock
+    }
+
+    touchpad {
+        tap
+        natural-scroll
+        click-method "clickfinger"
+        scroll-factor 0.4
+    }
+
+    focus-follows-mouse
+    workspace-auto-back-and-forth
+    warp-mouse-to-focus
+}
+
+// Default output settings; users override via ~/.config/niri/user.kdl.
+output "eDP-1" {
+    // Retina-class 2x default; tune per machine.
+    scale 2
+}
