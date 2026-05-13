@@ -26,6 +26,7 @@
   ],
   "niri/workspaces": {
     "format": "{icon}",
+    "hide-empty": true,
     "format-icons": {
       "active": "●",
       "default": "○",
