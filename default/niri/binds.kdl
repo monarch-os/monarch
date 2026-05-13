@@ -137,8 +137,8 @@ binds {
     Mod+C        hotkey-overlay-title="Center focused window"      { center-window; }
 
     // --- Consume / expel (merge with neighbour column or split out) ---
-    Mod+Ctrl+Shift+Left  hotkey-overlay-title="Consume/expel window left"  { consume-or-expel-window-left; }
-    Mod+Ctrl+Shift+Right hotkey-overlay-title="Consume/expel window right" { consume-or-expel-window-right; }
+    Mod+Alt+Left  hotkey-overlay-title="Consume/expel window left"  { consume-or-expel-window-left; }
+    Mod+Alt+Right hotkey-overlay-title="Consume/expel window right" { consume-or-expel-window-right; }
 
     // --- Tabbed column display (Niri equivalent of Hyprland groups) ---
     Mod+Alt+Return hotkey-overlay-title="Toggle tabbed column display" { toggle-column-tabbed-display; }
