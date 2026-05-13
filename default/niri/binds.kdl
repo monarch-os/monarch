@@ -140,6 +140,9 @@ binds {
     Mod+Ctrl+Shift+Left  hotkey-overlay-title="Consume/expel window left"  { consume-or-expel-window-left; }
     Mod+Ctrl+Shift+Right hotkey-overlay-title="Consume/expel window right" { consume-or-expel-window-right; }
 
+    // --- Tabbed column display (Niri equivalent of Hyprland groups) ---
+    Mod+Alt+Return hotkey-overlay-title="Toggle tabbed column display" { toggle-column-tabbed-display; }
+
     // --- Float / pop ---
     Mod+Shift+Space hotkey-overlay-title="Toggle floating" { toggle-window-floating; }
 
@@ -168,6 +171,7 @@ binds {
 
     Mod+Tab       hotkey-overlay-title="Next workspace"     { focus-workspace-down; }
     Mod+Shift+Tab hotkey-overlay-title="Previous workspace" { focus-workspace-up; }
+    Mod+Ctrl+Tab  hotkey-overlay-title="Last-focused workspace" { focus-workspace-previous; }
 
     // --- Scratchpad (named workspace equivalent) ---
     Mod+S      hotkey-overlay-title="Scratchpad"            { focus-workspace "scratchpad"; }
