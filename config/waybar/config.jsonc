@@ -181,18 +181,6 @@
     "signal": 10,
     "return-type": "json",
   },
-  "custom/idle-indicator": {
-    "on-click": "monarch-toggle-idle",
-    "exec": "$MONARCH_PATH/default/waybar/indicators/idle.sh",
-    "signal": 9,
-    "return-type": "json",
-  },
-  "custom/notification-silencing-indicator": {
-    "on-click": "monarch-toggle-notification-silencing",
-    "exec": "$MONARCH_PATH/default/waybar/indicators/notification-silencing.sh",
-    "signal": 10,
-    "return-type": "json",
-  },
   "custom/voxtype": {
     "exec": "monarch-voxtype-status",
     "return-type": "json",

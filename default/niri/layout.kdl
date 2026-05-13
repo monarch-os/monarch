@@ -46,4 +46,8 @@ layout {
     insert-hint {
         on
     }
+
+    tab-indicator {
+        hide-when-single-tab
+    }
 }

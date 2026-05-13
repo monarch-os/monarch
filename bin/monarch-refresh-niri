@@ -32,6 +32,12 @@ fi
 
 cp -f "$SOURCE" "$TARGET"
 
+# Refresh ~/.config/niri/keyboard.kdl BEFORE validating: it's part of the
+# include chain, so a broken keyboard.kdl would only surface here.
+if [[ -f $MONARCH_PATH/install/config/detect-keyboard-layout.sh ]]; then
+  bash "$MONARCH_PATH/install/config/detect-keyboard-layout.sh"
+fi
+
 # Validate the assembled config (Niri reads through the include chain).
 if command -v niri >/dev/null 2>&1; then
   if ! niri validate -c "$TARGET"; then
@@ -43,8 +49,4 @@ fi
 # Reload the live config if a Niri instance is already running.
 if pgrep -x niri >/dev/null 2>&1; then
   niri msg action reload-config >/dev/null 2>&1 || true
-fi
-
-if [[ -f $MONARCH_PATH/install/config/detect-keyboard-layout.sh ]]; then
-  bash "$MONARCH_PATH/install/config/detect-keyboard-layout.sh"
 fi
