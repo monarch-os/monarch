@@ -134,6 +134,11 @@ binds {
     Mod+Shift+F  hotkey-overlay-title="Expand column to available" { expand-column-to-available-width; }
     Mod+R        hotkey-overlay-title="Cycle preset column width"  { switch-preset-column-width; }
     Mod+Shift+R  hotkey-overlay-title="Cycle preset window height" { switch-preset-window-height; }
+    Mod+C        hotkey-overlay-title="Center focused window"      { center-window; }
+
+    // --- Consume / expel (merge with neighbour column or split out) ---
+    Mod+Ctrl+Shift+Left  hotkey-overlay-title="Consume/expel window left"  { consume-or-expel-window-left; }
+    Mod+Ctrl+Shift+Right hotkey-overlay-title="Consume/expel window right" { consume-or-expel-window-right; }
 
     // --- Float / pop ---
     Mod+Shift+Space hotkey-overlay-title="Toggle floating" { toggle-window-floating; }
