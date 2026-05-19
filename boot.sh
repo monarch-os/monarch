@@ -22,11 +22,10 @@ MONARCH_REF="${MONARCH_REF:-main}"
 # Set mirror based on branch
 if [[ $MONARCH_REF == "dev" ]]; then
   export OMARCHY_MIRROR=edge
-  echo 'Server = https://mirror.omarchy.org/$repo/os/$arch' | sudo tee /etc/pacman.d/mirrorlist >/dev/null
 else
   export OMARCHY_MIRROR=stable
-  echo 'Server = https://stable-mirror.omarchy.org/$repo/os/$arch' | sudo tee /etc/pacman.d/mirrorlist >/dev/null
 fi
+echo 'Server = https://archlinux.cachyos.org/repo/$repo/os/$arch' | sudo tee /etc/pacman.d/mirrorlist >/dev/null
 
 sudo pacman -Syu --noconfirm --needed git
 
