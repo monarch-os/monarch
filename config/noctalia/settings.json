@@ -1,0 +1,38 @@
+{
+  "_comment": "Monarch defaults for Noctalia. Override via Settings UI or by editing ~/.config/noctalia/settings.json directly.",
+  "bar": {
+    "density": "compact",
+    "position": "top",
+    "showCapsule": false,
+    "widgets": {
+      "left": [
+        { "id": "ControlCenter", "useDistroLogo": true },
+        { "id": "Workspace", "labelMode": "name", "hideUnoccupied": true }
+      ],
+      "center": [
+        { "id": "ActiveWindow" }
+      ],
+      "right": [
+        { "id": "Tray" },
+        { "id": "Network" },
+        { "id": "Bluetooth" },
+        { "id": "Volume" },
+        { "id": "Brightness" },
+        { "id": "Battery", "warningThreshold": 20 },
+        { "id": "Clock", "formatHorizontal": "ddd D MMM  HH:mm", "useMonospacedFont": true }
+      ]
+    }
+  },
+  "colorSchemes": {
+    "predefinedScheme": "Monarch"
+  },
+  "general": {
+    "radiusRatio": 0.2
+  },
+  "notifications": {
+    "monitors": []
+  },
+  "templates": {
+    "enableUserTemplates": true
+  }
+}

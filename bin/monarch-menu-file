@@ -3,13 +3,13 @@
 # monarch:summary=Pick a file with Walker
 # monarch:group=menu
 # monarch:name=file
-# monarch:args=label paths formats [walker args...]
+# monarch:args=label paths formats [fuzzel args...]
 # monarch:examples=monarch menu file "Select image" "$HOME/Pictures" "jpg png webp"|monarch-menu-file "Select media" "$HOME/Pictures:$HOME/Videos" "jpg png mp4 mov" --width 800
 
 set -euo pipefail
 
 if (( $# < 3 )); then
-  echo "Usage: monarch-menu-file <label> <paths> <formats> [walker args...]" >&2
+  echo "Usage: monarch-menu-file <label> <paths> <formats> [fuzzel args...]" >&2
   exit 1
 fi
 
@@ -22,7 +22,7 @@ IFS=: read -r -a paths <<<"$paths_arg"
 read -r -a formats <<<"$formats_arg"
 
 if (( ${#paths[@]} == 0 || ${#formats[@]} == 0 )); then
-  echo "Usage: monarch-menu-file <label> <paths> <formats> [walker args...]" >&2
+  echo "Usage: monarch-menu-file <label> <paths> <formats> [fuzzel args...]" >&2
   exit 1
 fi
 
@@ -45,4 +45,4 @@ done
 find_args+=(")" -printf '%T@\t%p\n')
 
 find "${find_args[@]}" 2>/dev/null | sort -rn | cut -f2- |
-  monarch-launch-walker --dmenu --width 800 --minheight 1 --maxheight 500 -p "$label…" "$@" 2>/dev/null
+  fuzzel --dmenu --lines 15 -p "$label… " "$@" 2>/dev/null

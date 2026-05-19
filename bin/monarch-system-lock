@@ -5,18 +5,7 @@
 # monarch:name=lock
 # monarch:examples=monarch system lock
 
-if ! pidof hyprlock >/dev/null; then
-  (
-    hyprlock -q -c ~/.config/hyprlock/hyprlock.conf
-    monarch-system-wake
-  ) &
-fi
-
-# Note: we deliberately do NOT switch the keyboard layout before locking.
-# Niri's layout list is `us,<user-layout>`; layout 0 = us forces password
-# entry in QWERTY even for users typing in fr / de / etc. all day. Hyprlock
-# inherits whatever layout is currently active — that's what the user
-# expects, since they unlock with the same fingers they type with.
+qs -c noctalia-shell ipc call lockScreen lock >/dev/null 2>&1
 
 # Ensure 1password is locked
 if pgrep -x "1password" >/dev/null; then
@@ -26,12 +15,10 @@ fi
 # Avoid running screensaver when locked
 pkill -f org.monarch.screensaver
 
-
 if [[ ${MONARCH_LOCK_ONLY:-false} != "true" ]]; then
   (
     sleep 3
-    pidof hyprlock >/dev/null || exit 0
     monarch-brightness-keyboard off
-    monarch-brightness-display off
+    niri msg action power-off-monitors >/dev/null 2>&1
   ) &
 fi

@@ -8,8 +8,8 @@ binds {
     // --- System ---
     Mod+Shift+Q hotkey-overlay-title="Close active window" { close-window; }
     Mod+L hotkey-overlay-title="Lock screen" allow-inhibiting=false { spawn "monarch-system-lock"; }
-    Mod+Shift+L hotkey-overlay-title="Power menu" { spawn "monarch-menu" "system"; }
-    XF86PowerOff hotkey-overlay-title="Power menu" { spawn "monarch-menu" "system"; }
+    Mod+Shift+L hotkey-overlay-title="Power menu" { spawn-sh "qs -c noctalia-shell ipc call sessionMenu toggle"; }
+    XF86PowerOff hotkey-overlay-title="Power menu" { spawn-sh "qs -c noctalia-shell ipc call sessionMenu toggle"; }
 
     // --- Applications ---
     Mod+Return hotkey-overlay-title="Terminal" { spawn-sh "uwsm-app -- xdg-terminal-exec --dir=\"$(monarch-cmd-terminal-cwd)\""; }
@@ -30,8 +30,8 @@ binds {
     Mod+Shift+Y hotkey-overlay-title="YouTube" { spawn "monarch-launch-or-focus-webapp" "YouTube" "https://youtube.com/"; }
 
     // --- Menus & utilities ---
-    Mod+Space hotkey-overlay-title="Launch apps (walker)" { spawn "monarch-launch-walker"; }
-    Mod+Ctrl+E hotkey-overlay-title="Emoji picker" { spawn "monarch-launch-walker" "-m" "symbols"; }
+    Mod+Space hotkey-overlay-title="Launcher (Noctalia)" { spawn-sh "qs -c noctalia-shell ipc call launcher toggle"; }
+    Mod+Ctrl+E hotkey-overlay-title="Emoji picker" { spawn-sh "qs -c noctalia-shell ipc call launcher emoji"; }
     Mod+Ctrl+C hotkey-overlay-title="Capture menu" { spawn "monarch-menu" "capture"; }
     Mod+Ctrl+O hotkey-overlay-title="Toggle menu" { spawn "monarch-menu" "toggle"; }
     Mod+Ctrl+H hotkey-overlay-title="Hardware menu" { spawn "monarch-menu" "hardware"; }
@@ -43,16 +43,14 @@ binds {
     Mod+Ctrl+Space hotkey-overlay-title="Theme background menu" { spawn "monarch-menu" "background"; }
     Mod+Shift+Ctrl+Space hotkey-overlay-title="Theme menu" { spawn "monarch-menu" "theme"; }
 
-    // --- Notifications (mako) ---
-    Mod+Comma hotkey-overlay-title="Dismiss last notification" { spawn "makoctl" "dismiss"; }
-    Mod+Shift+Comma hotkey-overlay-title="Dismiss all notifications" { spawn "makoctl" "dismiss" "--all"; }
-    Mod+Ctrl+Comma hotkey-overlay-title="Toggle notification silencing" { spawn "monarch-toggle-notification-silencing"; }
-    Mod+Alt+Comma hotkey-overlay-title="Invoke last notification" { spawn "makoctl" "invoke"; }
-    Mod+Shift+Alt+Comma hotkey-overlay-title="Restore last notification" { spawn "makoctl" "restore"; }
+    // --- Noctalia panels ---
+    Mod+Comma hotkey-overlay-title="Control center" { spawn-sh "qs -c noctalia-shell ipc call controlCenter toggle"; }
+    Mod+Shift+Comma hotkey-overlay-title="Noctalia settings" { spawn-sh "qs -c noctalia-shell ipc call settings toggle"; }
+    Mod+Ctrl+Comma hotkey-overlay-title="Toggle Do Not Disturb" { spawn-sh "qs -c noctalia-shell ipc call notifications toggleDND"; }
 
     // --- Toggles ---
     Mod+Ctrl+I hotkey-overlay-title="Toggle idle lock" { spawn "monarch-toggle-idle"; }
-    Mod+Ctrl+N hotkey-overlay-title="Toggle nightlight" { spawn "monarch-toggle-nightlight"; }
+    Mod+Ctrl+N hotkey-overlay-title="Toggle nightlight" { spawn-sh "qs -c noctalia-shell ipc call nightLight toggle"; }
 
     // --- Captures ---
     Print hotkey-overlay-title="Screenshot (with editor)" { spawn "monarch-capture-screenshot"; }
@@ -84,32 +82,32 @@ binds {
     F9         hotkey-overlay-title="Dictation (push-to-talk start)" { spawn "voxtype" "record" "start"; }
 
     // --- Clipboard manager ---
-    Mod+Shift+V hotkey-overlay-title="Clipboard manager" { spawn "monarch-launch-walker" "-m" "clipboard"; }
+    Mod+Shift+V hotkey-overlay-title="Clipboard manager" { spawn-sh "qs -c noctalia-shell ipc call launcher clipboard"; }
 
     // --- Media keys (XF86*) ---
-    XF86AudioRaiseVolume       allow-when-locked=true { spawn "monarch-swayosd-client" "--output-volume" "raise"; }
-    XF86AudioLowerVolume       allow-when-locked=true { spawn "monarch-swayosd-client" "--output-volume" "lower"; }
-    XF86AudioMute              allow-when-locked=true { spawn "monarch-swayosd-client" "--output-volume" "mute-toggle"; }
+    XF86AudioRaiseVolume       allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call volume increase"; }
+    XF86AudioLowerVolume       allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call volume decrease"; }
+    XF86AudioMute              allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call volume muteOutput"; }
     XF86AudioMicMute           allow-when-locked=true { spawn "monarch-audio-input-mute"; }
-    XF86MonBrightnessUp        allow-when-locked=true { spawn "monarch-brightness-display" "+5%"; }
-    XF86MonBrightnessDown      allow-when-locked=true { spawn "monarch-brightness-display" "5%-"; }
-    Shift+XF86MonBrightnessUp   allow-when-locked=true { spawn "monarch-brightness-display" "100%"; }
-    Shift+XF86MonBrightnessDown allow-when-locked=true { spawn "monarch-brightness-display" "1%"; }
+    XF86MonBrightnessUp        allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call brightness increase"; }
+    XF86MonBrightnessDown      allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call brightness decrease"; }
+    Shift+XF86MonBrightnessUp   allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call brightness set 100"; }
+    Shift+XF86MonBrightnessDown allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call brightness set 1"; }
     XF86KbdBrightnessUp        allow-when-locked=true { spawn "monarch-brightness-keyboard" "up"; }
     XF86KbdBrightnessDown      allow-when-locked=true { spawn "monarch-brightness-keyboard" "down"; }
     XF86KbdLightOnOff          allow-when-locked=true { spawn "monarch-brightness-keyboard" "cycle"; }
     XF86TouchpadToggle         { spawn "monarch-toggle-touchpad"; }
     XF86TouchpadOn             { spawn "monarch-toggle-touchpad" "on"; }
     XF86TouchpadOff            { spawn "monarch-toggle-touchpad" "off"; }
-    XF86AudioNext              { spawn "monarch-swayosd-client" "--playerctl" "next"; }
-    XF86AudioPause             { spawn "monarch-swayosd-client" "--playerctl" "play-pause"; }
-    XF86AudioPlay              { spawn "monarch-swayosd-client" "--playerctl" "play-pause"; }
-    XF86AudioPrev              { spawn "monarch-swayosd-client" "--playerctl" "previous"; }
+    XF86AudioNext              { spawn "playerctl" "next"; }
+    XF86AudioPause             { spawn "playerctl" "play-pause"; }
+    XF86AudioPlay              { spawn "playerctl" "play-pause"; }
+    XF86AudioPrev              { spawn "playerctl" "previous"; }
     Mod+XF86AudioMute          { spawn "monarch-audio-output-switch"; }
-    Alt+XF86AudioRaiseVolume   { spawn "monarch-swayosd-client" "--output-volume" "+1"; }
-    Alt+XF86AudioLowerVolume   { spawn "monarch-swayosd-client" "--output-volume" "-1"; }
-    Alt+XF86MonBrightnessUp    { spawn "monarch-brightness-display" "+1%"; }
-    Alt+XF86MonBrightnessDown  { spawn "monarch-brightness-display" "-1%"; }
+    Alt+XF86AudioRaiseVolume   { spawn-sh "qs -c noctalia-shell ipc call volume increase"; }
+    Alt+XF86AudioLowerVolume   { spawn-sh "qs -c noctalia-shell ipc call volume decrease"; }
+    Alt+XF86MonBrightnessUp    { spawn-sh "qs -c noctalia-shell ipc call brightness increase"; }
+    Alt+XF86MonBrightnessDown  { spawn-sh "qs -c noctalia-shell ipc call brightness decrease"; }
 
     // --- Tiling: focus columns / windows ---
     Mod+Left  hotkey-overlay-title="Focus column left"  { focus-column-left; }

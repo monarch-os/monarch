@@ -29,6 +29,4 @@ else
   fi
 
   sudo asdcontrol "$device" -- "$step" >/dev/null
-  value="$(sudo asdcontrol "$device" | awk -F= '/BRIGHTNESS=/{print $2+0}')"
-  monarch-swayosd-brightness "$(( value * 100 / 60000 ))"
 fi

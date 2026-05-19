@@ -35,14 +35,14 @@ apply_kernel_state() {
 enable() {
   apply_kernel_state true
   rm -f "$STATE_FILE"
-  monarch-swayosd-client --custom-icon input-touchpad-symbolic --custom-message "Touchpad enabled"
+  notify-send -u low "  Touchpad enabled"
 }
 
 disable() {
   apply_kernel_state false
   mkdir -p "$(dirname "$STATE_FILE")"
   echo "disabled" > "$STATE_FILE"
-  monarch-swayosd-client --custom-icon touchpad-disabled-symbolic --custom-message "Touchpad disabled"
+  notify-send -u low "  Touchpad disabled"
 }
 
 case "${1:-toggle}" in

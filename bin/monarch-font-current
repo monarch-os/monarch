@@ -3,4 +3,6 @@
 # monarch:summary=Show current monospace font
 # monarch:examples=monarch font current
 
-grep -oP 'font-family:\s*["'\'']?\K[^;"'\'']+' ~/.config/waybar/style.css | head -n1
+if [[ -f ~/.config/alacritty/alacritty.toml ]]; then
+  grep -oP 'family\s*=\s*"\K[^"]+' ~/.config/alacritty/alacritty.toml | head -n1
+fi

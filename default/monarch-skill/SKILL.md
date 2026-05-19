@@ -2,14 +2,14 @@
 name: monarch
 description: >
   REQUIRED for end-user customization of Linux desktop, window manager, or system config.
-  Use when editing ~/.config/niri/, ~/.config/waybar/, ~/.config/walker/,
-  ~/.config/alacritty/, ~/.config/foot/, ~/.config/kitty/, ~/.config/ghostty/, ~/.config/mako/,
-  ~/.config/swayidle/, ~/.config/hyprlock/, ~/.config/wlsunset/, or ~/.config/monarch/.
+  Use when editing ~/.config/niri/, ~/.config/noctalia/, ~/.config/alacritty/,
+  ~/.config/foot/, ~/.config/kitty/, ~/.config/ghostty/, ~/.config/swayidle/,
+  ~/.config/wlsunset/, or ~/.config/monarch/.
   Triggers: Niri, window rules, animations, keybindings, monitors, gaps, borders, focus
-  ring, opacity, waybar, walker, terminal config, themes, wallpaper, night light, idle,
-  lock screen, screenshots, reminders, layer rules, workspace settings, display config,
-  and user-facing monarch commands. Excludes Monarch source development in
-  ~/.local/share/monarch/ and `monarch dev` workflows.
+  ring, opacity, Noctalia bar/launcher/notifications/lock-screen/OSD, terminal config,
+  themes, wallpaper, night light, idle, lock screen, screenshots, reminders, layer rules,
+  workspace settings, display config, and user-facing monarch commands. Excludes Monarch
+  source development in ~/.local/share/monarch/ and `monarch dev` workflows.
 ---
 
 # Monarch Skill
@@ -24,8 +24,8 @@ It is not for contributing to Monarch source code.
 **ALWAYS invoke this skill for end-user requests involving ANY of these:**
 
 - Editing ANY file in `~/.config/niri/` (window rules, keybindings, monitors, etc.)
-- Editing ANY file in `~/.config/waybar/`, `~/.config/walker/`, `~/.config/mako/`
-- Editing `~/.config/swayidle/`, `~/.config/hyprlock/`, `~/.config/wlsunset/`
+- Editing ANY file in `~/.config/noctalia/` (bar, widgets, notifications, control center, lock screen)
+- Editing `~/.config/swayidle/`, `~/.config/wlsunset/`
 - Editing terminal configs (alacritty, foot, kitty, ghostty)
 - Editing ANY file in `~/.config/monarch/`
 - Window behavior, opacity, gaps, borders, focus ring
@@ -59,7 +59,7 @@ This directory contains Monarch's source files managed by git. Any changes will 
 
 **Reading `~/.local/share/monarch/` is SAFE and useful** - do it freely to:
 - Understand how monarch commands work: `monarch theme set --help` or `cat $(which monarch-theme-set)`
-- See default configs before customizing: `cat ~/.local/share/monarch/config/waybar/config.jsonc`
+- See default configs before customizing: `cat ~/.local/share/monarch/config/noctalia/settings.json`
 - Check stock theme files to copy for customization
 - Reference default Niri settings: `cat ~/.local/share/monarch/default/niri/config.kdl`
 
@@ -78,12 +78,12 @@ Monarch is built on:
 |-----------|---------|-----------------|
 | **Arch Linux** | Base OS | `/etc/`, `~/.config/` |
 | **Niri** | Wayland scrollable-tiling compositor/WM | `~/.config/niri/` |
-| **Waybar** | Status bar | `~/.config/waybar/` |
-| **Walker** | App launcher | `~/.config/walker/` |
+| **Noctalia** | Desktop shell — bar, launcher, notifications, control center, lock screen, OSDs, wallpaper | `~/.config/noctalia/` |
 | **Alacritty/Foot/Kitty/Ghostty** | Terminals | `~/.config/<terminal>/` |
-| **Mako** | Notifications | `~/.config/mako/` |
-| **SwayOSD** | On-screen display | `~/.config/swayosd/` |
-| **swayidle / hyprlock / wlsunset** | Idle, lock, night light | `~/.config/swayidle/`, `~/.config/hyprlock/`, `~/.config/wlsunset/` |
+| **swayidle / wlsunset** | Idle daemon, night light | `~/.config/swayidle/`, `~/.config/wlsunset/` |
+| **fuzzel** | Lightweight dmenu picker used by `monarch-menu-*` | n/a |
+
+Noctalia is driven entirely through IPC: `qs -c noctalia-shell ipc call <target> <function> [args...]`. Common targets: `launcher`, `controlCenter`, `settings`, `sessionMenu`, `lockScreen`, `notifications`, `volume`, `brightness`, `nightLight`, `wallpaper`, `colorScheme`, `darkMode`.
 
 ## Command Discovery
 
@@ -114,8 +114,8 @@ Run `monarch --help` for the full list. The most common groups:
 
 | Group | Purpose | Example |
 |-------|---------|---------|
-| `monarch refresh` | Reset config to defaults (backs up first) | `monarch refresh waybar` |
-| `monarch restart` | Restart a service/app | `monarch restart waybar` |
+| `monarch refresh` | Reset config to defaults (backs up first) | `monarch refresh noctalia` |
+| `monarch restart` | Restart a service/app | `monarch restart noctalia` |
 | `monarch toggle` | Toggle feature on/off | `monarch toggle nightlight` |
 | `monarch theme` | Theme management | `monarch theme set <name>` |
 | `monarch install` | Install optional software / packages | `monarch install docker dbs` |
@@ -143,17 +143,27 @@ Run `monarch --help` for the full list. The most common groups:
 - Validate a config file before deploying: `niri validate -c ~/.config/niri/config.kdl`.
 - The user-editable file is `~/.config/niri/user.kdl` — anything you put there is appended last and overrides earlier sections.
 
-### Waybar (Status Bar)
+### Noctalia (Desktop Shell)
 
 ```
-~/.config/waybar/
-├── config.jsonc       # Bar layout and modules (JSONC format)
-└── style.css          # Styling
+~/.config/noctalia/
+├── settings.json                                  # Bar layout, widgets, general options
+└── colorschemes/Monarch/Monarch.json              # Generated by monarch-theme-set (symlink → ~/.config/monarch/current/theme/noctalia.json)
 ```
 
-**Waybar does NOT auto-reload.** You MUST run `monarch restart waybar` after any config changes.
-
-**Commands:** `monarch restart waybar`, `monarch refresh waybar`, `monarch toggle waybar`
+**Key behaviors:**
+- The settings panel (Mod+Shift+Comma or `qs -c noctalia-shell ipc call settings toggle`) is the canonical way to tweak Noctalia. Edits to `settings.json` are picked up on shell restart (`monarch restart noctalia`).
+- `monarch refresh noctalia` overwrites `settings.json` with Monarch defaults and restarts the shell.
+- Custom color schemes live under `~/.config/noctalia/colorschemes/<Name>/<Name>.json`. Switch with `qs -c noctalia-shell ipc call colorScheme set <Name>`.
+- Useful IPC targets:
+  - `launcher toggle | clipboard | emoji | command | windows`
+  - `controlCenter toggle`
+  - `notifications toggleDND`
+  - `volume increase | decrease | muteOutput`
+  - `brightness increase | decrease | set <0-100>`
+  - `nightLight toggle | setStrength <0-100>`
+  - `wallpaper set <path> <monitor|"">` (empty monitor = all outputs)
+  - `lockScreen lock`, `sessionMenu toggle`
 
 ### Terminals
 
@@ -175,7 +185,7 @@ Run `monarch --help` for the full list. The most common groups:
 | lazygit | `~/.config/lazygit/config.yml` |
 | starship | `~/.config/starship.toml` |
 | git | `~/.config/git/config` |
-| walker | `~/.config/walker/config.toml` |
+| noctalia | `~/.config/noctalia/settings.json` |
 
 ## Safe Customization Patterns
 
@@ -193,9 +203,8 @@ cp ~/.config/niri/user.kdl ~/.config/niri/user.kdl.bak.$(date +%s)
 # 3. Make changes with Edit tool
 
 # 4. Apply changes
-# - Niri:    monarch refresh niri  (rebuilds + reloads; validates first)
-# - Waybar:  monarch restart waybar
-# - Walker:  monarch restart walker
+# - Niri:      monarch refresh niri  (rebuilds + reloads; validates first)
+# - Noctalia:  monarch restart noctalia
 # - Terminals: monarch restart terminal
 ```
 
@@ -232,7 +241,7 @@ When customizations go wrong:
 
 ```bash
 # Reset specific config (creates backup automatically)
-monarch refresh waybar
+monarch refresh noctalia
 monarch refresh niri
 
 # The refresh command:
@@ -340,7 +349,7 @@ monarch refresh <app>
 
 # Refresh specific config file
 # config-file path is relative to ~/.config/
-# eg. `monarch refresh config hyprlock/hyprlock.conf` will refresh ~/.config/hyprlock/hyprlock.conf
+# eg. `monarch refresh config noctalia/settings.json` will refresh ~/.config/noctalia/settings.json
 monarch refresh config <config-file>
 
 # Full reinstall of configs (nuclear option)
@@ -388,4 +397,5 @@ This skill intentionally does not cover Monarch source development. Do not use t
 - "Clear all reminders" -> `monarch reminder clear`
 - "Customize the catppuccin theme colors" -> Create `~/.config/monarch/themes/catppuccin-custom/` by copying from stock, then edit
 - "Run a script every time I change themes" -> Create `~/.config/monarch/hooks/theme-set`
-- "Reset waybar to defaults" -> `monarch refresh waybar`
+- "Reset Noctalia to defaults" -> `monarch refresh noctalia`
+- "Move the bar to the right edge" -> Edit `bar.position` in `~/.config/noctalia/settings.json` or use the Settings panel (Mod+Shift+Comma)

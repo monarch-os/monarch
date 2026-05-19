@@ -18,29 +18,26 @@ back_to() {
 }
 
 toggle_existing_menu() {
-  if pgrep -f "walker.*--dmenu" >/dev/null; then
-    walker --close >/dev/null 2>&1
+  if pgrep -x fuzzel >/dev/null; then
+    pkill -x fuzzel >/dev/null 2>&1
     exit 0
   fi
 }
 
+# Pop a dmenu picker via fuzzel. `extra` and `preselect` are kept for source
+# compatibility with the previous walker-based menu helper.
 menu() {
   local prompt="$1"
   local options="$2"
-  local extra="$3"
+  local _unused_extra="$3"
   local preselect="$4"
 
-  read -r -a args <<<"$extra"
-
+  local args=()
   if [[ -n $preselect ]]; then
-    local index
-    index=$(echo -e "$options" | grep -nxF "$preselect" | cut -d: -f1)
-    if [[ -n $index ]]; then
-      args+=("-c" "$index")
-    fi
+    args+=("--select=$preselect")
   fi
 
-  echo -e "$options" | monarch-launch-walker --dmenu --width 295 --minheight 1 --maxheight 630 -p "$prompt…" "${args[@]}" 2>/dev/null
+  echo -e "$options" | fuzzel --dmenu --lines 12 -p "$prompt… " "${args[@]}" 2>/dev/null
 }
 
 terminal() {
@@ -204,14 +201,13 @@ show_share_menu() {
 }
 
 show_toggle_menu() {
-  local options="󱄄  Screensaver\n󰔎  Nightlight\n󱫖  Idle Lock\n󰂛  Notifications\n󰍜  Top Bar\n  Direct Boot\n󰟵  Passwordless Sudo"
+  local options="󱄄  Screensaver\n󰔎  Nightlight\n󱫖  Idle Lock\n󰂛  Notifications\n  Direct Boot\n󰟵  Passwordless Sudo"
 
   case $(menu "Toggle" "$options") in
   *Screensaver*) monarch-toggle-screensaver ;;
   *Nightlight*) monarch-toggle-nightlight ;;
   *Idle*) monarch-toggle-idle ;;
   *Notifications*) monarch-toggle-notification-silencing ;;
-  *Bar*) monarch-toggle-waybar ;;
   *"Direct Boot"*) present_terminal monarch-config-direct-boot ;;
   *"Passwordless Sudo"*) present_terminal monarch-sudo-passwordless ;;
   *) back_to show_trigger_menu ;;
@@ -258,9 +254,8 @@ show_hardware_touchpad_haptics_menu() {
 }
 
 show_style_menu() {
-  case $(menu "Style" "󰸌  Theme\n󰟵  Unlock\n  Font\n  Background\n  Niri\n󱄄  Screensaver\n  About") in
+  case $(menu "Style" "󰸌  Theme\n  Font\n  Background\n  Niri\n󱄄  Screensaver\n  About") in
   *Theme*) show_theme_menu ;;
-  *Unlock*) monarch-launch-walker -m menus:monarchunlocks --width 800 --minheight 400 ;;
   *Font*) show_font_menu ;;
   *Background*) show_background_menu ;;
   *Niri*) open_in_editor ~/.config/niri/user.kdl ;;
@@ -289,11 +284,17 @@ show_screensaver_menu() {
 }
 
 show_theme_menu() {
-  monarch-launch-walker -m menus:monarchthemes --width 800 --minheight 400
+  local themes
+  themes=$(monarch-theme-list)
+  local current
+  current=$(monarch-theme-current 2>/dev/null)
+  local chosen
+  chosen=$(menu "Theme" "$themes" "" "$current") || return
+  [[ -n $chosen && $chosen != "CNCLD" ]] && monarch-theme-set "$chosen"
 }
 
 show_background_menu() {
-  monarch-launch-walker -m menus:monarchBackgroundSelector --width 800 --minheight 400
+  monarch-theme-bg-next
 }
 
 show_font_menu() {
@@ -453,19 +454,13 @@ show_setup_default_editor_menu() {
 show_setup_config_menu() {
   case $(menu "Setup" "  Niri
   Swayidle
-  Hyprlock
   Wlsunset
-  Swayosd
-󰌧  Walker
-󰍜  Waybar
+  Noctalia
 󰞅  XCompose") in
   *Niri*) open_in_editor ~/.config/niri/user.kdl && monarch-refresh-niri ;;
   *Swayidle*) open_in_editor ~/.config/swayidle/config && monarch-restart-swayidle ;;
-  *Hyprlock*) open_in_editor ~/.config/hyprlock/hyprlock.conf ;;
   *Wlsunset*) open_in_editor ~/.config/wlsunset/wlsunset.conf && monarch-restart-wlsunset ;;
-  *Swayosd*) open_in_editor ~/.config/swayosd/config.toml && monarch-restart-swayosd ;;
-  *Walker*) open_in_editor ~/.config/walker/config.toml && monarch-restart-walker ;;
-  *Waybar*) open_in_editor ~/.config/waybar/config.jsonc && monarch-restart-waybar ;;
+  *Noctalia*) open_in_editor ~/.config/noctalia/settings.json && monarch-restart-noctalia ;;
   *XCompose*) open_in_editor ~/.XCompose && monarch-restart-xcompose ;;
   *) show_setup_menu ;;
   esac
@@ -798,16 +793,10 @@ show_update_channel_menu() {
 show_update_process_menu() {
   case $(menu "Restart" "  Swayidle
   Wlsunset
-󰎟  Mako
-  Swayosd
-󰌧  Walker
-󰍜  Waybar") in
+  Noctalia") in
   *Swayidle*) monarch-restart-swayidle ;;
   *Wlsunset*) monarch-restart-wlsunset ;;
-  *Mako*) monarch-restart-mako ;;
-  *Swayosd*) monarch-restart-swayosd ;;
-  *Walker*) monarch-restart-walker ;;
-  *Waybar*) monarch-restart-waybar ;;
+  *Noctalia*) monarch-restart-noctalia ;;
   *) show_update_menu ;;
   esac
 }
@@ -815,22 +804,16 @@ show_update_process_menu() {
 show_update_config_menu() {
   case $(menu "Use default config" "  Niri
   Swayidle
-  Hyprlock
   Wlsunset
 󱣴  Plymouth
-  Swayosd
   Tmux
-󰌧  Walker
-󰍜  Waybar") in
+  Noctalia") in
   *Niri*) present_terminal monarch-refresh-niri ;;
   *Swayidle*) present_terminal monarch-refresh-swayidle ;;
-  *Hyprlock*) present_terminal monarch-refresh-hyprlock ;;
   *Wlsunset*) present_terminal monarch-refresh-wlsunset ;;
   *Plymouth*) present_terminal monarch-refresh-plymouth ;;
-  *Swayosd*) present_terminal monarch-refresh-swayosd ;;
   *Tmux*) present_terminal monarch-refresh-tmux ;;
-  *Walker*) present_terminal monarch-refresh-walker ;;
-  *Waybar*) present_terminal monarch-refresh-waybar ;;
+  *Noctalia*) present_terminal monarch-refresh-noctalia ;;
   *) show_update_menu ;;
   esac
 }
@@ -881,7 +864,7 @@ show_main_menu() {
 
 go_to_menu() {
   case "${1,,}" in
-  *apps*) walker -p "Launch…" ;;
+  *apps*) qs -c noctalia-shell ipc call launcher toggle ;;
   *learn*) show_learn_menu ;;
   *trigger*) show_trigger_menu ;;
   *toggle*) show_toggle_menu ;;

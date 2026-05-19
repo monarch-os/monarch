@@ -9,5 +9,3 @@ else
   uwsm-app -- swayidle -w -C ~/.config/swayidle/config >/dev/null 2>&1 &
   notify-send -u low "󱫖    Now locking computer when idle"
 fi
-
-pkill -RTMIN+9 waybar

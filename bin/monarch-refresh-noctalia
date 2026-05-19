@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# monarch:summary=Reset Noctalia configuration to Monarch defaults and reload the shell.
+# monarch:examples=monarch refresh noctalia
+
+monarch-refresh-config noctalia/settings.json
+monarch-restart-noctalia

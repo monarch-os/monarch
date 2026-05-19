@@ -26,20 +26,10 @@ if [[ -n $font_name ]]; then
       sed -i "s/^font=.*/font=$font_name:size=9/g" ~/.config/foot/foot.ini
     fi
 
-    if [[ -f ~/.config/hyprlock/hyprlock.conf ]]; then
-      # font_family lives inside the input-field { ... } block. The leading
-      # whitespace is preserved by capturing the indent.
-      sed -i "s|^\([[:space:]]*\)font_family = .*|\1font_family = $font_name|" ~/.config/hyprlock/hyprlock.conf
-    fi
-    sed -i "s/font-family: .*/font-family: '$font_name';/g" ~/.config/waybar/style.css
-    sed -i "s/font-family: .*/font-family: '$font_name';/g" ~/.config/swayosd/style.css
     xmlstarlet ed -L \
       -u '//match[@target="pattern"][test/string="monospace"]/edit[@name="family"]/string' \
       -v "$font_name" \
       ~/.config/fontconfig/fonts.conf
-
-    monarch-restart-waybar
-    monarch-restart-swayosd
 
     if pgrep -x ghostty; then
       notify-send -u low "    You must restart Ghostty to see font change"

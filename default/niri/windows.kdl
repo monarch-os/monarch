@@ -152,8 +152,3 @@ window-rule {
     }
 }
 
-// Layer rules — render walker behind the backdrop.
-layer-rule {
-    match namespace="^walker$"
-    place-within-backdrop true
-}

@@ -19,7 +19,6 @@ run_logged $MONARCH_INSTALL/config/mimetypes.sh
 run_logged $MONARCH_INSTALL/config/user-dirs.sh
 run_logged $MONARCH_INSTALL/config/nautilus-python.sh
 run_logged $MONARCH_INSTALL/config/localdb.sh
-run_logged $MONARCH_INSTALL/config/walker-elephant.sh
 run_logged $MONARCH_INSTALL/config/wireshark.sh
 run_logged $MONARCH_INSTALL/config/fast-shutdown.sh
 run_logged $MONARCH_INSTALL/config/unmount-fuse.sh

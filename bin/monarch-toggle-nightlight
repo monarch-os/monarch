@@ -1,31 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Toggle nightlight screen temperature
+# monarch:summary=Toggle nightlight screen temperature via Noctalia
 # monarch:examples=monarch toggle nightlight
 
-ON_TEMP=4000
-OFF_TEMP=6500
-STATE_FILE="$HOME/.local/state/monarch/toggles/niri/nightlight-on"
-
-restart_nightlighted_waybar() {
-  if grep -q "custom/nightlight" ~/.config/waybar/config.jsonc 2>/dev/null; then
-    monarch-restart-waybar
-  fi
-}
-
-if pgrep -x wlsunset >/dev/null; then
-  pkill -x wlsunset
-  rm -f "$STATE_FILE"
-  notify-send -u low "   Daylight screen temperature"
-else
-  # Load coordinates from the user config when present.
-  [[ -f ~/.config/wlsunset/wlsunset.conf ]] && source ~/.config/wlsunset/wlsunset.conf
-  LATITUDE="${LATITUDE:-48.8}"
-  LONGITUDE="${LONGITUDE:-2.3}"
-  setsid uwsm-app -- wlsunset -l "$LATITUDE" -L "$LONGITUDE" -t "$ON_TEMP" -T "$OFF_TEMP" >/dev/null 2>&1 &
-  mkdir -p "$(dirname "$STATE_FILE")"
-  echo "on" > "$STATE_FILE"
-  notify-send -u low "  Nightlight screen temperature"
-fi
-
-restart_nightlighted_waybar
+exec qs -c noctalia-shell ipc call nightLight toggle

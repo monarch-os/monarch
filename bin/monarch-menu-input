@@ -3,7 +3,7 @@
 # monarch:summary=Prompt for text input with Walker
 # monarch:group=menu
 # monarch:name=input
-# monarch:args=prompt [walker args...]
+# monarch:args=prompt [fuzzel args...]
 # monarch:examples=monarch menu input Reminder|monarch-menu-input "Reminder in minutes" --width 400
 
 set -euo pipefail
@@ -13,4 +13,4 @@ if (( $# > 0 )); then
   shift
 fi
 
-monarch-launch-walker --dmenu --inputonly --width 295 --minheight 1 --maxheight 1 -p "$prompt…" "$@" 2>/dev/null
+fuzzel --dmenu --lines 0 -p "$prompt… " "$@" 2>/dev/null

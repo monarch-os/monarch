@@ -5,8 +5,10 @@
 before-sleep 'MONARCH_LOCK_ONLY=true monarch-system-lock'
 after-resume 'sleep 1 && monarch-system-wake'
 
-# Start the screensaver after 2.5 minutes of inactivity.
-timeout 150 'pidof hyprlock || monarch-launch-screensaver'
+# Start the screensaver after 2.5 minutes of inactivity. Noctalia's lock
+# screen lives inside the noctalia-shell process and naturally renders on top
+# of the screensaver overlay, so no separate guard is needed.
+timeout 150 'monarch-launch-screensaver'
 
 # Lock the system after 5 minutes (the screensaver resets the idle timer, so
 # we double up with a small margin).

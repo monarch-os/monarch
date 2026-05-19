@@ -49,16 +49,16 @@ if [[ $MONARCH_THEME_SKIP_BACKGROUND != "1" ]]; then
 fi
 
 # Restart components to apply new theme
-if pgrep -x waybar >/dev/null; then
-  monarch-restart-waybar
-fi
-monarch-restart-swayosd
 monarch-restart-terminal
 monarch-refresh-niri
 monarch-restart-btop
 monarch-restart-opencode
-monarch-restart-mako
 monarch-restart-helix
+
+# Reload the Monarch color scheme inside Noctalia (idempotent: noop if Noctalia is not running yet).
+if pgrep -f 'qs.*noctalia-shell' >/dev/null 2>&1; then
+  qs -c noctalia-shell ipc call colorScheme set Monarch >/dev/null 2>&1 || true
+fi
 
 # Change app-specific themes
 monarch-theme-set-foot

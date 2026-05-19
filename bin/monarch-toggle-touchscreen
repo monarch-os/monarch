@@ -31,14 +31,14 @@ apply_kernel_state() {
 enable() {
   apply_kernel_state true
   rm -f "$STATE_FILE"
-  monarch-swayosd-client --custom-icon device-support-touch-symbolic --custom-message "Touchscreen enabled"
+  notify-send -u low "󰟸  Touchscreen enabled"
 }
 
 disable() {
   apply_kernel_state false
   mkdir -p "$(dirname "$STATE_FILE")"
   echo "disabled" > "$STATE_FILE"
-  monarch-swayosd-client --custom-icon touch-disabled-symbolic --custom-message "Touchscreen disabled"
+  notify-send -u low "󰟸  Touchscreen disabled"
 }
 
 case "${1:-toggle}" in

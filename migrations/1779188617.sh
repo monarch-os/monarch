@@ -1,0 +1,58 @@
+echo "Replace waybar/walker/mako/hyprlock/swayosd/swaybg with Noctalia desktop shell"
+
+# 1. Stop the now-retired services so they don't fight Noctalia for layer-shell
+#    real-estate during the switchover.
+for proc in waybar walker elephant mako hyprlock swayosd-server swayosd-libinput-backend swaybg; do
+  pkill -x "$proc" 2>/dev/null || true
+done
+
+systemctl --user disable --now swayosd-libinput-backend.service swayosd-server.service 2>/dev/null || true
+systemctl --user disable --now app-walker@autostart.service 2>/dev/null || true
+systemctl --user disable --now elephant.service 2>/dev/null || true
+
+# 2. Drop the obsolete user configs and autostart entries.
+for d in waybar walker hyprlock swayosd mako elephant; do
+  if [[ -d $HOME/.config/$d ]]; then
+    mv "$HOME/.config/$d" "$HOME/.config/$d.backup-$(date +%Y%m%d%H%M%S)" 2>/dev/null || true
+  fi
+done
+rm -f "$HOME/.config/autostart/walker.desktop"
+rm -rf "$HOME/.config/systemd/user/app-walker@autostart.service.d"
+sudo rm -f /etc/pacman.d/hooks/walker-restart.hook
+
+# 3. Install Noctalia and its supporting tooling. Falls back to AUR for
+#    noctalia-shell since it has not yet landed in the Monarch repo.
+for pkg in cliphist fuzzel ddcutil; do
+  monarch-pkg-missing "$pkg" && monarch-pkg-add "$pkg" || true
+done
+if monarch-pkg-missing noctalia-shell; then
+  monarch-pkg-aur-add noctalia-shell || true
+fi
+
+# 4. Remove the now-unused packages — keep installed copies if the user is
+#    still relying on them outside Monarch (best-effort drop only).
+for pkg in waybar omarchy-walker walker mako swaybg swayosd hyprlock; do
+  if monarch-pkg-present "$pkg"; then
+    monarch-pkg-drop "$pkg" 2>/dev/null || true
+  fi
+done
+
+# 5. Seed the Noctalia user config from Monarch's defaults and link the
+#    Monarch color scheme into Noctalia's colorschemes directory.
+mkdir -p "$HOME/.config/noctalia/colorschemes/Monarch"
+monarch-refresh-config noctalia/settings.json || true
+ln -snf "$HOME/.config/monarch/current/theme/noctalia.json" \
+  "$HOME/.config/noctalia/colorschemes/Monarch/Monarch.json"
+
+# 6. Regenerate themed files so the new noctalia.json template materialises.
+if monarch-cmd-present monarch-theme-set; then
+  current=$(cat "$HOME/.config/monarch/current/theme.name" 2>/dev/null)
+  [[ -n $current ]] && MONARCH_THEME_SKIP_BACKGROUND=1 monarch-theme-set "$current" || true
+fi
+
+# 7. Refresh Niri so the new autostart/binds pick up Noctalia, then launch it
+#    immediately if a Niri session is already running.
+monarch-refresh-niri || true
+if pgrep -x niri >/dev/null 2>&1 && ! pgrep -f 'qs.*noctalia-shell' >/dev/null 2>&1; then
+  setsid uwsm-app -- qs -c noctalia-shell >/dev/null 2>&1 &
+fi

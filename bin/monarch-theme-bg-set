@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Set the current background image
+# monarch:summary=Set the current background image (persists into Noctalia's wallpapers.json)
 # monarch:args=<path-to-image>
 # monarch:examples=monarch theme bg set ~/Pictures/wallpaper.png
 
@@ -10,16 +10,15 @@ if [[ -z $1 ]]; then
 fi
 
 BACKGROUND="$(realpath "$1")"
-CURRENT_BACKGROUND_LINK="$HOME/.config/monarch/current/background"
+WALLPAPERS_JSON="$HOME/.cache/noctalia/wallpapers.json"
 
 if [[ ! -f "$BACKGROUND" ]]; then
   echo "File does not exist: $BACKGROUND" >&2
   exit 1
 fi
 
-# Create symlink to the new background
-ln -nsf "$BACKGROUND" "$CURRENT_BACKGROUND_LINK"
-
-# Kill existing swaybg and start new one
-pkill -x swaybg
-setsid uwsm-app -- swaybg -i "$CURRENT_BACKGROUND_LINK" -m fill >/dev/null 2>&1 &
+# Write Noctalia's declarative wallpaper source-of-truth so the choice survives
+# shell restarts, then ask the live shell to pick it up.
+mkdir -p "$(dirname "$WALLPAPERS_JSON")"
+jq -n --arg path "$BACKGROUND" '{defaultWallpaper: $path, wallpapers: {}}' >"$WALLPAPERS_JSON"
+qs -c noctalia-shell ipc call wallpaper refresh >/dev/null 2>&1 || true

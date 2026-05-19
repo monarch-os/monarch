@@ -9,19 +9,19 @@ RFSWIFT_REPO="penthertz/rfswift_noble"
 # is hardcoded to ~/rfswift-workspace), so we always pass --workspace explicitly.
 RFSWIFT_WORKSPACE_ROOT="$HOME/Work/rfswift"
 
-# Display interactive menu using walker dmenu (used by creation wizard)
+# Pop a fuzzel dmenu picker (used by creation wizard)
 menu() {
   local prompt="$1"
   local options="$2"
   sleep 0.3
-  echo -e "$options" | monarch-launch-walker --dmenu --width 295 --minheight 1 --maxheight 600 -p "$prompt…" 2>/dev/null
+  echo -e "$options" | fuzzel --dmenu --lines 14 -p "$prompt… " 2>/dev/null
 }
 
-# Display a free text input using walker dmenu
+# Pop a fuzzel text-input prompt
 input() {
   local prompt="$1"
   sleep 0.3
-  monarch-launch-walker --dmenu --inputonly --width 295 -p "$prompt…" 2>/dev/null
+  fuzzel --dmenu --lines 0 -p "$prompt… " 2>/dev/null
 }
 
 # Show container info (used as preview text by the Lua menu)
@@ -242,7 +242,8 @@ cmd_menu() {
     fi
   fi
 
-  monarch-launch-walker -m menus:monarchRFSwift --width 800 --minheight 400
+  # TODO(noctalia phase 2): rich RFSwift grid lived in elephant Lua provider.
+  cmd_create
 }
 
 # Route sub-commands
