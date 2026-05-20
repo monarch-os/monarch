@@ -53,7 +53,6 @@ gvfs-nfs
 gvfs-smb
 hyprpicker
 imagemagick
-impala
 imv
 inetutils
 inxi
@@ -75,6 +74,7 @@ mise
 mpv
 nautilus
 nautilus-python
+networkmanager
 niri
 noctalia-shell
 noto-fonts
