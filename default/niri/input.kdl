@@ -1,4 +1,4 @@
-// Monarch — keyboard, touchpad and default output configuration.
+// Monarch — keyboard and touchpad configuration.
 
 input {
     keyboard {
@@ -15,10 +15,4 @@ input {
     focus-follows-mouse
     workspace-auto-back-and-forth
     warp-mouse-to-focus
-}
-
-// Default output settings; users override via ~/.config/niri/user.kdl.
-output "eDP-1" {
-    // Retina-class 2x default; tune per machine.
-    scale 2
 }
