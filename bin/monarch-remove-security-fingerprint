@@ -20,6 +20,31 @@ remove_pam_config() {
   fi
 }
 
+remove_noctalia_lockscreen() {
+  # Drop the dedicated PAM service and the env var that points Noctalia at it.
+  if [[ -f /etc/pam.d/noctalia ]]; then
+    echo "Removing Noctalia lock screen fingerprint configuration..."
+    sudo rm -f /etc/pam.d/noctalia
+  fi
+
+  rm -f "$HOME/.config/environment.d/noctalia-fingerprint.conf"
+
+  # Restore the lock-screen auth defaults so it no longer waits on a sensor
+  # that is gone.
+  local cfg="$HOME/.config/noctalia/settings.json"
+  if command -v jq >/dev/null && [[ -f $cfg ]]; then
+    local tmp
+    tmp=$(mktemp)
+    if jq '.general = (.general // {})
+           | .general.autoStartAuth = false
+           | .general.allowPasswordWithFprintd = false' "$cfg" >"$tmp"; then
+      mv "$tmp" "$cfg"
+    else
+      rm -f "$tmp"
+    fi
+  fi
+}
+
 remove_fingerprint_marker() {
   rm -f "$HOME/.local/state/monarch/fingerprint-enabled"
 }
@@ -27,6 +52,7 @@ remove_fingerprint_marker() {
 echo -e "\e[32mRemoving fingerprint scanner from authentication.\n\e[0m"
 
 remove_pam_config
+remove_noctalia_lockscreen
 remove_fingerprint_marker
 
 echo "Removing fingerprint packages..."
