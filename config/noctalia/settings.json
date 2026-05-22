@@ -24,7 +24,10 @@
     }
   },
   "colorSchemes": {
-    "predefinedScheme": "Monarch"
+    "predefinedScheme": "Monarch",
+    "useWallpaperColors": false,
+    "darkMode": true,
+    "syncGsettings": true
   },
   "general": {
     "radiusRatio": 0.2
@@ -33,6 +36,17 @@
     "monitors": []
   },
   "templates": {
-    "enableUserTemplates": true
+    "enableUserTheming": true,
+    "activeTemplates": [
+      { "enabled": true, "id": "alacritty" },
+      { "enabled": true, "id": "kitty" },
+      { "enabled": true, "id": "foot" },
+      { "enabled": true, "id": "ghostty" },
+      { "enabled": true, "id": "btop" },
+      { "enabled": true, "id": "helix" },
+      { "enabled": true, "id": "niri" },
+      { "enabled": true, "id": "code" },
+      { "enabled": true, "id": "pywalfox" }
+    ]
   }
 }

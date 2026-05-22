@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# monarch:summary=Distribute the Noctalia-generated Obsidian theme to all vaults
+# monarch:hidden=true
+
+# Post_hook for the [templates.obsidian] Noctalia user-template. Noctalia renders
+# ~/.config/noctalia/templates/obsidian.css into the staged theme below; this fans
+# it out to every Obsidian vault declared in obsidian.json.
+
+STAGED_CSS="$HOME/.config/monarch/obsidian/theme.css"
+OBSIDIAN_JSON="$HOME/.config/obsidian/obsidian.json"
+
+[[ -f $STAGED_CSS ]] || exit 0
+[[ -f $OBSIDIAN_JSON ]] || exit 0
+
+jq -r '.vaults | values[].path' "$OBSIDIAN_JSON" 2>/dev/null | while read -r vault_path; do
+  [[ -d $vault_path/.obsidian ]] || continue
+
+  theme_dir="$vault_path/.obsidian/themes/Noctalia"
+  mkdir -p "$theme_dir"
+
+  [[ -f $theme_dir/manifest.json ]] || cat >"$theme_dir/manifest.json" <<'EOF'
+{
+  "name": "Noctalia",
+  "version": "1.0.0",
+  "minAppVersion": "0.16.0",
+  "description": "Automatically syncs with your current Noctalia color scheme",
+  "author": "Monarch",
+  "authorUrl": "https://monarchlinux.com"
+}
+EOF
+
+  cp "$STAGED_CSS" "$theme_dir/theme.css"
+done

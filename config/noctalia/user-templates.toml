@@ -1,0 +1,13 @@
+# Noctalia user-templates registry (requires templates.enableUserTheming = true).
+# Inputs live under ~/.config/noctalia/templates/ so they survive monarch-nvim-setup
+# rewriting ~/.config/nvim. Noctalia re-renders these on every color generation.
+
+[templates.nvim-base16]
+input_path = "~/.config/noctalia/templates/nvim-base16.lua"
+output_path = "~/.config/nvim/lua/matugen.lua"
+post_hook = "pkill -SIGUSR1 nvim"
+
+[templates.obsidian]
+input_path = "~/.config/noctalia/templates/obsidian.css"
+output_path = "~/.config/monarch/obsidian/theme.css"
+post_hook = "monarch-obsidian-theme"
