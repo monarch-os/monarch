@@ -1,19 +1,25 @@
 /**
- * Syncs pi's light/dark theme with the active Monarch theme.
+ * Syncs pi's light/dark theme with Noctalia's appearance.
  *
- * Monarch light themes include:
- *   ~/.config/monarch/current/theme/light.mode
+ * Light/dark is owned by Noctalia's global toggle, stored as
+ * `colorSchemes.darkMode` in ~/.config/noctalia/settings.json.
  */
 
-import { existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const home = process.env.HOME ?? "";
-const lightModePath = join(home, ".config/monarch/current/theme/light.mode");
+const noctaliaSettings = join(home, ".config/noctalia/settings.json");
 
 function monarchPiTheme(): "light" | "dark" {
-  return existsSync(lightModePath) ? "light" : "dark";
+  try {
+    const raw = readFileSync(noctaliaSettings, "utf8");
+    const darkMode = JSON.parse(raw)?.colorSchemes?.darkMode;
+    return darkMode === false ? "light" : "dark";
+  } catch {
+    return "dark";
+  }
 }
 
 export default function (pi: ExtensionAPI) {

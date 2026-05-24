@@ -1,5 +1,8 @@
 {
   "_comment": "Monarch defaults for Noctalia. Override via Settings UI or by editing ~/.config/noctalia/settings.json directly.",
+  "appLauncher": {
+    "enableClipboardHistory": true
+  },
   "bar": {
     "density": "compact",
     "position": "top",
@@ -9,9 +12,7 @@
         { "id": "ControlCenter", "useDistroLogo": true },
         { "id": "Workspace", "labelMode": "name", "hideUnoccupied": true }
       ],
-      "center": [
-        { "id": "ActiveWindow" }
-      ],
+      "center": [{ "id": "ActiveWindow" }],
       "right": [
         { "id": "Tray" },
         { "id": "Network" },
@@ -19,7 +20,11 @@
         { "id": "Volume" },
         { "id": "Brightness" },
         { "id": "Battery", "warningThreshold": 20 },
-        { "id": "Clock", "formatHorizontal": "ddd D MMM  HH:mm", "useMonospacedFont": true }
+        {
+          "id": "Clock",
+          "formatHorizontal": "ddd D MMM  HH:mm",
+          "useMonospacedFont": true
+        }
       ]
     }
   },
@@ -31,6 +36,10 @@
   },
   "general": {
     "radiusRatio": 0.2
+  },
+  "hooks": {
+    "enabled": true,
+    "colorGeneration": "monarch-theme-apply"
   },
   "notifications": {
     "monitors": []
@@ -46,7 +55,15 @@
       { "enabled": true, "id": "helix" },
       { "enabled": true, "id": "niri" },
       { "enabled": true, "id": "code" },
+      { "enabled": true, "id": "starship" },
       { "enabled": true, "id": "pywalfox" }
     ]
+  },
+  "wallpaper": {
+    "enabled": true,
+    "directory": "~/.config/monarch/backgrounds/monarch",
+    "transitionType": ["fade"],
+    "transitionDuration": 1500,
+    "automationEnabled": false
   }
 }

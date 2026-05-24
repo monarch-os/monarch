@@ -40,8 +40,8 @@ binds {
     XF86Calculator hotkey-overlay-title="Calculator" { spawn "gnome-calculator"; }
 
     // --- Aesthetics ---
-    Mod+Ctrl+Space hotkey-overlay-title="Theme background menu" { spawn "monarch-menu" "background"; }
-    Mod+Shift+Ctrl+Space hotkey-overlay-title="Theme menu" { spawn "monarch-menu" "theme"; }
+    Mod+Ctrl+Space hotkey-overlay-title="Background picker" { spawn "monarch-menu" "background"; }
+    Mod+Shift+Ctrl+Space hotkey-overlay-title="Style menu" { spawn "monarch-menu" "style"; }
 
     // --- Noctalia panels ---
     Mod+Comma hotkey-overlay-title="Control center" { spawn-sh "qs -c noctalia-shell ipc call controlCenter toggle"; }

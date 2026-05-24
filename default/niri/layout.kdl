@@ -1,10 +1,11 @@
 // Monarch — layout (gaps, focus-ring/border geometry, shadow, hints).
 //
-// Theme colours for focus-ring and border live in
-// ~/.config/monarch/current/theme/niri-colors.kdl (rendered by
-// monarch-theme-set-templates) and merge into this layout block at load
-// time. Niri merges nested sections from includes, so width/urgent-color
-// stay here while active/inactive colours come from the theme.
+// Focus-ring / border COLOURS live in ~/.config/niri/noctalia.kdl (included by
+// config.kdl), not here. Monarch ships a default noctalia.kdl so the include
+// always resolves on first boot (a missing include is fatal to niri); Noctalia
+// then regenerates it from the active scheme. Niri merges nested sections, so
+// geometry (width / urgent-color) stays here while active/inactive colours come
+// from noctalia.kdl.
 
 layout {
     gaps 10

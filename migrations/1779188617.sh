@@ -37,18 +37,16 @@ for pkg in waybar omarchy-walker walker mako swaybg swayosd hyprlock; do
   fi
 done
 
-# 5. Seed the Noctalia user config from Monarch's defaults and link the
-#    Monarch color scheme into Noctalia's colorschemes directory.
-mkdir -p "$HOME/.config/noctalia/colorschemes/Monarch"
+# 5. Seed the Noctalia user config and the shipped Monarch color scheme from
+#    Monarch's defaults. Theming is delegated to Noctalia: a single "Monarch"
+#    scheme (dark + light blocks) ships as a real file under colorschemes/.
+rm -f "$HOME/.config/noctalia/colorschemes/Monarch/Monarch.json" # drop any old symlink
 monarch-refresh-config noctalia/settings.json || true
-ln -snf "$HOME/.config/monarch/current/theme/noctalia.json" \
-  "$HOME/.config/noctalia/colorschemes/Monarch/Monarch.json"
+monarch-refresh-config noctalia/colorschemes/Monarch/Monarch.json || true
 
-# 6. Regenerate themed files so the new noctalia.json template materialises.
-if monarch-cmd-present monarch-theme-set; then
-  current=$(cat "$HOME/.config/monarch/current/theme.name" 2>/dev/null)
-  [[ -n $current ]] && MONARCH_THEME_SKIP_BACKGROUND=1 monarch-theme-set "$current" || true
-fi
+# 6. Apply the residual system theming layer (wallpaper, Chromium, keyboard).
+#    Redirect stdout so it runs non-interactively (skips the heavy Plymouth path).
+monarch-cmd-present monarch-theme-apply && monarch-theme-apply >/dev/null 2>&1 || true
 
 # 7. Refresh Niri so the new autostart/binds pick up Noctalia, then launch it
 #    immediately if a Niri session is already running.

@@ -16,11 +16,21 @@ système/hardware que Noctalia ne peut pas atteindre.
 
 ## Décisions verrouillées
 
+> **Pivot (2026-05-23)** — On abandonne la curation des 20 thèmes. Monarch ne livre
+> plus **qu'un seul scheme `Monarch`**, avec blocs `dark` ET `light` (variante light
+> propre à écrire par l'utilisateur). Conséquence : dark/light redevient le **toggle
+> global Noctalia** (GTK/Qt via `syncGsettings`), `monarch-theme-apply` ne flippe plus
+> `darkMode` → plus de re-fire / double-passe. Les 13 schemes custom non-Monarch ont
+> été retirés de `config/noctalia/colorschemes/` ; les built-ins Noctalia restent
+> sélectionnables dans le picker. Les sections ci-dessous gardent la trace de l'ancien
+> modèle (20 thèmes) là où c'est utile, mais la cible est désormais « Monarch seul ».
+
 - **Modèle couleurs** : Material/wallpaper. Pas d'ANSI curated. Le moteur de
   templates Noctalia n'expose que les tokens Material-3 (`{{colors.<name>.<mode>.<format>}}`)
   + `{{image}}` (chemin wallpaper). Registre : `~/.config/noctalia/user-templates.toml`.
-- **Thèmes** : on garde les 20, en schemes Noctalia discrets (option a).
+- **Thèmes** : **un seul scheme `Monarch`** (blocs `dark` + `light`). Plus de set de 20.
   - `colorSchemes.useWallpaperColors = false` (les couleurs viennent du scheme choisi).
+  - **dark/light = toggle global Noctalia**, pas de flip réactif côté Monarch.
 - **Templates intégrés (natifs)** confirmés en VM : alacritty, kitty, foot, ghostty,
   **btop, helix** (+ zed, zenBrowser ; probablement vscode/firefox). Activés via
   `templates.activeTemplates: [{ "enabled": true, "id": "<app>" }]`.
@@ -32,7 +42,8 @@ système/hardware que Noctalia ne peut pas atteindre.
 - **Couche résiduelle Monarch** : un seul script `monarch-theme-apply` câblé sur le
   **hook natif `hooks.colorGeneration`** (se déclenche à chaque (re)génération de couleurs
   = changement de scheme — pas besoin de « pont user-template »). `hooks.enabled = true`.
-  Il gère : plymouth, RGB clavier, Chromium, et le repointage wallpaper (voir Phase 4).
+  Il gère : RGB clavier, Chromium, et le repointage wallpaper (voir Phase 4).
+  *(Plymouth par scheme retiré — voir Phase 5 + TODO.)*
 - **GTK/Qt** : géré nativement par `colorSchemes.syncGsettings = true` (pas de hook/script).
 - **Wallpaper / couplage thème↔fond** : conservé, mais via le `post_hook` ci-dessus.
   - `wallpaper.directory` repointé vers le dossier du scheme courant.
@@ -48,19 +59,25 @@ système/hardware que Noctalia ne peut pas atteindre.
 - [x] Chemin wallpaper **(b)** `~/.config/monarch/backgrounds/<scheme>/` (writable, seedé à l'install).
 - [x] « Le fond change vraiment » au changement de thème : oui (`ipc call wallpaper set`).
 
-## Mapping des 20 thèmes → schemes Noctalia
+## Schemes livrés (post-pivot)
 
-Built-in Noctalia dispo : Ayu, Catppuccin, Dracula, Eldritch, Gruvbox, Kanagawa,
-Noctalia (default), Nord, Rose Pine, Tokyo Night.
+**Monarch seul** : `config/noctalia/colorschemes/Monarch/Monarch.json`, blocs `dark`
+(existant) + `light` (à écrire proprement par l'utilisateur). C'est le scheme par
+défaut (`predefinedScheme = "Monarch"`).
 
-**Utiliser le built-in (6)** : catppuccin, gruvbox, kanagawa, nord, rose-pine, tokyo-night.
-> Note : les nuances du built-in Noctalia peuvent différer légèrement des couleurs Monarch actuelles.
+Les built-ins Noctalia (Ayu, Catppuccin, Dracula, Eldritch, Gruvbox, Kanagawa,
+Noctalia, Nord, Rose Pine, Tokyo Night) restent disponibles dans le picker — Monarch
+n'en livre/curate aucun. Pour eux, `monarch-theme-apply` dégrade gracieusement
+(pas de JSON livré → concerns couleur en no-op ; wallpaper marche si un dossier de
+fonds existe).
 
-**Écrire un scheme Material (14)** : catppuccin-latte, ethereal, everforest,
-flexoki-light, hackerman, lumon, matte-black, miasma, monarch, osaka-jade,
-retro-82, ristretto, vantablack, white.
+<details><summary>Historique : ancien mapping des 20 thèmes (abandonné)</summary>
 
-**Thèmes clairs (variante `light`)** : catppuccin-latte, flexoki-light, rose-pine, white.
+14 schemes Material écrits puis retirés : catppuccin-latte, ethereal, everforest,
+flexoki-light, hackerman, lumon, matte-black, miasma, osaka-jade, retro-82,
+ristretto, vantablack, white (+ monarch, conservé). 6 mappés sur built-ins :
+catppuccin, gruvbox, kanagawa, nord, rose-pine, tokyo-night.
+</details>
 
 ## Matrice de couverture
 
@@ -75,7 +92,7 @@ retro-82, ristretto, vantablack, white.
 | neovim / obsidian | user-template Material (à écrire) |
 | niri (focus-ring/border) | template **intégré** Noctalia |
 | GTK/Qt dark/light + couleurs | natif via `colorSchemes.syncGsettings` (+ templates GTK/Qt dispo) |
-| Plymouth (boot) | résiduel — `monarch-theme-apply` |
+| Plymouth (boot) | splash statique Monarch uniquement ; theming par scheme **retiré** (TODO) |
 | RGB clavier (asusctl/openrgb) | résiduel — `monarch-theme-apply` |
 
 ---
@@ -107,8 +124,6 @@ retro-82, ristretto, vantablack, white.
 - [x] **Vérifié en VM** : les 14 schemes apparaissent dans le picker ; changer de scheme
       repeint l'UI Noctalia (barre/launcher/control center). Terminal inchangé à ce stade
       (attendu — câblage terminal en Phase 3).
-- [ ] Light themes : à la sélection d'un scheme clair, le sélecteur/hook doit poser
-      `colorSchemes.darkMode=false` (et inversement pour les dark). → Phase 5.
 
 ### Phase 2 — User-templates (Material) — RÉDUITE
 > btop, helix, alacritty, **niri** sont NATIFs → retirés d'ici. Restent neovim + obsidian.
@@ -152,6 +167,16 @@ alacritty `~/.config/alacritty/themes/noctalia.toml` ; btop `~/.config/btop/them
 Noctalia auto-injecte pour foot/niri/ghostty/alacritty, **pas pour kitty** (include manuel).
 - [x] `config/foot/foot.ini` : ancien include retiré → `include=~/.config/foot/themes/noctalia`.
 - [x] `default/niri/config.kdl` : ancien include retiré → `include "./noctalia.kdl"`.
+      ⚠️ **Fix boot (révisé 2026-05-23)** : on **ship un défaut `default/niri/noctalia.kdl`**
+      (couleurs Monarch : focus-ring/border `active=#b471de`, `inactive=#3c2a6c`) que
+      `monarch-refresh-niri` **seed** dans `~/.config/niri/noctalia.kdl` s'il est absent (et **ne
+      clobbe pas** une version générée par Noctalia). Avant : on bootstrappait un fichier *vide* —
+      mais ce code n'était pas déployé partout, d'où un deadlock observé en VM (include manquant =
+      erreur fatale niri → niri ne boote pas → Noctalia ne tourne jamais → fichier jamais généré).
+      Le défaut livré rend l'include toujours résoluble au 1er boot ; Noctalia le régénère ensuite.
+      Garder le chemin **`./noctalia.kdl`** (injection idempotente Noctalia, grep `(\./)?noctalia\.kdl`).
+      niri : `include` depuis 25.11, expansion `~/` + `optional=true` depuis 26.04 (on n'utilise pas
+      `optional=true` pour rester compatible 25.11–26.03).
 - [x] `config/kitty/kitty.conf` : `include themes/noctalia.conf`.
 - [x] `config/ghostty/config` : `theme = noctalia`.
 - [x] `config/alacritty/alacritty.toml` : `import = [ "~/.config/alacritty/themes/noctalia.toml" ]`.
@@ -160,49 +185,142 @@ Noctalia auto-injecte pour foot/niri/ghostty/alacritty, **pas pour kitty** (incl
       → suppression en Phase 6 (`install/config/theme.sh`).
 
 ### Phase 4 — Wallpaper
-- [ ] `config/noctalia/settings.json` : section `wallpaper` (`enabled`, `directory`,
-      `transitionType`, `transitionDuration`, `automationEnabled`).
-- [ ] Regrouper les fonds livrés (one-shot, repo) — garder `themes/<nom>/backgrounds/`.
-- [ ] `monarch-theme-apply` : repointe `wallpaper.directory` vers le dossier du scheme
-      courant (chemin (b)), avec garde d'idempotence + fallback si dossier absent +
-      normalisation du nom (display name → kebab-case).
-- [ ] `monarch-theme-apply` : `ipc call wallpaper set <fond> ""` pour appliquer.
-- [ ] `monarch-menu` Background → délègue au picker Noctalia / IPC.
-- [ ] Vérifier en VM : hot-reload de `wallpaper.directory` rafraîchit le picker.
+> **Contrat Noctalia confirmé en source** (`Services/Control/HooksService.qml`,
+> `Services/UI/WallpaperService.qml`, `Services/Control/IPCService.qml`, `Commons/Settings.qml`) :
+> - `hooks.colorGeneration` se déclenche sur **chaque (re)génération de couleurs** (= changement
+>   de scheme, et aussi toggle dark/light), et ne passe que **`$1` = `dark|light`** — **pas** le
+>   nom du scheme. → `monarch-theme-apply` lit lui-même `colorSchemes.predefinedScheme`.
+> - IPC : `ipc call wallpaper set <path> <screen>` avec `screen=""` → tous les moniteurs (OK).
+> - `wallpaper.directory` est surveillé (`watchChanges:true`, reload débounce sur **remplacement
+>   atomique**) → écrire `settings.json` via temp+`mv` déclenche `onDirectoryChanged` →
+>   `refreshWallpapersList()` : le picker se rafraîchit en live. ✅ (résout la question ouverte).
+> - `wallpaper.transitionType` est une **liste** (pas une string).
+- [x] `config/noctalia/settings.json` : section `wallpaper` (`enabled=true`,
+      `directory="~/.config/monarch/backgrounds/monarch"`, `transitionType=["fade"]`,
+      `transitionDuration=1500`, `automationEnabled=false`).
+- [x] Fonds livrés : restent dans `themes/<nom>/backgrounds/` (pas de déplacement).
+      Le seeding vers `~/.config/monarch/backgrounds/<scheme>/` est **auto-géré par
+      `monarch-theme-apply`** (idempotent, `cp -rn` depuis `$MONARCH_PATH/themes/<scheme>/backgrounds/`),
+      plus robuste qu'un seeding install-only et testable en VM sans réinstall.
+- [x] `monarch-theme-apply` (nouveau `bin/`) : repointe `wallpaper.directory` (chemin (b),
+      écriture atomique) avec **garde d'idempotence** (ne fait rien si même dossier → préserve
+      le fond choisi lors d'un simple toggle dark/light), **fallback si dossier vide/absent**,
+      et **normalisation** display name → kebab-case (+ alias `rosepine`→`rose-pine`).
+- [x] `monarch-theme-apply` : `ipc call wallpaper set <fond> ""` (1er fond du dossier) — seulement
+      quand le dossier change, pour vraiment changer l'écran.
+- [x] `monarch-menu` Background → `ipc call wallpaper toggle` (ouvre le picker Noctalia).
+- [x] Vérifier en VM : hot-reload de `wallpaper.directory` rafraîchit le picker ; `monarch theme apply`
+      (lancé à la main) repointe + applique ; pas de boucle (`useWallpaperColors=false`).
 
 ### Phase 5 — Couche résiduelle (hooks)
-- [ ] `hooks.colorGeneration = "monarch-theme-apply"` + `hooks.enabled = true` (défaut Monarch).
-- [ ] `monarch-theme-apply` : plymouth (depuis scheme courant), RGB clavier, Chromium, wallpaper.
-- [x] GTK/Qt dark/light : natif via `colorSchemes.syncGsettings=true` (plus de script gsettings).
-- [ ] `monarch-theme-apply` pose `colorSchemes.darkMode` selon le scheme (light/dark per-scheme).
-- [ ] Métadonnées par scheme hors couleurs (plymouth, RGB) : où les stocker.
+- [x] `hooks.colorGeneration = "monarch-theme-apply"` + `hooks.enabled = true` dans
+      `config/noctalia/settings.json` (section `hooks`). Le hook tourne `monarch-theme-apply`
+      (sur le PATH Monarch) à chaque (re)génération de couleurs, avec `$1=dark|light`.
+- [x] `monarch-theme-apply` : wallpaper + RGB clavier + Chromium (plus de darkMode, plus de plymouth).
+      **Toutes les couleurs sont dérivées du JSON de scheme Noctalia** livré sous
+      `~/.config/noctalia/colorschemes/<Scheme>/<Scheme>.json`, **bloc de l'apparence active**
+      (`$1=dark|light` du hook, sinon `colorSchemes.darkMode` ; fallback sur le bloc dispo) :
+      `mPrimary`=accent clavier, `mSurface`=fond Chromium (fallback `terminal.*`).
+      - **RGB clavier** : logique asusctl + qmk_hid (Framework 16) inlinée (cheap, sans sudo →
+        OK sur le hook). Couleur = `mPrimary`.
+      - **Chromium** : écrit `BrowserThemeColor` dans `/etc/chromium/policies/managed/color.json`
+        (rendu world-writable à l'install par `theme.sh` → pas de sudo) + refresh des navigateurs
+        lancés. Chrome/Edge/Brave seulement si leur dossier de policy existe et est writable.
+- [x] **Plymouth : theming par scheme RETIRÉ (2026-05-23).** Le recolor dynamique (`sudo` +
+      rebuild initramfs) était peu fiable et inutilisé → `sync_plymouth` retiré de
+      `monarch-theme-apply` ; scripts `monarch-plymouth-set`/`-preview` supprimés. Le **splash de
+      boot Monarch statique reste** (`default/plymouth/` + `monarch-refresh-plymouth`/`-reset` +
+      `install/login/plymouth.sh`). **TODO** : meilleure implémentation du theming Plymouth plus tard.
+- [x] GTK/Qt **et** dark/light : 100 % natif Noctalia (`colorSchemes.syncGsettings=true` + toggle
+      darkMode global). **`monarch-theme-apply` ne touche plus `darkMode`** (pivot : Monarch livre
+      les deux blocs dans son scheme → aucun flip réactif, donc plus de re-fire ni double-passe).
+- [x] **Métadonnées par scheme hors couleurs : aucun store séparé.** Tout vient du JSON de scheme
+      (bloc actif). Overrides curated abandonnés (modèle Material) : l'ancien `keyboard.rgb` par
+      thème et `chromium.theme` → désormais accent/fond du scheme.
+- [x] **VM validé** (modèle pré-pivot) : hook déclenché au changement, RGB/Chromium suivent,
+      built-ins dégradent sans crash. ⚠️ La bascule GTK/Qt
+      en clair se fait désormais via le toggle darkMode natif (et non plus le flip Monarch) —
+      **à re-valider** avec le bloc `light` de Monarch une fois écrit.
+- [x] **Latence apply : cause supprimée par le pivot.** Le flip `darkMode` réactif (qui re-déclenchait
+      une régénération complète sur les schemes clairs) n'existe plus. Reste l'overhead inhérent
+      Noctalia/VM ; à re-vérifier sur HW mais plus de double-passe côté Monarch.
 
 ### Phase 6 — Démantèlement + plomberie
-- [ ] `rm` scripts `monarch-theme-*` : set, set-templates, set-foot, set-gnome,
-      set-browser, set-vscode, set-obsidian, set-keyboard*, colors-from-alacritty,
-      list, current, install, remove, update, refresh, bg-next, bg-set, bg-install.
-- [ ] `rm` `default/themed/*.tpl`.
-- [ ] `rm` `themes/*/` sauf `backgrounds/` (colors.toml, btop.theme, vscode.json,
-      neovim.lua, icons.theme, keyboard.rgb, previews, light.mode).
-- [ ] Éditer `bin/monarch` (groupe `theme` + aide).
-- [ ] Éditer `bin/monarch-menu` (Style → Theme/Background).
-- [ ] Éditer `default/niri/binds.kdl` (bind menu theme `Mod+Shift+Ctrl+Space`).
-- [ ] Éditer `install/config/theme.sh` (bootstrap : initial theme, symlinks btop/noctalia).
-- [ ] Éditer `default/pi/agent/extensions/monarch-system-theme.ts` (ce qu'il lit).
-- [ ] `test/monarch-cli-test.sh` : retirer assertions `theme set/list/current`.
-- [ ] Migration de nettoyage pour les installs existantes.
-- [ ] MAJ `AGENTS.md` (section Upstream Sync / theming) + `default/monarch-skill/SKILL.md`.
+> **Post-pivot** : 13 schemes custom déjà retirés de `config/noctalia/colorschemes/`
+> (reste `Monarch`). Le démantèlement vise maintenant le **mono-Monarch**.
+- [x] `rm` scripts `monarch-theme-*` (21 supprimés) : set, set-templates, set-foot,
+      set-gnome, set-browser, set-vscode, set-obsidian, set-keyboard*, colors-from-alacritty,
+      list, current, install, remove, update, refresh, bg-next, bg-set, bg-install
+      + `monarch-plymouth-set-by-theme`. Plymouth theming retiré (2026-05-23) :
+      `monarch-plymouth-set` + `monarch-plymouth-preview` aussi supprimés.
+      Gardés : `monarch-theme-apply`, `monarch-obsidian-theme`, et le splash statique
+      (`monarch-plymouth-reset`, `monarch-refresh-plymouth`, `default/plymouth/`).
+- [x] `rm` `default/themed/` (tous les `.tpl`) + `config/monarch/themed/` (sample user-template).
+- [x] `rm` **tout `themes/` sauf `themes/monarch/backgrounds/`**.
+- [ ] **Écrire le bloc `light` de `Monarch.json`** (variante claire propre — owner).
+- [x] Éditer `bin/monarch` : retiré `theme list/set` de l'aide ; groupe `theme` = `apply` seul ;
+      description du groupe mise à jour.
+- [x] Éditer `bin/monarch-menu` : retiré le sélecteur (`show_theme_menu`), le dispatch `theme`,
+      et les entrées install/remove/update theme + `show_install_style_menu`. Background = picker Noctalia.
+- [x] Éditer `default/niri/binds.kdl` : `Mod+Shift+Ctrl+Space` repointé `theme` → `style`
+      (le menu theme n'existe plus) ; `Mod+Ctrl+Space` = picker fonds.
+- [x] Éditer `install/config/theme.sh` : retiré initial `monarch-theme-set` + symlinks btop/noctalia
+      + dossier user-themes ; garde la policy Chromium ; appelle `monarch-theme-apply` (scheme livré).
+- [x] **Companion VSCode** : `monarch-install-vscode` installe l'extension *NoctaliaTheme*
+      (Open VSX `Noctalia.noctaliatheme`) + pose `workbench.colorTheme=NoctaliaTheme`.
+      (Pas de script d'install VSCodium dans le repo → rien à câbler côté Codium.)
+      → **VM** : valider l'id d'extension + le label de thème exact.
+- [ ] Companion **pywalfox** (Firefox) : non câblé à l'install (addon + native host = manuel,
+      non testable ici). TODO restant.
+- [x] Éditer `default/pi/agent/extensions/monarch-system-theme.ts` : lit `colorSchemes.darkMode`
+      de `~/.config/noctalia/settings.json` (au lieu de `current/theme/light.mode`).
+- [x] `test/monarch-cli-test.sh` : assertions `theme set/list/current` retirées/repointées sur
+      `theme apply` ; suite **verte** (EXIT 0).
+- [x] Migration de nettoyage `migrations/1779539464.sh` (purge l'ancien état + déploie le scheme +
+      `monarch-theme-apply`). Migrations obsolètes supprimées (8) ; 4 éditées (switchover Noctalia,
+      loader niri, switch chromium, tmux) pour retirer les appels morts. `fastfetch` lit le scheme
+      depuis Noctalia.
+- [x] MAJ `AGENTS.md` + `default/monarch-skill/SKILL.md` (modèle délégué à Noctalia).
 
 ### Phase 7 — Validation
-- [ ] `bash test/monarch-cli-test.sh` vert.
-- [ ] `bin/monarch commands --check` OK.
-- [ ] En VM : changement de scheme → terminaux/btop/helix/vscode/niri/wallpaper/plymouth/RGB suivent.
+**Validation statique locale (faite, verte) :**
+- [x] `bash test/monarch-cli-test.sh` vert (EXIT 0, 58 assertions ok).
+- [x] `bin/monarch commands --check` OK (244 commandes ; 265 avant, −21 scripts supprimés).
+- [x] `bash -n` sur tous les scripts `bin/` + `install/` + `migrations/` : OK pour tout ce qui
+      touche au theming. *(Note hors-périmètre : `bin/monarch-refresh-pacman` a un bug préexistant —
+      `if` sans `fi`, ligne 10 — non lié à cette migration, à corriger à part.)*
+- [x] JSON valides : `settings.json` (hooks/templates/wallpaper OK) + `Monarch.json` (bloc `dark`).
+- [x] Snippet fastfetch résout bien le scheme depuis Noctalia (`Monarch`).
+- [x] Sweep de références mortes (scripts/paths supprimés) : propre côté code.
+- [x] `monarch-theme-apply` en HOME bac-à-sable avec la config livrée : chemin install (sans `$1`)
+      et chemin hook (`$1=light` sur scheme dark-only → fallback) → exit 0, wallpaper repointé
+      sur `monarch`, `darkMode` intact, `settings.json` reste valide.
+
+**À valider en VM (non exécutable ici — niri/Noctalia absents) :**
+- [ ] Bloc `light` de `Monarch.json` écrit, puis toggle dark/light Noctalia → GTK/Qt + shell suivent.
+- [x] Changement d'apparence/scheme → terminaux/btop/helix/vscode/niri/wallpaper/Chromium/RGB suivent.
+- [x] *(Plymouth theming retiré — plus à valider ; splash statique inchangé.)*
+- [x] Companions : id extension VSCode `Noctalia.noctaliatheme` + label `NoctaliaTheme` corrects ;
+      template Helix Noctalia écrit bien `~/.config/helix/themes/noctalia.toml`.
+- [ ] `monarch migrate` (migration `1779539464`) sur une install pré-pivot : purge + déploie sans casse.
 - [ ] Screenshot de contrôle (`monarch capture screenshot fullscreen save`).
+
+## TODO (post-migration)
+- [ ] **Theming Plymouth — meilleure implémentation.** Le recolor par scheme a été retiré
+      (sudo + rebuild initramfs peu fiable/inutilisé ; `sync_plymouth` + `monarch-plymouth-set`/
+      `-preview` supprimés). Le splash statique Monarch reste. À repenser : une approche fiable
+      (sans rebuild initramfs à chaque changement ? cache d'assets pré-rendus ? découplé du hook
+      couleurs ?) si on veut un boot screen qui suive le scheme.
+- [ ] Bloc `light` de `Monarch.json` (variante claire propre — owner).
+- [ ] Companion **pywalfox** (Firefox) à câbler à l'install (addon + native host).
 
 ## Inconnus à valider en VM (récap)
 - **Chemins de sortie des templates intégrés** (kitty/foot/ghostty/btop/helix) → pour Phase 3.
-- `hooks.colorGeneration` se déclenche bien à chaque changement de scheme.
-- Hot-reload de `settings.json` (`wallpaper.directory`) à chaud.
-- Pas de boucle : `wallpaper set` ne régénère pas les couleurs (car `useWallpaperColors=false`).
+- ~~`hooks.colorGeneration` se déclenche bien à chaque changement de scheme.~~ ✅ confirmé en source
+  (fire sur `onColorsGenerated`, arg `$1=dark|light`).
+- ~~Hot-reload de `settings.json` (`wallpaper.directory`) à chaud.~~ ✅ confirmé en source
+  (`FileView watchChanges` + reload sur remplacement atomique). Reste à confirmer empiriquement en VM.
+- Pas de boucle : `wallpaper set` ne régénère pas les couleurs (car `useWallpaperColors=false`). ✅
+  (chemin `useWallpaperColors` shunté dans `HooksService`, pas de re-déclenchement colorGeneration).
 - IDs de template pour vscode / firefox ; neovim/obsidian natifs ou non.
 - Le bloc `terminal` des schemes est-il consommé par les templates terminaux (fidélité ANSI) ?

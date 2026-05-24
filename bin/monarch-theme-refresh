@@ -1,9 +1,0 @@
-#!/bin/bash
-
-# monarch:summary=Refresh the current theme from its templates.
-
-THEME_NAME_PATH="$HOME/.config/monarch/current/theme.name"
-
-if [[ -f $THEME_NAME_PATH ]]; then
-  MONARCH_THEME_SKIP_BACKGROUND=1 monarch-theme-set "$(cat $THEME_NAME_PATH)"
-fi

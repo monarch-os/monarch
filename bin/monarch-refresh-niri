@@ -25,6 +25,14 @@ if [[ ! -f $HOME/.config/niri/keyboard.kdl ]]; then
   : >"$HOME/.config/niri/keyboard.kdl"
 fi
 
+# Seed noctalia.kdl from Monarch's shipped default so the include in config.kdl
+# always resolves before Noctalia has (re)generated its niri theme. A missing
+# include is fatal to niri -> it never starts -> Noctalia never runs to create the
+# file -> deadlock. Don't clobber a file Noctalia has already generated.
+if [[ ! -f $HOME/.config/niri/noctalia.kdl ]]; then
+  cp -f "$HOME/.local/share/monarch/default/niri/noctalia.kdl" "$HOME/.config/niri/noctalia.kdl"
+fi
+
 # Back up an existing target before we overwrite it.
 if [[ -f $TARGET ]] && ! cmp -s "$SOURCE" "$TARGET"; then
   cp -f "$TARGET" "$TARGET.bak.$(date +%s)"

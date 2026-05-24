@@ -63,7 +63,7 @@ GROUP_DESCRIPTIONS[screensaver]="Screensaver branding and animation"
 GROUP_DESCRIPTIONS[snapshot]="System snapshots"
 GROUP_DESCRIPTIONS[sudo]="Sudo configuration helpers"
 GROUP_DESCRIPTIONS[system]="Reboot, shutdown, logout, and lock"
-GROUP_DESCRIPTIONS[theme]="Theme management"
+GROUP_DESCRIPTIONS[theme]="Residual system theming layer (Noctalia owns colors)"
 GROUP_DESCRIPTIONS[toggle]="Toggle Monarch features"
 GROUP_DESCRIPTIONS[transcode]="Image and video transcoding"
 GROUP_DESCRIPTIONS[tui]="Terminal UI launchers"
@@ -486,8 +486,6 @@ Usage:
 
 Common commands:
   monarch update              Update Monarch and system packages
-  monarch theme list          List available themes
-  monarch theme set <name>    Apply a theme
   monarch font list           List available fonts
   monarch screenshot          Take a screenshot
   monarch debug               Print debugging information

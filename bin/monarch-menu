@@ -254,8 +254,7 @@ show_hardware_touchpad_haptics_menu() {
 }
 
 show_style_menu() {
-  case $(menu "Style" "󰸌  Theme\n  Font\n  Background\n  Niri\n󱄄  Screensaver\n  About") in
-  *Theme*) show_theme_menu ;;
+  case $(menu "Style" "  Font\n  Background\n  Niri\n󱄄  Screensaver\n  About") in
   *Font*) show_font_menu ;;
   *Background*) show_background_menu ;;
   *Niri*) open_in_editor ~/.config/niri/user.kdl ;;
@@ -283,18 +282,8 @@ show_screensaver_menu() {
   esac
 }
 
-show_theme_menu() {
-  local themes
-  themes=$(monarch-theme-list)
-  local current
-  current=$(monarch-theme-current 2>/dev/null)
-  local chosen
-  chosen=$(menu "Theme" "$themes" "" "$current") || return
-  [[ -n $chosen && $chosen != "CNCLD" ]] && monarch-theme-set "$chosen"
-}
-
 show_background_menu() {
-  monarch-theme-bg-next
+  qs -c noctalia-shell ipc call wallpaper toggle
 }
 
 show_font_menu() {
@@ -490,13 +479,13 @@ show_setup_system_menu() {
 }
 
 show_install_menu() {
-  case $(menu "Install" "󰣇  Package\n󰣇  AUR\n  Web App\n  TUI\n  Service\n  Style\n󰵮  Development\n󰨈  Cyber\n  Editor\n  Terminal\n  Browser\n󱚤  AI\n  Gaming\n󰍲  Windows") in
+  case $(menu "Install" "󰣇  Package\n󰣇  AUR\n  Web App\n  TUI\n  Service\n  Font\n󰵮  Development\n󰨈  Cyber\n  Editor\n  Terminal\n  Browser\n󱚤  AI\n  Gaming\n󰍲  Windows") in
   *Package*) terminal monarch-pkg-install ;;
   *AUR*) terminal monarch-pkg-aur-install ;;
   *Web*) present_terminal monarch-webapp-install ;;
   *TUI*) present_terminal monarch-tui-install ;;
   *Service*) show_install_service_menu ;;
-  *Style*) show_install_style_menu ;;
+  *Font*) show_install_font_menu ;;
   *Development*) show_install_development_menu ;;
   *Cyber*) show_install_cyber_menu ;;
   *Editor*) show_install_editor_menu ;;
@@ -591,15 +580,6 @@ show_install_gaming_menu() {
   esac
 }
 
-show_install_style_menu() {
-  case $(menu "Install" "󰸌  Theme\n  Background\n  Font") in
-  *Theme*) present_terminal monarch-theme-install ;;
-  *Background*) monarch-theme-bg-install ;;
-  *Font*) show_install_font_menu ;;
-  *) show_install_menu ;;
-  esac
-}
-
 show_install_font_menu() {
   case $(menu "Install" "  Cascadia Mono\n  Meslo LG Mono\n  Fira Code\n  Victor Code\n  Bitstream Vera Mono\n  Iosevka" "--width 350") in
   *Cascadia*) install_font "Cascadia Mono" "ttf-cascadia-mono-nerd" "CaskaydiaMono Nerd Font" ;;
@@ -668,12 +648,11 @@ show_install_cyber_menu() {
 }
 
 show_remove_menu() {
-  case $(menu "Remove" "󰣇  Package\n  Web App\n  TUI\n󰵮  Development\n󰸌  Theme\n  Browser\n  Dictation\n  Gaming\n󰖂  LazyVPN\n󰍲  Windows\n󰏓  Preinstalls\n󰗊  Language\n  Security") in
+  case $(menu "Remove" "󰣇  Package\n  Web App\n  TUI\n󰵮  Development\n  Browser\n  Dictation\n  Gaming\n󰖂  LazyVPN\n󰍲  Windows\n󰏓  Preinstalls\n󰗊  Language\n  Security") in
   *Package*) terminal monarch-pkg-remove ;;
   *Web*) present_terminal monarch-webapp-remove ;;
   *TUI*) present_terminal monarch-tui-remove ;;
   *Development*) show_remove_development_menu ;;
-  *Theme*) present_terminal monarch-theme-remove ;;
   *Browser*) show_remove_browser_menu ;;
   *Dictation*) present_terminal monarch-voxtype-remove ;;
   *Gaming*) show_remove_gaming_menu ;;
@@ -766,11 +745,10 @@ show_remove_elixir_menu() {
 }
 
 show_update_menu() {
-  case $(menu "Update" "  Monarch\n󰔫  Channel\n  Config\n󰸌  Extra Themes\n  Process\n󰇅  Hardware\n  Firmware\n  Password\n  Timezone\n  Time") in
+  case $(menu "Update" "  Monarch\n󰔫  Channel\n  Config\n  Process\n󰇅  Hardware\n  Firmware\n  Password\n  Timezone\n  Time") in
   *Monarch*) present_terminal monarch-update ;;
   *Channel*) show_update_channel_menu ;;
   *Config*) show_update_config_menu ;;
-  *Themes*) present_terminal monarch-theme-update ;;
   *Process*) show_update_process_menu ;;
   *Hardware*) show_update_hardware_menu ;;
   *Firmware*) present_terminal monarch-update-firmware ;;
@@ -875,7 +853,6 @@ go_to_menu() {
   *background*) show_background_menu ;;
   *capture*) show_capture_menu ;;
   *style*) show_style_menu ;;
-  *theme*) show_theme_menu ;;
   *screenshot*) show_screenshot_menu ;;
   *screenrecord*) show_screenrecord_menu ;;
   *setup*) show_setup_menu ;;
