@@ -24,12 +24,13 @@ for pkg in niri hyprlock swayidle wlsunset xdg-desktop-portal-gnome wtype; do
   fi
 done
 
-# 4. Deploy the new Niri / swayidle / hyprlock / wlsunset configurations.
-mkdir -p "$HOME/.config/niri" "$HOME/.config/swayidle" "$HOME/.config/hyprlock" "$HOME/.config/wlsunset"
+# 4. Deploy the new Niri / swayidle / hyprlock configurations.
+#    Night light is owned by Noctalia (it spawns wlsunset itself), so Monarch
+#    ships no wlsunset config.
+mkdir -p "$HOME/.config/niri" "$HOME/.config/swayidle" "$HOME/.config/hyprlock"
 [[ -f $HOME/.config/niri/user.kdl ]] || cp "$MONARCH_PATH/config/niri/user.kdl" "$HOME/.config/niri/user.kdl"
 monarch-refresh-config swayidle/config
 monarch-refresh-config hyprlock/hyprlock.conf
-monarch-refresh-config wlsunset/wlsunset.conf
 monarch-refresh-niri || true
 
 # 5. Restart the now-active services.

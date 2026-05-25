@@ -4,7 +4,7 @@ description: >
   REQUIRED for end-user customization of Linux desktop, window manager, or system config.
   Use when editing ~/.config/niri/, ~/.config/noctalia/, ~/.config/alacritty/,
   ~/.config/foot/, ~/.config/kitty/, ~/.config/ghostty/, ~/.config/swayidle/,
-  ~/.config/wlsunset/, or ~/.config/monarch/.
+  or ~/.config/monarch/.
   Triggers: Niri, window rules, animations, keybindings, monitors, gaps, borders, focus
   ring, opacity, Noctalia bar/launcher/notifications/lock-screen/OSD, terminal config,
   themes, wallpaper, night light, idle, lock screen, screenshots, reminders, layer rules,
@@ -25,7 +25,7 @@ It is not for contributing to Monarch source code.
 
 - Editing ANY file in `~/.config/niri/` (window rules, keybindings, monitors, etc.)
 - Editing ANY file in `~/.config/noctalia/` (bar, widgets, notifications, control center, lock screen)
-- Editing `~/.config/swayidle/`, `~/.config/wlsunset/`
+- Editing `~/.config/swayidle/`
 - Editing terminal configs (alacritty, foot, kitty, ghostty)
 - Editing ANY file in `~/.config/monarch/`
 - Window behavior, opacity, gaps, borders, focus ring
@@ -80,7 +80,7 @@ Monarch is built on:
 | **Niri** | Wayland scrollable-tiling compositor/WM | `~/.config/niri/` |
 | **Noctalia** | Desktop shell — bar, launcher, notifications, control center, lock screen, OSDs, wallpaper | `~/.config/noctalia/` |
 | **Alacritty/Foot/Kitty/Ghostty** | Terminals | `~/.config/<terminal>/` |
-| **swayidle / wlsunset** | Idle daemon, night light | `~/.config/swayidle/`, `~/.config/wlsunset/` |
+| **swayidle** | Idle daemon | `~/.config/swayidle/` |
 | **fuzzel** | Lightweight dmenu picker used by `monarch-menu-*` | n/a |
 
 Noctalia is driven entirely through IPC: `qs -c noctalia-shell ipc call <target> <function> [args...]`. Common targets: `launcher`, `controlCenter`, `settings`, `sessionMenu`, `lockScreen`, `notifications`, `volume`, `brightness`, `nightLight`, `wallpaper`, `colorScheme`, `darkMode`.
@@ -407,7 +407,7 @@ This skill intentionally does not cover Monarch source development. Do not use t
 - "Add a keybinding for Super+E to open file manager" -> Add the bind in `~/.config/niri/user.kdl` (a later redefinition overrides any default with the same chord), then `monarch refresh niri`
 - "Configure my external monitor" -> Edit the `output` block in `~/.config/niri/user.kdl`
 - "Make the window gaps smaller" -> Add a `layout { gaps … }` block in `~/.config/niri/user.kdl`
-- "Set up night light to turn on at sunset" -> `monarch toggle nightlight` or edit `~/.config/wlsunset/wlsunset.conf`
+- "Set up night light to turn on at sunset" -> `monarch toggle nightlight` for a manual on/off, or configure a schedule in Noctalia: set `nightLight.autoSchedule` (or `manualSunset`/`manualSunrise`) and `nightLight.nightTemp` under `~/.config/noctalia/settings.json`
 - "Set a reminder to pickup jack in 15 minutes" -> `monarch reminder 15 "Pickup Jack"`
 - "Show my reminders" -> `monarch reminder show`
 - "Clear all reminders" -> `monarch reminder clear`
