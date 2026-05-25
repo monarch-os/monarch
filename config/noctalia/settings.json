@@ -48,6 +48,7 @@
   "templates": {
     "enableUserTheming": true,
     "activeTemplates": [
+      { "enabled": true, "id": "alacritty" },
       { "enabled": true, "id": "kitty" },
       { "enabled": true, "id": "foot" },
       { "enabled": true, "id": "ghostty" },
