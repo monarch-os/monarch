@@ -1,4 +1,5 @@
 run_logged $MONARCH_INSTALL/config/config.sh
+run_logged $MONARCH_INSTALL/config/niri.sh
 run_logged $MONARCH_INSTALL/config/theme.sh
 run_logged $MONARCH_INSTALL/config/branding.sh
 run_logged $MONARCH_INSTALL/config/exegol.sh
