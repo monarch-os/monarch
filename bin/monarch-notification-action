@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# monarch:summary=Send a persistent notification that runs a command when clicked.
+# monarch:args=<glyph> <headline> <description> <label> <command> [args...]
+# monarch:examples=monarch notification action "󰖩" "Setup Wi-Fi" "Arrow to navigate, Enter to select" "Open" monarch-launch-wifi
+
+set -euo pipefail
+
+if (($# < 5)); then
+  echo "Usage: monarch-notification-action <glyph> <headline> <description> <label> <command> [args...]" >&2
+  exit 1
+fi
+
+glyph=$1
+headline=$2
+description=$3
+label=$4
+shift 4
+
+summary="$glyph    $headline"
+body=$(sed 's/^/      /' <<<"$description")
+
+# Persistent (--expire-time=0), critical notification carrying a freedesktop
+# "default" action. In Noctalia the "default" action fires from its action button
+# AND from a click on the notification body — the equivalent of mako's old
+# on-button-left wiring. With --action, notify-send blocks until the notification
+# is actioned or dismissed and prints the invoked action id on stdout.
+#
+# Run it detached (setsid) and backgrounded so callers such as monarch-first-run
+# are never blocked and the listener outlives the parent process.
+setsid --fork bash -c '
+  label=$1
+  summary=$2
+  body=$3
+  shift 3
+  action=$(notify-send --app-name=Monarch --urgency=critical --expire-time=0 \
+    --action="default=$label" -- "$summary" "$body") || exit 0
+  [[ $action == default ]] && exec "$@"
+' bash "$label" "$summary" "$body" "$@" </dev/null >/dev/null 2>&1 &

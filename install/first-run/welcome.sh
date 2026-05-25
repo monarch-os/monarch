@@ -1,1 +1,5 @@
-notify-send "    Learn Keybindings" "Super + K for cheatsheet.\nSuper + Space for application launcher.\nSuper + Alt + Space for Monarch Menu." -u critical
+monarch-notification-action "" "Learn Keybindings" \
+  "Super + K for cheatsheet.
+Super + Space for application launcher.
+Super + Alt + Space for Monarch Menu." \
+  "Open cheatsheet" monarch-menu-keybindings

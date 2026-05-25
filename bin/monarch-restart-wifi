@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# monarch:summary=Unblock and restart the Wi-Fi service.
+# monarch:summary=Restart the Wi-Fi radio.
 
-echo -e "Unblocking wifi...\n"
-rfkill unblock wifi
-rfkill list wifi
+echo -e "Restarting Wi-Fi...\n"
+nmcli radio wifi off
+nmcli radio wifi on
+nmcli radio wifi

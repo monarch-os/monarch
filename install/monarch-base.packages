@@ -9,7 +9,7 @@ avahi
 bash-completion
 bat
 bind
-bluetui
+bluez-utils
 bolt
 brightnessctl
 btop
