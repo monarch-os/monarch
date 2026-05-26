@@ -11,6 +11,7 @@
 
 include "~/.local/share/monarch/default/niri/environment.kdl"
 include "~/.local/share/monarch/default/niri/input.kdl"
+include "~/.local/share/monarch/default/niri/power.kdl"
 include "~/.local/share/monarch/default/niri/layout.kdl"
 include "~/.local/share/monarch/default/niri/misc.kdl"
 include "~/.local/share/monarch/default/niri/windows.kdl"

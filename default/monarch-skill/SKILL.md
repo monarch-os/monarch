@@ -3,7 +3,7 @@ name: monarch
 description: >
   REQUIRED for end-user customization of Linux desktop, window manager, or system config.
   Use when editing ~/.config/niri/, ~/.config/noctalia/, ~/.config/alacritty/,
-  ~/.config/foot/, ~/.config/kitty/, ~/.config/ghostty/, ~/.config/swayidle/,
+  ~/.config/foot/, ~/.config/kitty/, ~/.config/ghostty/,
   or ~/.config/monarch/.
   Triggers: Niri, window rules, animations, keybindings, monitors, gaps, borders, focus
   ring, opacity, Noctalia bar/launcher/notifications/lock-screen/OSD, terminal config,
@@ -25,7 +25,6 @@ It is not for contributing to Monarch source code.
 
 - Editing ANY file in `~/.config/niri/` (window rules, keybindings, monitors, etc.)
 - Editing ANY file in `~/.config/noctalia/` (bar, widgets, notifications, control center, lock screen)
-- Editing `~/.config/swayidle/`
 - Editing terminal configs (alacritty, foot, kitty, ghostty)
 - Editing ANY file in `~/.config/monarch/`
 - Window behavior, opacity, gaps, borders, focus ring
@@ -80,7 +79,6 @@ Monarch is built on:
 | **Niri** | Wayland scrollable-tiling compositor/WM | `~/.config/niri/` |
 | **Noctalia** | Desktop shell — bar, launcher, notifications, control center, lock screen, OSDs, wallpaper | `~/.config/noctalia/` |
 | **Alacritty/Foot/Kitty/Ghostty** | Terminals | `~/.config/<terminal>/` |
-| **swayidle** | Idle daemon | `~/.config/swayidle/` |
 | **fuzzel** | Lightweight dmenu picker used by `monarch-menu-*` | n/a |
 
 Noctalia is driven entirely through IPC: `qs -c noctalia-shell ipc call <target> <function> [args...]`. Common targets: `launcher`, `controlCenter`, `settings`, `sessionMenu`, `lockScreen`, `notifications`, `volume`, `brightness`, `nightLight`, `wallpaper`, `colorScheme`, `darkMode`.

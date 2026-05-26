@@ -9,8 +9,8 @@ fi
 
 # 2. Drop the Hyprland packages we no longer need.
 #    Kept: hyprpicker (wlr-screencopy capture, works under any wlroots-like
-#    compositor) and hyprlock (ext-session-lock-v1 client, decoupled from
-#    Hyprland-the-compositor).
+#    compositor). hyprlock is dropped by the later Noctalia migration
+#    (1779188617) since Noctalia owns the lock screen.
 for pkg in hyprland hyprland-guiutils hyprland-preview-share-picker hypridle hyprsunset xdg-desktop-portal-hyprland; do
   if monarch-pkg-present "$pkg"; then
     monarch-pkg-drop "$pkg" || true
@@ -18,26 +18,23 @@ for pkg in hyprland hyprland-guiutils hyprland-preview-share-picker hypridle hyp
 done
 
 # 3. Install the Niri stack if any piece is missing.
-for pkg in niri hyprlock swayidle wlsunset xdg-desktop-portal-gnome wtype; do
+for pkg in niri wlsunset xdg-desktop-portal-gnome wtype; do
   if monarch-pkg-missing "$pkg"; then
     monarch-pkg-add "$pkg" || true
   fi
 done
 
-# 4. Deploy the new Niri / swayidle / hyprlock configurations.
-#    Night light is owned by Noctalia (it spawns wlsunset itself), so Monarch
-#    ships no wlsunset config.
-mkdir -p "$HOME/.config/niri" "$HOME/.config/swayidle" "$HOME/.config/hyprlock"
+# 4. Deploy the new Niri configuration.
+#    Lock screen, night light and idle are owned by Noctalia; lid-close lock
+#    lives in niri switch-events (default/niri/power.kdl). Monarch ships no
+#    hyprlock / wlsunset / swayidle config.
+mkdir -p "$HOME/.config/niri"
 [[ -f $HOME/.config/niri/user.kdl ]] || cp "$MONARCH_PATH/config/niri/user.kdl" "$HOME/.config/niri/user.kdl"
-monarch-refresh-config swayidle/config
-monarch-refresh-config hyprlock/hyprlock.conf
 monarch-refresh-niri || true
 
-# 5. Restart the now-active services.
+# 5. Stop the old Hyprland daemons (Niri + Noctalia take over).
 pkill -x hypridle 2>/dev/null || true
 pkill -x hyprsunset 2>/dev/null || true
-pkill -x swayidle 2>/dev/null || true
-setsid uwsm-app -- swayidle -w -C "$HOME/.config/swayidle/config" >/dev/null 2>&1 &
 
 # 6. Update the SDDM session and greeter compositor to point at Niri.
 if [[ -f /etc/sddm.conf.d/10-wayland.conf ]]; then

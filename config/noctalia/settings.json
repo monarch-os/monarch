@@ -41,6 +41,17 @@
     "enabled": true,
     "colorGeneration": "monarch-theme-apply"
   },
+  "idle": {
+    "enabled": true,
+    "lockTimeout": 300,
+    "screenOffTimeout": 330,
+    "suspendTimeout": 0,
+    "fadeDuration": 5,
+    "lockCommand": "MONARCH_LOCK_ONLY=true monarch-system-lock",
+    "screenOffCommand": "monarch-brightness-keyboard off",
+    "resumeScreenOffCommand": "monarch-system-wake",
+    "customCommands": "[{\"timeout\":150,\"command\":\"monarch-launch-screensaver\",\"resumeCommand\":\"\"}]"
+  },
   "notifications": {
     "monitors": [],
     "respectExpireTimeout": true

@@ -442,11 +442,9 @@ show_setup_default_editor_menu() {
 
 show_setup_config_menu() {
   case $(menu "Setup" "  Niri
-  Swayidle
   Noctalia
 󰞅  XCompose") in
   *Niri*) open_in_editor ~/.config/niri/user.kdl && monarch-refresh-niri ;;
-  *Swayidle*) open_in_editor ~/.config/swayidle/config && monarch-restart-swayidle ;;
   *Noctalia*) open_in_editor ~/.config/noctalia/settings.json && monarch-restart-noctalia ;;
   *XCompose*) open_in_editor ~/.XCompose && monarch-restart-xcompose ;;
   *) show_setup_menu ;;
@@ -767,9 +765,7 @@ show_update_channel_menu() {
 }
 
 show_update_process_menu() {
-  case $(menu "Restart" "  Swayidle
-  Noctalia") in
-  *Swayidle*) monarch-restart-swayidle ;;
+  case $(menu "Restart" "  Noctalia") in
   *Noctalia*) monarch-restart-noctalia ;;
   *) show_update_menu ;;
   esac
@@ -777,12 +773,10 @@ show_update_process_menu() {
 
 show_update_config_menu() {
   case $(menu "Use default config" "  Niri
-  Swayidle
 󱣴  Plymouth
   Tmux
   Noctalia") in
   *Niri*) present_terminal monarch-refresh-niri ;;
-  *Swayidle*) present_terminal monarch-refresh-swayidle ;;
   *Plymouth*) present_terminal monarch-refresh-plymouth ;;
   *Tmux*) present_terminal monarch-refresh-tmux ;;
   *Noctalia*) present_terminal monarch-refresh-noctalia ;;

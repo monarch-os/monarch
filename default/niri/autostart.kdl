@@ -9,8 +9,7 @@ spawn-at-startup "uwsm-app" "--" "fcitx5" "--disable" "notificationitem"
 // Authentication agent
 spawn-at-startup "/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1"
 
-// Screenlocking and power management
-spawn-at-startup "sh" "-c" "exec uwsm-app -- swayidle -w -C ~/.config/swayidle/config"
+// Power management
 spawn-at-startup "monarch-powerprofiles-set"
 
 spawn-at-startup "monarch-first-run"
