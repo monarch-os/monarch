@@ -20,5 +20,4 @@ if [[ -f $FIRST_RUN_MODE ]]; then
   sudo rm -f /etc/sudoers.d/first-run
 
   bash "$MONARCH_PATH/install/first-run/welcome.sh"
-  bash "$MONARCH_PATH/install/first-run/wifi.sh"
 fi
