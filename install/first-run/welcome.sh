@@ -6,7 +6,7 @@
 
 setsid --fork bash -c '
   for _ in $(seq 1 30); do
-    if qs -c noctalia-shell ipc call plugin:monarch-welcome open >/dev/null 2>&1; then
+    if qs -c noctalia-shell ipc call plugin openPanel monarch-welcome >/dev/null 2>&1; then
       exit 0
     fi
     sleep 1

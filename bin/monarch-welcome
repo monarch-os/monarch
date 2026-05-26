@@ -3,4 +3,4 @@
 # monarch:summary=Open the Monarch first-run welcome panel (Noctalia plugin)
 # monarch:examples=monarch welcome
 
-exec qs -c noctalia-shell ipc call plugin:monarch-welcome open
+exec qs -c noctalia-shell ipc call plugin openPanel monarch-welcome
