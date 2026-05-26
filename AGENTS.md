@@ -91,7 +91,7 @@ Exceptions are allowed for bootstrap, preflight, migration, and package-helper s
 - `config/` - default configs copied to `~/.config/`
 - `config/noctalia/colorschemes/Monarch/Monarch.json` - the single Monarch color scheme (`dark` + `light` blocks); Noctalia owns colors and dark/light
 - `config/noctalia/templates/` + `config/noctalia/user-templates.toml` - Noctalia user-template inputs for the apps without a built-in template (neovim, obsidian)
-- `themes/monarch/backgrounds/` - the only surviving `themes/` content; wallpaper seeds re-applied by `monarch-theme-apply`
+- `themes/<scheme>/` - per-Noctalia-scheme wallpaper sets (flat layout, the only surviving `themes/` content); seeded into `~/.config/monarch/backgrounds/<scheme>/` by `monarch-theme-apply`
 
 # Theming
 

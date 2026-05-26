@@ -50,7 +50,7 @@ This directory contains Monarch's source files managed by git. Any changes will 
 ~/.local/share/monarch/     # READ-ONLY - NEVER EDIT (reading is OK)
 ├── bin/                    # Source scripts (symlinked to PATH)
 ├── config/                 # Default config templates (incl. noctalia color scheme)
-├── themes/                 # Wallpaper backgrounds only (themes/monarch/backgrounds/)
+├── themes/                 # Per-Noctalia-scheme wallpapers (themes/<scheme>/*.png|jpg)
 ├── default/                # System defaults
 ├── migrations/             # Update migrations
 └── install/                # Installation scripts

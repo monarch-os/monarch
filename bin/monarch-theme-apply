@@ -121,10 +121,11 @@ apply_wallpaper() {
 # follow the theme.
 sync_wallpaper() {
   # Seed the user-writable folder from shipped backgrounds (idempotent).
+  # `themes/<scheme>/` ships wallpapers flat (the old per-concern subdirs are gone).
   local seeded=0
-  if [[ ! -d $target_dir && -d "$SRC_THEMES/$folder/backgrounds" ]]; then
+  if [[ ! -d $target_dir && -d "$SRC_THEMES/$folder" ]]; then
     mkdir -p "$target_dir"
-    cp -rn "$SRC_THEMES/$folder/backgrounds/." "$target_dir/" 2>/dev/null || true
+    cp -rn "$SRC_THEMES/$folder/." "$target_dir/" 2>/dev/null || true
     seeded=1
   fi
 
