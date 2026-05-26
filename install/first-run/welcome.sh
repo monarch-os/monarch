@@ -1,14 +1,8 @@
 #!/bin/bash
 
-# Open the Monarch welcome panel (Noctalia plugin: monarch-welcome). Retries
-# in the background while noctalia-shell IPC comes up on first boot, so the
-# parent monarch-first-run is never blocked.
+# Open the Monarch welcome TUI in a floating terminal (with the Monarch
+# presentation wrapper: logo + done banner). Detached so monarch-first-run
+# returns immediately.
 
-setsid --fork bash -c '
-  for _ in $(seq 1 30); do
-    if qs -c noctalia-shell ipc call plugin openPanel monarch-welcome >/dev/null 2>&1; then
-      exit 0
-    fi
-    sleep 1
-  done
-' </dev/null >/dev/null 2>&1 &
+setsid --fork monarch-launch-floating-terminal-with-presentation monarch-welcome \
+  </dev/null >/dev/null 2>&1 &
