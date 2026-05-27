@@ -1,16 +1,25 @@
 #!/bin/bash
 
-# monarch:summary=Reset Noctalia configuration to Monarch defaults, silence the first-run popups, and reload the shell.
+# monarch:summary=Reset Noctalia configuration to Monarch defaults, silence the first-run popups, re-apply the Monarch wallpaper, and reload the shell.
 # monarch:examples=monarch refresh noctalia
 
 monarch-refresh-config noctalia/settings.json
 
-# Silence the "Privacy Update" telemetry wizard. Noctalia fires it whenever
-# `changelogState.lastSeenVersion` (in ~/.cache/noctalia/shell-state.json) is
-# empty or older than the telemetryIntroVersion (4.0.2). Seed it to the
-# installed Noctalia version so the wizard never triggers on first run.
-# Combined with `general.showChangelogOnStartup: false` in settings.json, both
-# popups are taired on first Noctalia boot.
+# Silence the "Privacy Update" telemetry wizard. Noctalia gates it on
+# `changelogState.lastSeenVersion` (in ~/.cache/noctalia/shell-state.json):
+# empty or < 4.0.2 (telemetryIntroVersion) -> wizard fires. We seed it to the
+# installed Noctalia version. Combined with `general.showChangelogOnStartup:
+# false` in settings.json, both first-run popups are silenced.
+#
+# Order matters: stop noctalia BEFORE writing shell-state.json, otherwise the
+# running instance rewrites the file from its in-memory state (which has an
+# empty lastSeenVersion) right after our seed.
+pkill -f 'qs.*noctalia-shell' 2>/dev/null || true
+for _ in $(seq 1 30); do
+  pgrep -f 'qs.*noctalia-shell' >/dev/null 2>&1 || break
+  sleep 0.1
+done
+
 state_file="$HOME/.cache/noctalia/shell-state.json"
 mkdir -p "$(dirname "$state_file")"
 [[ -f $state_file ]] || echo '{}' >"$state_file"
@@ -28,4 +37,18 @@ if command -v jq >/dev/null; then
   fi
 fi
 
-monarch-restart-noctalia
+setsid uwsm-app -- qs -c noctalia-shell >/dev/null 2>&1 &
+
+# After Noctalia is up, re-apply the Monarch theme so the wallpaper IPC
+# actually lands. The install-time monarch-theme-apply seeds the wallpaper
+# directory but its `wallpaper set` IPC silently fails (Noctalia not alive
+# yet at install). Detached so this script returns immediately.
+setsid --fork bash -c '
+  for _ in $(seq 1 30); do
+    if qs -c noctalia-shell ipc call wallpaper refresh >/dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+  done
+  monarch-theme-apply >/dev/null 2>&1 || true
+' </dev/null >/dev/null 2>&1 &
