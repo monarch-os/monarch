@@ -35,7 +35,8 @@
     "syncGsettings": true
   },
   "general": {
-    "radiusRatio": 0.2
+    "radiusRatio": 0.2,
+    "showChangelogOnStartup": false
   },
   "hooks": {
     "enabled": true,

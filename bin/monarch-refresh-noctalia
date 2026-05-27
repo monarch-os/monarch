@@ -1,7 +1,31 @@
 #!/bin/bash
 
-# monarch:summary=Reset Noctalia configuration to Monarch defaults and reload the shell.
+# monarch:summary=Reset Noctalia configuration to Monarch defaults, silence the first-run popups, and reload the shell.
 # monarch:examples=monarch refresh noctalia
 
 monarch-refresh-config noctalia/settings.json
+
+# Silence the "Privacy Update" telemetry wizard. Noctalia fires it whenever
+# `changelogState.lastSeenVersion` (in ~/.cache/noctalia/shell-state.json) is
+# empty or older than the telemetryIntroVersion (4.0.2). Seed it to the
+# installed Noctalia version so the wizard never triggers on first run.
+# Combined with `general.showChangelogOnStartup: false` in settings.json, both
+# popups are taired on first Noctalia boot.
+state_file="$HOME/.cache/noctalia/shell-state.json"
+mkdir -p "$(dirname "$state_file")"
+[[ -f $state_file ]] || echo '{}' >"$state_file"
+
+ver=$(pacman -Q noctalia-shell 2>/dev/null | awk '{print $2}' | cut -d- -f1)
+[[ -z $ver ]] && ver="4.0.2"  # telemetryIntroVersion floor
+
+if command -v jq >/dev/null; then
+  tmp=$(mktemp)
+  if jq --arg v "$ver" '.changelogState = ((.changelogState // {}) | .lastSeenVersion = $v)' \
+       "$state_file" >"$tmp"; then
+    mv "$tmp" "$state_file"
+  else
+    rm -f "$tmp"
+  fi
+fi
+
 monarch-restart-noctalia
