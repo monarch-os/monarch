@@ -9,7 +9,7 @@
     "showCapsule": false,
     "widgets": {
       "left": [
-        { "id": "ControlCenter", "useDistroLogo": true },
+        { "id": "ControlCenter", "useDistroLogo": false, "icon": "crown" },
         { "id": "Workspace", "labelMode": "name", "hideUnoccupied": true }
       ],
       "center": [{ "id": "ActiveWindow" }],
