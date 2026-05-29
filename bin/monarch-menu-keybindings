@@ -90,7 +90,22 @@ dynamic_bindings() {
   local config="$HOME/.config/niri/config.kdl"
   [[ -f $config ]] || return 0
 
+  # config.kdl is just a list of includes; the actual `binds {}` block lives in
+  # binds.kdl, and the user may add more in user.kdl. Niri merges binds across
+  # all included files, so resolve the top-level includes and scan each one
+  # (plus config.kdl itself, in case binds are ever inlined there).
+  local -a files=("$config")
+  local inc path dir="${config%/*}"
+  while IFS= read -r inc; do
+    path="${inc#*\"}"
+    path="${path%\"*}"
+    path="${path/#\~/$HOME}"
+    [[ $path == ./* ]] && path="$dir/${path#./}"
+    [[ -f $path ]] && files+=("$path")
+  done < <(grep -E '^[[:space:]]*include[[:space:]]+"' "$config")
+
   awk '
+    FNR == 1 { in_binds = 0; depth = 0 }
     /^binds\s*\{/ { in_binds = 1; depth = 1; next }
     in_binds {
       # Track brace depth so nested blocks (e.g. options on the binding itself)
@@ -124,7 +139,7 @@ dynamic_bindings() {
       # description, dispatcher, arg: only description is meaningful here.
       printf "%s,%s,%s,,\n", mods, key, title
     }
-  ' "$config"
+  ' "${files[@]}"
 }
 
 # Hardcoded bindings, like the copy-url extension and such
@@ -163,17 +178,14 @@ parse_bindings() {
         gsub(/(^|,)[[:space:]]*exec[[:space:]]*,?/, "", action);
         gsub(/^[ \t]+|[ \t]+$/, "", action);
         gsub(/[ \t]+/, " ", key_combo);  # Collapse multiple spaces to one
-
-        # Escape XML entities
-        gsub(/&/, "\\&amp;", action);
-        gsub(/</, "\\&lt;", action);
-        gsub(/>/, "\\&gt;", action);
-        gsub(/"/, "\\&quot;", action);
-        gsub(/'"'"'/, "\\&apos;", action);
     }
 
     if (action != "") {
-        printf "%-35s → %s\n", key_combo, action;
+        # Pad the key-combo into a fixed-width column so the arrows and
+        # descriptions line up in a second column. fuzzel renders with a
+        # monospace font, so char-count padding aligns visually; the window is
+        # widened via --width below so descriptions are not truncated.
+        printf "%-25s  →  %s\n", key_combo, action;
     }
 }'
 }
@@ -255,5 +267,5 @@ output_keybindings() {
 if [[ $1 == "--print" || $1 == "-p" ]]; then
   output_keybindings
 else
-  output_keybindings | fuzzel --dmenu --lines 20 -p 'Keybindings… '
+  output_keybindings | fuzzel --dmenu --width 64 --lines 20 -p 'Keybindings… '
 fi
