@@ -1,4 +1,9 @@
-echo "Install bluez (bluetoothd daemon) and ensure bluetooth.service is running"
+echo "Bluetooth: drop bluetui, install bluez (bluetoothd daemon) + ensure service"
+
+# bluetui is no longer used by default — monarch-launch-bluetooth now opens
+# Noctalia's bluetooth panel. Remove it (no-op if a user reinstalled it on
+# purpose and it's already gone, or never had it).
+monarch-pkg-drop bluetui
 
 # Historically Monarch shipped `bluetui` (TUI bluetooth manager), which pulled
 # `bluez` in as a dependency. Commit d5efd08 swapped bluetui -> bluez-utils, but

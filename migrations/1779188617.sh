@@ -48,6 +48,19 @@ monarch-refresh-config noctalia/colorschemes/Monarch/Monarch.json || true
 #    Redirect stdout so it runs non-interactively (skips the heavy Plymouth path).
 monarch-cmd-present monarch-theme-apply && monarch-theme-apply >/dev/null 2>&1 || true
 
+# 6b. Tear down the legacy Monarch theme engine. Theming is fully delegated to
+#     Noctalia now, so drop the old home-grown theme-engine state and repoint
+#     btop/helix at Noctalia's theme.
+rm -rf "$HOME/.config/monarch/themes" \
+  "$HOME/.config/monarch/current/theme" \
+  "$HOME/.config/monarch/current/next-theme" \
+  "$HOME/.config/monarch/current/theme.name"
+rm -f "$HOME/.config/btop/themes/current.theme" # btop now uses color_theme="noctalia"
+rm -f "$HOME/.config/helix/themes/monarch.toml" # helix now uses theme="noctalia"
+if [[ -f $HOME/.config/helix/config.toml ]]; then
+  sed -i 's/^theme = "monarch"$/theme = "noctalia"/' "$HOME/.config/helix/config.toml"
+fi
+
 # 7. Refresh Niri so the new autostart/binds pick up Noctalia, then launch it
 #    immediately if a Niri session is already running.
 monarch-refresh-niri || true
