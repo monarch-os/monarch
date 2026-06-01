@@ -13,7 +13,6 @@ if command -v systemd-inhibit >/dev/null 2>&1; then
 fi
 
 monarch-update-keyring
-monarch-update-available-reset
 monarch-update-system-pkgs
 monarch-migrate
 monarch-update-aur-pkgs
