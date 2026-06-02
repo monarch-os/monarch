@@ -50,7 +50,7 @@ monarch-cmd-present monarch-theme-apply && monarch-theme-apply >/dev/null 2>&1 |
 
 # 6b. Tear down the legacy Monarch theme engine. Theming is fully delegated to
 #     Noctalia now, so drop the old home-grown theme-engine state and repoint
-#     btop/helix at Noctalia's theme.
+#     btop/helix/alacritty at Noctalia's theme.
 rm -rf "$HOME/.config/monarch/themes" \
   "$HOME/.config/monarch/current/theme" \
   "$HOME/.config/monarch/current/next-theme" \
@@ -59,6 +59,17 @@ rm -f "$HOME/.config/btop/themes/current.theme" # btop now uses color_theme="noc
 rm -f "$HOME/.config/helix/themes/monarch.toml" # helix now uses theme="noctalia"
 if [[ -f $HOME/.config/helix/config.toml ]]; then
   sed -i 's/^theme = "monarch"$/theme = "noctalia"/' "$HOME/.config/helix/config.toml"
+fi
+# Alacritty imported the engine's generated theme via a dotted `general.import`.
+# Drop the now-dead-path import: left in place, Noctalia's apply hook fails to
+# see it as a [general] table and prepends a second `[general] import` block —
+# two `general.import` keys, an illegal TOML duplicate Alacritty rejects with
+# "Unused config key: general". Then ensure a single Noctalia import remains.
+alacritty_cfg="$HOME/.config/alacritty/alacritty.toml"
+if [[ -f $alacritty_cfg ]]; then
+  sed -i '\#monarch/current/theme#d' "$alacritty_cfg"
+  grep -q 'themes/noctalia.toml' "$alacritty_cfg" ||
+    sed -i '1i [general]\nimport = [ "~/.config/alacritty/themes/noctalia.toml" ]\n' "$alacritty_cfg"
 fi
 
 # 7. Refresh Niri so the new autostart/binds pick up Noctalia, then launch it
