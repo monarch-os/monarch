@@ -10,6 +10,8 @@ SOURCE="$HOME/.local/share/monarch/default/niri/config.kdl"
 TARGET="$HOME/.config/niri/config.kdl"
 USER_OVERRIDE="$HOME/.config/niri/user.kdl"
 USER_DEFAULT_OVERRIDE="$HOME/.local/share/monarch/config/niri/user.kdl"
+NOCTALIA_OVERRIDE="$HOME/.config/niri/noctalia.kdl"
+NOCTALIA_DEFAULT_OVERRIDE="$HOME/.local/share/monarch/config/niri/noctalia.kdl"
 WS_NAMES="$HOME/.config/niri/workspaces.conf"
 WS_NAMES_DEFAULT="$HOME/.local/share/monarch/config/niri/workspaces.conf"
 WS_KDL="$HOME/.config/niri/workspaces.kdl"
@@ -71,6 +73,16 @@ generate_workspaces_kdl() {
 # resolves to a real file.
 if [[ ! -f $USER_OVERRIDE && -f $USER_DEFAULT_OVERRIDE ]]; then
   cp "$USER_DEFAULT_OVERRIDE" "$USER_OVERRIDE"
+fi
+
+# Bootstrap noctalia.kdl so the `include "./noctalia.kdl"` in config.kdl always
+# resolves. On fresh installs config.sh's `cp -R config/*` seeds it, but the
+# upgrade path (migrating from Hyprland) only runs this script — and a missing
+# include is fatal to niri, which would stop Noctalia from ever running to
+# regenerate it (boot deadlock). Noctalia overwrites this with scheme colours
+# on first run.
+if [[ ! -f $NOCTALIA_OVERRIDE && -f $NOCTALIA_DEFAULT_OVERRIDE ]]; then
+  cp "$NOCTALIA_DEFAULT_OVERRIDE" "$NOCTALIA_OVERRIDE"
 fi
 
 # Bootstrap the workspace name list so users have a documented file to edit.
