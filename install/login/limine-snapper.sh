@@ -1,6 +1,11 @@
 if command -v limine &>/dev/null; then
+  # FILES: Plymouth 26.x reads /etc/vconsole.conf from the initramfs at runtime to
+  # pick the LUKS prompt keymap. The keymap hook only bakes /keymap.bin (for the
+  # console loadkmap fallback), not the file itself, so without this Plymouth falls
+  # back to en_US — typing the passphrase on a non-US layout (e.g. AZERTY) fails.
   sudo tee /etc/mkinitcpio.conf.d/monarch_hooks.conf <<EOF >/dev/null
 HOOKS=(base udev plymouth keyboard autodetect microcode modconf kms keymap consolefont block encrypt filesystems fsck btrfs-overlayfs)
+FILES=(/etc/vconsole.conf)
 EOF
   sudo tee /etc/mkinitcpio.conf.d/thunderbolt_module.conf <<EOF >/dev/null
 MODULES+=(thunderbolt)
