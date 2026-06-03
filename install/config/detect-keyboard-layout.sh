@@ -62,6 +62,27 @@ case "$layout" in
     ;;
 esac
 
+# Resolve the persistent workspace NAMES from the same source as
+# monarch-refresh-niri's generate_workspaces_kdl(), so the AZERTY sym binds
+# target the exact same workspace as the Mod+<digit> binds in workspaces.kdl.
+# niri references workspaces by name (the index is just a per-monitor slot, not
+# a stable identity), so a slot number only works while the name IS that number;
+# read the real names here and keep these parse rules in lockstep with that
+# function. Missing file / blank line / out-of-range slot falls back to the slot
+# number, exactly like generate_workspaces_kdl's 1..10 default.
+ws_conf="$HOME/.config/niri/workspaces.conf"
+ws_names=()
+if [[ ${#azerty_binds[@]} -gt 0 && -r $ws_conf ]]; then
+  while IFS= read -r line || [[ -n $line ]]; do
+    [[ $line =~ ^[[:space:]]*# ]] && continue
+    trimmed="${line#"${line%%[![:space:]]*}"}"
+    trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
+    [[ -z $trimmed ]] && continue
+    ws_names+=("$trimmed")
+    [[ ${#ws_names[@]} -ge 10 ]] && break
+  done <"$ws_conf"
+fi
+
 {
   echo "// Generated from $vconsole by monarch detect-keyboard-layout."
   echo "// Edit ~/.config/niri/user.kdl to override these settings."
@@ -85,18 +106,29 @@ esac
   fi
   if [[ ${#azerty_binds[@]} -gt 0 ]]; then
     echo
-    echo "// AZERTY top-row workspace shortcuts. ASCII syms (& \" ' ( - _) don't"
-    echo "// fall back to the first layout for Latin resolution, so each one"
-    echo "// must be bound explicitly to the matching workspace."
+    echo "// AZERTY top-row workspace shortcuts. niri resolves binds on the key's"
+    echo "// BASE (unshifted) keysym, and an ASCII sym (& \" ' ( - _) from the active"
+    echo "// layout is matched DIRECTLY — it never falls back to the first (us)"
+    echo "// layout for Latin resolution. That holds with Shift held too, so both"
+    echo "// Mod+<digit> AND Mod+Shift+<digit> miss on these keys and must be bound"
+    echo "// explicitly to the sym. (Keys 2/7/9/0 keep working: their base é/è/ç/à"
+    echo "// aren't ASCII, so niri does fall back to us and resolves the real digit.)"
     echo "//"
-    echo "// Note: Mod+Shift+<digit> already works via binds.kdl because pressing"
-    echo "// Shift on AZERTY's top row produces the digit directly (no need for"
-    echo "// per-sym bindings here)."
+    echo "// Mod+Shift+<sym> is emitted alongside the focus bind, else the move would"
+    echo "// hit whatever binds.kdl maps the sym to — e.g. Mod+Shift+6 -> Mod+Shift+minus"
+    echo "// = shrink window height. keyboard.kdl is included after binds.kdl, so the"
+    echo "// later definition wins and overrides that collision."
     echo "binds {"
     for pair in "${azerty_binds[@]}"; do
       sym="${pair%=*}"
       ws="${pair#*=}"
-      printf '    Mod+%s hotkey-overlay-title="Workspace %s" { focus-workspace "%s"; }\n' "$sym" "$ws" "$ws"
+      # Target the persistent NAME at this slot, not the slot number, so renaming
+      # a workspace in workspaces.conf keeps these binds aligned with workspaces.kdl.
+      idx=$((ws - 1)); name="$ws"
+      [[ $idx -lt ${#ws_names[@]} && -n ${ws_names[idx]:-} ]] && name="${ws_names[idx]}"
+      esc="${name//\\/\\\\}"; esc="${esc//\"/\\\"}"
+      printf '    Mod+%s hotkey-overlay-title="Workspace %s" { focus-workspace "%s"; }\n' "$sym" "$ws" "$esc"
+      printf '    Mod+Shift+%s hotkey-overlay-title="Move column to workspace %s" { move-column-to-workspace "%s"; }\n' "$sym" "$ws" "$esc"
     done
     echo "}"
   fi
