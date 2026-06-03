@@ -12,19 +12,5 @@ clipboard {
     disable-primary
 }
 
-// Persistent workspaces — declaring them at top level keeps them around
-// even when empty. Mirrors a 10-workspace static model on top of Niri's
-// otherwise dynamic workspace strip.
-workspace "1"
-workspace "2"
-workspace "3"
-workspace "4"
-workspace "5"
-workspace "6"
-workspace "7"
-workspace "8"
-workspace "9"
-workspace "10"
-
 // Scratchpad-equivalent: a named workspace that lives on the focused output.
 workspace "scratchpad"

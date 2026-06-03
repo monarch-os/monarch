@@ -10,6 +10,63 @@ systemctl --user disable --now swayosd-libinput-backend.service swayosd-server.s
 systemctl --user disable --now app-walker@autostart.service 2>/dev/null || true
 systemctl --user disable --now elephant.service 2>/dev/null || true
 
+# 1b. Offer to carry the waybar workspace glyphs over to Niri. What people
+#     "renamed" under Hyprland was really a waybar `hyprland/workspaces`
+#     format-icons map (1..10 -> glyph). Niri shows the workspace *name* in the
+#     Noctalia bar, so we import that map as names into workspaces.conf. This
+#     MUST run before step 2 backs up & removes ~/.config/waybar; step 7's
+#     monarch-refresh-niri then turns the names into declarations + Mod+N binds.
+ws_conf="$HOME/.config/niri/workspaces.conf"
+waybar_cfg="$HOME/.config/waybar/config.jsonc"
+
+# Emit 10 lines: the glyph for slot N, or N itself when that slot is empty or
+# missing (so the 1..10 alignment is never shifted). Pure awk, JSONC-tolerant.
+ws_icons_extract() {
+  local cfg="$1"
+  [[ -f $cfg ]] || return 1
+  awk '
+    !inmod && /"hyprland\/workspaces"[[:space:]]*:/ { inmod=1 }
+    inmod {
+      o=gsub(/\{/,"{"); c=gsub(/\}/,"}"); depth += o - c
+      if (o>0) seenopen=1
+      if (match($0, /"[0-9]+"[[:space:]]*:[[:space:]]*"/)) {
+        key=substr($0,RSTART+1); sub(/".*/,"",key)
+        rest=substr($0,RSTART+RLENGTH); q=index(rest,"\"")
+        icon[key]=(q>0)?substr(rest,1,q-1):""
+      }
+      if (seenopen && depth<=0) { for(n=1;n<=10;n++) print (icon[n]!="")?icon[n]:n; exit }
+    }
+  ' "$cfg"
+}
+
+# True when workspaces.conf is absent or still the shipped 1..10 default — never
+# clobber names the user already chose.
+ws_conf_is_pristine() {
+  local f="$1" data
+  [[ -f $f ]] || return 0
+  data=$(grep -vE '^[[:space:]]*(#|$)' "$f" | tr -d '[:space:]')
+  [[ -z $data || $data == "12345678910" ]]
+}
+
+ws_mapped=$(ws_icons_extract "$waybar_cfg" 2>/dev/null || true)
+if [[ -n $ws_mapped ]] \
+   && [[ $(printf '%s' "$ws_mapped" | tr -d '[:space:]') != "12345678910" ]] \
+   && ws_conf_is_pristine "$ws_conf" \
+   && command -v gum >/dev/null 2>&1 && [[ -t 0 ]]; then
+  echo "Your waybar workspaces used custom icons:"
+  printf '%s\n' "$ws_mapped" | awk '{printf "  %2d  ->  %s\n", NR, $0}'
+  if gum confirm "Carry these over as your Niri workspace names?"; then
+    mkdir -p "$(dirname "$ws_conf")"
+    {
+      echo "# Imported from waybar hyprland/workspaces format-icons by the"
+      echo "# Noctalia migration. One name per line = workspaces 1..10."
+      echo "# Edit freely, then run: monarch refresh niri"
+      printf '%s\n' "$ws_mapped"
+    } >"$ws_conf"
+    echo "Imported into $ws_conf"
+  fi
+fi
+
 # 2. Drop the obsolete user configs and autostart entries.
 for d in waybar walker hyprlock swayosd mako elephant; do
   if [[ -d $HOME/.config/$d ]]; then

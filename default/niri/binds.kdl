@@ -144,28 +144,11 @@ binds {
     // --- Float / pop ---
     Mod+Shift+Space hotkey-overlay-title="Toggle floating" { toggle-window-floating; }
 
-    // --- Workspaces (named 1..10 — declared persistent in misc.kdl) ---
-    Mod+1 hotkey-overlay-title="Workspace 1"  { focus-workspace "1"; }
-    Mod+2 hotkey-overlay-title="Workspace 2"  { focus-workspace "2"; }
-    Mod+3 hotkey-overlay-title="Workspace 3"  { focus-workspace "3"; }
-    Mod+4 hotkey-overlay-title="Workspace 4"  { focus-workspace "4"; }
-    Mod+5 hotkey-overlay-title="Workspace 5"  { focus-workspace "5"; }
-    Mod+6 hotkey-overlay-title="Workspace 6"  { focus-workspace "6"; }
-    Mod+7 hotkey-overlay-title="Workspace 7"  { focus-workspace "7"; }
-    Mod+8 hotkey-overlay-title="Workspace 8"  { focus-workspace "8"; }
-    Mod+9 hotkey-overlay-title="Workspace 9"  { focus-workspace "9"; }
-    Mod+0 hotkey-overlay-title="Workspace 10" { focus-workspace "10"; }
-
-    Mod+Shift+1 hotkey-overlay-title="Move column to workspace 1"  { move-column-to-workspace "1"; }
-    Mod+Shift+2 hotkey-overlay-title="Move column to workspace 2"  { move-column-to-workspace "2"; }
-    Mod+Shift+3 hotkey-overlay-title="Move column to workspace 3"  { move-column-to-workspace "3"; }
-    Mod+Shift+4 hotkey-overlay-title="Move column to workspace 4"  { move-column-to-workspace "4"; }
-    Mod+Shift+5 hotkey-overlay-title="Move column to workspace 5"  { move-column-to-workspace "5"; }
-    Mod+Shift+6 hotkey-overlay-title="Move column to workspace 6"  { move-column-to-workspace "6"; }
-    Mod+Shift+7 hotkey-overlay-title="Move column to workspace 7"  { move-column-to-workspace "7"; }
-    Mod+Shift+8 hotkey-overlay-title="Move column to workspace 8"  { move-column-to-workspace "8"; }
-    Mod+Shift+9 hotkey-overlay-title="Move column to workspace 9"  { move-column-to-workspace "9"; }
-    Mod+Shift+0 hotkey-overlay-title="Move column to workspace 10" { move-column-to-workspace "10"; }
+    // --- Workspaces (Mod+1..0 focus, Mod+Shift+1..0 move) ---
+    // The 1..10 binds are GENERATED into ~/.config/niri/workspaces.kdl from the
+    // user-editable name list ~/.config/niri/workspaces.conf, so the bind targets
+    // and the bar labels stay in lockstep. Edit that file, then `monarch refresh
+    // niri`. See default/niri/misc.kdl for why niri needs name-based references.
 
     Mod+Tab       hotkey-overlay-title="Next workspace"     { focus-workspace-down; }
     Mod+Shift+Tab hotkey-overlay-title="Previous workspace" { focus-workspace-up; }
