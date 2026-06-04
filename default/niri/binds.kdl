@@ -134,7 +134,7 @@ binds {
 
     // --- Fullscreen / preset width ---
     Mod+F        hotkey-overlay-title="Fullscreen window"          { fullscreen-window; }
-    Mod+Shift+F  hotkey-overlay-title="Expand column to available" { expand-column-to-available-width; }
+    Mod+Shift+F  hotkey-overlay-title="Toggle column full width" { maximize-column; }
     Mod+R        hotkey-overlay-title="Cycle preset column width"  { switch-preset-column-width; }
     Mod+Shift+R  hotkey-overlay-title="Cycle preset window height" { switch-preset-window-height; }
     Mod+C        hotkey-overlay-title="Center focused window"      { center-window; }
