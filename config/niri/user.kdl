@@ -12,6 +12,9 @@
 //
 // See: https://niri-wm.github.io/niri/Configuration%3A-Include.html
 
+// ============================================================================
+// MONITORS  —  per-output mode / scale / position, or disable an output
+// ============================================================================
 // Example: pin a per-monitor configuration
 // output "DP-1" {
 //     mode "3840x2160@60.000"
@@ -19,6 +22,9 @@
 //     position x=0 y=0
 // }
 
+// ============================================================================
+// INPUT  —  keyboard layout, touchpad, mouse
+// ============================================================================
 // Example: change the keyboard layout
 // input {
 //     keyboard {
@@ -26,11 +32,17 @@
 //     }
 // }
 
+// ============================================================================
+// KEYBINDINGS  —  redefining a shortcut replaces just that one bind
+// ============================================================================
 // Example: override a single binding
 // binds {
 //     Mod+Return { spawn "kitty"; }
 // }
 
+// ============================================================================
+// WORKSPACES & WINDOW RULES  —  route apps to workspaces / outputs
+// ============================================================================
 // Example: route an app to its own workspace
 // workspace "chat" {
 //     open-on-output "DP-1"
@@ -40,5 +52,8 @@
 //     open-on-workspace "chat"
 // }
 
+// ============================================================================
+// AUTOSTART  —  extra programs to launch on login
+// ============================================================================
 // Example: extra autostart
 // spawn-at-startup "uwsm-app" "--" "my-service"
