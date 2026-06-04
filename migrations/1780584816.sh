@@ -19,7 +19,7 @@ read -r -d '' widget <<'JSON'
   "textStream": true,
   "parseJson": true,
   "hideMode": "expandWithOutput",
-  "showIcon": true,
+  "showIcon": false,
   "showExecTooltip": false,
   "leftClickExec": "monarch-capture-screenrecording"
 }
