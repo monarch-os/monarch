@@ -7,11 +7,25 @@ wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle >/dev/null
 if pactl get-source-mute @DEFAULT_SOURCE@ | rg -q 'yes'; then
   led=on
   osd_message='Microphone muted'
+  osd_icon='microphone-sensitivity-muted'
 else
   led=off
   osd_message='Microphone on'
+  osd_icon='audio-input-microphone'
 fi
 
 monarch-brightness-keyboard-mute "$led"
 
-notify-send -u low "$osd_message"
+# Noctalia renders an icon path as-is but can't resolve a bare name (its
+# Quickshell/Qt icon theme isn't pointed at Monarch's Yaru), so map the name to a
+# file in the active Yaru theme ourselves. Yaru ships these as symlinks (no
+# -type f), and accent variants (Yaru-magenta, …) carry no status icons, so fall
+# back to base Yaru.
+icon_theme=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null | tr -d "'")
+osd_icon_path=$(find \
+  "$HOME/.local/share/icons/${icon_theme}" \
+  "/usr/share/icons/${icon_theme}" \
+  /usr/share/icons/Yaru \
+  -name "${osd_icon}.*" 2>/dev/null | head -n1)
+
+notify-send -u low -i "$osd_icon_path" "$osd_message"
