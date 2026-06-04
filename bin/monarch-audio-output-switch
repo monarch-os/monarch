@@ -40,9 +40,32 @@ next_sink_volume=$(echo "$next_sink" | jq -r \
   '.volume | to_entries[0].value.value_percent | sub("%"; "")')
 next_sink_is_muted=$(echo "$next_sink" | jq -r '.mute')
 
+if [[ $next_sink_is_muted = "true" ]] || (( next_sink_volume == 0 )); then
+  icon_state="muted"
+elif (( next_sink_volume <= 33 )); then
+  icon_state="low"
+elif (( next_sink_volume <= 66 )); then
+  icon_state="medium"
+else
+  icon_state="high"
+fi
+
+# Noctalia's notification server uses an icon *path* as-is, but its name lookup
+# (Quickshell/Qt) isn't pointed at Monarch's Yaru theme, so a bare
+# "audio-volume-*" name renders as the missing-icon placeholder. Resolve the
+# name to a file in the active Yaru theme ourselves and hand notify-send a path.
+# Yaru ships these as symlinks, so no -type f. Falls back to base Yaru because
+# the accent variants (Yaru-magenta, …) don't carry status icons themselves.
+icon_theme=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null | tr -d "'")
+next_sink_volume_icon=$(find \
+  "$HOME/.local/share/icons/${icon_theme}" \
+  "/usr/share/icons/${icon_theme}" \
+  /usr/share/icons/Yaru \
+  -name "audio-volume-${icon_state}.*" 2>/dev/null | head -n1)
+
 if [[ $next_sink_name != $current_sink_name ]]; then
   next_sink_wpid=$(echo "$next_sink" | jq -r '.properties."object.id"')
   wpctl set-default "$next_sink_wpid"
 fi
 
-notify-send -u low "  $next_sink_description"
+notify-send -u low -i "$next_sink_volume_icon" "$next_sink_description"
