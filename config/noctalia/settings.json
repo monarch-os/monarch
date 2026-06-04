@@ -27,6 +27,16 @@
           "showIcon": false,
           "showExecTooltip": false,
           "leftClickExec": "monarch-capture-screenrecording"
+        },
+        {
+          "id": "CustomButton",
+          "textCommand": "$MONARCH_PATH/default/noctalia/indicators/monarch-update.sh",
+          "textStream": true,
+          "parseJson": true,
+          "hideMode": "expandWithOutput",
+          "showIcon": false,
+          "showExecTooltip": false,
+          "leftClickExec": "monarch-launch-floating-terminal-with-presentation monarch-update"
         }
       ],
       "right": [
