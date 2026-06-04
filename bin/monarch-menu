@@ -217,6 +217,10 @@ show_toggle_menu() {
 show_hardware_menu() {
   local options=""
 
+  if monarch-hw-external-monitors; then
+    options="$options\n󰛧  Laptop Display"
+  fi
+
   if monarch-hw-hybrid-gpu; then
     options="$options\n  Hybrid GPU"
   fi
@@ -234,6 +238,7 @@ show_hardware_menu() {
   fi
 
   case $(menu "Toggle" "$options") in
+  *"Laptop Display"*) monarch-niri-monitor-internal toggle ;;
   *Haptics*) show_hardware_touchpad_haptics_menu ;;
   *Touchpad*) monarch-toggle-touchpad ;;
   *Touchscreen*) monarch-toggle-touchscreen ;;

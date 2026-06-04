@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# monarch:summary=Enable, disable, or toggle the internal laptop display
+# monarch:args=[on|off|toggle]
+
+# Internal panel connector (eDP), read live from niri so a rename can't break us.
+INTERNAL=$(niri msg --json outputs 2>/dev/null | jq -r 'to_entries[] | select(.key | test("eDP")) | .key' | head -n1)
+
+if [[ -z $INTERNAL ]]; then
+  notify-send -u low "󰍹    No internal display found"
+  exit 1
+fi
+
+# current_mode is null while the output is disabled (niri IPC).
+is_on() {
+  niri msg --json outputs 2>/dev/null | jq -e --arg m "$INTERNAL" '.[$m].current_mode != null' >/dev/null
+}
+
+enable() {
+  niri msg output "$INTERNAL" on >/dev/null 2>&1
+  notify-send -u low "󰍹    Laptop display enabled"
+}
+
+disable() {
+  if ! monarch-hw-external-monitors; then
+    notify-send -u low "󰍹    Can't disable the only active display"
+    exit 1
+  fi
+  niri msg output "$INTERNAL" off >/dev/null 2>&1
+  notify-send -u low "󰍹    Laptop display disabled"
+}
+
+case "${1:-toggle}" in
+  on) enable ;;
+  off) disable ;;
+  toggle) if is_on; then disable; else enable; fi ;;
+  *)
+    echo "Usage: $(basename "$0") {on|off|toggle}" >&2
+    exit 1
+    ;;
+esac
