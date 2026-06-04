@@ -2,5 +2,16 @@
 
 # monarch:summary=Print the detected touchpad or trackpad device name
 
-device=$(libinput list-devices 2>/dev/null | awk -F': *' '/^Device:/ {name=$2} /^Tap-to-click:/ {if (name ~ /[Tt]ouchpad|[Tt]rackpad/) {print name; exit}}')
-[[ -n $device ]] && echo "$device"
+# Detect via the kernel (sysfs), not `libinput list-devices`: the libinput CLI
+# is not guaranteed present on a niri install, and monarch-toggle-touchpad
+# already drives the kernel by matching the same sysfs name, so sharing the
+# heuristic keeps detection and toggling in lock-step.
+for name_file in /sys/class/input/event*/device/name; do
+  [[ -r $name_file ]] || continue
+  if grep -qiE 'touchpad|trackpad' "$name_file"; then
+    cat "$name_file"
+    exit 0
+  fi
+done
+
+exit 1

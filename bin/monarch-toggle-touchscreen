@@ -3,46 +3,12 @@
 # monarch:summary=Enable, disable, or toggle the touch functionality of the screen
 # monarch:args=[on|off|toggle]
 
-STATE_FILE="$HOME/.local/state/monarch/toggles/niri/touchscreen-disabled"
-
-device="$(monarch-hw-touchscreen)"
-
-if [[ -z $device ]]; then
+if [[ -z "$(monarch-hw-touchscreen)" ]]; then
   echo "No touchscreen device found" >&2
   exit 1
 fi
 
-apply_kernel_state() {
-  local enabled="$1"
-  for dev in /sys/class/input/event*/device/inhibited; do
-    [[ -e $dev ]] || continue
-    local name_file="${dev%/inhibited}/name"
-    [[ -e $name_file ]] || continue
-    if grep -qi "touch\|tablet" "$name_file" 2>/dev/null && ! grep -qi "touchpad\|trackpad" "$name_file" 2>/dev/null; then
-      if [[ $enabled == "true" ]]; then
-        echo 0 | sudo tee "$dev" >/dev/null 2>&1 || true
-      else
-        echo 1 | sudo tee "$dev" >/dev/null 2>&1 || true
-      fi
-    fi
-  done
-}
-
-enable() {
-  apply_kernel_state true
-  rm -f "$STATE_FILE"
-  notify-send -u low "󰟸  Touchscreen enabled"
-}
-
-disable() {
-  apply_kernel_state false
-  mkdir -p "$(dirname "$STATE_FILE")"
-  echo "disabled" > "$STATE_FILE"
-  notify-send -u low "󰟸  Touchscreen disabled"
-}
-
-case "${1:-toggle}" in
-  on) enable ;;
-  off) disable ;;
-  toggle) if [[ -f $STATE_FILE ]]; then enable; else disable; fi ;;
-esac
+# The toggle is driven through niri's own input config (see
+# monarch-niri-input-toggle), which disables the device via libinput rather than
+# the kernel's unreliable sysfs `inhibited` attribute.
+exec monarch-niri-input-toggle touch "${1:-toggle}"

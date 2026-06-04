@@ -96,6 +96,14 @@ if [[ ! -f $HOME/.config/niri/keyboard.kdl ]]; then
   : >"$HOME/.config/niri/keyboard.kdl"
 fi
 
+# Bootstrap monarch-input.kdl so the `include "./monarch-input.kdl"` always
+# resolves (a missing include is fatal to niri). It holds the runtime touchpad/
+# touchscreen on-off state written by the monarch-toggle-touch* commands, so we
+# only seed it empty when absent — never clobber an active toggle on update.
+if [[ ! -f $HOME/.config/niri/monarch-input.kdl ]]; then
+  : >"$HOME/.config/niri/monarch-input.kdl"
+fi
+
 # Back up an existing target before we overwrite it.
 if [[ -f $TARGET ]] && ! cmp -s "$SOURCE" "$TARGET"; then
   cp -f "$TARGET" "$TARGET.bak.$(date +%s)"
