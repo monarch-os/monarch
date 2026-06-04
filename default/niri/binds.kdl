@@ -50,7 +50,7 @@ binds {
 
     // --- Toggles ---
     Mod+Ctrl+I hotkey-overlay-title="Toggle idle lock" { spawn "monarch-toggle-idle"; }
-    Mod+Ctrl+N hotkey-overlay-title="Toggle nightlight" { spawn-sh "qs -c noctalia-shell ipc call nightLight toggle"; }
+    Mod+Ctrl+N hotkey-overlay-title="Toggle nightlight" { spawn "monarch-toggle-nightlight"; }
 
     // --- Captures ---
     Print hotkey-overlay-title="Screenshot (with editor)" { spawn "monarch-capture-screenshot"; }
