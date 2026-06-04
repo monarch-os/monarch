@@ -12,7 +12,19 @@
         { "id": "ControlCenter", "useDistroLogo": false, "icon": "crown" },
         { "id": "Workspace", "labelMode": "name", "hideUnoccupied": true }
       ],
-      "center": [{ "id": "ActiveWindow" }],
+      "center": [
+        { "id": "ActiveWindow" },
+        {
+          "id": "CustomButton",
+          "textCommand": "$MONARCH_PATH/default/noctalia/indicators/screen-recording.sh",
+          "textStream": true,
+          "parseJson": true,
+          "hideMode": "expandWithOutput",
+          "showIcon": true,
+          "showExecTooltip": false,
+          "leftClickExec": "monarch-capture-screenrecording"
+        }
+      ],
       "right": [
         { "id": "Tray" },
         { "id": "Network" },
