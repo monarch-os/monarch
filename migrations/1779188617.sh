@@ -105,6 +105,48 @@ monarch-refresh-config noctalia/colorschemes/Monarch/Monarch.json || true
 #    Redirect stdout so it runs non-interactively (skips the heavy Plymouth path).
 monarch-cmd-present monarch-theme-apply && monarch-theme-apply >/dev/null 2>&1 || true
 
+# 6a. Carry the user's pre-Niri wallpaper across. Under Hyprland the selected
+#     background was a symlink (~/.config/monarch/current/background) maintained
+#     by the old theme engine; step 6 above just forced the Monarch default, so
+#     restore the user's actual pick instead. We copy the file into the Monarch
+#     scheme folder so it survives the 6b teardown (which deletes the old theme's
+#     shipped backgrounds) and shows up in Noctalia's picker, then make it the
+#     applied wallpaper. wallpaper.directory stays pointed at the scheme folder,
+#     so future color regenerations (monarch-theme-apply on dark/light toggle)
+#     no-op and never reset the pick. MUST run before 6b removes current/theme.
+old_bg=$(readlink -f "$HOME/.config/monarch/current/background" 2>/dev/null || true)
+if [[ -n $old_bg && -f $old_bg ]] && command -v jq >/dev/null; then
+  dest_dir="$HOME/.config/monarch/backgrounds/monarch"
+  mkdir -p "$dest_dir"
+  dest="$dest_dir/$(basename "$old_bg")"
+  if [[ ! -e $dest ]]; then
+    cp "$old_bg" "$dest" 2>/dev/null || dest="$old_bg"
+  elif ! cmp -s "$old_bg" "$dest"; then
+    # Same basename, different image (e.g. a theme's omarchy.png) — keep both.
+    dest="$dest_dir/prev-$(basename "$old_bg")"
+    cp "$old_bg" "$dest" 2>/dev/null || dest="$old_bg"
+  fi
+
+  # Seed the cache so Noctalia paints it on frame one (step 7 launches it), and
+  # push it over IPC too in case the shell is already alive.
+  wp_file="$HOME/.cache/noctalia/wallpapers.json"
+  mkdir -p "$(dirname "$wp_file")"
+  [[ -f $wp_file ]] || echo '{}' >"$wp_file"
+  tmp=$(mktemp)
+  if jq --arg p "$dest" '.wallpapers = (.wallpapers // {})
+       | .usedRandomWallpapers = (.usedRandomWallpapers // {})
+       | .defaultWallpaper = $p' "$wp_file" >"$tmp"; then
+    mv "$tmp" "$wp_file"
+  else
+    rm -f "$tmp"
+  fi
+  if pgrep -f 'qs.*noctalia-shell' >/dev/null 2>&1; then
+    qs -c noctalia-shell ipc call wallpaper set "$dest" "" >/dev/null 2>&1 || true
+    qs -c noctalia-shell ipc call wallpaper refresh >/dev/null 2>&1 || true
+  fi
+  echo "Carried your previous wallpaper over to Noctalia: $(basename "$dest")"
+fi
+
 # 6b. Tear down the legacy Monarch theme engine. Theming is fully delegated to
 #     Noctalia now, so drop the old home-grown theme-engine state and repoint
 #     btop/helix/alacritty at Noctalia's theme.
@@ -112,6 +154,7 @@ rm -rf "$HOME/.config/monarch/themes" \
   "$HOME/.config/monarch/current/theme" \
   "$HOME/.config/monarch/current/next-theme" \
   "$HOME/.config/monarch/current/theme.name"
+rm -f "$HOME/.config/monarch/current/background" # dead symlink; wallpaper carried over in 6a
 rm -f "$HOME/.config/btop/themes/current.theme" # btop now uses color_theme="noctalia"
 rm -f "$HOME/.config/helix/themes/monarch.toml" # helix now uses theme="noctalia"
 if [[ -f $HOME/.config/helix/config.toml ]]; then
