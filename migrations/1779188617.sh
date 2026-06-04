@@ -101,6 +101,14 @@ rm -f "$HOME/.config/noctalia/colorschemes/Monarch/Monarch.json" # drop any old 
 monarch-refresh-config noctalia/settings.json || true
 monarch-refresh-config noctalia/colorschemes/Monarch/Monarch.json || true
 
+# 5b. Seed the Noctalia user-templates (apps without a built-in template:
+#     neovim + obsidian). `cp -R config/*` only runs on a fresh install, so
+#     without this an updating install has settings.json's enableUserTheming set
+#     but no registry/inputs — Noctalia never renders the obsidian/nvim outputs.
+monarch-refresh-config noctalia/user-templates.toml || true
+monarch-refresh-config noctalia/templates/obsidian.css || true
+monarch-refresh-config noctalia/templates/nvim-base16.lua || true
+
 # 6. Apply the residual system theming layer (wallpaper, Chromium, keyboard).
 #    Redirect stdout so it runs non-interactively (skips the heavy Plymouth path).
 monarch-cmd-present monarch-theme-apply && monarch-theme-apply >/dev/null 2>&1 || true
