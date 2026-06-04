@@ -13,7 +13,11 @@
         { "id": "Workspace", "labelMode": "name", "hideUnoccupied": true }
       ],
       "center": [
-        { "id": "ActiveWindow" },
+        {
+          "id": "Clock",
+          "formatHorizontal": "ddd D MMM  HH:mm",
+          "useMonospacedFont": true
+        },
         {
           "id": "CustomButton",
           "textCommand": "$MONARCH_PATH/default/noctalia/indicators/screen-recording.sh",
@@ -31,12 +35,7 @@
         { "id": "Bluetooth" },
         { "id": "Volume" },
         { "id": "Brightness" },
-        { "id": "Battery", "warningThreshold": 20 },
-        {
-          "id": "Clock",
-          "formatHorizontal": "ddd D MMM  HH:mm",
-          "useMonospacedFont": true
-        }
+        { "id": "Battery", "warningThreshold": 20 }
       ]
     }
   },
