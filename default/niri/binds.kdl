@@ -121,11 +121,16 @@ binds {
     Mod+Shift+Up    hotkey-overlay-title="Move window up"    { move-window-up; }
     Mod+Shift+Down  hotkey-overlay-title="Move window down"  { move-window-down; }
 
-    // --- Resize column ---
-    Mod+Minus hotkey-overlay-title="Shrink column"  { set-column-width "-10%"; }
-    Mod+Equal hotkey-overlay-title="Expand column"  { set-column-width "+10%"; }
-    Mod+Shift+Minus hotkey-overlay-title="Shrink window height" { set-window-height "-10%"; }
-    Mod+Shift+Equal hotkey-overlay-title="Expand window height" { set-window-height "+10%"; }
+    // --- Resize column / window ---
+    // Resize lives under Mod+Ctrl, NOT bare Mod+-/Mod+= : on AZERTY the - key is
+    // workspace 6, so keyboard.kdl steals Mod+- / Mod+Shift+- and shrink would
+    // drift to a different key than on QWERTY. Workspaces only ever take
+    // Mod+<sym> and Mod+Shift+<sym>, so Mod+Ctrl is never stolen — these four
+    // binds resolve to the same - / = keysyms identically on every layout.
+    Mod+Ctrl+Minus hotkey-overlay-title="Shrink column"  { set-column-width "-10%"; }
+    Mod+Ctrl+Equal hotkey-overlay-title="Expand column"  { set-column-width "+10%"; }
+    Mod+Ctrl+Shift+Minus hotkey-overlay-title="Shrink window height" { set-window-height "-10%"; }
+    Mod+Ctrl+Shift+Equal hotkey-overlay-title="Expand window height" { set-window-height "+10%"; }
 
     // --- Fullscreen / preset width ---
     Mod+F        hotkey-overlay-title="Fullscreen window"          { fullscreen-window; }
