@@ -326,8 +326,10 @@ Noctalia auto-injecte pour foot/niri/ghostty/alacritty, **pas pour kitty** (incl
         mais appliqué à notre propre thème pour garder le branding, sans dépendance Qt5 ajoutée.)
       - **Plymouth (boot splash)** : recolor **manuel** `monarch plymouth apply` — le splash vit
         dans l'initramfs, donc un seul `mkinitcpio` rebuild délibéré (jamais branché sur le hook,
-        leçon du retrait réactif). Couleurs du scheme actif : fond=`mSurface`, assets=`mOnSurface`,
-        barre=`mPrimary`. `monarch plymouth reset` restaure le défaut.
+        leçon du retrait réactif). Couleurs lues depuis `~/.config/noctalia/colors.json` (les
+        couleurs **résolues** par Noctalia → marche pour **tous** les schemes, built-ins compris,
+        pas seulement le JSON Monarch) : fond=`mSurface`, assets=`mOnSurface`, barre=`mPrimary`.
+        `monarch plymouth reset` restaure le défaut.
       *(Non fait, par choix : suivi automatique du splash de boot — éviterait-on le rebuild via un
       cache d'assets pré-rendus ? Reporté tant que le besoin n'est pas avéré. SDDM, lui, suit déjà.)*
 - [x] Bloc `light` de `Monarch.json` écrit (variante claire — commits `95101be` + `072bd32`).

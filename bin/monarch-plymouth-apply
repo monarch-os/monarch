@@ -13,52 +13,34 @@
 # own via Noctalia's user-template system (templates.sddm → theme.conf), with no
 # rebuild — see config/noctalia/templates/sddm.conf and monarch-refresh-sddm.
 #
-# Counterpart: `monarch plymouth reset` restores the shipped default splash.
-# Colors come from the active scheme's JSON, mirroring monarch-theme-apply:
+# Colors come from ~/.config/noctalia/colors.json — Noctalia's RESOLVED colors for
+# the active scheme. That works for every scheme (built-ins like Nord included),
+# unlike reading the per-scheme Monarch JSON which only the "Monarch" scheme ships.
 #   mSurface  -> background gradient
 #   mOnSurface-> foreground assets (unlock prompt: lock/entry/bullet)
 #   mPrimary  -> progress bar
-# Built-in Noctalia schemes ship no JSON, so we no-op and keep the default splash.
+#
+# Counterpart: `monarch plymouth reset` restores the shipped default splash.
 
 set -uo pipefail
 
-SETTINGS="$HOME/.config/noctalia/settings.json"
-SCHEMES_DIR="$HOME/.config/noctalia/colorschemes"
+COLORS="$HOME/.config/noctalia/colors.json"
 MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
 PLYMOUTH_SRC="$MONARCH_ROOT/default/plymouth"
 PLYMOUTH_DEST="/usr/share/plymouth/themes/monarch"
 
 command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
 command -v magick >/dev/null 2>&1 || { echo "imagemagick (magick) is required" >&2; exit 1; }
-[[ -f $SETTINGS ]] || { echo "Noctalia settings not found ($SETTINGS)" >&2; exit 1; }
+[[ -f $COLORS ]] || { echo "Noctalia resolved colors not found ($COLORS) — open Noctalia once to generate them." >&2; exit 1; }
 
-# --- Resolve scheme + appearance + colors (same logic as monarch-theme-apply) -
-appearance=$(jq -r 'if (.colorSchemes.darkMode // true) then "dark" else "light" end' "$SETTINGS")
-scheme=$(jq -r '.colorSchemes.predefinedScheme // "Monarch"' "$SETTINGS")
-scheme_json="$SCHEMES_DIR/$scheme/$scheme.json"
-
-if [[ ! -f $scheme_json ]]; then
-  echo "Scheme '$scheme' ships no color JSON (built-in) — keeping the default splash." >&2
-  exit 0
-fi
-
-# Prefer the active appearance block; fall back to whichever exists.
-variant=""
-for v in "$appearance" dark light; do
-  if jq -e --arg v "$v" 'has($v)' "$scheme_json" >/dev/null 2>&1; then
-    variant=$v
-    break
-  fi
-done
-[[ -n $variant ]] || { echo "No dark/light color block in $scheme_json" >&2; exit 1; }
-
-bg_hex=$(jq -r --arg v "$variant" '.[$v].mSurface // .[$v].terminal.background // empty' "$scheme_json")
-fg_hex=$(jq -r --arg v "$variant" '.[$v].mOnSurface // .[$v].mPrimary // empty' "$scheme_json")
-accent_hex=$(jq -r --arg v "$variant" '.[$v].mPrimary // empty' "$scheme_json")
+# Resolved colors for the active scheme (any scheme, built-ins included).
+bg_hex=$(jq -r '.mSurface // empty' "$COLORS")
+fg_hex=$(jq -r '.mOnSurface // .mPrimary // empty' "$COLORS")
+accent_hex=$(jq -r '.mPrimary // empty' "$COLORS")
 
 bg_hex=${bg_hex#\#}; fg_hex=${fg_hex#\#}; accent_hex=${accent_hex#\#}
 for c in "$bg_hex" "$fg_hex" "$accent_hex"; do
-  [[ $c =~ ^[0-9a-fA-F]{6}$ ]] || { echo "Invalid color '$c' in scheme '$scheme' ($variant)" >&2; exit 1; }
+  [[ $c =~ ^[0-9a-fA-F]{6}$ ]] || { echo "Invalid or missing color in $COLORS" >&2; exit 1; }
 done
 
 # Plymouth's gradient wants 0..1 floats (bash hex -> awk float, as the old script did).
@@ -97,4 +79,4 @@ else
   sudo mkinitcpio -P
 fi
 
-echo "Recolored the boot splash from scheme '$scheme' ($variant)."
+echo "Recolored the boot splash from the active Noctalia colors (surface #$bg_hex)."
