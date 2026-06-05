@@ -87,6 +87,16 @@ window-rule {
     open-floating true
 }
 
+// Display mirror (monarch-niri-monitor-internal-mirror via wl-mirror): float so it
+// stays out of the column layout, and force full opacity so the duplicated screen
+// isn't dimmed by the default 0.97 rule below. wl-mirror itself targets the external
+// output fullscreen (--fullscreen-output), so we don't set open-fullscreen here.
+window-rule {
+    match app-id=r#"^at\.yrlf\.wl_mirror$"#
+    open-floating true
+    opacity 1.0
+}
+
 // Telegram should not steal focus.
 window-rule {
     match app-id="org.telegram.desktop"

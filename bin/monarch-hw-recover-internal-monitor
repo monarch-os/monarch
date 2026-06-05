@@ -60,6 +60,9 @@ while true; do
       [[ $line == *'"WorkspacesChanged"'* ]] || continue
       internal=$(internal_output)
       [[ -n $internal ]] && recover "$internal"
+      # Same unplug event: tear down a display mirror left pointing at a now-gone
+      # external output (otherwise wl-mirror strands a hall-of-mirrors on the eDP).
+      monarch-niri-monitor-internal-mirror recover
     done
   fi
   sleep 2

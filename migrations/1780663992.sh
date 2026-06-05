@@ -1,4 +1,4 @@
-echo "Re-enable laptop-display recovery as a live niri watcher (external-monitor hotplug)"
+echo "Set up niri laptop-display: recovery watcher + wl-mirror for display mirroring"
 
 # Migration 1778589348 disabled and removed the Hyprland-era oneshot of the same
 # name on the premise that "niri handles hot-plug natively". It does not:
@@ -21,6 +21,13 @@ if compgen -G "/sys/class/drm/*-eDP-*" >/dev/null; then
   cp "$MONARCH_PATH/config/systemd/user/$SERVICE" ~/.config/systemd/user/$SERVICE
   systemctl --user daemon-reload
   systemctl --user enable --now "$SERVICE"
+
+  # Laptop-display mirroring (Mod+Ctrl+Alt+Delete -> monarch-niri-monitor-internal-mirror):
+  # niri has no native output mirroring, so we use wl-mirror to screencopy the eDP
+  # panel fullscreen onto the external monitor. It's only useful with an internal
+  # panel to mirror, so it rides the same eDP gate. config/* package lists are only
+  # consumed on a fresh install, so updating installs need it pulled in here.
+  monarch-pkg-missing wl-mirror && monarch-pkg-add wl-mirror || true
 else
   echo "No internal (eDP) panel detected. Skipping."
 fi
