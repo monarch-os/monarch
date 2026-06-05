@@ -17,8 +17,14 @@ fi
 focused=$(monarch-niri-monitor-focused)
 terminal=$(xdg-terminal-exec --print-id)
 
+count_screensavers() {
+  niri msg --json windows 2>/dev/null |
+    jq '[.[] | select(.app_id == "org.monarch.screensaver")] | length'
+}
+
 for m in $(niri msg --json outputs 2>/dev/null | jq -r 'to_entries[].value.name'); do
   niri msg action focus-monitor "$m" >/dev/null 2>&1
+  before=$(count_screensavers)
 
   case $terminal in
   *Alacritty*)
@@ -45,8 +51,18 @@ for m in $(niri msg --json outputs 2>/dev/null | jq -r 'to_entries[].value.name'
     ;;
   *)
     notify-send -u low "✋  Screensaver only runs in Alacritty, Foot, Ghostty, or Kitty"
+    continue
     ;;
   esac
+
+  # The terminal is spawned detached, so wait for its window to actually map on
+  # this output before focusing the next one. niri places a new window on the
+  # output focused at map time, not at spawn time; without this barrier all the
+  # screensavers race onto whichever monitor is focused last.
+  for _ in $(seq 1 50); do
+    [[ $(count_screensavers) -gt $before ]] && break
+    sleep 0.1
+  done
 done
 
 [[ -n $focused ]] && niri msg action focus-monitor "$focused" >/dev/null 2>&1
