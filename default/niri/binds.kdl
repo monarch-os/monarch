@@ -132,6 +132,13 @@ binds {
     Mod+Ctrl+Shift+Minus hotkey-overlay-title="Shrink window height" { set-window-height "-10%"; }
     Mod+Ctrl+Shift+Equal hotkey-overlay-title="Expand window height" { set-window-height "+10%"; }
 
+    // --- Display scaling ---
+    // Cycle the focused monitor's scale (1x..4x); +Shift reverses. On Mod+Ctrl+D
+    // (D = Display): Semicolon is taken by Transcode, and Mod+Ctrl is never stolen
+    // by workspaces, so the bind resolves identically on every keyboard layout.
+    Mod+Ctrl+D hotkey-overlay-title="Cycle display scaling" { spawn "monarch-niri-monitor-scaling-cycle"; }
+    Mod+Ctrl+Shift+D hotkey-overlay-title="Cycle display scaling backwards" { spawn "monarch-niri-monitor-scaling-cycle" "--reverse"; }
+
     // --- Fullscreen / preset width ---
     Mod+F        hotkey-overlay-title="Fullscreen window"          { fullscreen-window; }
     Mod+Shift+F  hotkey-overlay-title="Toggle column full width" { maximize-column; }

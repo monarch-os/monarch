@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# monarch:summary=Cycle the focused monitor scaling through 1x, 1.25x, 1.6x, 2x, 3x, and 4x
+# monarch:args=[--reverse]
+
+set -uo pipefail
+
+# Cycle order; reverse with --reverse.
+SCALES=(1 1.25 1.6 2 3 4)
+
+info=$(niri msg --json focused-output 2>/dev/null)
+focused=$(jq -r '.name // empty' <<<"$info")
+current=$(jq -r '.logical.scale // empty' <<<"$info")
+
+if [[ -z $focused ]]; then
+  notify-send -u low "󰍹    No focused output"
+  exit 1
+fi
+
+# Find the cycle index closest to the current scale: niri (like Hyprland) may
+# report a fractional scale that does not equal a list entry exactly.
+idx=$(awk -v s="${current:-1}" -v list="${SCALES[*]}" 'BEGIN {
+  n = split(list, a, " "); best = 0; bestd = 1e9
+  for (i = 1; i <= n; i++) { d = s - a[i]; if (d < 0) d = -d; if (d < bestd) { bestd = d; best = i - 1 } }
+  print best
+}')
+
+if [[ ${1:-} == "--reverse" ]]; then
+  new_idx=$(( (idx - 1 + ${#SCALES[@]}) % ${#SCALES[@]} ))
+else
+  new_idx=$(( (idx + 1) % ${#SCALES[@]} ))
+fi
+new=${SCALES[$new_idx]}
+
+# Apply live for instant feedback, then persist via the runtime override owner
+# (writes output { scale } into runtime.kdl, which niri reloads). niri's IPC
+# scale change is explicitly NOT saved, so the persisted copy is what survives a
+# reload or reboot.
+niri msg output "$focused" scale "$new" >/dev/null 2>&1
+monarch-niri-runtime output-scale "$focused" "$new"
+
+notify-send -u low "󰍹    Display scaling set to ${new}x"

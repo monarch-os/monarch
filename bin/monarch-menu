@@ -217,6 +217,8 @@ show_toggle_menu() {
 show_hardware_menu() {
   local options=""
 
+  options="$options\n󰍹  Display Scaling"
+
   if monarch-hw-external-monitors; then
     options="$options\n󰛧  Laptop Display"
   fi
@@ -238,6 +240,7 @@ show_hardware_menu() {
   fi
 
   case $(menu "Toggle" "$options") in
+  *"Display Scaling"*) monarch-niri-monitor-scaling-cycle ;;
   *"Laptop Display"*) monarch-niri-monitor-internal toggle ;;
   *Haptics*) show_hardware_touchpad_haptics_menu ;;
   *Touchpad*) monarch-toggle-touchpad ;;
