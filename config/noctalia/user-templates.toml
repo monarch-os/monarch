@@ -17,3 +17,4 @@ post_hook = "monarch-obsidian-theme"
 [templates.sddm]
 input_path = "~/.config/noctalia/templates/sddm.conf"
 output_path = "/usr/share/sddm/themes/monarch/theme.conf"
+post_hook = "monarch-sddm-theme"

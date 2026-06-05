@@ -324,6 +324,10 @@ Noctalia auto-injecte pour foot/niri/ghostty/alacritty, **pas pour kitty** (incl
         rend le `theme.conf` world-writable (Noctalia écrit en utilisateur sous /usr/share).
         **Aucun rebuild, aucune commande manuelle.** (Inspiré du thème mda-dev/noctalia-sddm-theme
         mais appliqué à notre propre thème pour garder le branding, sans dépendance Qt5 ajoutée.)
+        Le **logo** (PNG monochrome) suit aussi le scheme via le `post_hook` du template
+        (`monarch-sddm-theme`) : `magick` le teinte vers l'accent (`mPrimary`) à chaque régén —
+        on recolore l'image plutôt que d'éditer le QML du greeter (SDDM 0.21 = Qt6 ; un mauvais
+        import casserait le login). `logo.png` aussi rendu world-writable par `monarch-refresh-sddm`.
       - **Plymouth (boot splash)** : recolor **manuel** `monarch plymouth apply` — le splash vit
         dans l'initramfs, donc un seul `mkinitcpio` rebuild délibéré (jamais branché sur le hook,
         leçon du retrait réactif). Couleurs lues depuis `~/.config/noctalia/colors.json` (les
