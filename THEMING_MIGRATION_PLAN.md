@@ -2,6 +2,9 @@
 
 > Document de suivi vivant. On coche au fur et à mesure.
 > Branche : `feat/niri-migration`.
+> Dernier audit de conformité au code : **2026-06-05** — corrigé : bloc `light`
+> écrit, nom de la migration de nettoyage (`1779188617`), layout `themes/` aplati,
+> compteurs de tests. Reste côté code : companion pywalfox + theming Plymouth.
 
 ## Objectif
 
@@ -51,7 +54,8 @@ système/hardware que Noctalia ne peut pas atteindre.
     seedé à l'install depuis les fonds livrés. *(à confirmer)*
   - Le hook applique aussi un fond (`ipc call wallpaper set <path> ""`) pour que
     l'écran change vraiment, pas seulement le picker. *(à confirmer)*
-  - On garde `themes/<nom>/backgrounds/` ; on supprime le reste de `themes/`.
+  - On garde des fonds par scheme sous `themes/<scheme>/` (layout aplati, pas de
+    sous-dossier `backgrounds/`) ; on supprime le reste de `themes/`.
 
 ## Questions ouvertes
 
@@ -110,7 +114,7 @@ catppuccin, gruvbox, kanagawa, nord, rose-pine, tokyo-night.
       `templates.activeTemplates: [{enabled,id}]` + `templates.enableUserTheming`.
       Baké : alacritty, kitty, foot, ghostty, btop, helix. Aussi posé
       `colorSchemes.syncGsettings=true` + `darkMode=true`.
-- [x] Ajoutés au défaut : `niri`, `code` (= VSCode), `pywalfox`. IDs confirmés en VM.
+- [x] Ajoutés au défaut : `niri`, `code` (= VSCode), `pywalfox`, `starship`. IDs confirmés en VM.
       (code/pywalfox : companions requis — extension *NoctaliaTheme* / addon pywalfox,
       à wirer à l'install en Phase 6.)
 - [x] Écrire les 14 schemes Material sous `config/noctalia/colorschemes/<Nom>/<Nom>.json`
@@ -198,9 +202,9 @@ Noctalia auto-injecte pour foot/niri/ghostty/alacritty, **pas pour kitty** (incl
 - [x] `config/noctalia/settings.json` : section `wallpaper` (`enabled=true`,
       `directory="~/.config/monarch/backgrounds/monarch"`, `transitionType=["fade"]`,
       `transitionDuration=1500`, `automationEnabled=false`).
-- [x] Fonds livrés : restent dans `themes/<nom>/backgrounds/` (pas de déplacement).
+- [x] Fonds livrés : `themes/<scheme>/` (fichiers aplatis, pas de sous-dossier `backgrounds/`).
       Le seeding vers `~/.config/monarch/backgrounds/<scheme>/` est **auto-géré par
-      `monarch-theme-apply`** (idempotent, `cp -rn` depuis `$MONARCH_PATH/themes/<scheme>/backgrounds/`),
+      `monarch-theme-apply`** (idempotent, `cp -rn` depuis `$MONARCH_PATH/themes/<scheme>/`),
       plus robuste qu'un seeding install-only et testable en VM sans réinstall.
 - [x] `monarch-theme-apply` (nouveau `bin/`) : repointe `wallpaper.directory` (chemin (b),
       écriture atomique) avec **garde d'idempotence** (ne fait rien si même dossier → préserve
@@ -256,8 +260,11 @@ Noctalia auto-injecte pour foot/niri/ghostty/alacritty, **pas pour kitty** (incl
       Gardés : `monarch-theme-apply`, `monarch-obsidian-theme`, et le splash statique
       (`monarch-plymouth-reset`, `monarch-refresh-plymouth`, `default/plymouth/`).
 - [x] `rm` `default/themed/` (tous les `.tpl`) + `config/monarch/themed/` (sample user-template).
-- [x] `rm` **tout `themes/` sauf `themes/monarch/backgrounds/`**.
-- [ ] **Écrire le bloc `light` de `Monarch.json`** (variante claire propre — owner).
+- [x] `themes/` réduit puis re-seedé : dossiers **aplatis par scheme** (`themes/<scheme>/*.png`,
+      plus de sous-dossier `backgrounds/`) — `monarch` + 6 wallpapers Omarchy (catppuccin,
+      gruvbox, kanagawa, nord, rosepine, tokyo-night), via commit `6906724`.
+- [x] **Bloc `light` de `Monarch.json` écrit** (valeurs claires distinctes du `dark` :
+      surface `#e1e2e7`, accent `#9854f1` ; commits `95101be` + `072bd32`).
 - [x] Éditer `bin/monarch` : retiré `theme list/set` de l'aide ; groupe `theme` = `apply` seul ;
       description du groupe mise à jour.
 - [x] Éditer `bin/monarch-menu` : retiré le sélecteur (`show_theme_menu`), le dispatch `theme`,
@@ -276,7 +283,7 @@ Noctalia auto-injecte pour foot/niri/ghostty/alacritty, **pas pour kitty** (incl
       de `~/.config/noctalia/settings.json` (au lieu de `current/theme/light.mode`).
 - [x] `test/monarch-cli-test.sh` : assertions `theme set/list/current` retirées/repointées sur
       `theme apply` ; suite **verte** (EXIT 0).
-- [x] Migration de nettoyage `migrations/1779539464.sh` (purge l'ancien état + déploie le scheme +
+- [x] Migration de nettoyage `migrations/1779188617.sh` (purge l'ancien état + déploie le scheme +
       `monarch-theme-apply`). Migrations obsolètes supprimées (8) ; 4 éditées (switchover Noctalia,
       loader niri, switch chromium, tmux) pour retirer les appels morts. `fastfetch` lit le scheme
       depuis Noctalia.
@@ -284,8 +291,8 @@ Noctalia auto-injecte pour foot/niri/ghostty/alacritty, **pas pour kitty** (incl
 
 ### Phase 7 — Validation
 **Validation statique locale (faite, verte) :**
-- [x] `bash test/monarch-cli-test.sh` vert (EXIT 0, 58 assertions ok).
-- [x] `bin/monarch commands --check` OK (244 commandes ; 265 avant, −21 scripts supprimés).
+- [x] `bash test/monarch-cli-test.sh` vert (EXIT 0, 57 assertions ok).
+- [x] `bin/monarch commands --check` OK (246 commandes).
 - [x] `bash -n` sur tous les scripts `bin/` + `install/` + `migrations/` : OK pour tout ce qui
       touche au theming. *(Note hors-périmètre : `bin/monarch-refresh-pacman` a un bug préexistant —
       `if` sans `fi`, ligne 10 — non lié à cette migration, à corriger à part.)*
@@ -297,12 +304,12 @@ Noctalia auto-injecte pour foot/niri/ghostty/alacritty, **pas pour kitty** (incl
       sur `monarch`, `darkMode` intact, `settings.json` reste valide.
 
 **À valider en VM (non exécutable ici — niri/Noctalia absents) :**
-- [ ] Bloc `light` de `Monarch.json` écrit, puis toggle dark/light Noctalia → GTK/Qt + shell suivent.
+- [ ] (VM) Toggle dark/light Noctalia → GTK/Qt + shell suivent. (Bloc `light` déjà écrit ✅ — reste la validation du toggle en VM.)
 - [x] Changement d'apparence/scheme → terminaux/btop/helix/vscode/niri/wallpaper/Chromium/RGB suivent.
 - [x] *(Plymouth theming retiré — plus à valider ; splash statique inchangé.)*
 - [x] Companions : id extension VSCode `Noctalia.noctaliatheme` + label `NoctaliaTheme` corrects ;
       template Helix Noctalia écrit bien `~/.config/helix/themes/noctalia.toml`.
-- [ ] `monarch migrate` (migration `1779539464`) sur une install pré-pivot : purge + déploie sans casse.
+- [ ] `monarch migrate` (migration `1779188617`) sur une install pré-pivot : purge + déploie sans casse.
 - [ ] Screenshot de contrôle (`monarch capture screenshot fullscreen save`).
 
 ## TODO (post-migration)
@@ -310,8 +317,8 @@ Noctalia auto-injecte pour foot/niri/ghostty/alacritty, **pas pour kitty** (incl
       (sudo + rebuild initramfs peu fiable/inutilisé ; `sync_plymouth` + `monarch-plymouth-set`/
       `-preview` supprimés). Le splash statique Monarch reste. À repenser : une approche fiable
       (sans rebuild initramfs à chaque changement ? cache d'assets pré-rendus ? découplé du hook
-      couleurs ?) si on veut un boot screen qui suive le scheme.
-- [ ] Bloc `light` de `Monarch.json` (variante claire propre — owner).
+      couleurs ?) si on veut un boot screen qui suive le scheme. **→ EN COURS (2026-06-05).**
+- [x] Bloc `light` de `Monarch.json` écrit (variante claire — commits `95101be` + `072bd32`).
 - [ ] Companion **pywalfox** (Firefox) à câbler à l'install (addon + native host).
 
 ## Inconnus à valider en VM (récap)
