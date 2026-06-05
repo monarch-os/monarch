@@ -4,7 +4,8 @@
 > Branche : `feat/niri-migration`.
 > Dernier audit de conformité au code : **2026-06-05** — corrigé : bloc `light`
 > écrit, nom de la migration de nettoyage (`1779188617`), layout `themes/` aplati,
-> compteurs de tests. Reste côté code : companion pywalfox + theming Plymouth.
+> compteurs de tests. Theming Plymouth livré (manuel, voir TODO). Reste côté code :
+> companion pywalfox.
 
 ## Objectif
 
@@ -313,11 +314,17 @@ Noctalia auto-injecte pour foot/niri/ghostty/alacritty, **pas pour kitty** (incl
 - [ ] Screenshot de contrôle (`monarch capture screenshot fullscreen save`).
 
 ## TODO (post-migration)
-- [ ] **Theming Plymouth — meilleure implémentation.** Le recolor par scheme a été retiré
-      (sudo + rebuild initramfs peu fiable/inutilisé ; `sync_plymouth` + `monarch-plymouth-set`/
-      `-preview` supprimés). Le splash statique Monarch reste. À repenser : une approche fiable
-      (sans rebuild initramfs à chaque changement ? cache d'assets pré-rendus ? découplé du hook
-      couleurs ?) si on veut un boot screen qui suive le scheme. **→ EN COURS (2026-06-05).**
+- [x] **Theming Plymouth — implémentation manuelle (2026-06-05).** Nouveau
+      `bin/monarch-plymouth-apply` (`monarch plymouth apply`) : recolore le splash **et**
+      l'écran SDDM depuis le scheme Noctalia actif (fond = `mSurface`, assets de l'invite
+      déverrouillage = `mOnSurface`, barre de progression = `mPrimary`), puis **un seul**
+      rebuild initramfs. **Manuel uniquement** — jamais branché sur `hooks.colorGeneration`
+      (c'est la leçon du retrait réactif : le rebuild est inévitable mais doit être délibéré).
+      Pendant : `monarch plymouth reset` restaure le défaut. Les variantes SDDM `-failed`
+      gardent leur signal rouge (non teintées). Le splash statique livré = scheme Monarch
+      dark, donc no-op visuel tant qu'on ne change pas de scheme.
+      *(Non fait, par choix : suivi automatique du scheme — éviterait-on le rebuild via un
+      cache d'assets pré-rendus ? Reporté tant que le besoin n'est pas avéré.)*
 - [x] Bloc `light` de `Monarch.json` écrit (variante claire — commits `95101be` + `072bd32`).
 - [ ] Companion **pywalfox** (Firefox) à câbler à l'install (addon + native host).
 

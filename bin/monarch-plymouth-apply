@@ -1,0 +1,112 @@
+#!/bin/bash
+
+# monarch:summary=Recolor the Plymouth boot splash and SDDM login screen from the active Noctalia color scheme, then rebuild the initramfs
+# monarch:requires-sudo=true
+
+# Per-scheme boot/login theming, MANUAL only — never wired to Noctalia's
+# colorGeneration hook. The splash assets live inside the initramfs, so any
+# recolor forces ONE `mkinitcpio` rebuild; doing that on every dark/light toggle
+# (the old reactive `monarch-plymouth-set` model) was slow and unreliable, which
+# is why it was removed. This command does it deliberately, on demand.
+#
+# Counterpart: `monarch plymouth reset` restores the shipped default for both.
+# Colors come from the active scheme's JSON, mirroring monarch-theme-apply:
+#   mSurface  -> background (splash gradient + SDDM Rectangle)
+#   mOnSurface-> foreground assets (unlock prompt: lock/entry/bullet)
+#   mPrimary  -> progress bar
+# Built-in Noctalia schemes ship no JSON, so we no-op and keep the default splash.
+
+set -uo pipefail
+
+SETTINGS="$HOME/.config/noctalia/settings.json"
+SCHEMES_DIR="$HOME/.config/noctalia/colorschemes"
+MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+PLYMOUTH_SRC="$MONARCH_ROOT/default/plymouth"
+SDDM_SRC="$MONARCH_ROOT/default/sddm/monarch"
+PLYMOUTH_DEST="/usr/share/plymouth/themes/monarch"
+SDDM_DEST="/usr/share/sddm/themes/monarch"
+
+command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
+command -v magick >/dev/null 2>&1 || { echo "imagemagick (magick) is required" >&2; exit 1; }
+[[ -f $SETTINGS ]] || { echo "Noctalia settings not found ($SETTINGS)" >&2; exit 1; }
+
+# --- Resolve scheme + appearance + colors (same logic as monarch-theme-apply) -
+appearance=$(jq -r 'if (.colorSchemes.darkMode // true) then "dark" else "light" end' "$SETTINGS")
+scheme=$(jq -r '.colorSchemes.predefinedScheme // "Monarch"' "$SETTINGS")
+scheme_json="$SCHEMES_DIR/$scheme/$scheme.json"
+
+if [[ ! -f $scheme_json ]]; then
+  echo "Scheme '$scheme' ships no color JSON (built-in) — keeping the default splash." >&2
+  exit 0
+fi
+
+# Prefer the active appearance block; fall back to whichever exists.
+variant=""
+for v in "$appearance" dark light; do
+  if jq -e --arg v "$v" 'has($v)' "$scheme_json" >/dev/null 2>&1; then
+    variant=$v
+    break
+  fi
+done
+[[ -n $variant ]] || { echo "No dark/light color block in $scheme_json" >&2; exit 1; }
+
+bg_hex=$(jq -r --arg v "$variant" '.[$v].mSurface // .[$v].terminal.background // empty' "$scheme_json")
+fg_hex=$(jq -r --arg v "$variant" '.[$v].mOnSurface // .[$v].mPrimary // empty' "$scheme_json")
+accent_hex=$(jq -r --arg v "$variant" '.[$v].mPrimary // empty' "$scheme_json")
+
+bg_hex=${bg_hex#\#}; fg_hex=${fg_hex#\#}; accent_hex=${accent_hex#\#}
+for c in "$bg_hex" "$fg_hex" "$accent_hex"; do
+  [[ $c =~ ^[0-9a-fA-F]{6}$ ]] || { echo "Invalid color '$c' in scheme '$scheme' ($variant)" >&2; exit 1; }
+done
+
+# Plymouth's gradient wants 0..1 floats (bash hex -> awk float, as the old script did).
+bg_r=$(awk -v n=$((16#${bg_hex:0:2})) 'BEGIN{printf "%.3f", n/255}')
+bg_g=$(awk -v n=$((16#${bg_hex:2:2})) 'BEGIN{printf "%.3f", n/255}')
+bg_b=$(awk -v n=$((16#${bg_hex:4:2})) 'BEGIN{printf "%.3f", n/255}')
+
+# Tint a monochrome asset to a solid color, preserving alpha.
+tint() { magick "$1" -channel RGB +level-colors "#$2","#$2" "$1"; }
+
+# --- Stage Plymouth ----------------------------------------------------------
+stage=$(mktemp -d) || exit 1
+trap 'rm -rf "$stage"' EXIT
+ply="$stage/plymouth"
+mkdir -p "$ply"
+cp -a "$PLYMOUTH_SRC/." "$ply/"
+
+sed -i \
+  -e "s/^Window.SetBackgroundTopColor.*/Window.SetBackgroundTopColor($bg_r, $bg_g, $bg_b);/" \
+  -e "s/^Window.SetBackgroundBottomColor.*/Window.SetBackgroundBottomColor($bg_r, $bg_g, $bg_b);/" \
+  "$ply/monarch.script"
+sed -i "s/^ConsoleLogBackgroundColor=.*/ConsoleLogBackgroundColor=0x$bg_hex/" "$ply/monarch.plymouth"
+
+for a in bullet.png entry.png lock.png; do
+  [[ -f $ply/$a ]] && tint "$ply/$a" "$fg_hex"
+done
+[[ -f $ply/progress_bar.png ]] && tint "$ply/progress_bar.png" "$accent_hex"
+
+# --- Stage SDDM --------------------------------------------------------------
+# Only the background color is hard-coded in Main.qml; tint the normal unlock
+# assets. The *-failed variants keep their red failure cue (left untinted).
+sddm="$stage/sddm"
+mkdir -p "$sddm"
+cp -a "$SDDM_SRC/." "$sddm/"
+sed -i "s/#1a1b26/#$bg_hex/g" "$sddm/Main.qml"
+for a in bullet.png entry.png lock.png; do
+  [[ -f $sddm/$a ]] && tint "$sddm/$a" "$fg_hex"
+done
+
+# --- Commit (sudo) -----------------------------------------------------------
+sudo mkdir -p "$PLYMOUTH_DEST" "$SDDM_DEST"
+sudo cp -a "$ply/." "$PLYMOUTH_DEST/"
+sudo cp -a "$sddm/." "$SDDM_DEST/"
+sudo plymouth-set-default-theme monarch
+
+# The splash lives in the initramfs — this rebuild is the one unavoidable cost.
+if command -v limine-mkinitcpio >/dev/null 2>&1; then
+  sudo limine-mkinitcpio
+else
+  sudo mkinitcpio -P
+fi
+
+echo "Recolored boot splash + login screen from scheme '$scheme' ($variant)."
