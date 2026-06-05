@@ -1,43 +1,68 @@
 #!/bin/bash
 
-# monarch:summary=Enable, disable, toggle, or recover mirroring the laptop display onto an external monitor
-# monarch:args=<on|off|toggle|recover>
+# monarch:summary=Enable, disable, toggle, or recover mirroring the laptop display onto external monitor(s)
+# monarch:args=<on|off|toggle|recover> [single|all]
 
 # niri has no native output mirroring (the `output` block only does mode/scale/
 # transform/position), so we can't reproduce the Hyprland `monitor=…,mirror,eDP`
 # line. The niri-documented approach is wl-mirror: it screencopies a source
-# output into a client window which we send fullscreen onto the target output.
-# Here the source is the internal eDP panel and the target is the external
-# monitor — the "presentation mode" the old SUPER+CTRL+ALT+Delete gave us.
+# output into a client window which we send fullscreen onto a target output. The
+# source is always the internal eDP panel (the "presentation mode" the old
+# SUPER+CTRL+ALT+Delete gave us); the targets are the external monitor(s).
+#
+# Scope (second arg, default "all"):
+#   all     mirror the eDP onto every connected external — one wl-mirror each.
+#   single  mirror onto a single external: the currently focused output when it
+#           is external, else the first external. So focusing the monitor you
+#           want before triggering picks the target, instead of an arbitrary one.
 #
 #   https://niri-wm.github.io/niri/Screencasting.html#screen-mirroring
 
-APP_ID="at.yrlf.wl_mirror"
-
-# Connector names, read live from niri so a rename can't break us. niri exposes
-# them as the wl_output names wl-mirror expects for both the source arg and
-# --fullscreen-output (see monarch-niri-monitor-internal for the eDP query).
+# Internal panel connector (eDP), read live from niri so a rename can't break us.
+# niri exposes connector names as the wl_output names wl-mirror expects for both
+# the source arg and --fullscreen-output.
 INTERNAL=$(niri msg --json outputs 2>/dev/null | jq -r 'to_entries[] | select(.key | test("eDP")) | .key' | head -n1)
-EXTERNAL=$(niri msg --json outputs 2>/dev/null | jq -r 'to_entries[] | select(.key | test("eDP") | not) | .key' | head -n1)
+
+# All non-eDP outputs, one per line.
+externals() {
+  niri msg --json outputs 2>/dev/null | jq -r 'to_entries[] | select(.key | test("eDP") | not) | .key'
+}
+
+# Target for single-display mode: the focused output if it is external (lets the
+# user pick by focusing it first), otherwise the first external.
+single_target() {
+  local focused
+  focused=$(niri msg --json focused-output 2>/dev/null | jq -r '.name // empty')
+  if [[ -n $focused && $focused != *eDP* ]]; then
+    printf '%s\n' "$focused"
+    return
+  fi
+  externals | head -n1
+}
 
 # wl-mirror keeps running for the lifetime of the mirror; its presence IS the
 # state. Match the process we own rather than poll niri windows so toggle reacts
-# instantly (the window maps a beat after spawn).
+# instantly (the window maps a beat after spawn). One process per mirrored output.
 is_on() {
   pgrep -x wl-mirror >/dev/null 2>&1
 }
 
 enable() {
+  local scope=${1:-all}
+
   if ! command -v wl-mirror >/dev/null 2>&1; then
     notify-send -u normal "󰍹    Mirroring unavailable" "wl-mirror is not installed."
     exit 1
   fi
-  if [[ -z $EXTERNAL ]]; then
-    notify-send -u low "󰍹    No external monitor found for mirror"
-    exit 1
-  fi
   if [[ -z $INTERNAL ]]; then
     notify-send -u low "󰍹    No laptop display found to mirror"
+    exit 1
+  fi
+
+  local ext
+  mapfile -t ext < <(externals)
+  if [[ ${#ext[@]} -eq 0 ]]; then
+    notify-send -u low "󰍹    No external monitor found for mirror"
     exit 1
   fi
 
@@ -47,8 +72,23 @@ enable() {
 
   is_on && return  # already mirroring
 
-  setsid uwsm-app -- wl-mirror --fullscreen-output "$EXTERNAL" "$INTERNAL" >/dev/null 2>&1 &
-  notify-send -u low "󰍹    Mirroring enabled ($EXTERNAL)"
+  local targets
+  if [[ $scope == single ]]; then
+    targets=("$(single_target)")
+  else
+    targets=("${ext[@]}")
+  fi
+
+  local t
+  for t in "${targets[@]}"; do
+    setsid uwsm-app -- wl-mirror --fullscreen-output "$t" "$INTERNAL" >/dev/null 2>&1 &
+  done
+
+  if [[ ${#targets[@]} -gt 1 ]]; then
+    notify-send -u low "󰍹    Mirroring enabled (${#targets[@]} displays)"
+  else
+    notify-send -u low "󰍹    Mirroring enabled (${targets[0]})"
+  fi
 }
 
 disable() {
@@ -58,7 +98,8 @@ disable() {
 }
 
 # Unplugging the external monitor mid-session strands the mirror on the laptop
-# (a feedback loop), so tear it down when no external display is left.
+# (a feedback loop), so tear it down when no external display is left. A partial
+# unplug (one of several externals) is left for the next toggle to reconcile.
 recover() {
   if is_on && ! monarch-hw-external-monitors; then
     pkill -x wl-mirror >/dev/null 2>&1
@@ -66,12 +107,12 @@ recover() {
 }
 
 case "${1:-toggle}" in
-  on) enable ;;
+  on) enable "${2:-all}" ;;
   off) disable ;;
-  toggle) if is_on; then disable; else enable; fi ;;
+  toggle) if is_on; then disable; else enable "${2:-all}"; fi ;;
   recover) recover ;;
   *)
-    echo "Usage: $(basename "$0") {on|off|toggle|recover}" >&2
+    echo "Usage: $(basename "$0") {on|off|toggle|recover} [single|all]" >&2
     exit 1
     ;;
 esac
