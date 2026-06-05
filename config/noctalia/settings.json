@@ -100,8 +100,7 @@
       { "enabled": true, "id": "helix" },
       { "enabled": true, "id": "niri" },
       { "enabled": true, "id": "code" },
-      { "enabled": true, "id": "starship" },
-      { "enabled": true, "id": "pywalfox" }
+      { "enabled": true, "id": "starship" }
     ]
   },
   "wallpaper": {

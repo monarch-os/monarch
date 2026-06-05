@@ -18,10 +18,14 @@
 #   - keyboard RGB             : ASUS ROG (asusctl) + Framework 16 (qmk_hid).
 #   - Chromium policy color    : managed BrowserThemeColor.
 #
-# NOTE: per-scheme Plymouth (boot-screen) theming was removed — the sudo +
-# initramfs-rebuild approach was unreliable and unused. The static Monarch boot
-# splash still ships (default/plymouth + monarch-refresh-plymouth). TODO: a better
-# Plymouth theming implementation later (see THEMING_MIGRATION_PLAN.md).
+# NOTE: per-scheme Plymouth (boot-screen) theming is intentionally NOT wired here.
+# The splash lives in the initramfs, so a recolor forces an mkinitcpio rebuild —
+# far too costly to run on every color hook (that reactive model was why it was
+# removed). It is a separate MANUAL command instead: `monarch plymouth apply`
+# (recolor the boot splash from the active scheme) / `monarch plymouth reset`
+# (restore default). The static Monarch splash still ships by default. The SDDM
+# login screen, by contrast, follows the scheme on its own via Noctalia's
+# user-template system (templates.sddm → theme.conf), so it needs nothing here.
 #
 # Colors are read from the scheme JSON shipped under
 # ~/.config/noctalia/colorschemes/<Scheme>/<Scheme>.json (mPrimary = accent,

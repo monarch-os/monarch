@@ -1,0 +1,83 @@
+#!/bin/bash
+
+# monarch:summary=Recolor the Plymouth boot splash from the active Noctalia color scheme, then rebuild the initramfs
+# monarch:requires-sudo=true
+
+# Per-scheme boot-splash theming, MANUAL only — never wired to Noctalia's
+# colorGeneration hook. The splash assets live inside the initramfs, so any
+# recolor forces ONE `mkinitcpio` rebuild; doing that on every dark/light toggle
+# (the old reactive `monarch-plymouth-set` model) was slow and unreliable, which
+# is why it was removed. This command does it deliberately, on demand.
+#
+# Scope is the BOOT SPLASH only. The SDDM login screen follows the scheme on its
+# own via Noctalia's user-template system (templates.sddm → theme.conf), with no
+# rebuild — see config/noctalia/templates/sddm.conf and monarch-refresh-sddm.
+#
+# Colors come from ~/.config/noctalia/colors.json — Noctalia's RESOLVED colors for
+# the active scheme. That works for every scheme (built-ins like Nord included),
+# unlike reading the per-scheme Monarch JSON which only the "Monarch" scheme ships.
+#   mSurface  -> background gradient
+#   mOnSurface-> foreground assets (unlock prompt: lock/entry/bullet)
+#   mPrimary  -> logo + progress bar
+#
+# Counterpart: `monarch plymouth reset` restores the shipped default splash.
+
+set -uo pipefail
+
+COLORS="$HOME/.config/noctalia/colors.json"
+MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+PLYMOUTH_SRC="$MONARCH_ROOT/default/plymouth"
+PLYMOUTH_DEST="/usr/share/plymouth/themes/monarch"
+
+command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
+command -v magick >/dev/null 2>&1 || { echo "imagemagick (magick) is required" >&2; exit 1; }
+[[ -f $COLORS ]] || { echo "Noctalia resolved colors not found ($COLORS) — open Noctalia once to generate them." >&2; exit 1; }
+
+# Resolved colors for the active scheme (any scheme, built-ins included).
+bg_hex=$(jq -r '.mSurface // empty' "$COLORS")
+fg_hex=$(jq -r '.mOnSurface // .mPrimary // empty' "$COLORS")
+accent_hex=$(jq -r '.mPrimary // empty' "$COLORS")
+
+bg_hex=${bg_hex#\#}; fg_hex=${fg_hex#\#}; accent_hex=${accent_hex#\#}
+for c in "$bg_hex" "$fg_hex" "$accent_hex"; do
+  [[ $c =~ ^[0-9a-fA-F]{6}$ ]] || { echo "Invalid or missing color in $COLORS" >&2; exit 1; }
+done
+
+# Plymouth's gradient wants 0..1 floats (bash hex -> awk float, as the old script did).
+bg_r=$(awk -v n=$((16#${bg_hex:0:2})) 'BEGIN{printf "%.3f", n/255}')
+bg_g=$(awk -v n=$((16#${bg_hex:2:2})) 'BEGIN{printf "%.3f", n/255}')
+bg_b=$(awk -v n=$((16#${bg_hex:4:2})) 'BEGIN{printf "%.3f", n/255}')
+
+# Tint a monochrome asset to a solid color, preserving alpha.
+tint() { magick "$1" -channel RGB +level-colors "#$2","#$2" "$1"; }
+
+# --- Stage + recolor ---------------------------------------------------------
+stage=$(mktemp -d) || exit 1
+trap 'rm -rf "$stage"' EXIT
+cp -a "$PLYMOUTH_SRC/." "$stage/"
+
+sed -i \
+  -e "s/^Window.SetBackgroundTopColor.*/Window.SetBackgroundTopColor($bg_r, $bg_g, $bg_b);/" \
+  -e "s/^Window.SetBackgroundBottomColor.*/Window.SetBackgroundBottomColor($bg_r, $bg_g, $bg_b);/" \
+  "$stage/monarch.script"
+sed -i "s/^ConsoleLogBackgroundColor=.*/ConsoleLogBackgroundColor=0x$bg_hex/" "$stage/monarch.plymouth"
+
+for a in bullet.png entry.png lock.png; do
+  [[ -f $stage/$a ]] && tint "$stage/$a" "$fg_hex"
+done
+[[ -f $stage/logo.png ]] && tint "$stage/logo.png" "$accent_hex"
+[[ -f $stage/progress_bar.png ]] && tint "$stage/progress_bar.png" "$accent_hex"
+
+# --- Commit (sudo) -----------------------------------------------------------
+sudo mkdir -p "$PLYMOUTH_DEST"
+sudo cp -a "$stage/." "$PLYMOUTH_DEST/"
+sudo plymouth-set-default-theme monarch
+
+# The splash lives in the initramfs — this rebuild is the one unavoidable cost.
+if command -v limine-mkinitcpio >/dev/null 2>&1; then
+  sudo limine-mkinitcpio
+else
+  sudo mkinitcpio -P
+fi
+
+echo "Recolored the boot splash from the active Noctalia colors (surface #$bg_hex)."
