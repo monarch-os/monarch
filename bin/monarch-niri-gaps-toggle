@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# monarch:summary=Toggle the window gaps globally between no gaps and the default.
+
+# Ports the old SUPER+SHIFT+BACKSPACE monarch-hyprland-window-gaps-toggle. niri
+# has no IPC action to change gaps at runtime, so the state lives in
+# ~/.config/niri/runtime.kdl (owned by monarch-niri-runtime): "off" writes
+# `layout { gaps 0 }`, which niri merges over layout.kdl on live-reload, and "on"
+# drops the override so layout.kdl's default gap applies again.
+
+state=$(monarch-niri-runtime gaps toggle) || exit 1
+
+case "$state" in
+  off) notify-send -u low "󰍵  Window gaps off" ;;
+  on) notify-send -u low "󰍹  Window gaps on" ;;
+esac
