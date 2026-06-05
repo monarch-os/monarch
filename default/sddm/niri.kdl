@@ -21,13 +21,5 @@ layout {
     }
 }
 
-input {
-    keyboard {
-        xkb {
-            layout "us"
-        }
-    }
-}
-
 // The greeter is spawned by SDDM after the compositor is ready — no
 // spawn-at-startup needed here.
