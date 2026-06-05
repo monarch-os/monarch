@@ -1,0 +1,66 @@
+#!/bin/bash
+
+# monarch:summary=Re-enable the laptop display if the external monitor is unplugged while it was off
+# monarch:hidden=true
+
+# Safety net for monarch-niri-monitor-internal, restored from the Hyprland model
+# (this binary + monarch-recover-internal-monitor.service + the
+# install/first-run/recover-internal-monitor.sh enabler).
+#
+# The old Hyprland helper was a login-time oneshot that cleared a *persisted*
+# toggle file. niri is different: monarch-niri-monitor-internal disables the eDP
+# panel with a live `niri msg output <eDP> off` that niri never saves, so a
+# reboot already recovers. The real danger is unplugging the external monitor
+# mid-session — a hotplug, not a niri reload — which leaves the eDP off with no
+# display and which niri does not recover from on its own. So this is a
+# long-running watcher rather than a oneshot.
+#
+# niri-ipc has no OutputsChanged event, so we watch WorkspacesChanged: the
+# closest proxy, since workspaces relocate whenever outputs come or go. On each
+# one, if the internal eDP panel is off AND no external monitor is connected, we
+# turn it back on.
+
+set -uo pipefail
+
+# A systemd user service does not inherit NIRI_SOCKET (uwsm finalizes only a
+# curated set of vars), so discover it from the running niri's environment.
+ensure_socket() {
+  [[ -n ${NIRI_SOCKET:-} && -S ${NIRI_SOCKET:-} ]] && return 0
+  local pid
+  pid=$(pgrep -x niri | head -n1) || return 1
+  [[ -n $pid ]] || return 1
+  NIRI_SOCKET=$(tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null | sed -n 's/^NIRI_SOCKET=//p' | head -n1)
+  export NIRI_SOCKET
+  [[ -n $NIRI_SOCKET && -S $NIRI_SOCKET ]]
+}
+
+# Internal panel connector (eDP), read live so a rename can't break us.
+internal_output() {
+  niri msg --json outputs 2>/dev/null \
+    | jq -r 'to_entries[] | select(.key | test("eDP")) | .key' | head -n1
+}
+
+recover() {
+  local internal=$1
+  # current_mode is null while the output is disabled (niri IPC).
+  niri msg --json outputs 2>/dev/null \
+    | jq -e --arg m "$internal" '.[$m].current_mode == null' >/dev/null || return
+  # eDP is off — only rescue it when it is the last display standing.
+  monarch-hw-external-monitors && return
+  niri msg output "$internal" on >/dev/null 2>&1
+  notify-send -u normal "󰍹    Laptop display restored" \
+    "External monitor disconnected while the laptop screen was off."
+}
+
+# Reconnect loop: the stream ends when niri restarts; the sleep also guards a
+# hot spin while niri (and thus its socket) is not up yet.
+while true; do
+  if ensure_socket; then
+    niri msg --json event-stream 2>/dev/null | while IFS= read -r line; do
+      [[ $line == *'"WorkspacesChanged"'* ]] || continue
+      internal=$(internal_output)
+      [[ -n $internal ]] && recover "$internal"
+    done
+  fi
+  sleep 2
+done

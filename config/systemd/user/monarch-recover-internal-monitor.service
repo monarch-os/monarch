@@ -1,0 +1,14 @@
+[Unit]
+Description=Monarch — recover the laptop display when an external monitor is unplugged
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/share/monarch/bin/monarch-hw-recover-internal-monitor
+Restart=on-failure
+RestartSec=2
+LogLevelMax=warning
+
+[Install]
+WantedBy=graphical-session.target
