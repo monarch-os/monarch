@@ -83,8 +83,9 @@ binds {
     Mod+Ctrl+T hotkey-overlay-title="Activity (btop)" { spawn "monarch-launch-tui" "btop"; }
 
     // --- Dictation (voxtype) ---
+    // Toggle only: niri has no key-release action, so true hold-to-talk is
+    // impossible here — press to start dictating, press again to stop.
     Mod+Ctrl+X hotkey-overlay-title="Toggle dictation" { spawn "voxtype" "record" "toggle"; }
-    F9         hotkey-overlay-title="Dictation (push-to-talk start)" { spawn "voxtype" "record" "start"; }
 
     // --- Clipboard manager ---
     Mod+Shift+V hotkey-overlay-title="Clipboard manager" { spawn-sh "qs -c noctalia-shell ipc call launcher clipboard"; }
