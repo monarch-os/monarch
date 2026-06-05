@@ -12,5 +12,14 @@ clipboard {
     disable-primary
 }
 
+// Disable niri's hot corners. By default the top-left corner toggles the
+// Overview when the cursor lands on it (also during drag-and-drop), which is
+// easy to trigger by accident; `off` turns all four corners off.
+gestures {
+    hot-corners {
+        off
+    }
+}
+
 // Scratchpad-equivalent: a named workspace that lives on the focused output.
 workspace "scratchpad"
