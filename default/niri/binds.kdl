@@ -184,6 +184,7 @@ binds {
     Ctrl+Alt+Tab        hotkey-overlay-title="Focus next monitor"     { focus-monitor-next; }
     Ctrl+Alt+Shift+Tab  hotkey-overlay-title="Focus previous monitor" { focus-monitor-previous; }
     Mod+Ctrl+Delete hotkey-overlay-title="Toggle laptop display" { spawn "monarch-niri-monitor-internal" "toggle"; }
+    Mod+Ctrl+Alt+Delete hotkey-overlay-title="Toggle laptop display mirroring" { spawn "monarch-niri-monitor-internal-mirror" "toggle"; }
 
     // --- Mouse-wheel workspace switch ---
     Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
