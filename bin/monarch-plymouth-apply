@@ -1,17 +1,21 @@
 #!/bin/bash
 
-# monarch:summary=Recolor the Plymouth boot splash and SDDM login screen from the active Noctalia color scheme, then rebuild the initramfs
+# monarch:summary=Recolor the Plymouth boot splash from the active Noctalia color scheme, then rebuild the initramfs
 # monarch:requires-sudo=true
 
-# Per-scheme boot/login theming, MANUAL only — never wired to Noctalia's
+# Per-scheme boot-splash theming, MANUAL only — never wired to Noctalia's
 # colorGeneration hook. The splash assets live inside the initramfs, so any
 # recolor forces ONE `mkinitcpio` rebuild; doing that on every dark/light toggle
 # (the old reactive `monarch-plymouth-set` model) was slow and unreliable, which
 # is why it was removed. This command does it deliberately, on demand.
 #
-# Counterpart: `monarch plymouth reset` restores the shipped default for both.
+# Scope is the BOOT SPLASH only. The SDDM login screen follows the scheme on its
+# own via Noctalia's user-template system (templates.sddm → theme.conf), with no
+# rebuild — see config/noctalia/templates/sddm.conf and monarch-refresh-sddm.
+#
+# Counterpart: `monarch plymouth reset` restores the shipped default splash.
 # Colors come from the active scheme's JSON, mirroring monarch-theme-apply:
-#   mSurface  -> background (splash gradient + SDDM Rectangle)
+#   mSurface  -> background gradient
 #   mOnSurface-> foreground assets (unlock prompt: lock/entry/bullet)
 #   mPrimary  -> progress bar
 # Built-in Noctalia schemes ship no JSON, so we no-op and keep the default splash.
@@ -22,9 +26,7 @@ SETTINGS="$HOME/.config/noctalia/settings.json"
 SCHEMES_DIR="$HOME/.config/noctalia/colorschemes"
 MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
 PLYMOUTH_SRC="$MONARCH_ROOT/default/plymouth"
-SDDM_SRC="$MONARCH_ROOT/default/sddm/monarch"
 PLYMOUTH_DEST="/usr/share/plymouth/themes/monarch"
-SDDM_DEST="/usr/share/sddm/themes/monarch"
 
 command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
 command -v magick >/dev/null 2>&1 || { echo "imagemagick (magick) is required" >&2; exit 1; }
@@ -67,39 +69,25 @@ bg_b=$(awk -v n=$((16#${bg_hex:4:2})) 'BEGIN{printf "%.3f", n/255}')
 # Tint a monochrome asset to a solid color, preserving alpha.
 tint() { magick "$1" -channel RGB +level-colors "#$2","#$2" "$1"; }
 
-# --- Stage Plymouth ----------------------------------------------------------
+# --- Stage + recolor ---------------------------------------------------------
 stage=$(mktemp -d) || exit 1
 trap 'rm -rf "$stage"' EXIT
-ply="$stage/plymouth"
-mkdir -p "$ply"
-cp -a "$PLYMOUTH_SRC/." "$ply/"
+cp -a "$PLYMOUTH_SRC/." "$stage/"
 
 sed -i \
   -e "s/^Window.SetBackgroundTopColor.*/Window.SetBackgroundTopColor($bg_r, $bg_g, $bg_b);/" \
   -e "s/^Window.SetBackgroundBottomColor.*/Window.SetBackgroundBottomColor($bg_r, $bg_g, $bg_b);/" \
-  "$ply/monarch.script"
-sed -i "s/^ConsoleLogBackgroundColor=.*/ConsoleLogBackgroundColor=0x$bg_hex/" "$ply/monarch.plymouth"
+  "$stage/monarch.script"
+sed -i "s/^ConsoleLogBackgroundColor=.*/ConsoleLogBackgroundColor=0x$bg_hex/" "$stage/monarch.plymouth"
 
 for a in bullet.png entry.png lock.png; do
-  [[ -f $ply/$a ]] && tint "$ply/$a" "$fg_hex"
+  [[ -f $stage/$a ]] && tint "$stage/$a" "$fg_hex"
 done
-[[ -f $ply/progress_bar.png ]] && tint "$ply/progress_bar.png" "$accent_hex"
-
-# --- Stage SDDM --------------------------------------------------------------
-# Only the background color is hard-coded in Main.qml; tint the normal unlock
-# assets. The *-failed variants keep their red failure cue (left untinted).
-sddm="$stage/sddm"
-mkdir -p "$sddm"
-cp -a "$SDDM_SRC/." "$sddm/"
-sed -i "s/#1a1b26/#$bg_hex/g" "$sddm/Main.qml"
-for a in bullet.png entry.png lock.png; do
-  [[ -f $sddm/$a ]] && tint "$sddm/$a" "$fg_hex"
-done
+[[ -f $stage/progress_bar.png ]] && tint "$stage/progress_bar.png" "$accent_hex"
 
 # --- Commit (sudo) -----------------------------------------------------------
-sudo mkdir -p "$PLYMOUTH_DEST" "$SDDM_DEST"
-sudo cp -a "$ply/." "$PLYMOUTH_DEST/"
-sudo cp -a "$sddm/." "$SDDM_DEST/"
+sudo mkdir -p "$PLYMOUTH_DEST"
+sudo cp -a "$stage/." "$PLYMOUTH_DEST/"
 sudo plymouth-set-default-theme monarch
 
 # The splash lives in the initramfs — this rebuild is the one unavoidable cost.
@@ -109,4 +97,4 @@ else
   sudo mkinitcpio -P
 fi
 
-echo "Recolored boot splash + login screen from scheme '$scheme' ($variant)."
+echo "Recolored the boot splash from scheme '$scheme' ($variant)."

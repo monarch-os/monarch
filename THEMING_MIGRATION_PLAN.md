@@ -97,7 +97,8 @@ catppuccin, gruvbox, kanagawa, nord, rose-pine, tokyo-night.
 | neovim / obsidian | user-template Material (à écrire) |
 | niri (focus-ring/border) | template **intégré** Noctalia |
 | GTK/Qt dark/light + couleurs | natif via `colorSchemes.syncGsettings` (+ templates GTK/Qt dispo) |
-| Plymouth (boot) | splash statique Monarch uniquement ; theming par scheme **retiré** (TODO) |
+| SDDM (login) | **user-template** `templates.sddm` → `theme.conf` (auto-sync, sans rebuild) |
+| Plymouth (boot) | recolor manuel `monarch plymouth apply` (rebuild initramfs) ; splash statique par défaut |
 | RGB clavier (asusctl/openrgb) | résiduel — `monarch-theme-apply` |
 
 ---
@@ -314,17 +315,21 @@ Noctalia auto-injecte pour foot/niri/ghostty/alacritty, **pas pour kitty** (incl
 - [ ] Screenshot de contrôle (`monarch capture screenshot fullscreen save`).
 
 ## TODO (post-migration)
-- [x] **Theming Plymouth — implémentation manuelle (2026-06-05).** Nouveau
-      `bin/monarch-plymouth-apply` (`monarch plymouth apply`) : recolore le splash **et**
-      l'écran SDDM depuis le scheme Noctalia actif (fond = `mSurface`, assets de l'invite
-      déverrouillage = `mOnSurface`, barre de progression = `mPrimary`), puis **un seul**
-      rebuild initramfs. **Manuel uniquement** — jamais branché sur `hooks.colorGeneration`
-      (c'est la leçon du retrait réactif : le rebuild est inévitable mais doit être délibéré).
-      Pendant : `monarch plymouth reset` restaure le défaut. Les variantes SDDM `-failed`
-      gardent leur signal rouge (non teintées). Le splash statique livré = scheme Monarch
-      dark, donc no-op visuel tant qu'on ne change pas de scheme.
-      *(Non fait, par choix : suivi automatique du scheme — éviterait-on le rebuild via un
-      cache d'assets pré-rendus ? Reporté tant que le besoin n'est pas avéré.)*
+- [x] **Theming boot/login par scheme (2026-06-05) — deux mécanismes distincts.**
+      - **SDDM (login)** : suit le scheme **automatiquement** via le système de
+        user-templates Noctalia (comme nvim/obsidian). `config/noctalia/templates/sddm.conf`
+        (tokens MD3) → rendu par Noctalia dans `/usr/share/sddm/themes/monarch/theme.conf` à
+        chaque génération de couleurs ; `Main.qml` lit `config.mSurface` (SDDM expose les clés
+        de `theme.conf`). `metadata.desktop` pointe `ConfigFile=theme.conf` ; `monarch-refresh-sddm`
+        rend le `theme.conf` world-writable (Noctalia écrit en utilisateur sous /usr/share).
+        **Aucun rebuild, aucune commande manuelle.** (Inspiré du thème mda-dev/noctalia-sddm-theme
+        mais appliqué à notre propre thème pour garder le branding, sans dépendance Qt5 ajoutée.)
+      - **Plymouth (boot splash)** : recolor **manuel** `monarch plymouth apply` — le splash vit
+        dans l'initramfs, donc un seul `mkinitcpio` rebuild délibéré (jamais branché sur le hook,
+        leçon du retrait réactif). Couleurs du scheme actif : fond=`mSurface`, assets=`mOnSurface`,
+        barre=`mPrimary`. `monarch plymouth reset` restaure le défaut.
+      *(Non fait, par choix : suivi automatique du splash de boot — éviterait-on le rebuild via un
+      cache d'assets pré-rendus ? Reporté tant que le besoin n'est pas avéré. SDDM, lui, suit déjà.)*
 - [x] Bloc `light` de `Monarch.json` écrit (variante claire — commits `95101be` + `072bd32`).
 - [ ] Companion **pywalfox** (Firefox) à câbler à l'install (addon + native host).
 

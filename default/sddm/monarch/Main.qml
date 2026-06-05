@@ -5,7 +5,10 @@ Rectangle {
   id: root
   width: 640
   height: 480
-  color: "#1a1b26"
+  // Background follows the active Noctalia scheme: SDDM exposes theme.conf keys as
+  // `config.*`, and Noctalia regenerates theme.conf (templates.sddm) on each color
+  // change. Falls back to the Monarch dark surface if the key is missing.
+  color: config.mSurface || "#1a1b26"
 
   property string currentUser: userModel.lastUser
   property bool loginFailed: false
