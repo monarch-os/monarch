@@ -4,8 +4,9 @@
 > Branche : `feat/niri-migration`.
 > Dernier audit de conformité au code : **2026-06-05** — corrigé : bloc `light`
 > écrit, nom de la migration de nettoyage (`1779188617`), layout `themes/` aplati,
-> compteurs de tests. Theming Plymouth livré (manuel, voir TODO). Reste côté code :
-> companion pywalfox.
+> compteurs de tests. Theming Plymouth livré (manuel, voir TODO). Theming Firefox
+> (pywalfox) **descopé** (2026-06-05). **Plus aucun item code restant** — il ne reste
+> que de la validation VM.
 
 ## Objectif
 
@@ -60,7 +61,9 @@ système/hardware que Noctalia ne peut pas atteindre.
 
 ## Questions ouvertes
 
-- [x] **Navigateur** : les deux. Firefox → natif (Pywalfox). Chromium → hook résiduel (`monarch-theme-apply`).
+- [x] **Navigateur** : Chromium → hook résiduel (`monarch-theme-apply`). Firefox → theming
+      **descopé** (2026-06-05) : pywalfox imposait un paquet AUR + une extension force-installée
+      pour un gain limité ; on laisse Firefox non thémé.
 - [x] Chemin wallpaper **(b)** `~/.config/monarch/backgrounds/<scheme>/` (writable, seedé à l'install).
 - [x] « Le fond change vraiment » au changement de thème : oui (`ipc call wallpaper set`).
 
@@ -91,7 +94,7 @@ catppuccin, gruvbox, kanagawa, nord, rose-pine, tokyo-night.
 | alacritty / kitty / foot / ghostty | template **intégré** Noctalia |
 | fuzzel | intégré |
 | VSCode | natif (extension *NoctaliaTheme* + template) |
-| Firefox | natif (Pywalfox) |
+| Firefox | **non thémé** — pywalfox descopé (2026-06-05) |
 | Chromium | résiduel — `monarch-theme-apply` |
 | btop / helix | template **intégré** Noctalia |
 | neovim / obsidian | user-template Material (à écrire) |
@@ -116,9 +119,9 @@ catppuccin, gruvbox, kanagawa, nord, rose-pine, tokyo-night.
       `templates.activeTemplates: [{enabled,id}]` + `templates.enableUserTheming`.
       Baké : alacritty, kitty, foot, ghostty, btop, helix. Aussi posé
       `colorSchemes.syncGsettings=true` + `darkMode=true`.
-- [x] Ajoutés au défaut : `niri`, `code` (= VSCode), `pywalfox`, `starship`. IDs confirmés en VM.
-      (code/pywalfox : companions requis — extension *NoctaliaTheme* / addon pywalfox,
-      à wirer à l'install en Phase 6.)
+- [x] Ajoutés au défaut : `niri`, `code` (= VSCode), `starship`. IDs confirmés en VM.
+      (code : companion requis — extension *NoctaliaTheme*, wirée à l'install en Phase 6.)
+      Le template `pywalfox` a été retiré des `activeTemplates` (theming Firefox descopé).
 - [x] Écrire les 14 schemes Material sous `config/noctalia/colorschemes/<Nom>/<Nom>.json`
       (déployés via `install/config/config.sh` → `cp -R config/* ~/.config/`).
       Générés depuis `themes/<nom>/colors.toml` via le mapping de `noctalia.json.tpl`
@@ -279,8 +282,8 @@ Noctalia auto-injecte pour foot/niri/ghostty/alacritty, **pas pour kitty** (incl
       (Open VSX `Noctalia.noctaliatheme`) + pose `workbench.colorTheme=NoctaliaTheme`.
       (Pas de script d'install VSCodium dans le repo → rien à câbler côté Codium.)
       → **VM** : valider l'id d'extension + le label de thème exact.
-- [ ] Companion **pywalfox** (Firefox) : non câblé à l'install (addon + native host = manuel,
-      non testable ici). TODO restant.
+- [x] Companion **pywalfox** (Firefox) : **descopé (2026-06-05)** — paquet AUR + extension
+      force-installée pour un gain limité. Template `pywalfox` retiré des `activeTemplates`.
 - [x] Éditer `default/pi/agent/extensions/monarch-system-theme.ts` : lit `colorSchemes.darkMode`
       de `~/.config/noctalia/settings.json` (au lieu de `current/theme/light.mode`).
 - [x] `test/monarch-cli-test.sh` : assertions `theme set/list/current` retirées/repointées sur
@@ -337,7 +340,7 @@ Noctalia auto-injecte pour foot/niri/ghostty/alacritty, **pas pour kitty** (incl
       *(Non fait, par choix : suivi automatique du splash de boot — éviterait-on le rebuild via un
       cache d'assets pré-rendus ? Reporté tant que le besoin n'est pas avéré. SDDM, lui, suit déjà.)*
 - [x] Bloc `light` de `Monarch.json` écrit (variante claire — commits `95101be` + `072bd32`).
-- [ ] Companion **pywalfox** (Firefox) à câbler à l'install (addon + native host).
+- [x] ~~Companion pywalfox (Firefox)~~ — **descopé (2026-06-05)** : Firefox reste non thémé.
 
 ## Inconnus à valider en VM (récap)
 - **Chemins de sortie des templates intégrés** (kitty/foot/ghostty/btop/helix) → pour Phase 3.
@@ -347,5 +350,5 @@ Noctalia auto-injecte pour foot/niri/ghostty/alacritty, **pas pour kitty** (incl
   (`FileView watchChanges` + reload sur remplacement atomique). Reste à confirmer empiriquement en VM.
 - Pas de boucle : `wallpaper set` ne régénère pas les couleurs (car `useWallpaperColors=false`). ✅
   (chemin `useWallpaperColors` shunté dans `HooksService`, pas de re-déclenchement colorGeneration).
-- IDs de template pour vscode / firefox ; neovim/obsidian natifs ou non.
+- ID de template pour vscode ; neovim/obsidian natifs ou non. (firefox descopé)
 - Le bloc `terminal` des schemes est-il consommé par les templates terminaux (fidélité ANSI) ?
