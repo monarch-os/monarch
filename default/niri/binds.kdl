@@ -56,10 +56,6 @@ binds {
     // script is needed. Only has an effect on windows whose opacity rule is < 1.0 (see windows.kdl:
     // the global default is 0.97 and terminals 0.95, so this flips them fully opaque and back).
     Mod+BackSpace hotkey-overlay-title="Toggle window transparency" { toggle-window-rule-opacity; }
-    // Toggle window gaps globally (none <-> layout.kdl default). Ports the old
-    // SUPER+SHIFT+BACKSPACE monarch-hyprland-window-gaps-toggle; niri has no
-    // runtime gaps action, so this rewrites runtime.kdl + live-reloads.
-    Mod+Shift+BackSpace hotkey-overlay-title="Toggle window gaps" { spawn "monarch-niri-gaps-toggle"; }
 
     // --- Captures ---
     Print hotkey-overlay-title="Screenshot (with editor)" { spawn "monarch-capture-screenshot"; }
