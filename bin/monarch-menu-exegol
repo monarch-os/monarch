@@ -335,16 +335,17 @@ cmd_picker() {
   fi
 
   local self="monarch-menu-exegol"
-  local header='Enter: shell   ^X: stop   ^D: remove   ^W: workspace   ^F: firefox   ^B: bloodhound   ^N: create   ^R: refresh'
+  local actions=$'Enter: shell   ^X: stop   ^D: remove   ^W: workspace\n^F: firefox   ^B: bloodhound   ^N: create   ^R: refresh'
 
   "$self" _list | fzf \
     --ansi \
+    --layout=reverse \
     --delimiter=$'\t' \
     --with-nth=3 \
     --prompt='Exegol ❯ ' \
-    --header="$header" \
+    --footer="$actions" \
     --preview="$self info {1}" \
-    --preview-window='right,55%,wrap' \
+    --preview-window='down,50%,wrap,border-top' \
     --bind="enter:execute-silent($self _enter {1} {2})+abort" \
     --bind="ctrl-x:execute($self stop {1})+reload($self _list)" \
     --bind="ctrl-d:execute($self remove {1})+reload($self _list)" \
@@ -355,12 +356,13 @@ cmd_picker() {
     --bind="ctrl-r:reload($self _list)"
 }
 
-# Default entry point: always open the picker in its own centered floating
-# terminal (via the Monarch presentation launcher), even when called from an
-# existing terminal. The launcher re-invokes us as `_picker` so we land
-# directly in cmd_picker inside the new terminal.
+# Default entry point: always open the picker in its own floating terminal, even
+# when called from an existing terminal. The dedicated org.monarch.pentest app-id
+# (not the launcher's default org.monarch.terminal) matches a fitted niri
+# window-rule so the picker + preview fill the window instead of a tall, mostly
+# empty float. The launcher re-invokes us as `_picker`, landing in cmd_picker.
 cmd_menu() {
-  exec monarch-launch-floating-terminal-with-presentation monarch-menu-exegol _picker
+  exec monarch-launch-floating-terminal-with-presentation --app-id=org.monarch.pentest monarch-menu-exegol _picker
 }
 
 # Route sub-commands
