@@ -20,10 +20,12 @@ cat > ~/.vscode/argv.json << 'EOF'
 }
 EOF
 
-# Ensure VSC's own auto-update feature is turned off
-printf '{\n  "update.mode": "none"\n}\n' > ~/.config/Code/User/settings.json
+# Ensure VSC's own auto-update feature is turned off and follow Noctalia's theme
+printf '{\n  "update.mode": "none",\n  "workbench.colorTheme": "NoctaliaTheme"\n}\n' > ~/.config/Code/User/settings.json
 
-# Apply Monarch theme to VSCode
-monarch-theme-set-vscode
+# Theming is delegated to Noctalia via the NoctaliaTheme companion extension
+# (Open VSX). Install it before Noctalia resolves editor paths; if Noctalia is
+# already running, it must be restarted to pick up the new VSCode install.
+code --install-extension Noctalia.noctaliatheme >/dev/null 2>&1 || true
 
 setsid gtk-launch code

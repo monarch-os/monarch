@@ -5,15 +5,7 @@
 # monarch:name=lock
 # monarch:examples=monarch system lock
 
-if ! pidof hyprlock >/dev/null; then
-  (
-    hyprlock
-    monarch-system-wake
-  ) &
-fi
-
-# Set keyboard layout to default (first layout)
-hyprctl switchxkblayout all 0 > /dev/null 2>&1
+qs -c noctalia-shell ipc call lockScreen lock >/dev/null 2>&1
 
 # Ensure 1password is locked
 if pgrep -x "1password" >/dev/null; then
@@ -23,12 +15,10 @@ fi
 # Avoid running screensaver when locked
 pkill -f org.monarch.screensaver
 
-
 if [[ ${MONARCH_LOCK_ONLY:-false} != "true" ]]; then
   (
     sleep 3
-    pidof hyprlock >/dev/null || exit 0
     monarch-brightness-keyboard off
-    monarch-brightness-display off
+    niri msg action power-off-monitors >/dev/null 2>&1
   ) &
 fi

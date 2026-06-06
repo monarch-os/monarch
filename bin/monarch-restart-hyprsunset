@@ -1,5 +1,0 @@
-#!/bin/bash
-
-# monarch:summary=Restart the hyprsunset service (used for blue light filtering/night light).
-
-monarch-restart-app hyprsunset

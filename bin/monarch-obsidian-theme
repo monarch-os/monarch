@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# monarch:summary=Distribute the Noctalia-generated Obsidian theme to all vaults
+# monarch:hidden=true
+
+# Post_hook for the [templates.obsidian] Noctalia user-template. Noctalia renders
+# ~/.config/noctalia/templates/obsidian.css into the staged theme below; this fans
+# it out to every Obsidian vault declared in obsidian.json.
+
+STAGED_CSS="$HOME/.config/monarch/obsidian/theme.css"
+OBSIDIAN_JSON="$HOME/.config/obsidian/obsidian.json"
+
+[[ -f $STAGED_CSS ]] || exit 0
+[[ -f $OBSIDIAN_JSON ]] || exit 0
+
+jq -r '.vaults | values[].path' "$OBSIDIAN_JSON" 2>/dev/null | while read -r vault_path; do
+  [[ -d $vault_path/.obsidian ]] || continue
+
+  theme_dir="$vault_path/.obsidian/themes/Noctalia"
+  mkdir -p "$theme_dir"
+
+  [[ -f $theme_dir/manifest.json ]] || cat >"$theme_dir/manifest.json" <<'EOF'
+{
+  "name": "Noctalia",
+  "version": "1.0.0",
+  "minAppVersion": "0.16.0",
+  "description": "Automatically syncs with your current Noctalia color scheme",
+  "author": "Monarch",
+  "authorUrl": "https://monarchlinux.com"
+}
+EOF
+
+  cp "$STAGED_CSS" "$theme_dir/theme.css"
+
+  # Drop the orphaned pre-Noctalia theme. Monarch used to ship this theme under
+  # the name "Monarch"; once cssTheme is repointed below it is inert, so remove
+  # the stale dir to keep the vault's theme list clean.
+  rm -rf "$vault_path/.obsidian/themes/Monarch"
+
+  # Activate the theme. Distributing theme.css is inert until the vault selects
+  # it: Obsidian only applies a community theme when appearance.json sets
+  # "cssTheme". Force it to "Noctalia" so the auto-sync actually shows. Obsidian
+  # reads appearance.json on (re)open, so this takes effect next time the vault loads.
+  appearance="$vault_path/.obsidian/appearance.json"
+  [[ -f $appearance ]] || echo '{}' >"$appearance"
+  tmp=$(mktemp)
+  if jq '.cssTheme = "Noctalia"' "$appearance" >"$tmp" 2>/dev/null; then
+    mv "$tmp" "$appearance"
+  else
+    rm -f "$tmp"
+  fi
+done

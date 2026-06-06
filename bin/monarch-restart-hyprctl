@@ -1,5 +1,0 @@
-#!/bin/bash
-
-# monarch:summary=Reload hyprland configuration (used by the Monarch theme switching).
-
-hyprctl reload >/dev/null

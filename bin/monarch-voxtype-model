@@ -5,4 +5,3 @@
 set -e
 
 monarch-launch-floating-terminal-with-presentation "voxtype setup model"
-monarch-restart-waybar

@@ -1,32 +1,26 @@
 #!/bin/bash
 
-# monarch:summary=Toggle nightlight screen temperature
+# monarch:summary=Toggle nightlight screen temperature (forced on/off) via Noctalia
 # monarch:examples=monarch toggle nightlight
 
-ON_TEMP=4000
-OFF_TEMP=6000
+# Noctalia's `nightLight toggle` IPC cycles through three states
+# (off -> forced -> scheduled -> off), so a single keypress can land on the
+# invisible "scheduled" state and leave the screen colour unchanged. We drive a
+# clean binary forced on/off by editing nightLight.forced + .enabled together in
+# Noctalia's settings.json, which it watches and hot-reloads (Commons/Settings.qml:
+# FileView { watchChanges: true; onFileChanged: scheduleExternalReload() }).
 
-# Ensure hyprsunset is running
-if ! pgrep -x hyprsunset; then
-  setsid uwsm-app -- hyprsunset &
-  sleep 1 # Give it time to register
-fi
+cfg="$HOME/.config/noctalia/settings.json"
+[[ -f $cfg ]] || { mkdir -p "$(dirname "$cfg")"; echo '{}' >"$cfg"; }
 
-# Query the current temperature
-CURRENT_TEMP=$(hyprctl hyprsunset temperature 2>/dev/null | grep -oE '[0-9]+')
-
-restart_nightlighted_waybar() {
-  if grep -q "custom/nightlight" ~/.config/waybar/config.jsonc; then
-    monarch-restart-waybar # restart waybar in case user has waybar module for hyprsunset
-  fi
-}
-
-if [[ $CURRENT_TEMP == $OFF_TEMP ]]; then
-  hyprctl hyprsunset temperature $ON_TEMP
-  notify-send -u low "  Nightlight screen temperature"
-  restart_nightlighted_waybar
+tmp=$(mktemp)
+if jq '.nightLight = (.nightLight // {})
+       | (.nightLight.forced | not) as $new
+       | .nightLight.forced = $new
+       | .nightLight.enabled = $new' "$cfg" >"$tmp"; then
+  mv "$tmp" "$cfg"
 else
-  hyprctl hyprsunset temperature $OFF_TEMP
-  notify-send -u low "   Daylight screen temperature"
-  restart_nightlighted_waybar
+  rm -f "$tmp"
+  echo "monarch-toggle-nightlight: could not update $cfg" >&2
+  exit 1
 fi

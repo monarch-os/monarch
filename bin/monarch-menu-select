@@ -3,13 +3,13 @@
 # monarch:summary=Pick one option with Walker
 # monarch:group=menu
 # monarch:name=select
-# monarch:args=prompt option... [-- walker args...]
+# monarch:args=prompt option... [-- fuzzel args...]
 # monarch:examples=monarch menu select Format jpg png|monarch-menu-select Resolution 4k 1080p 720p -- --width 400
 
 set -euo pipefail
 
 if (( $# < 2 )); then
-  echo "Usage: monarch-menu-select <prompt> <option>... [-- walker args...]" >&2
+  echo "Usage: monarch-menu-select <prompt> <option>... [-- fuzzel args...]" >&2
   exit 1
 fi
 
@@ -31,8 +31,8 @@ while (( $# > 0 )); do
 done
 
 if (( ${#options[@]} == 0 )); then
-  echo "Usage: monarch-menu-select <prompt> <option>... [-- walker args...]" >&2
+  echo "Usage: monarch-menu-select <prompt> <option>... [-- fuzzel args...]" >&2
   exit 1
 fi
 
-printf '%s\n' "${options[@]}" | monarch-launch-walker --dmenu --width 295 --minheight 1 --maxheight 300 -p "$prompt…" "${walker_args[@]}" 2>/dev/null
+printf '%s\n' "${options[@]}" | fuzzel --dmenu --lines 8 -p "$prompt… " "${walker_args[@]}" 2>/dev/null

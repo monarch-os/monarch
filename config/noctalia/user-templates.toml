@@ -1,0 +1,20 @@
+# Noctalia user-templates registry (requires templates.enableUserTheming = true).
+# Inputs live under ~/.config/noctalia/templates/ so they survive monarch-nvim-setup
+# rewriting ~/.config/nvim. Noctalia re-renders these on every color generation.
+# (The sddm output is a system path under /usr/share, made world-writable at
+# install so Noctalia can rewrite it — see monarch-refresh-sddm.)
+
+[templates.nvim-base16]
+input_path = "~/.config/noctalia/templates/nvim-base16.lua"
+output_path = "~/.config/nvim/lua/matugen.lua"
+post_hook = "pkill -SIGUSR1 nvim"
+
+[templates.obsidian]
+input_path = "~/.config/noctalia/templates/obsidian.css"
+output_path = "~/.config/monarch/obsidian/theme.css"
+post_hook = "monarch-obsidian-theme"
+
+[templates.sddm]
+input_path = "~/.config/noctalia/templates/sddm.conf"
+output_path = "/usr/share/sddm/themes/monarch/theme.conf"
+post_hook = "monarch-sddm-theme"

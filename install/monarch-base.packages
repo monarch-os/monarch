@@ -1,7 +1,6 @@
 # Monarch core package list installed via install/packaging/base.sh
 # This file is also used by the ISO builder when determining needs
 
-aether
 alacritty
 alsa-utils
 asdcontrol
@@ -9,17 +8,20 @@ avahi
 bash-completion
 bat
 bind
-bluetui
+bluez
+bluez-utils
 bolt
 brightnessctl
 btop
 chromium
 clang
 claude-code
+cliphist
 cups
 cups-browsed
 cups-filters
 cups-pdf
+ddcutil
 docker
 docker-buildx
 docker-compose
@@ -38,6 +40,7 @@ fd
 ffmpegthumbnailer
 firefox
 fontconfig
+fuzzel
 fzf
 gnome-calculator
 gnome-keyring
@@ -48,15 +51,8 @@ gum
 gvfs-mtp
 gvfs-nfs
 gvfs-smb
-hypridle
-hyprland
-hyprland-guiutils
-hyprland-preview-share-picker
-hyprlock
 hyprpicker
-hyprsunset
 imagemagick
-impala
 imv
 inetutils
 inxi
@@ -73,12 +69,14 @@ libqalculate
 llvm
 localsend
 luarocks
-mako
 man-db
 mise
 mpv
 nautilus
 nautilus-python
+networkmanager
+niri
+noctalia-shell
 noto-fonts
 noto-fonts-cjk
 noto-fonts-emoji
@@ -86,13 +84,13 @@ nss-mdns
 nvim
 nwg-displays
 obsidian
-omarchy-walker
 pamixer
 playerctl
 plocate
 plymouth
 polkit-gnome
 power-profiles-daemon
+python
 python-gobject
 python-pip
 python-pipx
@@ -108,8 +106,6 @@ signal-desktop
 slurp
 starship
 sushi
-swaybg
-swayosd
 system-config-printer
 tesseract
 tesseract-data-eng
@@ -124,20 +120,23 @@ ufw-docker
 unzip
 usage
 uwsm
-waybar
 whois
 wireless-regdb
 wiremix
 wireplumber
 wl-clipboard
+wl-mirror
+wlsunset
+wtype
 woff2-font-awesome
+xdg-desktop-portal-gnome
 xdg-desktop-portal-gtk
-xdg-desktop-portal-hyprland
 xdg-terminal-exec
 xmlstarlet
 xournalpp
 yaru-icon-theme
 yay
+yazi
 zoxide
 zsh
 zsh-autosuggestions
@@ -172,5 +171,4 @@ trash-cli
 waybackurls
 websocat
 wifite
-xorg-xhost
 zsh-theme-powerlevel10k

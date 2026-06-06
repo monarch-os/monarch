@@ -38,7 +38,7 @@ chrome)
 
   setup_policy_directory /etc/opt/chrome/policies/managed
   copy_chromium_flags ~/.config/chrome-flags.conf
-  monarch-theme-set-browser
+  monarch-theme-apply
   announce_browser_installed "Chrome"
   ;;
 edge)
@@ -47,7 +47,7 @@ edge)
 
   setup_policy_directory /etc/opt/edge/policies/managed
   copy_chromium_flags ~/.config/microsoft-edge-stable-flags.conf
-  monarch-theme-set-browser
+  monarch-theme-apply
   announce_browser_installed "Edge"
   ;;
 brave)
@@ -56,7 +56,7 @@ brave)
 
   setup_policy_directory /etc/brave/policies/managed
   copy_chromium_flags ~/.config/brave-flags.conf
-  monarch-theme-set-browser
+  monarch-theme-apply
   announce_browser_installed "Brave"
   ;;
 brave-origin)
@@ -67,7 +67,7 @@ brave-origin)
   mkdir -p ~/.config
   # FIXME: Use normal chromium flags when Brave Origin wrapper has been fixed
   echo "--load-extension=~/.local/share/monarch/default/chromium/extensions/copy-url" > ~/.config/brave-origin-beta-flags.conf
-  monarch-theme-set-browser
+  monarch-theme-apply
   announce_browser_installed "Brave Origin"
   ;;
 firefox)

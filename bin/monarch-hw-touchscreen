@@ -1,6 +1,22 @@
 #!/bin/bash
 
-# monarch:summary=Print the detected Hyprland touchscreen or tablet device name
+# monarch:summary=Print the detected touchscreen or tablet device name
 
-device=$(hyprctl devices -j | jq -r '[.touch[]?.name, .tablets[]?.name] | first // empty')
-[[ -n $device ]] && echo "$device"
+# Detect via the kernel (sysfs), not `libinput list-devices`: the libinput CLI
+# is not guaranteed present on a niri install. A touchscreen/tablet is a *direct*
+# input device (INPUT_PROP_DIRECT, bit 1 of the kernel `properties` bitmask),
+# unlike a touchpad which is INPUT_PROP_POINTER. Match the property rather than
+# the device name: real touchscreens are often named only by their controller
+# (e.g. "ELAN9008:00 04F3:425B") with no "touch" in the name. This is the same
+# signal monarch-toggle-touchscreen acts on, keeping detection and toggling in
+# lock-step.
+for prop_file in /sys/class/input/event*/device/properties; do
+  [[ -r $prop_file ]] || continue
+  props=$(< "$prop_file")
+  [[ $props =~ ^[0-9a-fA-F]+$ ]] || continue
+  (( 0x$props & 0x2 )) || continue # INPUT_PROP_DIRECT
+  name_file="${prop_file%/properties}/name"
+  [[ -r $name_file ]] && cat "$name_file" && exit 0
+done
+
+exit 1

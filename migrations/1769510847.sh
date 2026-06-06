@@ -5,6 +5,6 @@ if monarch-pkg-present omarchy-chromium; then
     pkill -x chromium
     monarch-pkg-drop omarchy-chromium
     monarch-pkg-add chromium
-    monarch-theme-set-browser
+    monarch-cmd-present monarch-theme-apply && monarch-theme-apply >/dev/null 2>&1 || true
   fi
 fi

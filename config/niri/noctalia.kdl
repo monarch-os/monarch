@@ -1,0 +1,22 @@
+// Monarch default niri focus-ring / border colours.
+//
+// Shipped so the `include "./noctalia.kdl"` in config.kdl always resolves on
+// first boot — a missing include is fatal to niri, which would stop niri from
+// starting, so Noctalia would never run to generate this file (boot deadlock).
+//
+// monarch-refresh-niri seeds this into ~/.config/niri/noctalia.kdl when absent.
+// Noctalia's niri template overwrites it with scheme-derived colours once it
+// runs, so edits here only affect the very first boot (values match the Monarch
+// scheme: accent + surface-variant).
+
+layout {
+    focus-ring {
+        active-color "#b471de"
+        inactive-color "#3c2a6c"
+    }
+
+    border {
+        active-color "#b471de"
+        inactive-color "#3c2a6c"
+    }
+}

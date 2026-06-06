@@ -5,5 +5,5 @@
 # monarch:name=wake
 # monarch:examples=monarch system wake
 
-monarch-brightness-display on
+niri msg action power-on-monitors >/dev/null 2>&1
 monarch-brightness-keyboard restore

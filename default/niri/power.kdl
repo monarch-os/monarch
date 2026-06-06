@@ -1,0 +1,15 @@
+// Monarch — power / hardware switch handling.
+//
+// switch-events fire even while the session is locked. We route lid-close
+// through monarch-system-lock (not the raw IPC) to also lock 1Password and
+// tear down the screensaver; MONARCH_LOCK_ONLY skips the display power-off
+// because the impending suspend turns the panel off anyway.
+//
+// Idle handling (screensaver / lock / DPMS) is owned by Noctalia's IdleService,
+// configured under `idle` in ~/.config/noctalia/settings.json.
+
+switch-events {
+    lid-close {
+        spawn "sh" "-c" "MONARCH_LOCK_ONLY=true monarch-system-lock";
+    }
+}

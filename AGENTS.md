@@ -31,7 +31,7 @@ Common prefixes include:
 
 Other current prefixes include:
 
-- `ac-`, `audio-`, `battery-`, `branch-`, `brightness-`, `channel-`, `config-`, `debug-`, `dev-`, `drive-`, `first-`, `font-`, `haptic-`, `hibernation-`, `hook-`, `hyprland-`, `menu-`, `migrate-`, `notification-`, `npx-`, `plymouth-`, `powerprofiles-`, `reinstall-`, `remove-`, `screensaver-`, `show-`, `snapshot-`, `state-`, `sudo-`, `swayosd-`, `system-`, `transcode-`, `tui-`, `tz-`, `upload-`, `version-`, `voxtype-`, `webapp-`, `wifi-`, `windows-`
+- `ac-`, `audio-`, `battery-`, `branch-`, `brightness-`, `channel-`, `config-`, `debug-`, `dev-`, `drive-`, `first-`, `font-`, `haptic-`, `hibernation-`, `hook-`, `menu-`, `migrate-`, `niri-`, `notification-`, `npx-`, `plymouth-`, `powerprofiles-`, `reinstall-`, `remove-`, `screensaver-`, `show-`, `snapshot-`, `state-`, `sudo-`, `system-`, `transcode-`, `tui-`, `tz-`, `upload-`, `version-`, `voxtype-`, `webapp-`, `wifi-`, `windows-`
 
 # Command Metadata
 
@@ -89,22 +89,34 @@ Exceptions are allowed for bootstrap, preflight, migration, and package-helper s
 # Config Structure
 
 - `config/` - default configs copied to `~/.config/`
-- `default/themed/*.tpl` - templates with `{{ variable }}` placeholders for theme colors
-- `themes/*/colors.toml` - theme color definitions (accent, background, foreground, color0-15)
+- `config/noctalia/colorschemes/Monarch/Monarch.json` - the single Monarch color scheme (`dark` + `light` blocks); Noctalia owns colors and dark/light
+- `config/noctalia/templates/` + `config/noctalia/user-templates.toml` - Noctalia user-template inputs for the apps without a built-in template (neovim, obsidian)
+- `themes/<scheme>/` - per-Noctalia-scheme wallpaper sets (flat layout, the only surviving `themes/` content); seeded into `~/.config/monarch/backgrounds/<scheme>/` by `monarch-theme-apply`
+
+# Theming
+
+Theming is delegated to Noctalia (see `THEMING_MIGRATION_PLAN.md`). Noctalia is the source of truth for colors, dark/light, app templates, wallpaper, and the shell. Monarch's home-grown theme engine (curated theme set, `default/themed/*.tpl`, per-theme `colors.toml`, `monarch-theme-set` and friends) has been removed.
+
+- Colors: Monarch ships a single scheme `Monarch` (`config/noctalia/colorschemes/Monarch/Monarch.json`, `dark` + `light` blocks). Noctalia's built-in schemes (Catppuccin, Gruvbox, Nord, …) remain selectable in its picker.
+- Dark/light: Noctalia's global toggle (`colorSchemes.darkMode`). GTK/Qt follow natively via `colorSchemes.syncGsettings`. Nothing in Monarch flips `darkMode`.
+- App theming: terminals (alacritty/kitty/foot/ghostty), btop, helix, niri, VSCode (NoctaliaTheme extension), and Firefox (pywalfox) use **native Noctalia templates**. neovim and obsidian use Noctalia **user-templates** (`config/noctalia/templates/`, registered in `config/noctalia/user-templates.toml`).
+- Residual layer: the only remaining Monarch piece is `bin/monarch-theme-apply` (`monarch theme apply`), wired to Noctalia's `hooks.colorGeneration`. It re-applies what Noctalia can't reach — wallpaper folder, keyboard RGB (asusctl/qmk_hid), Chromium policy color, and Plymouth (interactive only) — deriving colors from the active scheme JSON. It never writes `darkMode`.
 
 # Visual Changes
 
-When making visual changes, such as Waybar styles or desktop appearance, always take and analyze a screenshot after applying the change to verify the result. Use `monarch capture screenshot fullscreen save` for fullscreen screenshots.
+When making visual changes, such as Noctalia bar/widget tweaks or desktop appearance, always take and analyze a screenshot after applying the change to verify the result. Use `monarch capture screenshot fullscreen save` for fullscreen screenshots.
 
 # Refresh Pattern
 
 To copy a default config to user config with automatic backup:
 
 ```bash
-monarch-refresh-config hypr/hyprlock.conf
+monarch-refresh-config noctalia/settings.json
 ```
 
-This copies `~/.local/share/monarch/config/hypr/hyprlock.conf` to `~/.config/hypr/hyprlock.conf`.
+This copies `~/.local/share/monarch/config/noctalia/settings.json` to `~/.config/noctalia/settings.json`.
+
+For the Niri compositor specifically, prefer `monarch-refresh-niri` — it rebuilds `~/.config/niri/config.kdl` by concatenating the Monarch default, the current theme overlay, and the user override (`~/.config/niri/user.kdl`), then validates and reloads.
 
 # Migrations
 
@@ -123,10 +135,10 @@ Migrations may use raw `pacman`, `command -v`, or direct config edits when neede
 
 Example:
 ```bash
-echo "Disable fingerprint in hyprlock if fingerprint auth is not configured"
+echo "Drop fingerprint marker if no fingerprint device is enrolled"
 
 if monarch-cmd-missing fprintd-list || ! fprintd-list "$USER" 2>/dev/null | grep -q "finger"; then
-  sed -i 's/fingerprint:enabled = .*/fingerprint:enabled = false/' ~/.config/hypr/hyprlock.conf
+  rm -f "$HOME/.local/state/monarch/fingerprint-enabled"
 fi
 ```
 
@@ -144,5 +156,8 @@ When Monarch diverges from upstream, mark it clearly:
 - `bin/monarch-branch-set` only supports `master|dev` (no `rc` channel)
 - `test/monarch-cli-test.sh` may need assertion adjustments to match Monarch divergences after a sync
 - Some upstream commands (cliamp, etc.) are intentionally not shipped — skip the corresponding migrations
+- **Compositor: Monarch replaces Hyprland with Niri.** Hyprland-the-compositor and its tightly-coupled daemons (`hypridle`, `hyprsunset`, `xdg-desktop-portal-hyprland`) are dropped in favour of `niri`, `wlsunset`, and `xdg-desktop-portal-gnome`. Only `hyprpicker` is kept (wlr-screencopy color picker) and runs cleanly under Niri. Configs live under `config/niri/`, `default/niri/`. Night light is owned by Noctalia (`nightLight` IPC / `settings.json`), which spawns `wlsunset` itself, so Monarch ships no wlsunset config. Idle (screensaver / lock / DPMS) is owned by Noctalia's `IdleService` (`idle.*` in `settings.json`); lid-close lock is a niri `switch-events` block (`default/niri/power.kdl`). During upstream syncs, drop any new Hyprland compositor configs that come from Omarchy and keep their Niri equivalents.
+- **Desktop shell: Noctalia (Quickshell) replaces waybar + walker + mako + hyprlock + swayosd + swaybg.** A single `qs -c noctalia-shell` process provides the bar, launcher, notifications, control center, lock screen, OSDs and wallpaper management. Driven via IPC (`qs -c noctalia-shell ipc call <target> <function> [args...]`); see `default/monarch-skill/SKILL.md` for the target reference. User config lives at `~/.config/noctalia/settings.json`. `fuzzel` provides the dmenu picker used by `monarch-menu` and friends. During upstream syncs, drop any waybar/walker/mako/hyprlock/swayosd configs that come from Omarchy and surface their equivalents through Noctalia instead.
+- **Theming: delegated to Noctalia.** Monarch's home-grown theme engine is removed (no curated theme set, no `default/themed/*.tpl`, no per-theme `colors.toml`, no `monarch-theme-set`/`-list`/`-current`/`-install`/`-bg-*` and no `theme-set` hook). Monarch ships only the single scheme `config/noctalia/colorschemes/Monarch/Monarch.json` (`dark` + `light`); colors, dark/light, app templates and wallpaper are owned by Noctalia. The lone residual is `monarch-theme-apply` (`monarch theme apply`), wired to `hooks.colorGeneration`, for the system layer Noctalia can't reach (wallpaper folder, keyboard RGB, Chromium policy color, Plymouth). See the **Theming** section above and `THEMING_MIGRATION_PLAN.md`. During upstream syncs, do not reintroduce Omarchy's theme scripts/templates; route theming through Noctalia.
 
 After a sync, run `bash test/monarch-cli-test.sh` and `bin/monarch commands --check` to validate metadata and routes.

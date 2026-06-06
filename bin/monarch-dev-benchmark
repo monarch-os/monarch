@@ -103,7 +103,6 @@ run_case "monarch --help" "$CLI" --help
 run_case "monarch commands" "$CLI" commands
 run_case "monarch commands --json" "$CLI" commands --json
 run_case "monarch commands --all --json" "$CLI" commands --all --json
-run_case "monarch theme set --help" "$CLI" theme set --help
+run_case "monarch theme apply --help" "$CLI" theme apply --help
 run_case "monarch screenshot --help" "$CLI" screenshot --help
 run_case "monarch restart --help" "$CLI" restart --help
-run_case "monarch theme current" "$CLI" theme current

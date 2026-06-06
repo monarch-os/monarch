@@ -1,8 +1,17 @@
 #!/bin/bash
 
 # monarch:summary=Remove all the named packages from the system if they're installed (otherwise ignore).
-# monarch:args=<packages...>
+# monarch:args=[--cascade] <packages...>
 # monarch:requires-sudo=true
+
+# --cascade also removes any installed package that depends on the targets, so a
+# removal can't be blocked by an unexpected dependent (e.g. an AUR package built
+# against one of the targets).
+extra=()
+if [[ $1 == --cascade ]]; then
+  extra+=(--cascade)
+  shift
+fi
 
 installed=()
 for pkg in "$@"; do
@@ -12,5 +21,5 @@ for pkg in "$@"; do
 done
 
 if (( ${#installed[@]} > 0 )); then
-  sudo pacman -Rns --noconfirm "${installed[@]}"
+  sudo pacman -Rns --noconfirm "${extra[@]}" "${installed[@]}"
 fi

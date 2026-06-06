@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Display Hyprland keybindings defined in your configuration using walker for an interactive search menu.
+# monarch:summary=Display Niri keybindings defined in your configuration using fuzzel for an interactive search menu.
 
 declare -A KEYCODE_SYM_MAP
 
@@ -80,39 +80,66 @@ parse_keycodes() {
   fi
 }
 
-# Fetch dynamic keybindings from Hyprland
+# Fetch dynamic keybindings from Niri.
 #
-# Also do some pre-processing:
-# - Remove standard Monarch bin path prefix
-# - Remove uwsm prefix
-# - Map numeric modifier key mask to a textual rendition
-# - Output comma-separated values that the parser can understand
+# Niri does not expose binds via IPC (yet), so we parse the live config file.
+# Each line of the form `<KEY-CHORD> { <action> "<args>"; }` inside a `binds {}`
+# block is converted into the same comma-separated layout the rest of this
+# script expects: modifiers,key,description,dispatcher,arg
 dynamic_bindings() {
-  hyprctl -j binds |
-    jq -r '.[] | {modmask, key, keycode, description, dispatcher, arg} | "\(.modmask),\(.key)@\(.keycode),\(.description),\(.dispatcher),\(.arg)"' |
-    sed -r \
-      -e 's/null//' \
-      -e 's,~/.local/share/monarch/bin/,,' \
-      -e 's,uwsm app -- ,,' \
-      -e 's,uwsm-app -- ,,' \
-      -e 's/@0//' \
-      -e 's/,@/,code:/' \
-      -e 's/^0,/,/' \
-      -e 's/^1,/SHIFT,/' \
-      -e 's/^4,/CTRL,/' \
-      -e 's/^5,/SHIFT CTRL,/' \
-      -e 's/^8,/ALT,/' \
-      -e 's/^9,/SHIFT ALT,/' \
-      -e 's/^12,/CTRL ALT,/' \
-      -e 's/^13,/SHIFT CTRL ALT,/' \
-      -e 's/^64,/SUPER,/' \
-      -e 's/^65,/SUPER SHIFT,/' \
-      -e 's/^68,/SUPER CTRL,/' \
-      -e 's/^69,/SUPER SHIFT CTRL,/' \
-      -e 's/^72,/SUPER ALT,/' \
-      -e 's/^73,/SUPER SHIFT ALT,/' \
-      -e 's/^76,/SUPER CTRL ALT,/' \
-      -e 's/^77,/SUPER SHIFT CTRL ALT,/'
+  local config="$HOME/.config/niri/config.kdl"
+  [[ -f $config ]] || return 0
+
+  # config.kdl is just a list of includes; the actual `binds {}` block lives in
+  # binds.kdl, and the user may add more in user.kdl. Niri merges binds across
+  # all included files, so resolve the top-level includes and scan each one
+  # (plus config.kdl itself, in case binds are ever inlined there).
+  local -a files=("$config")
+  local inc path dir="${config%/*}"
+  while IFS= read -r inc; do
+    path="${inc#*\"}"
+    path="${path%\"*}"
+    path="${path/#\~/$HOME}"
+    [[ $path == ./* ]] && path="$dir/${path#./}"
+    [[ -f $path ]] && files+=("$path")
+  done < <(grep -E '^[[:space:]]*include[[:space:]]+"' "$config")
+
+  awk '
+    FNR == 1 { in_binds = 0; depth = 0 }
+    /^binds\s*\{/ { in_binds = 1; depth = 1; next }
+    in_binds {
+      # Track brace depth so nested blocks (e.g. options on the binding itself)
+      # do not confuse us.
+      n_open = gsub(/\{/, "{")
+      n_close = gsub(/\}/, "}")
+      depth += n_open - n_close
+      if (depth <= 0) { in_binds = 0; next }
+    }
+    !in_binds { next }
+    /hotkey-overlay-title=/ {
+      # Pull "<modifiers>+<key>" left of the first space.
+      key_chord = $1
+      # Extract the hotkey-overlay-title="…" value as the description.
+      title = $0
+      sub(/.*hotkey-overlay-title="/, "", title)
+      sub(/".*/, "", title)
+      # Extract the action: text between the first "{" and "}".
+      action = $0
+      sub(/^[^{]*\{[[:space:]]*/, "", action)
+      sub(/;[[:space:]]*\}.*$/, "", action)
+      # Split modifiers on "+", treat the last token as the key.
+      n = split(key_chord, parts, /\+/)
+      key = parts[n]
+      mods = ""
+      for (i = 1; i < n; i++) {
+        token = toupper(parts[i])
+        if (token == "MOD") token = "SUPER"
+        mods = (mods == "") ? token : mods " " token
+      }
+      # description, dispatcher, arg: only description is meaningful here.
+      printf "%s,%s,%s,,\n", mods, key, title
+    }
+  ' "${files[@]}"
 }
 
 # Hardcoded bindings, like the copy-url extension and such
@@ -151,17 +178,14 @@ parse_bindings() {
         gsub(/(^|,)[[:space:]]*exec[[:space:]]*,?/, "", action);
         gsub(/^[ \t]+|[ \t]+$/, "", action);
         gsub(/[ \t]+/, " ", key_combo);  # Collapse multiple spaces to one
-
-        # Escape XML entities
-        gsub(/&/, "\\&amp;", action);
-        gsub(/</, "\\&lt;", action);
-        gsub(/>/, "\\&gt;", action);
-        gsub(/"/, "\\&quot;", action);
-        gsub(/'"'"'/, "\\&apos;", action);
     }
 
     if (action != "") {
-        printf "%-35s → %s\n", key_combo, action;
+        # Pad the key-combo into a fixed-width column so the arrows and
+        # descriptions line up in a second column. fuzzel renders with a
+        # monospace font, so char-count padding aligns visually; the window is
+        # widened via --width below so descriptions are not truncated.
+        printf "%-25s  →  %s\n", key_combo, action;
     }
 }'
 }
@@ -243,9 +267,5 @@ output_keybindings() {
 if [[ $1 == "--print" || $1 == "-p" ]]; then
   output_keybindings
 else
-  monitor_height=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .height')
-  menu_height=$((monitor_height * 40 / 100))
-
-  output_keybindings |
-    walker --dmenu -p 'Keybindings' --width 800 --height "$menu_height"
+  output_keybindings | fuzzel --dmenu --width 64 --lines 20 -p 'Keybindings… '
 fi

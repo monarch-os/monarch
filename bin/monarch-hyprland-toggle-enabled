@@ -1,6 +1,0 @@
-#!/bin/bash
-
-# monarch:summary=Check if a Hyprland toggle is currently enabled.
-# monarch:args=<flag-name>
-
-[[ -f "$HOME/.local/state/monarch/toggles/hypr/$1.conf" ]]

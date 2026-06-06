@@ -1,0 +1,25 @@
+// Monarch — miscellaneous singletons (cursor, screenshots, clipboard,
+// scratchpad workspace).
+
+cursor {
+    hide-when-typing
+    hide-after-inactive-ms 4000
+}
+
+screenshot-path "~/Pictures/screenshot-%Y-%m-%d_%H-%M-%S.png"
+
+clipboard {
+    disable-primary
+}
+
+// Disable niri's hot corners. By default the top-left corner toggles the
+// Overview when the cursor lands on it (also during drag-and-drop), which is
+// easy to trigger by accident; `off` turns all four corners off.
+gestures {
+    hot-corners {
+        off
+    }
+}
+
+// Scratchpad-equivalent: a named workspace that lives on the focused output.
+workspace "scratchpad"

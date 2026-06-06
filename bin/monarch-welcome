@@ -1,0 +1,73 @@
+#!/bin/bash
+
+# monarch:summary=Monarch welcome / onboarding menu (TUI)
+# monarch:examples=monarch welcome
+
+set -uo pipefail
+
+is_online()    { ping -c1 -W1 1.1.1.1 >/dev/null 2>&1; }
+has_voxtype()  { command -v voxtype >/dev/null 2>&1; }
+
+render_header() {
+  if command -v gum >/dev/null 2>&1; then
+    gum style \
+      --foreground 213 --border-foreground 213 --border rounded \
+      --padding "1 4" --margin "0 0 1 0" --align center \
+      "Welcome to Monarch" "" "A few steps to get you started"
+  else
+    cat <<HEADER
+
+  ╭───────────────────────╮
+  │   Welcome to Monarch  │
+  ╰───────────────────────╯
+  A few steps to get you started.
+
+HEADER
+  fi
+}
+
+pick() {
+  # $@ = labels; prints selected label on stdout.
+  if command -v gum >/dev/null 2>&1; then
+    printf '%s\n' "$@" | gum choose --height "$(($# + 2))"
+  else
+    PS3=$'\nSelect: '
+    select choice in "$@"; do
+      [[ -n $choice ]] && { echo "$choice"; return; }
+    done
+  fi
+}
+
+press_to_continue() {
+  echo
+  read -n1 -p "  Press any key to return to the welcome menu..." -r _ || true
+}
+
+while true; do
+  clear
+  render_header
+
+  on=$(is_online    && echo "✓" || echo "○")
+  vx=$(has_voxtype  && echo "✓" || echo "○")
+
+  labels=(
+    "[ ]   Keybindings cheatsheet"
+    "[$on] 󰖩  Wi-Fi setup"
+    "[ ]   System update"
+    "[$vx]   Voxtype dictation"
+    "[—]   Quit"
+  )
+
+  sel=$(pick "${labels[@]}")
+
+  case "$sel" in
+    *Keybindings*)  monarch-menu-keybindings; press_to_continue ;;
+    *Wi-Fi*)        monarch-launch-wifi;      press_to_continue ;;
+    *update*)       monarch-update;           press_to_continue ;;
+    *Voxtype*)      monarch-voxtype-install;  press_to_continue ;;
+    *Quit*|"")      break ;;
+  esac
+done
+
+clear
+echo "Done. Re-open later with: monarch welcome"

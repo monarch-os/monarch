@@ -1,8 +1,0 @@
-[[entries]]
-default = true
-name = "Duckduckgo"
-url = "https://duckduckgo.com/?q=%TERM%"
-
-[[entries]]
-name = "Google"
-url = "https://www.google.com/search?q=%TERM%"

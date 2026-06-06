@@ -9,24 +9,53 @@ RFSWIFT_REPO="penthertz/rfswift_noble"
 # is hardcoded to ~/rfswift-workspace), so we always pass --workspace explicitly.
 RFSWIFT_WORKSPACE_ROOT="$HOME/Work/rfswift"
 
-# Display interactive menu using walker dmenu (used by creation wizard)
+# gum pickers for the creation wizard (cmd_create). The wizard runs inside a
+# floating terminal, so the whole flow stays in the TUI instead of popping GUI
+# dialogs.
 menu() {
-  local prompt="$1"
-  local options="$2"
-  sleep 0.3
-  echo -e "$options" | monarch-launch-walker --dmenu --width 295 --minheight 1 --maxheight 600 -p "$prompt…" 2>/dev/null
+  local prompt="$1" options="$2"
+  echo -e "$options" | grep -v '^[[:space:]]*$' | gum choose --header "$prompt"
 }
 
-# Display a free text input using walker dmenu
 input() {
   local prompt="$1"
-  sleep 0.3
-  monarch-launch-walker --dmenu --inputonly --width 295 -p "$prompt…" 2>/dev/null
+  gum input --placeholder "$prompt"
 }
 
-# Show container info (used as preview text by the Lua menu)
+# Pick a single file with yazi (chooser mode). Prints the chosen path, or
+# nothing if the user quits without selecting.
+pick_file() {
+  local out path
+  out=$(mktemp)
+  yazi --chooser-file="$out" "$HOME"
+  path=$(head -n1 "$out" 2>/dev/null)
+  rm -f "$out"
+  [[ -n "$path" ]] && printf '%s\n' "$path"
+}
+
+# Spawn a fresh, centered floating terminal running `monarch-menu-rfswift <args>`.
+# Same presentation launcher used by the picker and the SSH manager.
+launch_in_terminal() {
+  monarch-launch-floating-terminal-with-presentation monarch-menu-rfswift "$@"
+}
+
+# Show container info (rendered as the fzf preview panel)
 cmd_info() {
   local name="$1"
+
+  if [[ "$name" == "__create__" ]]; then
+    cat <<'EOF'
+Create a new RF Swift workspace.
+
+You will be guided through:
+  • Image selection
+  • Container name
+  • VPN configuration (OpenVPN or WireGuard, optional)
+  • Session recording (optional)
+  • Desktop mode (optional)
+EOF
+    return 0
+  fi
 
   local inspect
   inspect=$(docker inspect "$name" --format json 2>/dev/null)
@@ -72,7 +101,9 @@ cmd_info() {
   [[ -n "$ports" ]] && echo "Ports       : $ports"
 }
 
-# Open a shell in a running container
+# Session actions (shell/start) open a dedicated floating terminal via
+# xdg-terminal-exec + uwsm-app — like the rest of Monarch — so each session is
+# its own uwsm scope and the picker (cmd_picker) stays open behind it.
 cmd_shell() {
   local name="$1"
   setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title="RF Swift" -e bash -c "rfswift exec -c '$name' -e /bin/bash"
@@ -84,16 +115,16 @@ cmd_start() {
   setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title="RF Swift" -e bash -c "docker start '$name' && rfswift exec -c '$name' -e /bin/bash"
 }
 
-# Stop a running container
+# Transient ops: run in the foreground. The picker invokes these with fzf
+# `execute`, inside its own already-scoped terminal, then reloads the list.
 cmd_stop() {
   local name="$1"
-  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title="RF Swift" -e bash -c "rfswift stop -c '$name'"
+  rfswift stop -c "$name"
 }
 
-# Remove a container
 cmd_remove() {
   local name="$1"
-  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title="RF Swift" -e bash -c "rfswift remove -c '$name'"
+  rfswift remove -c "$name"
 }
 
 # Open workspace directory in file manager
@@ -104,14 +135,21 @@ cmd_workspace() {
     --format '{{range .Mounts}}{{if eq .Destination "/root/workspace"}}{{.Source}}{{end}}{{end}}' 2>/dev/null)
 
   if [[ -n "$ws_path" && -d "$ws_path" ]]; then
-    nautilus "$ws_path" &
+    setsid uwsm-app -- nautilus "$ws_path"
   else
     notify-send "RF Swift" "Workspace introuvable pour $name"
   fi
 }
 
-# Interactive container creation wizard
+# Interactive container creation wizard (gum TUI).
 cmd_create() {
+  # gum needs a terminal. When invoked headless, relaunch in a floating one.
+  if [[ ! -t 1 ]]; then
+    launch_in_terminal create
+    return
+  fi
+
+  # Step 1: Select image
   # Curated subset of useful images. Sizes are a 2026-04 snapshot from
   # `rfswift images remote` (penthertz/rfswift_noble) — refresh manually.
   local all_images=("sdr_full" "sdr_light" "wifi" "bluetooth" "hardware" "reversing" "rfid" "automotive" "network")
@@ -154,16 +192,14 @@ cmd_create() {
   local image
   image=$(echo "$choice" | awk '{print $2}')
 
-  # If image is not installed, offer to pull it first
+  # If image is not installed, offer to pull it first (inline, in this terminal).
   if [[ "$choice" == *"⚫"* ]]; then
-    local install_choice
-    install_choice=$(menu "Image non installée" "Télécharger $image puis créer\nAnnuler")
-    [[ -z "$install_choice" || "$install_choice" == *"Annuler"* ]] && return 0
-    setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title="RF Swift" -e bash -c "rfswift images pull -i '$image' && monarch-menu-rfswift create"
+    gum confirm "Télécharger l'image « $image » puis créer ?" || return 0
+    rfswift images pull -i "$image" && exec monarch-menu-rfswift create
     return 0
   fi
 
-  # Step 2: Container name (free text input)
+  # Step 2: Container name
   local name
   name=$(input "Nom du conteneur")
   [[ -z "$name" ]] && return 0
@@ -184,18 +220,8 @@ cmd_create() {
   esac
 
   if [[ -n "$vpn_scheme" ]]; then
-    local filter_label filter_glob
-    if [[ "$vpn_scheme" == "openvpn" ]]; then
-      filter_label="Fichiers OpenVPN"
-      filter_glob="*.ovpn"
-    else
-      filter_label="Fichiers WireGuard"
-      filter_glob="*.conf"
-    fi
     local vpn_path
-    vpn_path=$(zenity --file-selection \
-      --title="Sélectionner la configuration VPN" \
-      --file-filter="${filter_label}|${filter_glob}" 2>/dev/null)
+    vpn_path=$(pick_file)
     if [[ -n "$vpn_path" ]]; then
       local vpn_quoted
       printf -v vpn_quoted '%q' "${vpn_scheme}:${vpn_path}"
@@ -226,23 +252,84 @@ cmd_create() {
   printf -v ws_quoted '%q' "$RFSWIFT_WORKSPACE_ROOT/$name"
   local workspace_flag="--workspace $ws_quoted"
 
-  # Build and execute command
+  # Build and run — quote name/image; vpn_flags is already %q-escaped. Runs in
+  # this terminal so the wizard flows straight into the new container's shell.
   local cmd
   printf -v cmd 'rfswift run -n %q -i %q %s %s %s %s' "$name" "$image" "$vpn_flags" "$record_flag" "$desktop_flag" "$workspace_flag"
-  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title="RF Swift" -e bash -c "$cmd"
+  echo "+ $cmd"
+  bash -c "$cmd" || {
+    local rc=$?
+    echo
+    echo "rfswift a échoué (code $rc)."
+    read -rsn1 -p "Appuie sur une touche pour fermer…"
+  }
 }
 
-# Launch the Walker RF Swift menu (default, no arguments)
-cmd_menu() {
-  # Check if rfswift command is available and offer to install if missing
+# Emit the picker rows as TSV: <name>\t<state>\t<display>. The first two
+# columns are hidden (used by fzf placeholders for preview/actions); only the
+# third is shown. A synthetic "Create" row sits on top.
+cmd_list() {
+  printf '%s\t%s\t%s\n' "__create__" "-" "  Create RF Swift workspace"
+
+  docker ps -a --format '{{.Names}}|{{.State}}|{{.Image}}' 2>/dev/null |
+    grep "|${RFSWIFT_REPO}:" |
+    while IFS='|' read -r name state image; do
+      [[ -z "$name" ]] && continue
+      local tag="${image##*:}"
+      local icon="🔴"
+      [[ "$state" == "running" ]] && icon="🟢"
+      printf '%s\t%s\t%s %s  (%s)\n' "$name" "$state" "$icon" "$name" "$tag"
+    done
+}
+
+# Default action (Enter): create wizard, or shell/start depending on state.
+# Each branch spawns its own detached process/terminal and returns, so the
+# picker (which calls this via execute-silent) stays open.
+cmd_enter() {
+  local name="$1" state="$2"
+  case "$name" in
+    __create__) launch_in_terminal create; return ;;
+  esac
+  if [[ "$state" == "running" ]]; then
+    monarch-menu-rfswift shell "$name"
+  else
+    monarch-menu-rfswift start "$name"
+  fi
+}
+
+# The interactive container manager (runs inside the floating terminal that
+# cmd_menu opened via the presentation launcher).
+cmd_picker() {
   if ! command -v rfswift &>/dev/null; then
-    setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title="RF Swift" -e bash -c "gum confirm 'RF Swift is not installed. Would you like to install it?' && monarch-install-rfswift"
-    if ! command -v rfswift &>/dev/null; then
-      exit 1
-    fi
+    gum confirm 'RF Swift is not installed. Install it?' && monarch-install-rfswift
+    command -v rfswift &>/dev/null || exit 1
   fi
 
-  monarch-launch-walker -m menus:monarchRFSwift --width 800 --minheight 400
+  local self="monarch-menu-rfswift"
+  local header='Enter: shell/start   ^X: stop   ^D: remove   ^W: workspace   ^N: create   ^R: refresh'
+
+  "$self" _list | fzf \
+    --ansi \
+    --delimiter=$'\t' \
+    --with-nth=3 \
+    --prompt='RF Swift ❯ ' \
+    --header="$header" \
+    --preview="$self info {1}" \
+    --preview-window='right,55%,wrap' \
+    --bind="enter:execute-silent($self _enter {1} {2})" \
+    --bind="ctrl-x:execute($self stop {1})+reload($self _list)" \
+    --bind="ctrl-d:execute($self remove {1})+reload($self _list)" \
+    --bind="ctrl-w:execute-silent($self workspace {1})" \
+    --bind="ctrl-n:execute-silent($self _enter __create__ -)" \
+    --bind="ctrl-r:reload($self _list)"
+}
+
+# Default entry point: always open the picker in its own centered floating
+# terminal (via the Monarch presentation launcher), even when called from an
+# existing terminal. The launcher re-invokes us as `_picker` so we land
+# directly in cmd_picker inside the new terminal.
+cmd_menu() {
+  exec monarch-launch-floating-terminal-with-presentation monarch-menu-rfswift _picker
 }
 
 # Route sub-commands
@@ -254,5 +341,8 @@ case "${1:-}" in
   remove)     cmd_remove "$2" ;;
   workspace)  cmd_workspace "$2" ;;
   create)     cmd_create ;;
+  _picker)    cmd_picker ;;
+  _list)      cmd_list ;;
+  _enter)     cmd_enter "$2" "$3" ;;
   *)          cmd_menu ;;
 esac

@@ -1,0 +1,54 @@
+// Monarch — layout (gaps, focus-ring/border geometry, shadow, hints).
+//
+// Focus-ring / border COLOURS live in ~/.config/niri/noctalia.kdl (included by
+// config.kdl), not here. Monarch ships a default noctalia.kdl so the include
+// always resolves on first boot (a missing include is fatal to niri); Noctalia
+// then regenerates it from the active scheme. Niri merges nested sections, so
+// geometry (width / urgent-color) stays here while active/inactive colours come
+// from noctalia.kdl.
+
+layout {
+    gaps 10
+    center-focused-column "never"
+    default-column-width { proportion 0.5; }
+
+    preset-column-widths {
+        proportion 0.33333
+        proportion 0.5
+        proportion 0.66667
+    }
+
+    preset-window-heights {
+        proportion 0.33333
+        proportion 0.5
+        proportion 0.66667
+    }
+
+    focus-ring {
+        on
+        width 2
+        urgent-color "#9b0000"
+    }
+
+    border {
+        off
+        width 2
+        urgent-color "#9b0000"
+    }
+
+    shadow {
+        on
+        softness 20
+        spread 2
+        offset x=0 y=4
+        color "#1a1a1aee"
+    }
+
+    insert-hint {
+        on
+    }
+
+    tab-indicator {
+        hide-when-single-tab
+    }
+}

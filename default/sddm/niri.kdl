@@ -1,0 +1,25 @@
+// Minimal Niri config used as the SDDM Wayland greeter compositor.
+// SDDM launches niri with `--config /usr/share/sddm/niri.kdl` and starts the
+// greeter on top.
+
+prefer-no-csd
+
+hotkey-overlay {
+    skip-at-startup
+}
+
+cursor {
+    hide-after-inactive-ms 4000
+}
+
+layout {
+    focus-ring {
+        off
+    }
+    border {
+        off
+    }
+}
+
+// The greeter is spawned by SDDM after the compositor is ready — no
+// spawn-at-startup needed here.

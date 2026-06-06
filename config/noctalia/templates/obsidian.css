@@ -1,0 +1,101 @@
+/* Noctalia theme for Obsidian — rendered from Material Design 3 tokens.
+   Input template registered in ~/.config/noctalia/user-templates.toml.
+   Distributed to every vault by `monarch-obsidian-theme` (post_hook). */
+
+.theme-dark, .theme-light {
+  /* Core colors */
+  --background-primary: {{colors.surface.default.hex}};
+  --background-primary-alt: {{colors.surface_container_low.default.hex}};
+  --background-secondary: {{colors.surface_container.default.hex}};
+  --background-secondary-alt: {{colors.surface_container_high.default.hex}};
+  --text-normal: {{colors.on_surface.default.hex}};
+
+  /* Selection colors */
+  --text-selection: {{colors.primary_container.default.hex}};
+
+  /* Border color */
+  --background-modifier-border: {{colors.outline_variant.default.hex}};
+
+  /* Semantic heading colors */
+  --text-title-h1: {{colors.primary.default.hex}};
+  --text-title-h2: {{colors.secondary.default.hex}};
+  --text-title-h3: {{colors.tertiary.default.hex}};
+  --text-title-h4: {{colors.primary.default.hex}};
+  --text-title-h5: {{colors.secondary.default.hex}};
+  --text-title-h6: {{colors.tertiary.default.hex}};
+
+  /* Links and accents */
+  --text-link: {{colors.primary.default.hex}};
+  --text-accent: {{colors.primary.default.hex}};
+  --text-accent-hover: {{colors.primary.default.hex}};
+  --interactive-accent: {{colors.primary.default.hex}};
+  --interactive-accent-hover: {{colors.primary.default.hex}};
+
+  /* Muted text */
+  --text-muted: color-mix(in srgb, {{colors.on_surface.default.hex}} 70%, transparent);
+  --text-faint: color-mix(in srgb, {{colors.on_surface.default.hex}} 55%, transparent);
+
+  /* Code */
+  --code-normal: {{colors.tertiary.default.hex}};
+
+  /* Errors and success */
+  --text-error: {{colors.error.default.hex}};
+  --text-error-hover: {{colors.error.default.hex}};
+  --text-success: {{colors.secondary.default.hex}};
+
+  /* Tags */
+  --tag-color: {{colors.tertiary.default.hex}};
+  --tag-background: {{colors.surface_container_high.default.hex}};
+
+  /* Graph */
+  --graph-line: {{colors.outline.default.hex}};
+  --graph-node: {{colors.primary.default.hex}};
+  --graph-node-focused: {{colors.secondary.default.hex}};
+  --graph-node-tag: {{colors.tertiary.default.hex}};
+  --graph-node-attachment: {{colors.secondary.default.hex}};
+}
+
+/* Headers */
+.cm-header-1, .markdown-rendered h1 { color: var(--text-title-h1); }
+.cm-header-2, .markdown-rendered h2 { color: var(--text-title-h2); }
+.cm-header-3, .markdown-rendered h3 { color: var(--text-title-h3); }
+.cm-header-4, .markdown-rendered h4 { color: var(--text-title-h4); }
+.cm-header-5, .markdown-rendered h5 { color: var(--text-title-h5); }
+.cm-header-6, .markdown-rendered h6 { color: var(--text-title-h6); }
+
+/* Code blocks */
+.markdown-rendered code {
+  color: {{colors.tertiary.default.hex}};
+}
+
+/* Syntax highlighting */
+.cm-s-obsidian span.cm-keyword { color: {{colors.primary.default.hex}}; }
+.cm-s-obsidian span.cm-string { color: {{colors.secondary.default.hex}}; }
+.cm-s-obsidian span.cm-number { color: {{colors.tertiary.default.hex}}; }
+.cm-s-obsidian span.cm-comment { color: {{colors.outline.default.hex}}; }
+.cm-s-obsidian span.cm-operator { color: {{colors.on_surface_variant.default.hex}}; }
+.cm-s-obsidian span.cm-def { color: {{colors.primary.default.hex}}; }
+
+/* Links */
+.markdown-rendered a {
+  color: var(--text-link);
+}
+
+/* Blockquotes */
+.markdown-rendered blockquote {
+  border-left-color: {{colors.primary.default.hex}};
+}
+
+/* Active elements */
+.workspace-leaf.mod-active .workspace-leaf-header-title {
+  color: var(--interactive-accent);
+}
+
+.nav-file-title.is-active {
+  color: var(--interactive-accent);
+}
+
+/* Search results */
+.search-result-file-title {
+  color: var(--interactive-accent);
+}

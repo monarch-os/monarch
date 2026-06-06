@@ -18,29 +18,26 @@ back_to() {
 }
 
 toggle_existing_menu() {
-  if pgrep -f "walker.*--dmenu" >/dev/null; then
-    walker --close >/dev/null 2>&1
+  if pgrep -x fuzzel >/dev/null; then
+    pkill -x fuzzel >/dev/null 2>&1
     exit 0
   fi
 }
 
+# Pop a dmenu picker via fuzzel. `extra` and `preselect` are kept for source
+# compatibility with the previous walker-based menu helper.
 menu() {
   local prompt="$1"
   local options="$2"
-  local extra="$3"
+  local _unused_extra="$3"
   local preselect="$4"
 
-  read -r -a args <<<"$extra"
-
+  local args=()
   if [[ -n $preselect ]]; then
-    local index
-    index=$(echo -e "$options" | grep -nxF "$preselect" | cut -d: -f1)
-    if [[ -n $index ]]; then
-      args+=("-c" "$index")
-    fi
+    args+=("--select=$preselect")
   fi
 
-  echo -e "$options" | monarch-launch-walker --dmenu --width 295 --minheight 1 --maxheight 630 -p "$prompt…" "${args[@]}" 2>/dev/null
+  echo -e "$options" | fuzzel --dmenu --lines 12 -p "$prompt… " "${args[@]}" 2>/dev/null
 }
 
 terminal() {
@@ -81,10 +78,10 @@ aur_install_and_launch() {
 }
 
 show_learn_menu() {
-  case $(menu "Learn" "  Keybindings\n  Monarch\n  Hyprland\n󰣇  Arch\n  Neovim\n󱆃  Bash") in
+  case $(menu "Learn" "  Keybindings\n  Monarch\n  Niri\n󰣇  Arch\n  Neovim\n󱆃  Bash") in
   *Keybindings*) monarch-menu-keybindings ;;
   *Monarch*) monarch-launch-webapp "https://docs.monarchlinux.com/" ;;
-  *Hyprland*) monarch-launch-webapp "https://wiki.hypr.land/" ;;
+  *Niri*) monarch-launch-webapp "https://yalter.github.io/niri/" ;;
   *Arch*) monarch-launch-webapp "https://wiki.archlinux.org/title/Main_page" ;;
   *Bash*) monarch-launch-webapp "https://devhints.io/bash" ;;
   *Neovim*) monarch-launch-webapp "https://www.lazyvim.org/keymaps" ;;
@@ -204,18 +201,13 @@ show_share_menu() {
 }
 
 show_toggle_menu() {
-  local options="󱄄  Screensaver\n󰔎  Nightlight\n󱫖  Idle Lock\n󰂛  Notifications\n󰍜  Top Bar\n󱂬  Workspace Layout\n  Window Gaps\n  1-Window Ratio\n󰍹  Monitor Scaling\n  Direct Boot\n󰟵  Passwordless Sudo"
+  local options="󱄄  Screensaver\n󰔎  Nightlight\n󱫖  Idle Lock\n󰂛  Notifications\n  Direct Boot\n󰟵  Passwordless Sudo"
 
   case $(menu "Toggle" "$options") in
   *Screensaver*) monarch-toggle-screensaver ;;
   *Nightlight*) monarch-toggle-nightlight ;;
   *Idle*) monarch-toggle-idle ;;
   *Notifications*) monarch-toggle-notification-silencing ;;
-  *Bar*) monarch-toggle-waybar ;;
-  *Layout*) monarch-hyprland-workspace-layout-toggle ;;
-  *Ratio*) monarch-hyprland-window-single-square-aspect-toggle ;;
-  *Gaps*) monarch-hyprland-window-gaps-toggle ;;
-  *Scaling*) monarch-hyprland-monitor-scaling-cycle ;;
   *"Direct Boot"*) present_terminal monarch-config-direct-boot ;;
   *"Passwordless Sudo"*) present_terminal monarch-sudo-passwordless ;;
   *) back_to show_trigger_menu ;;
@@ -223,7 +215,13 @@ show_toggle_menu() {
 }
 
 show_hardware_menu() {
-  local options="󰛧  Laptop Display\n 󰍹  Mirror Display"
+  local options=""
+
+  options="$options\n󰍹  Display Scaling"
+
+  if monarch-hw-external-monitors; then
+    options="$options\n󰛧  Laptop Display"
+  fi
 
   if monarch-hw-hybrid-gpu; then
     options="$options\n  Hybrid GPU"
@@ -242,8 +240,8 @@ show_hardware_menu() {
   fi
 
   case $(menu "Toggle" "$options") in
-  *Laptop*) monarch-hyprland-monitor-internal toggle ;;
-  *Mirror*) monarch-hyprland-monitor-internal-mirror toggle ;;
+  *"Display Scaling"*) monarch-niri-monitor-scaling-cycle ;;
+  *"Laptop Display"*) monarch-niri-monitor-internal toggle ;;
   *Haptics*) show_hardware_touchpad_haptics_menu ;;
   *Touchpad*) monarch-toggle-touchpad ;;
   *Touchscreen*) monarch-toggle-touchscreen ;;
@@ -264,12 +262,10 @@ show_hardware_touchpad_haptics_menu() {
 }
 
 show_style_menu() {
-  case $(menu "Style" "󰸌  Theme\n󰟵  Unlock\n  Font\n  Background\n  Hyprland\n󱄄  Screensaver\n  About") in
-  *Theme*) show_theme_menu ;;
-  *Unlock*) monarch-launch-walker -m menus:monarchunlocks --width 800 --minheight 400 ;;
+  case $(menu "Style" "  Font\n  Background\n  Niri\n󱄄  Screensaver\n  About") in
   *Font*) show_font_menu ;;
   *Background*) show_background_menu ;;
-  *Hyprland*) open_in_editor ~/.config/hypr/looknfeel.conf ;;
+  *Niri*) open_in_editor ~/.config/niri/user.kdl ;;
   *Screensaver*) show_screensaver_menu ;;
   *About*) show_about_menu ;;
   *) show_main_menu ;;
@@ -294,12 +290,8 @@ show_screensaver_menu() {
   esac
 }
 
-show_theme_menu() {
-  monarch-launch-walker -m menus:monarchthemes --width 800 --minheight 400
-}
-
 show_background_menu() {
-  monarch-launch-walker -m menus:monarchBackgroundSelector --width 800 --minheight 400
+  qs -c noctalia-shell ipc call wallpaper toggle
 }
 
 show_font_menu() {
@@ -312,9 +304,8 @@ show_font_menu() {
 }
 
 show_setup_menu() {
-  local options="  Audio\n  Wifi\n󰂯  Bluetooth\n󱐋  Power Profile\n  System Sleep\n󰍹  Monitors"
-  [[ -f ~/.config/hypr/bindings.conf ]] && options="$options\n  Keybindings"
-  [[ -f ~/.config/hypr/input.conf ]] && options="$options\n  Input"
+  local options="  Audio\n  Wifi\n󰂯  Bluetooth\n󱐋  Power Profile\n  System Sleep"
+  [[ -f ~/.config/niri/user.kdl ]] && options="$options\n  Niri"
   options="$options\n  Defaults\n󰱔  DNS\n󰗊  Language\n  Security\n  Config"
 
   case $(menu "Setup" "$options") in
@@ -323,9 +314,7 @@ show_setup_menu() {
   *Bluetooth*) monarch-launch-bluetooth ;;
   *Power*) show_setup_power_menu ;;
   *System*) show_setup_system_menu ;;
-  *Monitors*) open_in_editor ~/.config/hypr/monitors.conf ;;
-  *Keybindings*) open_in_editor ~/.config/hypr/bindings.conf ;;
-  *Input*) open_in_editor ~/.config/hypr/input.conf ;;
+  *Niri*) open_in_editor ~/.config/niri/user.kdl ;;
   *Defaults*) show_setup_default_menu ;;
   *DNS*) present_terminal monarch-setup-dns ;;
   *Language*) present_terminal monarch-setup-language ;;
@@ -460,14 +449,11 @@ show_setup_default_editor_menu() {
 }
 
 show_setup_config_menu() {
-  case $(menu "Setup" "  Hyprland\n  Hypridle\n  Hyprlock\n  Hyprsunset\n  Swayosd\n󰌧  Walker\n󰍜  Waybar\n󰞅  XCompose") in
-  *Hyprland*) open_in_editor ~/.config/hypr/hyprland.conf ;;
-  *Hypridle*) open_in_editor ~/.config/hypr/hypridle.conf && monarch-restart-hypridle ;;
-  *Hyprlock*) open_in_editor ~/.config/hypr/hyprlock.conf ;;
-  *Hyprsunset*) open_in_editor ~/.config/hypr/hyprsunset.conf && monarch-restart-hyprsunset ;;
-  *Swayosd*) open_in_editor ~/.config/swayosd/config.toml && monarch-restart-swayosd ;;
-  *Walker*) open_in_editor ~/.config/walker/config.toml && monarch-restart-walker ;;
-  *Waybar*) open_in_editor ~/.config/waybar/config.jsonc && monarch-restart-waybar ;;
+  case $(menu "Setup" "  Niri
+  Noctalia
+󰞅  XCompose") in
+  *Niri*) open_in_editor ~/.config/niri/user.kdl && monarch-refresh-niri ;;
+  *Noctalia*) open_in_editor ~/.config/noctalia/settings.json && monarch-restart-noctalia ;;
   *XCompose*) open_in_editor ~/.XCompose && monarch-restart-xcompose ;;
   *) show_setup_menu ;;
   esac
@@ -497,13 +483,13 @@ show_setup_system_menu() {
 }
 
 show_install_menu() {
-  case $(menu "Install" "󰣇  Package\n󰣇  AUR\n  Web App\n  TUI\n  Service\n  Style\n󰵮  Development\n󰨈  Cyber\n  Editor\n  Terminal\n  Browser\n󱚤  AI\n  Gaming\n󰍲  Windows") in
+  case $(menu "Install" "󰣇  Package\n󰣇  AUR\n  Web App\n  TUI\n  Service\n  Font\n󰵮  Development\n󰨈  Cyber\n  Editor\n  Terminal\n  Browser\n󱚤  AI\n  Gaming\n󰍲  Windows") in
   *Package*) terminal monarch-pkg-install ;;
   *AUR*) terminal monarch-pkg-aur-install ;;
   *Web*) present_terminal monarch-webapp-install ;;
   *TUI*) present_terminal monarch-tui-install ;;
   *Service*) show_install_service_menu ;;
-  *Style*) show_install_style_menu ;;
+  *Font*) show_install_font_menu ;;
   *Development*) show_install_development_menu ;;
   *Cyber*) show_install_cyber_menu ;;
   *Editor*) show_install_editor_menu ;;
@@ -598,15 +584,6 @@ show_install_gaming_menu() {
   esac
 }
 
-show_install_style_menu() {
-  case $(menu "Install" "󰸌  Theme\n  Background\n  Font") in
-  *Theme*) present_terminal monarch-theme-install ;;
-  *Background*) monarch-theme-bg-install ;;
-  *Font*) show_install_font_menu ;;
-  *) show_install_menu ;;
-  esac
-}
-
 show_install_font_menu() {
   case $(menu "Install" "  Cascadia Mono\n  Meslo LG Mono\n  Fira Code\n  Victor Code\n  Bitstream Vera Mono\n  Iosevka" "--width 350") in
   *Cascadia*) install_font "Cascadia Mono" "ttf-cascadia-mono-nerd" "CaskaydiaMono Nerd Font" ;;
@@ -675,12 +652,11 @@ show_install_cyber_menu() {
 }
 
 show_remove_menu() {
-  case $(menu "Remove" "󰣇  Package\n  Web App\n  TUI\n󰵮  Development\n󰸌  Theme\n  Browser\n  Dictation\n  Gaming\n󰖂  LazyVPN\n󰍲  Windows\n󰏓  Preinstalls\n󰗊  Language\n  Security") in
+  case $(menu "Remove" "󰣇  Package\n  Web App\n  TUI\n󰵮  Development\n  Browser\n  Dictation\n  Gaming\n󰖂  LazyVPN\n󰍲  Windows\n󰏓  Preinstalls\n󰗊  Language\n  Security") in
   *Package*) terminal monarch-pkg-remove ;;
   *Web*) present_terminal monarch-webapp-remove ;;
   *TUI*) present_terminal monarch-tui-remove ;;
   *Development*) show_remove_development_menu ;;
-  *Theme*) present_terminal monarch-theme-remove ;;
   *Browser*) show_remove_browser_menu ;;
   *Dictation*) present_terminal monarch-voxtype-remove ;;
   *Gaming*) show_remove_gaming_menu ;;
@@ -773,11 +749,10 @@ show_remove_elixir_menu() {
 }
 
 show_update_menu() {
-  case $(menu "Update" "  Monarch\n󰔫  Channel\n  Config\n󰸌  Extra Themes\n  Process\n󰇅  Hardware\n  Firmware\n  Password\n  Timezone\n  Time") in
+  case $(menu "Update" "  Monarch\n󰔫  Channel\n  Config\n  Process\n󰇅  Hardware\n  Firmware\n  Password\n  Timezone\n  Time") in
   *Monarch*) present_terminal monarch-update ;;
   *Channel*) show_update_channel_menu ;;
   *Config*) show_update_config_menu ;;
-  *Themes*) present_terminal monarch-theme-update ;;
   *Process*) show_update_process_menu ;;
   *Hardware*) show_update_hardware_menu ;;
   *Firmware*) present_terminal monarch-update-firmware ;;
@@ -798,28 +773,21 @@ show_update_channel_menu() {
 }
 
 show_update_process_menu() {
-  case $(menu "Restart" "  Hypridle\n  Hyprsunset\n󰎟  Mako\n  Swayosd\n󰌧  Walker\n󰍜  Waybar") in
-  *Hypridle*) monarch-restart-hypridle ;;
-  *Hyprsunset*) monarch-restart-hyprsunset ;;
-  *Mako*) monarch-restart-mako ;;
-  *Swayosd*) monarch-restart-swayosd ;;
-  *Walker*) monarch-restart-walker ;;
-  *Waybar*) monarch-restart-waybar ;;
+  case $(menu "Restart" "  Noctalia") in
+  *Noctalia*) monarch-restart-noctalia ;;
   *) show_update_menu ;;
   esac
 }
 
 show_update_config_menu() {
-  case $(menu "Use default config" "  Hyprland\n  Hypridle\n  Hyprlock\n  Hyprsunset\n󱣴  Plymouth\n  Swayosd\n  Tmux\n󰌧  Walker\n󰍜  Waybar") in
-  *Hyprland*) present_terminal monarch-refresh-hyprland ;;
-  *Hypridle*) present_terminal monarch-refresh-hypridle ;;
-  *Hyprlock*) present_terminal monarch-refresh-hyprlock ;;
-  *Hyprsunset*) present_terminal monarch-refresh-hyprsunset ;;
+  case $(menu "Use default config" "  Niri
+󱣴  Plymouth
+  Tmux
+  Noctalia") in
+  *Niri*) present_terminal monarch-refresh-niri ;;
   *Plymouth*) present_terminal monarch-refresh-plymouth ;;
-  *Swayosd*) present_terminal monarch-refresh-swayosd ;;
   *Tmux*) present_terminal monarch-refresh-tmux ;;
-  *Walker*) present_terminal monarch-refresh-walker ;;
-  *Waybar*) present_terminal monarch-refresh-waybar ;;
+  *Noctalia*) present_terminal monarch-refresh-noctalia ;;
   *) show_update_menu ;;
   esac
 }
@@ -870,7 +838,7 @@ show_main_menu() {
 
 go_to_menu() {
   case "${1,,}" in
-  *apps*) walker -p "Launch…" ;;
+  *apps*) qs -c noctalia-shell ipc call launcher toggle ;;
   *learn*) show_learn_menu ;;
   *trigger*) show_trigger_menu ;;
   *toggle*) show_toggle_menu ;;
@@ -881,7 +849,6 @@ go_to_menu() {
   *background*) show_background_menu ;;
   *capture*) show_capture_menu ;;
   *style*) show_style_menu ;;
-  *theme*) show_theme_menu ;;
   *screenshot*) show_screenshot_menu ;;
   *screenrecord*) show_screenrecord_menu ;;
   *setup*) show_setup_menu ;;

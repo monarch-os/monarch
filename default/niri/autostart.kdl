@@ -1,0 +1,16 @@
+// Monarch — services and helpers launched at session start.
+
+// Noctalia: bar, launcher, notifications, control center, lock screen,
+// wallpapers and OSDs all live under a single Quickshell process.
+spawn-at-startup "uwsm-app" "--" "qs" "-c" "noctalia-shell"
+
+spawn-at-startup "uwsm-app" "--" "fcitx5" "--disable" "notificationitem"
+
+// Authentication agent
+spawn-at-startup "/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1"
+
+// Power management
+spawn-at-startup "monarch-powerprofiles-set"
+
+spawn-at-startup "monarch-first-run"
+spawn-at-startup "sh" "-c" "sleep 2 && monarch-hook post-boot"

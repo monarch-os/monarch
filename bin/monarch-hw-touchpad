@@ -1,6 +1,17 @@
 #!/bin/bash
 
-# monarch:summary=Print the detected Hyprland touchpad or trackpad device name
+# monarch:summary=Print the detected touchpad or trackpad device name
 
-device=$(hyprctl devices -j | jq -r '[.mice[] | .name | select(test("touchpad|trackpad"; "i"))] | first // empty')
-[[ -n $device ]] && echo "$device"
+# Detect via the kernel (sysfs), not `libinput list-devices`: the libinput CLI
+# is not guaranteed present on a niri install, and monarch-toggle-touchpad
+# already drives the kernel by matching the same sysfs name, so sharing the
+# heuristic keeps detection and toggling in lock-step.
+for name_file in /sys/class/input/event*/device/name; do
+  [[ -r $name_file ]] || continue
+  if grep -qiE 'touchpad|trackpad' "$name_file"; then
+    cat "$name_file"
+    exit 0
+  fi
+done
+
+exit 1

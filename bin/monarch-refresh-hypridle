@@ -1,6 +1,0 @@
-#!/bin/bash
-
-# monarch:summary=Overwrite the user config for hypridle with the Monarch default and restart the service.
-
-monarch-refresh-config hypr/hypridle.conf
-monarch-restart-hypridle

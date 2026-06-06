@@ -1,0 +1,227 @@
+#!/bin/bash
+
+# monarch:summary=Re-apply the residual system theming layer for the current Noctalia color scheme (wallpaper, keyboard RGB, Chromium)
+# monarch:examples=monarch theme apply
+
+# Thin residual layer that lives alongside Noctalia. It is wired to Noctalia's
+# `hooks.colorGeneration`, which fires on every color (re)generation — i.e.
+# whenever the active color scheme (or dark/light) changes. Noctalia passes the
+# resolved appearance ("dark" | "light") as $1; it does NOT pass the scheme name,
+# so we read `colorSchemes.predefinedScheme` straight from settings.
+#
+# Noctalia owns the colors AND dark/light: Monarch ships a single scheme
+# (Monarch) with both "dark" and "light" blocks, so dark/light is just Noctalia's
+# global toggle (GTK/Qt follow natively via colorSchemes.syncGsettings). This
+# script never writes darkMode — it only covers what Noctalia can't reach:
+#   - wallpaper.directory      : keep the picker folder pointed at the current
+#                               scheme's backgrounds, and apply one.
+#   - keyboard RGB             : ASUS ROG (asusctl) + Framework 16 (qmk_hid).
+#   - Chromium policy color    : managed BrowserThemeColor.
+#
+# NOTE: per-scheme Plymouth (boot-screen) theming is intentionally NOT wired here.
+# The splash lives in the initramfs, so a recolor forces an mkinitcpio rebuild —
+# far too costly to run on every color hook (that reactive model was why it was
+# removed). It is a separate MANUAL command instead: `monarch plymouth apply`
+# (recolor the boot splash from the active scheme) / `monarch plymouth reset`
+# (restore default). The static Monarch splash still ships by default. The SDDM
+# login screen, by contrast, follows the scheme on its own via Noctalia's
+# user-template system (templates.sddm → theme.conf), so it needs nothing here.
+#
+# Colors are read from the scheme JSON shipped under
+# ~/.config/noctalia/colorschemes/<Scheme>/<Scheme>.json (mPrimary = accent,
+# mSurface = background), preferring the active appearance block. Built-in
+# Noctalia schemes ship no such JSON, so the color-derived concerns no-op for
+# them; the wallpaper concern still works (it keys off the folder name).
+
+set -uo pipefail
+
+SETTINGS="$HOME/.config/noctalia/settings.json"
+SCHEMES_DIR="$HOME/.config/noctalia/colorschemes"
+USER_BG_ROOT="$HOME/.config/monarch/backgrounds"
+MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+SRC_THEMES="$MONARCH_ROOT/themes"
+
+command -v jq >/dev/null 2>&1 || exit 0
+[[ -f $SETTINGS ]] || exit 0
+
+# Active appearance: Noctalia hands over "dark"|"light" as $1 on the hook; when run
+# by hand it's empty, so fall back to the current darkMode toggle. darkMode is owned
+# by Noctalia (global toggle) — this script never writes it.
+appearance="${1:-}"
+if [[ -z $appearance ]]; then
+  appearance=$(jq -r 'if (.colorSchemes.darkMode // true) then "dark" else "light" end' "$SETTINGS")
+fi
+
+# --- Resolve the current scheme ----------------------------------------------
+# Noctalia's colorGeneration hook gives us the appearance, not the scheme name.
+scheme=$(jq -r '.colorSchemes.predefinedScheme // "Monarch"' "$SETTINGS")
+
+# Display name → kebab-case background folder (Catppuccin-Latte → catppuccin-latte);
+# a few built-ins need an alias.
+folder=$(printf '%s' "$scheme" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+case $folder in
+rosepine) folder="rose-pine" ;; # Noctalia built-in "Rosepine" → Monarch "rose-pine"
+esac
+
+target_dir="$USER_BG_ROOT/$folder"
+target_setting="~/.config/monarch/backgrounds/$folder"
+
+# --- Resolve colors from the shipped scheme JSON (if any) --------------------
+# Monarch ships both "dark" and "light" blocks; prefer the active appearance and
+# fall back to whichever block exists (so a not-yet-authored light block is safe).
+scheme_json="$SCHEMES_DIR/$scheme/$scheme.json"
+accent="" bg_hex=""
+if [[ -f $scheme_json ]]; then
+  variant=""
+  for v in "$appearance" dark light; do
+    if jq -e --arg v "$v" 'has($v)' "$scheme_json" >/dev/null 2>&1; then
+      variant=$v
+      break
+    fi
+  done
+  if [[ -n $variant ]]; then
+    accent=$(jq -r --arg v "$variant" '.[$v].mPrimary // empty' "$scheme_json")
+    bg_hex=$(jq -r --arg v "$variant" '.[$v].mSurface // .[$v].terminal.background // empty' "$scheme_json")
+  fi
+fi
+
+# --- Helpers -----------------------------------------------------------------
+expand_tilde() {
+  case $1 in
+  "~/"*) printf '%s' "$HOME/${1#\~/}" ;;
+  "~") printf '%s' "$HOME" ;;
+  *) printf '%s' "$1" ;;
+  esac
+}
+
+# Atomic jq edit of settings.json. Noctalia watches the file (watchChanges) and
+# reloads on atomic replacement, so each writer must temp+mv.
+settings_set() {
+  local filter=$1
+  shift
+  local tmp
+  tmp=$(mktemp "${SETTINGS}.XXXXXX") || return 1
+  if jq "$@" "$filter" "$SETTINGS" >"$tmp"; then
+    mv -f "$tmp" "$SETTINGS"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
+# --- Wallpaper ---------------------------------------------------------------
+# Apply the first wallpaper from the folder + refresh the picker. Noctalia
+# watches settings.json (a directory change reloads on its own) but not arbitrary
+# background folders — a freshly seeded folder needs an explicit refresh.
+apply_wallpaper() {
+  local first=$1
+  pgrep -f 'qs.*noctalia-shell' >/dev/null 2>&1 || return 0
+  qs -c noctalia-shell ipc call wallpaper set "$first" "" >/dev/null 2>&1 || true
+  qs -c noctalia-shell ipc call wallpaper refresh >/dev/null 2>&1 || true
+}
+
+# Keep Noctalia's single wallpaper.directory pointed at the current scheme's
+# background folder and apply a wallpaper from it, so both picker and screen
+# follow the theme.
+sync_wallpaper() {
+  # Seed the user-writable folder from shipped backgrounds (idempotent).
+  # `themes/<scheme>/` ships wallpapers flat (the old per-concern subdirs are gone).
+  local seeded=0
+  if [[ ! -d $target_dir && -d "$SRC_THEMES/$folder" ]]; then
+    mkdir -p "$target_dir"
+    cp -rn "$SRC_THEMES/$folder/." "$target_dir/" 2>/dev/null || true
+    seeded=1
+  fi
+
+  # Fallback: nothing to point at → leave the current directory untouched.
+  local backgrounds
+  mapfile -d '' -t backgrounds < <(find -L "$target_dir" -maxdepth 1 -type f -print0 2>/dev/null | sort -z)
+  ((${#backgrounds[@]})) || return 0
+
+  # Idempotence: only act when the scheme's folder actually changed. Skips a
+  # plain dark/light toggle (same scheme → same folder) so the user's current
+  # wallpaper within the folder is preserved.
+  local current
+  current=$(jq -r '.wallpaper.directory // ""' "$SETTINGS")
+  if [[ "$(expand_tilde "$current")" == "$(expand_tilde "$target_setting")" ]]; then
+    # Directory unchanged: only act if we just seeded it (first install), so the
+    # picker surfaces a wallpaper; otherwise preserve the user's current pick.
+    ((seeded)) && apply_wallpaper "${backgrounds[0]}"
+    return 0
+  fi
+
+  # Repoint the directory (atomic write → live reload → picker follows) and apply
+  # a wallpaper from the new folder so the screen really changes.
+  settings_set '.wallpaper.directory = $dir' --arg dir "$target_setting" || return 1
+  apply_wallpaper "${backgrounds[0]}"
+}
+
+# --- Keyboard RGB ------------------------------------------------------------
+# Static accent color on supported keyboards. Cheap, no sudo → safe on the hook.
+sync_keyboard() {
+  local hex=${accent#\#}
+  [[ $hex =~ ^[0-9a-fA-F]{6}$ ]] || return 0
+
+  # ASUS ROG (asusctl static effect).
+  if command -v asusctl >/dev/null 2>&1; then
+    asusctl aura effect static -c "$hex" >/dev/null 2>&1 || true
+  fi
+
+  # Framework Laptop 16 (qmk_hid expects HSV on a 0-255 scale).
+  if command -v qmk_hid >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+    local h s
+    read -r h s < <(python3 - "$hex" <<'PY' 2>/dev/null
+import colorsys, sys
+hx = sys.argv[1]
+r, g, b = int(hx[:2], 16) / 255, int(hx[2:4], 16) / 255, int(hx[4:6], 16) / 255
+h, s, _ = colorsys.rgb_to_hsv(r, g, b)
+print(int(h * 255), int(s * 255))
+PY
+)
+    if [[ -n ${h:-} && -n ${s:-} ]]; then
+      qmk_hid via --rgb-effect 1 2>/dev/null
+      qmk_hid via --rgb-hue "$h" 2>/dev/null
+      qmk_hid via --rgb-saturation "$s" 2>/dev/null
+      qmk_hid via --rgb-brightness 100 2>/dev/null
+      qmk_hid via --save 2>/dev/null
+    fi
+  fi
+}
+
+# --- Chromium / Chrome / Edge / Brave ----------------------------------------
+# Managed-policy theme color. Monarch makes /etc/chromium/policies/managed
+# world-writable at install, so no sudo is needed for Chromium; the others only
+# get themed if their policy dir already exists and is writable.
+sync_chromium() {
+  local hex=${bg_hex#\#}
+  [[ $hex =~ ^[0-9a-fA-F]{6}$ ]] || return 0
+  local json
+  json=$(printf '{"BrowserThemeColor": "#%s", "BrowserColorScheme": "device"}' "$hex")
+
+  local dir
+  for dir in \
+    /etc/chromium/policies/managed \
+    /etc/opt/chrome/policies/managed \
+    /etc/opt/edge/policies/managed \
+    /etc/brave/policies/managed; do
+    [[ -d $dir && -w $dir ]] || continue
+    printf '%s\n' "$json" >"$dir/color.json" 2>/dev/null || true
+  done
+
+  refresh_browser() {
+    local process=$1 command=$2 pgrep_args=${3:--x}
+    if command -v "$command" >/dev/null 2>&1 && pgrep $pgrep_args "$process" >/dev/null 2>&1; then
+      "$command" --refresh-platform-policy --no-startup-window >/dev/null 2>&1 &
+    fi
+  }
+  refresh_browser chromium chromium
+  refresh_browser chrome google-chrome-stable || refresh_browser chrome google-chrome
+  refresh_browser msedge microsoft-edge-stable
+  refresh_browser brave brave
+  refresh_browser brave-origin-beta brave-origin-beta -f
+}
+
+# --- Run all residual concerns ----------------------------------------------
+sync_wallpaper
+sync_keyboard
+sync_chromium

@@ -14,46 +14,55 @@ if monarch-toggle-enabled screensaver-off && [[ $1 != "force" ]]; then
   exit 1
 fi
 
-# Silently quit Walker on overlay
-walker -q
-
-focused=$(monarch-hyprland-monitor-focused)
+focused=$(monarch-niri-monitor-focused)
 terminal=$(xdg-terminal-exec --print-id)
 
-for m in $(hyprctl monitors -j | jq -r '.[] | .name'); do
-  hyprctl dispatch focusmonitor $m
+count_screensavers() {
+  niri msg --json windows 2>/dev/null |
+    jq '[.[] | select(.app_id == "org.monarch.screensaver")] | length'
+}
+
+for m in $(niri msg --json outputs 2>/dev/null | jq -r 'to_entries[].value.name'); do
+  niri msg action focus-monitor "$m" >/dev/null 2>&1
+  before=$(count_screensavers)
 
   case $terminal in
   *Alacritty*)
-    hyprctl dispatch exec -- \
-      alacritty --class=org.monarch.screensaver \
+    setsid -f alacritty --class=org.monarch.screensaver \
       --config-file ~/.local/share/monarch/default/alacritty/screensaver.toml \
       -e monarch-screensaver
     ;;
   *ghostty*)
-    hyprctl dispatch exec -- \
-      ghostty --class=org.monarch.screensaver \
+    setsid -f ghostty --class=org.monarch.screensaver \
       --config-file=~/.local/share/monarch/default/ghostty/screensaver \
       --font-size=18 \
       -e monarch-screensaver
     ;;
   *foot*)
-    hyprctl dispatch exec -- \
-      foot --app-id=org.monarch.screensaver \
+    setsid -f foot --app-id=org.monarch.screensaver \
       --config="$MONARCH_PATH/default/foot/screensaver.ini" \
       -e monarch-screensaver
     ;;
   *kitty*)
-    hyprctl dispatch exec -- \
-      kitty --class=org.monarch.screensaver \
+    setsid -f kitty --class=org.monarch.screensaver \
       --override font_size=18 \
       --override window_padding_width=0 \
       -e monarch-screensaver
     ;;
   *)
     notify-send -u low "✋  Screensaver only runs in Alacritty, Foot, Ghostty, or Kitty"
+    continue
     ;;
   esac
+
+  # The terminal is spawned detached, so wait for its window to actually map on
+  # this output before focusing the next one. niri places a new window on the
+  # output focused at map time, not at spawn time; without this barrier all the
+  # screensavers race onto whichever monitor is focused last.
+  for _ in $(seq 1 50); do
+    [[ $(count_screensavers) -gt $before ]] && break
+    sleep 0.1
+  done
 done
 
-hyprctl dispatch focusmonitor $focused
+[[ -n $focused ]] && niri msg action focus-monitor "$focused" >/dev/null 2>&1

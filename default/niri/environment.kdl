@@ -1,0 +1,23 @@
+// Monarch — session-level Niri settings (environment, CSD, hotkey overlay).
+
+// Force all apps to use Wayland and identify the session as Niri.
+environment {
+    XCURSOR_SIZE "24"
+    GDK_BACKEND "wayland"
+    QT_QPA_PLATFORM "wayland"
+    QT_STYLE_OVERRIDE "kvantum"
+    MOZ_ENABLE_WAYLAND "1"
+    ELECTRON_OZONE_PLATFORM_HINT "wayland"
+    OZONE_PLATFORM "wayland"
+    XDG_SESSION_TYPE "wayland"
+    XDG_CURRENT_DESKTOP "niri"
+    XDG_SESSION_DESKTOP "niri"
+    XCOMPOSEFILE "~/.XCompose"
+}
+
+prefer-no-csd
+
+// Skip the Niri "Important Hotkeys" pop-up at startup.
+hotkey-overlay {
+    skip-at-startup
+}

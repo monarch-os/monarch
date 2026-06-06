@@ -3,11 +3,10 @@
 # monarch:summary=Run the Monarch screensaver using random effects from TTE.
 
 screensaver_in_focus() {
-  hyprctl activewindow -j | jq -e '.class == "org.monarch.screensaver"' >/dev/null 2>&1
+  niri msg --json focused-window 2>/dev/null | jq -e '.app_id == "org.monarch.screensaver"' >/dev/null 2>&1
 }
 
 exit_screensaver() {
-  hyprctl keyword cursor:invisible false &>/dev/null || true
   pkill -x tte 2>/dev/null
   pkill -f org.monarch.screensaver 2>/dev/null
   exit 0
@@ -18,7 +17,7 @@ trap exit_screensaver SIGINT SIGTERM SIGHUP SIGQUIT
 
 printf '\033]11;rgb:00/00/00\007'  # Set background color to black
 
-hyprctl keyword cursor:invisible true &>/dev/null
+# Niri hides the cursor automatically when idle (see `cursor.hide-after-inactive-ms`).
 
 tty=$(tty 2>/dev/null)
 

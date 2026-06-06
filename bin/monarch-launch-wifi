@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# monarch:summary=Launch the Monarch wifi controls (provided by the Impala TUI).
+# monarch:summary=Open the Noctalia network panel (Wi-Fi controls).
 
-rfkill unblock wifi
-monarch-launch-or-focus-tui impala
+exec qs -c noctalia-shell ipc call network togglePanel

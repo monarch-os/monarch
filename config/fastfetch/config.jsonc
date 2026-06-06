@@ -114,7 +114,7 @@
       "type": "command",
       "key": "│ ├󰸌",
       "keyColor": "blue",
-      "text": "theme=$(monarch-theme-current); echo -e \"$theme \\e[38m●\\e[37m●\\e[36m●\\e[35m●\\e[34m●\\e[33m●\\e[32m●\\e[31m●\"",
+      "text": "theme=$(jq -r '.colorSchemes.predefinedScheme // \"Monarch\"' ~/.config/noctalia/settings.json 2>/dev/null); echo -e \"$theme \\e[38m●\\e[37m●\\e[36m●\\e[35m●\\e[34m●\\e[33m●\\e[32m●\\e[31m●\"",
     },
     {
       "type": "terminalfont",

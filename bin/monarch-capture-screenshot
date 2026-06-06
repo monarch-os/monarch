@@ -45,24 +45,24 @@ open_editor() {
 MODE="${1:-smart}"
 PROCESSING="${2:-slurp}"
 
-# accounting for portrait/transformed displays
-JQ_MONITOR_GEO='
+# Niri reports outputs and windows in logical pixels via its IPC.
+# format_output_geo: "<x>,<y> <w>x<h>" (already scale-adjusted by niri).
+JQ_OUTPUT_GEO='
   def format_geo:
-    .x as $x | .y as $y |
-    (.width / .scale | floor) as $w |
-    (.height / .scale | floor) as $h |
-    .transform as $t |
-    if $t == 1 or $t == 3 then
-      "\($x),\($y) \($h)x\($w)"
-    else
-      "\($x),\($y) \($w)x\($h)"
-    end;
+    (.logical.x // 0) as $x | (.logical.y // 0) as $y |
+    (.logical.width // 0) as $w | (.logical.height // 0) as $h |
+    "\($x),\($y) \($w)x\($h)";
 '
 
 get_rectangles() {
-  local active_workspace=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .activeWorkspace.id')
-  hyprctl monitors -j | jq -r --arg ws "$active_workspace" "${JQ_MONITOR_GEO} .[] | select(.activeWorkspace.id == (\$ws | tonumber)) | format_geo"
-  hyprctl clients -j | jq -r --arg ws "$active_workspace" '.[] | select(.workspace.id == ($ws | tonumber)) | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"'
+  local focused_output
+  focused_output=$(niri msg --json focused-output 2>/dev/null | jq -r '.name // empty')
+  # Outputs whose logical position overlaps the focused workspace.
+  niri msg --json outputs 2>/dev/null | jq -r --arg out "$focused_output" "${JQ_OUTPUT_GEO} to_entries[] | .value | select(.name == \$out) | format_geo"
+  # Windows on the focused workspace.
+  local focused_workspace
+  focused_workspace=$(niri msg --json workspaces 2>/dev/null | jq -r '.[] | select(.is_focused == true) | .id')
+  niri msg --json windows 2>/dev/null | jq -r --arg ws "$focused_workspace" '.[] | select(.workspace_id == ($ws | tonumber)) | select(.layout.pos_in_scrolling_layout != null) | "\(.layout.pos_in_scrolling_layout[0]),\(.layout.pos_in_scrolling_layout[1]) \(.layout.window_size[0])x\(.layout.window_size[1])"'
 }
 
 # Keep hyprpicker alive until after grim captures so the screenshot sees the
@@ -87,7 +87,7 @@ windows)
   SELECTION=$(get_rectangles | slurp -r 2>/dev/null)
   ;;
 fullscreen)
-  SELECTION=$(hyprctl monitors -j | jq -r "${JQ_MONITOR_GEO} .[] | select(.focused == true) | format_geo")
+  SELECTION=$(niri msg --json focused-output 2>/dev/null | jq -r "${JQ_OUTPUT_GEO} . | format_geo")
   ;;
 smart | *)
   RECTS=$(get_rectangles)

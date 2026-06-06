@@ -4,24 +4,55 @@
 
 export PATH="$HOME/.local/bin:$PATH"
 
-# Display interactive menu using walker dmenu (used by creation wizard)
+# gum pickers for the creation wizard (cmd_create). The wizard runs inside a
+# floating terminal, so the whole flow stays in the TUI instead of popping GUI
+# dialogs.
 menu() {
-  local prompt="$1"
-  local options="$2"
-  sleep 0.3
-  echo -e "$options" | monarch-launch-walker --dmenu --width 295 --minheight 1 --maxheight 600 -p "$prompt…" 2>/dev/null
+  local prompt="$1" options="$2"
+  echo -e "$options" | grep -v '^[[:space:]]*$' | gum choose --header "$prompt"
 }
 
-# Display a free text input using walker dmenu
 input() {
   local prompt="$1"
-  sleep 0.3
-  monarch-launch-walker --dmenu --inputonly --width 295 -p "$prompt…" 2>/dev/null
+  gum input --placeholder "$prompt"
 }
 
-# Show container info (used as preview text by the Lua menu)
+# Pick a single file with yazi (chooser mode). Prints the chosen path, or
+# nothing if the user quits without selecting.
+pick_file() {
+  local out path
+  out=$(mktemp)
+  yazi --chooser-file="$out" "$HOME"
+  path=$(head -n1 "$out" 2>/dev/null)
+  rm -f "$out"
+  [[ -n "$path" ]] && printf '%s\n' "$path"
+}
+
+# Spawn a fresh, centered floating terminal running `monarch-menu-exegol <args>`.
+# Uses the Monarch presentation launcher (org.monarch.terminal app-id, floats
+# centered per windows.kdl). Same launcher as the SSH manager (Ctrl+Alt+S).
+launch_in_terminal() {
+  monarch-launch-floating-terminal-with-presentation monarch-menu-exegol "$@"
+}
+
+# Show container info (rendered as the fzf preview panel)
 cmd_info() {
   local name="$1"
+
+  if [[ "$name" == "__create__" ]]; then
+    cat <<'EOF'
+Create a new Exegol workspace.
+
+You will be guided through:
+  • Image selection
+  • Container name
+  • VPN configuration (optional)
+  • Shell logging (optional)
+  • Desktop mode (optional)
+EOF
+    return 0
+  fi
+
   local cname="exegol-$name"
 
   local inspect
@@ -82,28 +113,30 @@ cmd_info() {
   [[ -n "$comment" ]] && echo "Comment     : $comment"
 }
 
-# Open a shell in a running container
+# Session actions (shell/start) open a dedicated floating terminal via
+# xdg-terminal-exec + uwsm-app — like the rest of Monarch — so each session is
+# its own uwsm scope and the picker (cmd_picker) stays open behind it.
 cmd_shell() {
   local name="$1"
   setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "exegol exec --offline '$name' zsh"
 }
 
-# Start a stopped container
+# Start a stopped container (drops into a shell)
 cmd_start() {
   local name="$1"
   setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "exegol start --offline '$name'"
 }
 
-# Stop a running container
+# Transient ops: run in the foreground. The picker invokes these with fzf
+# `execute`, inside its own already-scoped terminal, then reloads the list.
 cmd_stop() {
   local name="$1"
-  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "exegol stop '$name'"
+  exegol stop "$name"
 }
 
-# Remove a container
 cmd_remove() {
   local name="$1"
-  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "exegol remove '$name'"
+  exegol remove "$name"
 }
 
 # Open workspace directory in file manager
@@ -114,26 +147,34 @@ cmd_workspace() {
     --format '{{range .Mounts}}{{if eq .Destination "/workspace"}}{{.Source}}{{end}}{{end}}' 2>/dev/null)
 
   if [[ -n "$ws_path" && -d "$ws_path" ]]; then
-    nautilus "$ws_path" &
+    setsid uwsm-app -- nautilus "$ws_path"
   else
     notify-send "Exegol" "Workspace introuvable pour $name"
   fi
 }
 
-# Launch Firefox inside a container
+# Launch Firefox inside a container (-b: detach so the picker stays responsive)
 cmd_firefox() {
   local name="$1"
-  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "exegol exec -b --offline '$name' firefox"
+  exegol exec -b --offline "$name" firefox
 }
 
 # Launch Bloodhound inside a container
 cmd_bloodhound() {
   local name="$1"
-  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "exegol exec -b --offline '$name' bloodhound"
+  exegol exec -b --offline "$name" bloodhound
 }
 
-# Interactive container creation wizard
+# Interactive container creation wizard (gum TUI).
 cmd_create() {
+  # gum needs a terminal. When invoked headless (e.g. from monarch-menu-pentestenv
+  # on a keybinding), relaunch in a floating one. The picker hands us our own
+  # terminal directly via launch_in_terminal, so that path already has a tty.
+  if [[ ! -t 1 ]]; then
+    launch_in_terminal create
+    return
+  fi
+
   # Step 1: Select image (installed first, then unavailable)
   local all_images=("full" "ad" "osint" "web" "light" "nightly" "free")
 
@@ -174,12 +215,10 @@ cmd_create() {
   local image
   image=$(echo "$choice" | awk '{print $2}')
 
-  # If image is not installed, offer to install it first
+  # If image is not installed, offer to install it first (inline, in this terminal).
   if [[ "$choice" == *"⚫"* ]]; then
-    local install_choice
-    install_choice=$(menu "Image non installée" "Installer $image puis créer\nAnnuler")
-    [[ -z "$install_choice" || "$install_choice" == *"Annuler"* ]] && return 0
-    setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "exegol install '$image' && monarch-menu-exegol create"
+    gum confirm "Installer l'image « $image » puis créer ?" || return 0
+    exegol install "$image" && exec monarch-menu-exegol create
     return 0
   fi
 
@@ -200,9 +239,7 @@ cmd_create() {
 
   if [[ "$vpn_choice" == *"Sélectionner"* ]]; then
     local vpn_path
-    vpn_path=$(zenity --file-selection \
-      --title="Sélectionner la configuration VPN" \
-      --file-filter="Fichiers VPN (ovpn, conf)|*.ovpn *.conf" 2>/dev/null)
+    vpn_path=$(pick_file)
     if [[ -n "$vpn_path" ]]; then
       local vpn_quoted
       printf -v vpn_quoted '%q' "$vpn_path"
@@ -213,9 +250,7 @@ cmd_create() {
       auth_choice=$(menu "Auth VPN" "Pas de fichier d'auth\nSélectionner un fichier d'auth")
       if [[ "$auth_choice" == *"Sélectionner"* ]]; then
         local auth_path
-        auth_path=$(zenity --file-selection \
-          --title="Sélectionner le fichier d'authentification VPN" \
-          --file-filter="Fichiers texte|*.txt" 2>/dev/null)
+        auth_path=$(pick_file)
         if [[ -n "$auth_path" ]]; then
           local auth_quoted
           printf -v auth_quoted '%q' "$auth_path"
@@ -231,7 +266,7 @@ cmd_create() {
   log_choice=$(menu "Journalisation" "Désactiver la journalisation\nActiver la journalisation")
 
   if [[ "$log_choice" == *"Activer"* ]]; then
-    log_flag="--log"
+    log_flag="-l"
   fi
 
   # Step 5: Desktop mode
@@ -244,23 +279,90 @@ cmd_create() {
     *VNC*)  desktop_flag="--desktop --desktop-config vnc" ;;
   esac
 
-  # Build and execute command — quote name/image, vpn_flags is already %q-escaped
+  # Build and run — quote name/image; vpn_flags is already %q-escaped. Runs in
+  # this terminal so the wizard flows straight into the new container's shell.
   local cmd
   printf -v cmd 'exegol start %q %q %s %s %s' "$name" "$image" "$vpn_flags" "$log_flag" "$desktop_flag"
-  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "$cmd"
+  echo "+ $cmd"
+  # On success, exegol drops into the container shell; on failure, keep the
+  # terminal open so the error stays readable instead of flashing by.
+  bash -c "$cmd" || {
+    local rc=$?
+    echo
+    echo "exegol a échoué (code $rc)."
+    read -rsn1 -p "Appuie sur une touche pour fermer…"
+  }
 }
 
-# Launch the Walker Exegol menu (default, no arguments)
-cmd_menu() {
-  # Check if exegol command is available and install if needed
+# Emit the picker rows as TSV: <name>\t<state>\t<display>. The first two
+# columns are hidden (used by fzf placeholders for preview/actions); only the
+# third is shown. A synthetic "Create" row sits on top.
+cmd_list() {
+  printf '%s\t%s\t%s\n' "__create__" "-" "  Create workspace"
+
+  docker ps -a -f 'name=exegol' \
+    --format '{{.Names}}|{{.State}}|{{.Image}}' 2>/dev/null |
+    while IFS='|' read -r name state image; do
+      [[ -z "$name" ]] && continue
+      local short="${name#exegol-}"
+      local tag
+      if [[ "$image" == *:* ]]; then tag="${image##*:}"; else tag="${image##*/}"; fi
+      local icon="🔴"
+      [[ "$state" == "running" ]] && icon="🟢"
+      printf '%s\t%s\t%s %s  (%s)\n' "$short" "$state" "$icon" "$short" "$tag"
+    done
+}
+
+# Default action (Enter): create wizard, or shell/start depending on state.
+# Each branch spawns its own detached process/terminal and returns, so the
+# picker (which calls this via execute-silent) stays open.
+cmd_enter() {
+  local name="$1" state="$2"
+  case "$name" in
+    __create__) launch_in_terminal create; return ;;
+  esac
+  if [[ "$state" == "running" ]]; then
+    monarch-menu-exegol shell "$name"
+  else
+    monarch-menu-exegol start "$name"
+  fi
+}
+
+# The interactive container manager (runs inside the floating terminal that
+# cmd_menu opened via the presentation launcher).
+cmd_picker() {
   if ! command -v exegol &>/dev/null; then
-    setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "gum confirm 'Exegol is not installed. Would you like to install it?' && pipx install exegol"
-    if ! command -v exegol &>/dev/null; then
-      exit 1
-    fi
+    gum confirm 'Exegol is not installed. Install it?' && pipx install exegol
+    command -v exegol &>/dev/null || exit 1
   fi
 
-  monarch-launch-walker -m menus:monarchExegol --width 800 --minheight 400
+  local self="monarch-menu-exegol"
+  local header='Enter: shell/start   ^X: stop   ^D: remove   ^W: workspace   ^F: firefox   ^B: bloodhound   ^N: create   ^R: refresh'
+
+  "$self" _list | fzf \
+    --ansi \
+    --delimiter=$'\t' \
+    --with-nth=3 \
+    --prompt='Exegol ❯ ' \
+    --header="$header" \
+    --preview="$self info {1}" \
+    --preview-window='right,55%,wrap' \
+    --bind="enter:execute-silent($self _enter {1} {2})" \
+    --bind="ctrl-x:execute($self stop {1})+reload($self _list)" \
+    --bind="ctrl-d:execute($self remove {1})+reload($self _list)" \
+    --bind="ctrl-w:execute-silent($self workspace {1})" \
+    --bind="ctrl-f:execute-silent($self firefox {1})" \
+    --bind="ctrl-b:execute-silent($self bloodhound {1})" \
+    --bind="ctrl-n:execute-silent($self _enter __create__ -)" \
+    --bind="ctrl-r:reload($self _list)"
+}
+
+# Default entry point: always open the picker in its own centered floating
+# terminal (via the Monarch presentation launcher), even when called from an
+# existing terminal. The launcher re-invokes us as `_picker` so we land
+# directly in cmd_picker inside the new terminal.
+cmd_menu() {
+  exec monarch-launch-floating-terminal-with-presentation monarch-menu-exegol _picker
 }
 
 # Route sub-commands
@@ -274,5 +376,8 @@ case "${1:-}" in
   firefox)    cmd_firefox "$2" ;;
   bloodhound) cmd_bloodhound "$2" ;;
   create)     cmd_create ;;
+  _picker)    cmd_picker ;;
+  _list)      cmd_list ;;
+  _enter)     cmd_enter "$2" "$3" ;;
   *)          cmd_menu ;;
 esac

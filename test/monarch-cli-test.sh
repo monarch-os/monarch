@@ -46,7 +46,7 @@ fi
 pass "main help does not show group counts"
 
 output=$("$CLI" commands)
-assert_output_contains "commands lists documented commands" "$output" "monarch theme set <theme-name>"
+assert_output_contains "commands lists documented commands" "$output" "monarch theme apply"
 
 "$CLI" commands --json | jq -e '.ok == true and (.commands | length >= 200)' >/dev/null
 pass "commands --json is valid JSON with full bin coverage"
@@ -63,7 +63,7 @@ pass "commands --check passes"
 "$CLI" commands --all >/dev/null
 pass "commands --all does not crash"
 
-"$CLI" commands --all --json | jq -e '.commands[] | select(.route == "monarch hyprland window gaps toggle" and .summary != "undocumented")' >/dev/null
+"$CLI" commands --all --json | jq -e '.commands[] | select(.route == "monarch niri monitor focused" and .summary != "undocumented")' >/dev/null
 pass "fallback commands are inferred and documented"
 
 "$CLI" commands --all --json | jq -e '.commands[] | select(.route == "monarch dev benchmark")' >/dev/null
@@ -88,7 +88,7 @@ assert_output_contains "bare group includes browser route" "$output" "monarch in
 
 output=$("$CLI" toggle)
 assert_output_contains "bare root command with children renders help" "$output" "Toggle commands"
-assert_output_contains "bare toggle help includes child route" "$output" "monarch toggle waybar"
+assert_output_contains "bare toggle help includes child route" "$output" "monarch toggle nightlight"
 
 output=$("$CLI" pkg --help)
 assert_output_contains "package group includes pkg add fallback route" "$output" "monarch pkg add <packages...>"
@@ -152,9 +152,9 @@ if missing:
 PY
 pass "every filename-derived group help represents its bins"
 
-output=$(timeout 5 "$CLI" theme set --help)
+output=$(timeout 5 "$CLI" theme apply --help)
 assert_output_contains "command help renders without executing" "$output" "Binary:"
-assert_output_contains "theme set help names binary" "$output" "monarch-theme-set"
+assert_output_contains "theme apply help names binary" "$output" "monarch-theme-apply"
 
 output=$(timeout 5 "$CLI" update --help)
 assert_output_contains "mutating command help does not execute target" "$output" "monarch-update"
@@ -176,12 +176,6 @@ assert_output_contains "system command help is safe" "$output" "monarch-system-r
 output=$("$CLI" dev benchmark --repeat=1)
 assert_output_contains "benchmark command runs" "$output" "Monarch CLI benchmark"
 
-"$CLI" theme list >/dev/null
-pass "safe dispatch works for theme list"
-
-"$CLI" theme current >/dev/null
-pass "safe dispatch works for theme current"
-
 "$CLI" font list >/dev/null
 pass "safe dispatch works for font list"
 
@@ -190,7 +184,7 @@ pass "safe dispatch works for font current"
 
 for binary in \
   monarch-update \
-  monarch-theme-set \
+  monarch-theme-apply \
   monarch-capture-screenshot \
   monarch-system-reboot \
   monarch-pkg-add; do

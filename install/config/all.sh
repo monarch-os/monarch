@@ -1,4 +1,5 @@
 run_logged $MONARCH_INSTALL/config/config.sh
+run_logged $MONARCH_INSTALL/config/niri.sh
 run_logged $MONARCH_INSTALL/config/theme.sh
 run_logged $MONARCH_INSTALL/config/branding.sh
 run_logged $MONARCH_INSTALL/config/exegol.sh
@@ -19,14 +20,12 @@ run_logged $MONARCH_INSTALL/config/mimetypes.sh
 run_logged $MONARCH_INSTALL/config/user-dirs.sh
 run_logged $MONARCH_INSTALL/config/nautilus-python.sh
 run_logged $MONARCH_INSTALL/config/localdb.sh
-run_logged $MONARCH_INSTALL/config/walker-elephant.sh
 run_logged $MONARCH_INSTALL/config/wireshark.sh
 run_logged $MONARCH_INSTALL/config/fast-shutdown.sh
 run_logged $MONARCH_INSTALL/config/unmount-fuse.sh
 run_logged $MONARCH_INSTALL/config/input-group.sh
 run_logged $MONARCH_INSTALL/config/monarch-ai-skill.sh
 run_logged $MONARCH_INSTALL/config/pi.sh
-run_logged $MONARCH_INSTALL/config/monarch-toggles.sh
 run_logged $MONARCH_INSTALL/config/kernel-modules-hook.sh
 run_logged $MONARCH_INSTALL/config/powerprofilesctl-rules.sh
 run_logged $MONARCH_INSTALL/config/wifi-powersave-rules.sh

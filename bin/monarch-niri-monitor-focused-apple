@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# monarch:summary=Return success if the focused Niri output is an Apple display.
+# monarch:hidden=true
+
+niri msg --json focused-output 2>/dev/null | \
+  jq -e 'select(.make == "Apple Computer Inc" and (.model | test("StudioDisplay|ProDisplayXDR|Studio XDR")))' >/dev/null

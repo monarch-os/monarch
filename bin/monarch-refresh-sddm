@@ -5,3 +5,10 @@
 
 sudo rm -rf /usr/share/sddm/themes/monarch
 sudo cp -r $MONARCH_PATH/default/sddm/monarch /usr/share/sddm/themes/monarch
+
+# The login screen follows the active color scheme via the templates.sddm
+# user-template: Noctalia rewrites theme.conf (colors) and its post_hook
+# (monarch-sddm-theme) re-tints logo.png to the accent. Both run as the user and
+# write in-place under /usr/share, so they must be world-writable.
+sudo chmod 666 /usr/share/sddm/themes/monarch/theme.conf \
+  /usr/share/sddm/themes/monarch/logo.png

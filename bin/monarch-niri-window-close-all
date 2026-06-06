@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# monarch:summary=Close all open windows on the current Niri session.
+# monarch:hidden=true
+
+niri msg --json windows 2>/dev/null | jq -r '.[].id' | while read -r id; do
+  niri msg action close-window --id "$id" >/dev/null 2>&1 || true
+done
+
+# Move back to workspace 1.
+niri msg action focus-workspace 1 >/dev/null 2>&1 || true

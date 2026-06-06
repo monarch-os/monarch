@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# monarch:summary=Enable, disable, or toggle a niri input device class via libinput
+# monarch:args=<touchpad|touch> [on|off|toggle]
+# monarch:hidden=true
+
+# Backs monarch-toggle-touchpad / monarch-toggle-touchscreen. The actual state
+# lives in ~/.config/niri/runtime.kdl, owned by monarch-niri-runtime, which sets
+# niri's `input { <class> { off } }` (applied by libinput on live-reload) instead
+# of poking the kernel's unreliable sysfs `inhibited` attribute.
+
+device="${1:-}"
+action="${2:-toggle}"
+
+case "$device" in
+  touchpad | touch) ;;
+  *)
+    echo "usage: $(basename "$0") <touchpad|touch> [on|off|toggle]" >&2
+    exit 1
+    ;;
+esac
+
+state=$(monarch-niri-runtime input "$device" "$action") || exit 1
+
+case "$device" in
+  touchpad) notify-send -u low "  Touchpad $state" ;;
+  touch) notify-send -u low "󰟸  Touchscreen $state" ;;
+esac

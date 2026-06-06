@@ -1,0 +1,18 @@
+// Monarch — keyboard and touchpad configuration.
+
+input {
+    keyboard {
+        numlock
+    }
+
+    touchpad {
+        tap
+        natural-scroll
+        click-method "clickfinger"
+        scroll-factor 0.4
+    }
+
+    focus-follows-mouse
+    workspace-auto-back-and-forth
+    warp-mouse-to-focus
+}

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# monarch:summary=Reload the Niri configuration (used by Monarch theme switching).
+# monarch:group=restart
+# monarch:name=niri
+
+niri msg action reload-config >/dev/null 2>&1

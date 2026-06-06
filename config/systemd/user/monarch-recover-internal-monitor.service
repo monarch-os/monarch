@@ -1,11 +1,14 @@
 [Unit]
-Description=Recover the internal monitor toggle when no external display is connected
-Before=graphical-session-pre.target
-ConditionPathExists=%h/.local/state/monarch/toggles/hypr/internal-monitor-disable.conf
+Description=Monarch — recover the laptop display when an external monitor is unplugged
+After=graphical-session.target
+PartOf=graphical-session.target
 
 [Service]
-Type=oneshot
+Type=simple
 ExecStart=%h/.local/share/monarch/bin/monarch-hw-recover-internal-monitor
+Restart=on-failure
+RestartSec=2
+LogLevelMax=warning
 
 [Install]
-WantedBy=graphical-session-pre.target
+WantedBy=graphical-session.target

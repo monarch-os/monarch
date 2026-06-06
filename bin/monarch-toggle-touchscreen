@@ -3,30 +3,12 @@
 # monarch:summary=Enable, disable, or toggle the touch functionality of the screen
 # monarch:args=[on|off|toggle]
 
-STATE_CONF="$HOME/.local/state/monarch/toggles/hypr/touchscreen-disabled.conf"
-
-device="$(monarch-hw-touchscreen)"
-
-if [[ -z $device ]]; then
+if [[ -z "$(monarch-hw-touchscreen)" ]]; then
   echo "No touchscreen device found" >&2
   exit 1
 fi
 
-enable() {
-  hyprctl keyword "device[$device]:enabled" true >/dev/null
-  rm -f "$STATE_CONF"
-  monarch-swayosd-client --custom-icon device-support-touch-symbolic --custom-message "Touchscreen enabled"
-}
-
-disable() {
-  hyprctl keyword "device[$device]:enabled" false >/dev/null
-  mkdir -p "$(dirname "$STATE_CONF")"
-  printf 'device {\n    name = %s\n    enabled = false\n}\n' "$device" > "$STATE_CONF"
-  monarch-swayosd-client --custom-icon touch-disabled-symbolic --custom-message "Touchscreen disabled"
-}
-
-case "${1:-toggle}" in
-  on) enable ;;
-  off) disable ;;
-  toggle) if [[ -f $STATE_CONF ]]; then enable; else disable; fi ;;
-esac
+# The toggle is driven through niri's own input config (see
+# monarch-niri-input-toggle), which disables the device via libinput rather than
+# the kernel's unreliable sysfs `inhibited` attribute.
+exec monarch-niri-input-toggle touch "${1:-toggle}"

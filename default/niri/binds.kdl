@@ -1,0 +1,205 @@
+// Monarch — key bindings.
+//
+// User overrides live in ~/.config/niri/user.kdl. Niri merges binds by key,
+// so re-declaring a single Mod+X in user.kdl replaces it without touching
+// the others.
+
+binds {
+    // --- System ---
+    Mod+Shift+Q hotkey-overlay-title="Close active window" { close-window; }
+    Mod+L hotkey-overlay-title="Lock screen" allow-inhibiting=false { spawn "monarch-system-lock"; }
+    Mod+Shift+L hotkey-overlay-title="Power menu" { spawn-sh "qs -c noctalia-shell ipc call sessionMenu toggle"; }
+    XF86PowerOff hotkey-overlay-title="Power menu" { spawn-sh "qs -c noctalia-shell ipc call sessionMenu toggle"; }
+
+    // --- Applications ---
+    Mod+Return hotkey-overlay-title="Terminal" { spawn-sh "uwsm-app -- xdg-terminal-exec --dir=\"$(monarch-cmd-terminal-cwd)\""; }
+    Mod+Shift+Return hotkey-overlay-title="Tmux terminal" { spawn-sh "uwsm-app -- xdg-terminal-exec --dir=\"$(monarch-cmd-terminal-cwd)\" bash -c 'tmux attach || tmux new -s Work'"; }
+    Ctrl+Alt+F hotkey-overlay-title="File manager" { spawn "uwsm-app" "--" "nautilus" "--new-window"; }
+    Ctrl+Alt+Shift+F hotkey-overlay-title="File manager (cwd)" { spawn-sh "uwsm-app -- nautilus --new-window \"$(monarch-cmd-terminal-cwd)\""; }
+    Ctrl+Alt+E hotkey-overlay-title="Exegol" { spawn "monarch-menu-pentestenv"; }
+    Ctrl+Alt+S hotkey-overlay-title="SSH manager" { spawn "monarch-launch-floating-terminal-with-presentation" "sshm"; }
+    Ctrl+Alt+W hotkey-overlay-title="Browser" { spawn "monarch-launch-browser"; }
+    Alt+Shift+W hotkey-overlay-title="Browser (private)" { spawn "monarch-launch-browser" "--private"; }
+    Mod+Shift+M hotkey-overlay-title="Music" { spawn "monarch-launch-or-focus" "deezer-desktop"; }
+    Mod+Shift+N hotkey-overlay-title="Editor" { spawn "monarch-launch-editor"; }
+    Mod+Shift+D hotkey-overlay-title="Docker (lazydocker)" { spawn "monarch-launch-tui" "lazydocker"; }
+    Mod+Shift+O hotkey-overlay-title="Obsidian" { spawn "monarch-launch-or-focus" "^obsidian$" "uwsm-app -- obsidian"; }
+    Mod+Shift+E hotkey-overlay-title="Email (Outlook)" { spawn "monarch-launch-or-focus-webapp" "Outlook" "https://outlook.office.com"; }
+    Mod+Shift+C hotkey-overlay-title="Cyberchef" { spawn "monarch-launch-webapp" "Cyberchef" "https://gchq.github.io/CyberChef/"; }
+    Mod+Shift+T hotkey-overlay-title="Teams" { spawn "monarch-launch-or-focus-webapp" "Teams" "https://teams.microsoft.com/"; }
+    Mod+Shift+Y hotkey-overlay-title="YouTube" { spawn "monarch-launch-or-focus-webapp" "YouTube" "https://youtube.com/"; }
+
+    // --- Menus & utilities ---
+    Mod+Space hotkey-overlay-title="Launcher (Noctalia)" { spawn-sh "qs -c noctalia-shell ipc call launcher toggle"; }
+    Mod+Ctrl+E hotkey-overlay-title="Emoji picker" { spawn-sh "qs -c noctalia-shell ipc call launcher emoji"; }
+    Mod+Ctrl+C hotkey-overlay-title="Capture menu" { spawn "monarch-menu" "capture"; }
+    Mod+Ctrl+O hotkey-overlay-title="Toggle menu" { spawn "monarch-menu" "toggle"; }
+    Mod+Ctrl+H hotkey-overlay-title="Hardware menu" { spawn "monarch-menu" "hardware"; }
+    Mod+Alt+Space hotkey-overlay-title="Monarch menu" { spawn "monarch-menu"; }
+    Mod+K hotkey-overlay-title="Show key bindings" { spawn "monarch-menu-keybindings"; }
+    XF86Calculator hotkey-overlay-title="Calculator" { spawn "gnome-calculator"; }
+
+    // --- Aesthetics ---
+    Mod+Ctrl+Space hotkey-overlay-title="Background picker" { spawn "monarch-menu" "background"; }
+    Mod+Shift+Ctrl+Space hotkey-overlay-title="Style menu" { spawn "monarch-menu" "style"; }
+
+    // --- Noctalia panels ---
+    Mod+Comma hotkey-overlay-title="Control center" { spawn-sh "qs -c noctalia-shell ipc call controlCenter toggle"; }
+    Mod+Shift+Comma hotkey-overlay-title="Noctalia settings" { spawn-sh "qs -c noctalia-shell ipc call settings toggle"; }
+    Mod+Ctrl+Comma hotkey-overlay-title="Toggle Do Not Disturb" { spawn-sh "qs -c noctalia-shell ipc call notifications toggleDND"; }
+
+    // --- Toggles ---
+    Mod+Ctrl+I hotkey-overlay-title="Toggle idle lock" { spawn "monarch-toggle-idle"; }
+    Mod+Ctrl+N hotkey-overlay-title="Toggle nightlight" { spawn "monarch-toggle-nightlight"; }
+    // Toggle the focused window's opacity rule (semitransparent <-> opaque). Ports the old
+    // SUPER+BACKSPACE monarch-hyprland-window-transparency-toggle; niri does it natively so no
+    // script is needed. Only has an effect on windows whose opacity rule is < 1.0 (see windows.kdl:
+    // the global default is 0.97 and terminals 0.95, so this flips them fully opaque and back).
+    Mod+BackSpace hotkey-overlay-title="Toggle window transparency" { toggle-window-rule-opacity; }
+
+    // --- Captures ---
+    Print hotkey-overlay-title="Screenshot (with editor)" { spawn "monarch-capture-screenshot"; }
+    Mod+Shift+S hotkey-overlay-title="Screenshot to clipboard" { spawn "monarch-capture-screenshot" "smart" "copy"; }
+    Alt+Print hotkey-overlay-title="Screen recording" { spawn "monarch-menu" "screenrecord"; }
+    Mod+Print hotkey-overlay-title="Color picker" { spawn-sh "pkill hyprpicker || hyprpicker -a"; }
+    Mod+Ctrl+Print hotkey-overlay-title="OCR from screenshot" { spawn "monarch-capture-text-extraction"; }
+
+    // --- Sharing / transcoding / reminders ---
+    Mod+Ctrl+S hotkey-overlay-title="Share" { spawn "monarch-menu" "share"; }
+    Mod+Ctrl+Semicolon hotkey-overlay-title="Transcode" { spawn "monarch-transcode"; }
+    Mod+Ctrl+R hotkey-overlay-title="Set reminder" { spawn "monarch-menu" "reminder-set"; }
+    Mod+Ctrl+Alt+R hotkey-overlay-title="Show reminders" { spawn "monarch-reminder" "show"; }
+    Mod+Shift+Ctrl+R hotkey-overlay-title="Clear reminders" { spawn "monarch-reminder" "clear"; }
+
+    // --- Quick-info ---
+    Mod+Ctrl+Alt+T hotkey-overlay-title="Show time" { spawn-sh "notify-send -u low \"$(date +'%A %H:%M  —  %d %B W%V %Y')\""; }
+    Mod+Ctrl+Alt+B hotkey-overlay-title="Show battery" { spawn-sh "notify-send -u low \"$(monarch-battery-status)\""; }
+    Mod+Ctrl+Alt+W hotkey-overlay-title="Show weather" { spawn-sh "notify-send -u low \"$(monarch-weather-status)\""; }
+
+    // --- Control panels ---
+    Mod+Ctrl+A hotkey-overlay-title="Audio controls" { spawn "monarch-launch-audio"; }
+    Mod+Ctrl+B hotkey-overlay-title="Bluetooth controls" { spawn "monarch-launch-bluetooth"; }
+    Mod+Ctrl+W hotkey-overlay-title="Wifi controls" { spawn "monarch-launch-wifi"; }
+    Mod+Ctrl+T hotkey-overlay-title="Activity (btop)" { spawn "monarch-launch-tui" "btop"; }
+
+    // --- Dictation (voxtype) ---
+    // Toggle only: niri has no key-release action, so true hold-to-talk is
+    // impossible here — press to start dictating, press again to stop.
+    Mod+Ctrl+X hotkey-overlay-title="Toggle dictation" { spawn "voxtype" "record" "toggle"; }
+
+    // --- Clipboard manager ---
+    Mod+Shift+V hotkey-overlay-title="Clipboard manager" { spawn-sh "qs -c noctalia-shell ipc call launcher clipboard"; }
+
+    // --- Media keys (XF86*) ---
+    XF86AudioRaiseVolume       allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call volume increase"; }
+    XF86AudioLowerVolume       allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call volume decrease"; }
+    XF86AudioMute              allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call volume muteOutput"; }
+    XF86AudioMicMute           allow-when-locked=true { spawn "monarch-audio-input-mute"; }
+    XF86MonBrightnessUp        allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call brightness increase"; }
+    XF86MonBrightnessDown      allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call brightness decrease"; }
+    Shift+XF86MonBrightnessUp   allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call brightness set 100"; }
+    Shift+XF86MonBrightnessDown allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call brightness set 1"; }
+    XF86KbdBrightnessUp        allow-when-locked=true { spawn "monarch-brightness-keyboard" "up"; }
+    XF86KbdBrightnessDown      allow-when-locked=true { spawn "monarch-brightness-keyboard" "down"; }
+    XF86KbdLightOnOff          allow-when-locked=true { spawn "monarch-brightness-keyboard" "cycle"; }
+    XF86TouchpadToggle         { spawn "monarch-toggle-touchpad"; }
+    XF86TouchpadOn             { spawn "monarch-toggle-touchpad" "on"; }
+    XF86TouchpadOff            { spawn "monarch-toggle-touchpad" "off"; }
+    XF86AudioNext              { spawn "playerctl" "next"; }
+    XF86AudioPause             { spawn "playerctl" "play-pause"; }
+    XF86AudioPlay              { spawn "playerctl" "play-pause"; }
+    XF86AudioPrev              { spawn "playerctl" "previous"; }
+    Mod+XF86AudioMute          { spawn "monarch-audio-output-switch"; }
+    Alt+XF86AudioRaiseVolume   { spawn-sh "qs -c noctalia-shell ipc call volume increase"; }
+    Alt+XF86AudioLowerVolume   { spawn-sh "qs -c noctalia-shell ipc call volume decrease"; }
+    Alt+XF86MonBrightnessUp    { spawn-sh "qs -c noctalia-shell ipc call brightness increase"; }
+    Alt+XF86MonBrightnessDown  { spawn-sh "qs -c noctalia-shell ipc call brightness decrease"; }
+
+    // --- Tiling: focus columns / windows ---
+    Mod+Left  hotkey-overlay-title="Focus column left"  { focus-column-left; }
+    Mod+Right hotkey-overlay-title="Focus column right" { focus-column-right; }
+    Mod+Up    hotkey-overlay-title="Focus window up"    { focus-window-up; }
+    Mod+Down  hotkey-overlay-title="Focus window down"  { focus-window-down; }
+
+    // --- Tiling: swap / move columns and windows ---
+    Mod+Shift+Left  hotkey-overlay-title="Move column left"  { move-column-left; }
+    Mod+Shift+Right hotkey-overlay-title="Move column right" { move-column-right; }
+    Mod+Shift+Up    hotkey-overlay-title="Move window up"    { move-window-up; }
+    Mod+Shift+Down  hotkey-overlay-title="Move window down"  { move-window-down; }
+
+    // --- Resize column / window ---
+    // Resize lives under Mod+Ctrl, NOT bare Mod+-/Mod+= : on AZERTY the - key is
+    // workspace 6, so keyboard.kdl steals Mod+- / Mod+Shift+- and shrink would
+    // drift to a different key than on QWERTY. Workspaces only ever take
+    // Mod+<sym> and Mod+Shift+<sym>, so Mod+Ctrl is never stolen — these four
+    // binds resolve to the same - / = keysyms identically on every layout.
+    Mod+Ctrl+Minus hotkey-overlay-title="Shrink column"  { set-column-width "-10%"; }
+    Mod+Ctrl+Equal hotkey-overlay-title="Expand column"  { set-column-width "+10%"; }
+    Mod+Ctrl+Shift+Minus hotkey-overlay-title="Shrink window height" { set-window-height "-10%"; }
+    Mod+Ctrl+Shift+Equal hotkey-overlay-title="Expand window height" { set-window-height "+10%"; }
+
+    // --- Display scaling ---
+    // Cycle the focused monitor's scale (1x..4x); +Shift reverses. On Mod+Ctrl+D
+    // (D = Display): Semicolon is taken by Transcode, and Mod+Ctrl is never stolen
+    // by workspaces, so the bind resolves identically on every keyboard layout.
+    Mod+Ctrl+D hotkey-overlay-title="Cycle display scaling" { spawn "monarch-niri-monitor-scaling-cycle"; }
+    Mod+Ctrl+Shift+D hotkey-overlay-title="Cycle display scaling backwards" { spawn "monarch-niri-monitor-scaling-cycle" "--reverse"; }
+
+    // --- Fullscreen / preset width ---
+    Mod+F        hotkey-overlay-title="Fullscreen window"          { fullscreen-window; }
+    Mod+Shift+F  hotkey-overlay-title="Toggle column full width" { maximize-column; }
+    Mod+R        hotkey-overlay-title="Cycle preset column width"  { switch-preset-column-width; }
+    Mod+Shift+R  hotkey-overlay-title="Cycle preset window height" { switch-preset-window-height; }
+    Mod+C        hotkey-overlay-title="Center focused window"      { center-window; }
+
+    // --- Consume / expel (merge with neighbour column or split out) ---
+    Mod+Alt+Left  hotkey-overlay-title="Consume/expel window left"  { consume-or-expel-window-left; }
+    Mod+Alt+Right hotkey-overlay-title="Consume/expel window right" { consume-or-expel-window-right; }
+
+    // --- Tabbed column display (Niri equivalent of Hyprland groups) ---
+    Mod+Alt+Return hotkey-overlay-title="Toggle tabbed column display" { toggle-column-tabbed-display; }
+
+    // --- Float / pop ---
+    Mod+Shift+Space hotkey-overlay-title="Toggle floating" { toggle-window-floating; }
+
+    // --- Workspaces (Mod+1..0 focus, Mod+Shift+1..0 move) ---
+    // The 1..10 binds are GENERATED into ~/.config/niri/workspaces.kdl from the
+    // user-editable name list ~/.config/niri/workspaces.conf, so the bind targets
+    // and the bar labels stay in lockstep. Edit that file, then `monarch refresh
+    // niri`. See default/niri/misc.kdl for why niri needs name-based references.
+
+    Mod+Tab       hotkey-overlay-title="Next workspace"     { focus-workspace-down; }
+    Mod+Shift+Tab hotkey-overlay-title="Previous workspace" { focus-workspace-up; }
+    Mod+Ctrl+Tab  hotkey-overlay-title="Last-focused workspace" { focus-workspace-previous; }
+
+    // --- Scratchpad (named workspace equivalent) ---
+    Mod+S      hotkey-overlay-title="Scratchpad"            { focus-workspace "scratchpad"; }
+    Mod+Alt+S  hotkey-overlay-title="Send to scratchpad"    { move-column-to-workspace "scratchpad"; }
+
+    // --- Monitors ---
+    Mod+Ctrl+Left   hotkey-overlay-title="Move workspace to monitor left"   { move-workspace-to-monitor-left; }
+    Mod+Ctrl+Right  hotkey-overlay-title="Move workspace to monitor right"  { move-workspace-to-monitor-right; }
+    Mod+Ctrl+Up     hotkey-overlay-title="Move workspace to monitor up"     { move-workspace-to-monitor-up; }
+    Mod+Ctrl+Down   hotkey-overlay-title="Move workspace to monitor down"   { move-workspace-to-monitor-down; }
+    Ctrl+Alt+Tab        hotkey-overlay-title="Focus next monitor"     { focus-monitor-next; }
+    Ctrl+Alt+Shift+Tab  hotkey-overlay-title="Focus previous monitor" { focus-monitor-previous; }
+    Mod+Ctrl+Delete hotkey-overlay-title="Toggle laptop display" { spawn "monarch-niri-monitor-internal" "toggle"; }
+    Mod+Ctrl+Alt+Delete hotkey-overlay-title="Toggle laptop display mirroring" { spawn "monarch-niri-monitor-internal-mirror" "toggle"; }
+
+    // --- Mouse-wheel workspace switch ---
+    Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
+    Mod+WheelScrollUp   cooldown-ms=150 { focus-workspace-up;   }
+
+    // --- Alt+Tab window cycling within current workspace ---
+    Alt+Tab       hotkey-overlay-title="Cycle next window"     { focus-window-or-workspace-down; }
+    Alt+Shift+Tab hotkey-overlay-title="Cycle previous window" { focus-window-or-workspace-up; }
+
+    // --- Apple Display brightness (asdcontrol via monarch wrapper) ---
+    Ctrl+F1       { spawn "monarch-brightness-display-apple" "-5000"; }
+    Ctrl+F2       { spawn "monarch-brightness-display-apple" "+5000"; }
+    Shift+Ctrl+F2 { spawn "monarch-brightness-display-apple" "+60000"; }
+
+    // --- Quit / reload ---
+    Mod+Ctrl+Alt+Q { quit; }
+    Ctrl+Alt+Delete hotkey-overlay-title="Close all windows" { spawn "monarch-niri-window-close-all"; }
+}
