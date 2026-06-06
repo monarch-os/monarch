@@ -88,7 +88,10 @@
   },
   "notifications": {
     "monitors": [],
-    "respectExpireTimeout": true
+    "respectExpireTimeout": true,
+    "density": "compact",
+    "lowUrgencyDuration": 5,
+    "normalUrgencyDuration": 5
   },
   "templates": {
     "enableUserTheming": true,
