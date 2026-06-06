@@ -18,3 +18,11 @@ post_hook = "monarch-obsidian-theme"
 input_path = "~/.config/noctalia/templates/sddm.conf"
 output_path = "/usr/share/sddm/themes/monarch/theme.conf"
 post_hook = "monarch-sddm-theme"
+
+# fuzzel dmenu picker (monarch-menu-*). The template carries layout + colors;
+# Noctalia creates ~/.config/fuzzel/ if missing and re-renders on every session
+# start, so no baked default is shipped. No post_hook: fuzzel re-reads its config
+# on every launch.
+[templates.fuzzel]
+input_path = "~/.config/noctalia/templates/fuzzel.ini"
+output_path = "~/.config/fuzzel/fuzzel.ini"
