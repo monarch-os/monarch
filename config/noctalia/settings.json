@@ -11,12 +11,27 @@
       "left": [
         { "id": "ControlCenter", "useDistroLogo": false, "icon": "crown" },
         { "id": "Workspace", "labelMode": "name", "hideUnoccupied": true },
-        { "id": "MediaMini", "compactMode": false, "hideMode": "hidden", "hideWhenIdle": false, "maxWidth": 250, "panelShowAlbumArt": true, "scrollingMode": "hover", "showAlbumArt": true, "showArtistFirst": true, "showProgressRing": true, "showVisualizer": true, "textColor": "none", "useFixedWidth": false, "visualizerType": "linear" }
+        {
+          "id": "MediaMini",
+          "compactMode": false,
+          "hideMode": "hidden",
+          "hideWhenIdle": false,
+          "maxWidth": 250,
+          "panelShowAlbumArt": true,
+          "scrollingMode": "hover",
+          "showAlbumArt": true,
+          "showArtistFirst": true,
+          "showProgressRing": true,
+          "showVisualizer": true,
+          "textColor": "none",
+          "useFixedWidth": false,
+          "visualizerType": "linear"
+        }
       ],
       "center": [
         {
           "id": "Clock",
-          "formatHorizontal": "ddd D MMM  HH:mm",
+          "formatHorizontal": "ddd dd MMM  HH:mm",
           "useMonospacedFont": true
         },
         {
