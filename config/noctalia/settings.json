@@ -108,6 +108,11 @@
     "lowUrgencyDuration": 5,
     "normalUrgencyDuration": 5
   },
+  "sessionMenu": {
+    "largeButtonsStyle": false,
+    "showHeader": false,
+    "showKeybinds": false
+  },
   "templates": {
     "enableUserTheming": true,
     "activeTemplates": [
