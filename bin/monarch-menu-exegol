@@ -31,8 +31,10 @@ pick_file() {
 # Spawn a fresh, centered floating terminal running `monarch-menu-exegol <args>`.
 # Uses the Monarch presentation launcher (org.monarch.terminal app-id, floats
 # centered per windows.kdl). Same launcher as the SSH manager (Ctrl+Alt+S).
+# Backgrounded with detached fds so an fzf execute-silent caller (the Create
+# row) returns immediately and its +abort closes the picker right away.
 launch_in_terminal() {
-  monarch-launch-floating-terminal-with-presentation monarch-menu-exegol "$@"
+  setsid monarch-launch-floating-terminal-with-presentation monarch-menu-exegol "$@" </dev/null >/dev/null 2>&1 &
 }
 
 # Show container info (rendered as the fzf preview panel)
@@ -113,18 +115,17 @@ EOF
   [[ -n "$comment" ]] && echo "Comment     : $comment"
 }
 
-# Session actions (shell/start) open a dedicated floating terminal via
-# xdg-terminal-exec + uwsm-app — like the rest of Monarch — so each session is
-# its own uwsm scope and the picker (cmd_picker) stays open behind it.
-cmd_shell() {
-  local name="$1"
-  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "exegol exec --offline '$name' zsh"
-}
-
-# Start a stopped container (drops into a shell)
+# Open an interactive shell. `exegol start` is the right action whether the
+# container is stopped (it boots it) or already running (it opens a fresh shell);
+# `exegol exec` is reserved for background processes (see cmd_firefox/bloodhound).
+# Opens a dedicated tiled terminal via xdg-terminal-exec + uwsm-app — no
+# org.monarch.terminal app-id, so the session escapes the floating window-rule
+# and tiles like a normal terminal, each in its own uwsm scope. Backgrounded
+# with detached fds so fzf's execute-silent returns immediately — otherwise its
+# +abort (which closes this menu) would only fire when the terminal exits.
 cmd_start() {
   local name="$1"
-  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Exegol -e bash -c "exegol start --offline '$name'"
+  setsid uwsm-app -- xdg-terminal-exec --title=Exegol -e bash -c "exegol start --offline '$name'" </dev/null >/dev/null 2>&1 &
 }
 
 # Transient ops: run in the foreground. The picker invokes these with fzf
@@ -313,19 +314,16 @@ cmd_list() {
     done
 }
 
-# Default action (Enter): create wizard, or shell/start depending on state.
-# Each branch spawns its own detached process/terminal and returns, so the
-# picker (which calls this via execute-silent) stays open.
+# Default action (Enter): create wizard, or open a shell. `exegol start` covers
+# both stopped and running containers (see cmd_start), so state is irrelevant.
+# Each branch spawns its own detached process/terminal and returns; the picker
+# aborts right after (enter bind), so the menu closes once the session opens.
 cmd_enter() {
-  local name="$1" state="$2"
+  local name="$1"
   case "$name" in
     __create__) launch_in_terminal create; return ;;
   esac
-  if [[ "$state" == "running" ]]; then
-    monarch-menu-exegol shell "$name"
-  else
-    monarch-menu-exegol start "$name"
-  fi
+  monarch-menu-exegol start "$name"
 }
 
 # The interactive container manager (runs inside the floating terminal that
@@ -337,7 +335,7 @@ cmd_picker() {
   fi
 
   local self="monarch-menu-exegol"
-  local header='Enter: shell/start   ^X: stop   ^D: remove   ^W: workspace   ^F: firefox   ^B: bloodhound   ^N: create   ^R: refresh'
+  local header='Enter: shell   ^X: stop   ^D: remove   ^W: workspace   ^F: firefox   ^B: bloodhound   ^N: create   ^R: refresh'
 
   "$self" _list | fzf \
     --ansi \
@@ -347,7 +345,7 @@ cmd_picker() {
     --header="$header" \
     --preview="$self info {1}" \
     --preview-window='right,55%,wrap' \
-    --bind="enter:execute-silent($self _enter {1} {2})" \
+    --bind="enter:execute-silent($self _enter {1} {2})+abort" \
     --bind="ctrl-x:execute($self stop {1})+reload($self _list)" \
     --bind="ctrl-d:execute($self remove {1})+reload($self _list)" \
     --bind="ctrl-w:execute-silent($self workspace {1})" \
@@ -368,7 +366,6 @@ cmd_menu() {
 # Route sub-commands
 case "${1:-}" in
   info)       cmd_info "$2" ;;
-  shell)      cmd_shell "$2" ;;
   start)      cmd_start "$2" ;;
   stop)       cmd_stop "$2" ;;
   remove)     cmd_remove "$2" ;;

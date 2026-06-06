@@ -35,8 +35,10 @@ pick_file() {
 
 # Spawn a fresh, centered floating terminal running `monarch-menu-rfswift <args>`.
 # Same presentation launcher used by the picker and the SSH manager.
+# Backgrounded with detached fds so an fzf execute-silent caller (the Create
+# row) returns immediately and its +abort closes the picker right away.
 launch_in_terminal() {
-  monarch-launch-floating-terminal-with-presentation monarch-menu-rfswift "$@"
+  setsid monarch-launch-floating-terminal-with-presentation monarch-menu-rfswift "$@" </dev/null >/dev/null 2>&1 &
 }
 
 # Show container info (rendered as the fzf preview panel)
@@ -101,18 +103,21 @@ EOF
   [[ -n "$ports" ]] && echo "Ports       : $ports"
 }
 
-# Session actions (shell/start) open a dedicated floating terminal via
-# xdg-terminal-exec + uwsm-app — like the rest of Monarch — so each session is
-# its own uwsm scope and the picker (cmd_picker) stays open behind it.
+# Session actions (shell/start) open a dedicated tiled terminal via
+# xdg-terminal-exec + uwsm-app. No org.monarch.terminal app-id, so the session
+# escapes the floating window-rule and tiles like a normal terminal. Each
+# session is its own uwsm scope. Backgrounded with detached fds so fzf's
+# execute-silent returns immediately — otherwise its +abort (which closes this
+# menu) would only fire when the session terminal exits, not when it opens.
 cmd_shell() {
   local name="$1"
-  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title="RF Swift" -e bash -c "rfswift exec -c '$name' -e /bin/bash"
+  setsid uwsm-app -- xdg-terminal-exec --title="RF Swift" -e bash -c "rfswift exec -c '$name' -e /bin/bash" </dev/null >/dev/null 2>&1 &
 }
 
 # Start a stopped container (rfswift has no resume command, fall back to docker start)
 cmd_start() {
   local name="$1"
-  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title="RF Swift" -e bash -c "docker start '$name' && rfswift exec -c '$name' -e /bin/bash"
+  setsid uwsm-app -- xdg-terminal-exec --title="RF Swift" -e bash -c "docker start '$name' && rfswift exec -c '$name' -e /bin/bash" </dev/null >/dev/null 2>&1 &
 }
 
 # Transient ops: run in the foreground. The picker invokes these with fzf
@@ -283,8 +288,8 @@ cmd_list() {
 }
 
 # Default action (Enter): create wizard, or shell/start depending on state.
-# Each branch spawns its own detached process/terminal and returns, so the
-# picker (which calls this via execute-silent) stays open.
+# Each branch spawns its own detached process/terminal and returns; the picker
+# aborts right after (enter bind), so the menu closes once the session opens.
 cmd_enter() {
   local name="$1" state="$2"
   case "$name" in
@@ -316,7 +321,7 @@ cmd_picker() {
     --header="$header" \
     --preview="$self info {1}" \
     --preview-window='right,55%,wrap' \
-    --bind="enter:execute-silent($self _enter {1} {2})" \
+    --bind="enter:execute-silent($self _enter {1} {2})+abort" \
     --bind="ctrl-x:execute($self stop {1})+reload($self _list)" \
     --bind="ctrl-d:execute($self remove {1})+reload($self _list)" \
     --bind="ctrl-w:execute-silent($self workspace {1})" \
