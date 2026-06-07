@@ -4,17 +4,30 @@
 
 echo "Removing monarch-lazyvpn..."
 
-# Disconnect any active VPN connection
-if command -v lazyvpn-disconnect &>/dev/null; then
-  echo "Disconnecting VPN..."
-  lazyvpn-disconnect 2>/dev/null || true
-fi
-
 # Remove the package
 monarch-pkg-drop monarch-lazyvpn
 
-# Remove TUI app entry
+# Remove the app-launcher entry
 monarch-tui-remove "LazyVPN"
+
+# Remove the Noctalia bar status widget (any CustomButton tied to LazyVPN).
+# Noctalia hot-reloads settings.json, so the bar drops it without a restart.
+NOCTALIA_CFG="$HOME/.config/noctalia/settings.json"
+if command -v jq >/dev/null && [[ -f "$NOCTALIA_CFG" ]]; then
+  if jq -e '[.. | objects | select(.textCommand? == "monarch-lazyvpn-status")] | length > 0' \
+       "$NOCTALIA_CFG" >/dev/null 2>&1; then
+    echo "Removing the LazyVPN status widget from the Noctalia bar..."
+    tmp=$(mktemp)
+    if jq '(.bar.widgets.left, .bar.widgets.center, .bar.widgets.right) |=
+             ((. // []) | map(select(.textCommand? != "monarch-lazyvpn-status")))' \
+         "$NOCTALIA_CFG" >"$tmp"; then
+      mv "$tmp" "$NOCTALIA_CFG"
+    else
+      rm -f "$tmp"
+      echo "  Warning: could not update $NOCTALIA_CFG; remove the widget manually." >&2
+    fi
+  fi
+fi
 
 # Remove Niri keybinding (marker block in ~/.config/niri/user.kdl).
 USER_KDL="$HOME/.config/niri/user.kdl"
