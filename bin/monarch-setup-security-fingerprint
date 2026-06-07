@@ -90,6 +90,13 @@ EOF
       echo -e "\e[33mWarning: could not update $cfg; set general.autoStartAuth manually.\e[0m"
     fi
   fi
+
+  # Restart so Noctalia reloads the toggles; otherwise it rewrites settings.json
+  # from memory on logout and reverts them.
+  if command -v monarch-restart-noctalia >/dev/null && pgrep -f 'qs.*noctalia-shell' >/dev/null 2>&1; then
+    echo "Restarting Noctalia so the lock screen picks up the new settings..."
+    monarch-restart-noctalia
+  fi
 }
 
 add_fingerprint_marker() {
