@@ -168,9 +168,8 @@ binds {
     // and the bar labels stay in lockstep. Edit that file, then `monarch refresh
     // niri`. See default/niri/misc.kdl for why niri needs name-based references.
 
-    Mod+Tab       hotkey-overlay-title="Next workspace"     { focus-workspace-down; }
-    Mod+Shift+Tab hotkey-overlay-title="Previous workspace" { focus-workspace-up; }
-    Mod+Ctrl+Tab  hotkey-overlay-title="Last-focused workspace" { focus-workspace-previous; }
+    // --- Overview (bird's-eye view of all workspaces) ---
+    Mod+Tab hotkey-overlay-title="Overview (all workspaces)" { toggle-overview; }
 
     // --- Scratchpad (named workspace equivalent) ---
     Mod+S      hotkey-overlay-title="Scratchpad"            { focus-workspace "scratchpad"; }
@@ -189,10 +188,6 @@ binds {
     // --- Mouse-wheel workspace switch ---
     Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
     Mod+WheelScrollUp   cooldown-ms=150 { focus-workspace-up;   }
-
-    // --- Alt+Tab window cycling within current workspace ---
-    Alt+Tab       hotkey-overlay-title="Cycle next window"     { focus-window-or-workspace-down; }
-    Alt+Shift+Tab hotkey-overlay-title="Cycle previous window" { focus-window-or-workspace-up; }
 
     // --- Apple Display brightness (asdcontrol via monarch wrapper) ---
     Ctrl+F1       { spawn "monarch-brightness-display-apple" "-5000"; }
