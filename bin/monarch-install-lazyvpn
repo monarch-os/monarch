@@ -1,23 +1,41 @@
 #!/bin/bash
 
-# monarch:summary=Install LazyVPN (a WireGuard VPN manager with TUI)
+# monarch:summary=Install LazyVPN (a TUI WireGuard multi-provider VPN manager)
 
 echo "Installing monarch-lazyvpn..."
 monarch-pkg-add monarch-lazyvpn
 
-echo -e "\nInitializing LazyVPN..."
-lazyvpn-init
+# The package ships only the binaries (monarch-lazyvpn / monarch-lazyvpn-status),
+# so create the app-launcher entry here. monarch-remove-lazyvpn strips it via
+# monarch-tui-remove "LazyVPN". It launches in a floating Monarch terminal so it
+# matches the org.monarch.terminal niri window-rule.
+echo -e "\nAdding 'LazyVPN' to the app launcher..."
+DESKTOP_FILE="$HOME/.local/share/applications/LazyVPN.desktop"
+cat >"$DESKTOP_FILE" <<'EOF'
+[Desktop Entry]
+Version=1.0
+Name=LazyVPN
+Comment=TUI WireGuard multi-provider VPN manager
+Exec=monarch-launch-floating-terminal-with-presentation monarch-lazyvpn
+Terminal=false
+Type=Application
+Icon=network-vpn
+StartupNotify=true
+EOF
+chmod +x "$DESKTOP_FILE"
 
-# Add Niri keybinding (Mod+Alt+V) via the user override file. The block is
-# wrapped in unique markers so monarch-remove-lazyvpn can strip it later.
+# Add the Niri keybinding (Mod+Ctrl+V) via the user override file, matching the
+# Mod+Ctrl namespace used by the Bluetooth (Mod+Ctrl+B) and Wifi (Mod+Ctrl+W)
+# controls. The block is wrapped in unique markers so monarch-remove-lazyvpn can
+# strip it later.
 USER_KDL="$HOME/.config/niri/user.kdl"
 if [[ -f "$USER_KDL" ]] && ! grep -q 'monarch:lazyvpn:begin' "$USER_KDL"; then
-  echo -e "\nAdding Niri keybinding (Mod+Alt+V)..."
+  echo -e "\nAdding Niri keybinding (Mod+Ctrl+V)..."
   cat >>"$USER_KDL" <<'EOF'
 
 // monarch:lazyvpn:begin
 binds {
-    Mod+Alt+V hotkey-overlay-title="LazyVPN menu" { spawn "lazyvpn-menu"; }
+    Mod+Ctrl+V hotkey-overlay-title="LazyVPN controls" { spawn "monarch-launch-floating-terminal-with-presentation" "monarch-lazyvpn"; }
 }
 // monarch:lazyvpn:end
 EOF
@@ -26,7 +44,35 @@ EOF
   fi
 fi
 
+# Add a Noctalia bar widget showing live VPN status (click to open the TUI).
+# Idempotent: skip if a monarch-lazyvpn-status button already exists anywhere.
+# Noctalia hot-reloads settings.json, so the bar picks the change up without a
+# restart.
+NOCTALIA_CFG="$HOME/.config/noctalia/settings.json"
+if command -v jq >/dev/null && [[ -f "$NOCTALIA_CFG" ]]; then
+  if ! jq -e '[.. | objects | select(.textCommand? == "monarch-lazyvpn-status")] | length > 0' \
+       "$NOCTALIA_CFG" >/dev/null 2>&1; then
+    echo -e "\nAdding the LazyVPN status widget to the Noctalia bar..."
+    tmp=$(mktemp)
+    if jq '.bar.widgets.right = ([{
+             "id": "CustomButton",
+             "icon": "shield",
+             "parseJson": true,
+             "textCommand": "monarch-lazyvpn-status",
+             "textIntervalMs": 5000,
+             "leftClickExec": "monarch-launch-floating-terminal-with-presentation monarch-lazyvpn"
+           }] + (.bar.widgets.right // []))' \
+         "$NOCTALIA_CFG" >"$tmp"; then
+      mv "$tmp" "$NOCTALIA_CFG"
+    else
+      rm -f "$tmp"
+      echo "  Warning: could not update $NOCTALIA_CFG; add the widget manually." >&2
+    fi
+  fi
+fi
+
 echo -e "\nLazyVPN installed!"
 echo "  - Launch from app menu: LazyVPN"
-echo "  - Keyboard shortcut: WIN+ALT+V"
-echo "  - Command line: lazyvpn-menu"
+echo "  - Keyboard shortcut: WIN+CTRL+V"
+echo "  - Command line: monarch-lazyvpn"
+echo "  - Bar status widget: monarch-lazyvpn-status (shown in the Noctalia bar)"
