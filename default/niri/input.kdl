@@ -12,7 +12,9 @@ input {
         scroll-factor 0.4
     }
 
-    focus-follows-mouse
+    // focus-follows-mouse is intentionally OFF: focus changes on click or
+    // keyboard only. warp-mouse-to-focus still pulls the cursor to the window
+    // on keyboard focus changes.
     workspace-auto-back-and-forth
     warp-mouse-to-focus
 }
