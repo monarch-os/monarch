@@ -515,8 +515,7 @@ show_install_browser_menu() {
 }
 
 show_install_service_menu() {
-  case $(menu "Install" "  Dropbox\n󰘿  Synology Drive\n  Proton Suite [AUR]\n󰹑  Displaylink [AUR]\n  Tailscale\n󱇱  NordVPN [AUR]\n󰖂  LazyVPN\n󰟵  Bitwarden\n  Creator Apps\n  Chromium Account") in
-  *Dropbox*) present_terminal monarch-install-dropbox ;;
+  case $(menu "Install" "󰘿  Synology Drive\n  Proton Suite [AUR]\n󰹑  Displaylink [AUR]\n  Tailscale\n󱇱  NordVPN [AUR]\n󰖂  LazyVPN\n󰟵  Bitwarden\n  Creator Apps\n  Chromium Account") in
   *Synology*) aur_install_and_launch "Synology Driver" "synology-drive" "synology-drive" ;;
   *Proton*) present_terminal monarch-install-proton ;;
   *Displaylink*) present_terminal monarch-install-displaylink ;;
