@@ -68,6 +68,5 @@ run_logged $MONARCH_INSTALL/config/hardware/lenovo/fix-yoga-pro7-bass-speakers.s
 
 run_logged $MONARCH_INSTALL/config/hardware/fix-bcm43xx.sh
 run_logged $MONARCH_INSTALL/config/hardware/fix-surface-keyboard.sh
-run_logged $MONARCH_INSTALL/config/hardware/fix-yt6801-ethernet-adapter.sh
 run_logged $MONARCH_INSTALL/config/hardware/fix-synaptic-touchpad.sh
 run_logged $MONARCH_INSTALL/config/hardware/fix-tuxedo-backlight.sh
