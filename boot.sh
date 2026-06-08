@@ -16,15 +16,9 @@ ansi_art='███████████████████████�
 clear
 echo -e "\n$ansi_art\n"
 
-# Use custom branch if instructed, otherwise default to master
+# Use custom branch if instructed, otherwise default to main
 MONARCH_REF="${MONARCH_REF:-main}"
 
-# Set mirror based on branch
-if [[ $MONARCH_REF == "dev" ]]; then
-  export OMARCHY_MIRROR=edge
-else
-  export OMARCHY_MIRROR=stable
-fi
 echo 'Server = https://archlinux.cachyos.org/repo/$repo/os/$arch' | sudo tee /etc/pacman.d/mirrorlist >/dev/null
 
 sudo pacman -Syu --noconfirm --needed git

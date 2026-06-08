@@ -1,20 +1,11 @@
 #!/bin/bash
 
-# monarch:summary=Overwrite the package configuration for /etc/pacman with the Monarch default of using its dedicated repositories, then update all packages.
+# monarch:summary=Overwrite /etc/pacman.conf with the Monarch default (its dedicated repositories), then update all packages.
 # monarch:requires-sudo=true
 
 sudo cp -f /etc/pacman.conf /etc/pacman.conf.bak
 
-channel="${1:-stable}"
-
-if [[ $channel != "stable" && $channel != "edge" ]]; then
-  echo "Error: Invalid channel '$channel'. Must be one of: stable, edge"
-  exit 1
-
-echo "Setting channel to $channel"
-echo
-
-sudo cp -f "$MONARCH_PATH/default/pacman/pacman-$channel.conf" /etc/pacman.conf
+sudo cp -f "$MONARCH_PATH/default/pacman/pacman.conf" /etc/pacman.conf
 
 # Reset all package DBs and then update
 sudo pacman -Syyuu --noconfirm

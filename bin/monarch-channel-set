@@ -1,21 +1,20 @@
 #!/bin/bash
 
-# monarch:summary=Set the Monarch and Monarch channel, which dictates what git branch and package repository is used.
-# monarch:args=<stable|edge|dev>
+# monarch:summary=Set the Monarch channel, which dictates what git branch is tracked. Packages come from the single Monarch repository.
+# monarch:args=<stable|dev>
 # monarch:requires-sudo=true
 
 
 if (($# == 0)); then
-  echo "Usage: monarch-channel-set [stable|edge|dev]"
+  echo "Usage: monarch-channel-set [stable|dev]"
   exit 1
 else
   channel="$1"
 fi
 
 case "$channel" in
-"stable") monarch-branch-set "master" && monarch-refresh-pacman "stable" ;;
-"edge") monarch-branch-set "master" && monarch-refresh-pacman "edge" && sudo pacman -Suu --noconfirm ;;
-"dev") monarch-branch-set "dev" && monarch-refresh-pacman "edge" ;;
+"stable") monarch-branch-set "main" && monarch-refresh-pacman ;;
+"dev") monarch-branch-set "dev" && monarch-refresh-pacman ;;
 *) echo "Unknown channel: $channel"; exit 1; ;;
 esac
 

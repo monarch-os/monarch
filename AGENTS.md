@@ -148,12 +148,12 @@ Monarch is a fork of [Omarchy](https://github.com/basecamp/omarchy) and tracks u
 
 Some `omarchy` references are intentional and must be preserved:
 
-- AUR package names: `omarchy-keyring`, `omarchy-chromium`
+- AUR package names that still appear in historical migration text (e.g. `omarchy-chromium`)
 - Historical migration text that documents past upstream behavior
 
 When Monarch diverges from upstream, mark it clearly:
 
-- `bin/monarch-branch-set` only supports `master|dev` (no `rc` channel)
+- `bin/monarch-branch-set` only supports `main|dev` (no `rc` channel)
 - `test/monarch-cli-test.sh` may need assertion adjustments to match Monarch divergences after a sync
 - Some upstream commands (cliamp, etc.) are intentionally not shipped — skip the corresponding migrations
 - **Compositor: Monarch replaces Hyprland with Niri.** Hyprland-the-compositor and its tightly-coupled daemons (`hypridle`, `hyprsunset`, `xdg-desktop-portal-hyprland`) are dropped in favour of `niri`, `wlsunset`, and `xdg-desktop-portal-gnome`. Only `hyprpicker` is kept (wlr-screencopy color picker) and runs cleanly under Niri. Configs live under `config/niri/`, `default/niri/`. Night light is owned by Noctalia (`nightLight` IPC / `settings.json`), which spawns `wlsunset` itself, so Monarch ships no wlsunset config. Idle (screensaver / lock / DPMS) is owned by Noctalia's `IdleService` (`idle.*` in `settings.json`); lid-close lock is a niri `switch-events` block (`default/niri/power.kdl`). During upstream syncs, drop any new Hyprland compositor configs that come from Omarchy and keep their Niri equivalents.
