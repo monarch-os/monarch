@@ -110,9 +110,8 @@ system-config-printer
 tesseract
 tesseract-data-eng
 tmux
-tobi-try
 tree-sitter-cli
-ttf-ia-writer
+try-rs-bin
 ttf-jetbrains-mono-nerd
 tzupdate
 ufw

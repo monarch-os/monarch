@@ -1,0 +1,2 @@
+# Monarch default try-rs config — scratch directories live under ~/Work/tries
+tries_path = "~/Work/tries"

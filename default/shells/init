@@ -24,12 +24,11 @@ if command -v fzf &> /dev/null; then
   fi
 fi
 
-if command -v try &> /dev/null; then
-   try() {
-    unset -f try
-    eval "$(command try init ~/Work/tries)"
-    try "$@"
-  }
+if command -v try-rs &> /dev/null; then
+  eval "$(try-rs --setup-stdout $SHELL_NAME)"
+  # Keep the short `try` command (from the old tobi-try). Alias to the try-rs
+  # shell function (not the binary) so its cd-capturing eval still runs.
+  alias try='try-rs'
 fi
 
 if command -v exegol &> /dev/null; then
