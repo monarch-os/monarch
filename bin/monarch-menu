@@ -764,9 +764,8 @@ show_update_menu() {
 }
 
 show_update_channel_menu() {
-  case $(menu "Update channel" "🟢 Stable\n🟡 Edge\n🔴 Dev") in
+  case $(menu "Update channel" "🟢 Stable\n🔴 Dev") in
   *Stable*) present_terminal "monarch-channel-set stable" ;;
-  *Edge*) present_terminal "monarch-channel-set edge" ;;
   *Dev*) present_terminal "monarch-channel-set dev" ;;
   *) show_update_menu ;;
   esac

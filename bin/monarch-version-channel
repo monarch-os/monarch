@@ -1,13 +1,12 @@
 #!/bin/bash
 
-# monarch:summary=Print the active Monarch package channel
+# monarch:summary=Print the active Monarch channel (the git branch tracked by the Monarch repository)
 
-if grep -q "https://pkgs.omarchy.org/stable/" /etc/pacman.conf; then
-  pkgs="stable"
-elif grep -q "https://pkgs.omarchy.org/edge/" /etc/pacman.conf; then
-  pkgs="edge"
-else
-  pkgs="unknown"
-fi
+branch=$(git -C "$MONARCH_PATH" branch --show-current 2>/dev/null)
 
-echo $pkgs
+case "$branch" in
+main) echo "stable" ;;
+dev) echo "dev" ;;
+"") echo "unknown" ;;
+*) echo "$branch" ;;
+esac
