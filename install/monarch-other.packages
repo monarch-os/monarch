@@ -27,8 +27,6 @@ limine-snapper-sync
 linux-cachyos-lts
 linux-firmware
 linux-headers
-linux-ptl
-linux-ptl-headers
 macbook12-spi-driver-dkms
 nvidia-580xx-dkms
 nvidia-open-dkms
