@@ -43,7 +43,6 @@ snapper
 sof-firmware
 thermald
 webp-pixbuf-loader
-yay-debug
 tuxedo-drivers-nocompatcheck-dkms
 zram-generator
 
