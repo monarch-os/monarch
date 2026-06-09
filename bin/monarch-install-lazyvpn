@@ -54,14 +54,19 @@ if command -v jq >/dev/null && [[ -f "$NOCTALIA_CFG" ]]; then
        "$NOCTALIA_CFG" >/dev/null 2>&1; then
     echo -e "\nAdding the LazyVPN status widget to the Noctalia bar..."
     tmp=$(mktemp)
-    if jq '.bar.widgets.right = ([{
-             "id": "CustomButton",
-             "icon": "shield",
-             "parseJson": true,
-             "textCommand": "monarch-lazyvpn-status",
-             "textIntervalMs": 5000,
-             "leftClickExec": "monarch-launch-floating-terminal-with-presentation monarch-lazyvpn"
-           }] + (.bar.widgets.right // []))' \
+    if jq '.bar.widgets.right = (
+             (.bar.widgets.right // []) as $w
+             | {
+                 "id": "CustomButton",
+                 "icon": "shield",
+                 "parseJson": true,
+                 "textCommand": "monarch-lazyvpn-status",
+                 "textIntervalMs": 5000,
+                 "leftClickExec": "monarch-launch-floating-terminal-with-presentation monarch-lazyvpn"
+               } as $btn
+             | ($w | map(.id == "Tray") | index(true)) as $i
+             | if $i == null then [$btn] + $w else $w[0:$i+1] + [$btn] + $w[$i+1:] end
+           )' \
          "$NOCTALIA_CFG" >"$tmp"; then
       mv "$tmp" "$NOCTALIA_CFG"
     else

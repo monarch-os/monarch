@@ -5,15 +5,8 @@
 
 monarch-refresh-config noctalia/settings.json
 
-# Silence the "Privacy Update" telemetry wizard. Noctalia gates it on
-# `changelogState.lastSeenVersion` (in ~/.cache/noctalia/shell-state.json):
-# empty or < 4.0.2 (telemetryIntroVersion) -> wizard fires. We seed it to the
-# installed Noctalia version. Combined with `general.showChangelogOnStartup:
-# false` in settings.json, both first-run popups are silenced.
-#
-# Order matters: stop noctalia BEFORE writing shell-state.json, otherwise the
-# running instance rewrites the file from its in-memory state (which has an
-# empty lastSeenVersion) right after our seed.
+# Stop Noctalia before seeding shell-state.json, else the running instance
+# rewrites it from memory (empty lastSeenVersion) and the telemetry wizard fires.
 pkill -f 'qs.*noctalia-shell' 2>/dev/null || true
 for _ in $(seq 1 30); do
   pgrep -f 'qs.*noctalia-shell' >/dev/null 2>&1 || break
@@ -37,11 +30,8 @@ if command -v jq >/dev/null; then
   fi
 fi
 
-# The settings.json refresh above is a wholesale copy of the Monarch default,
-# which has no fingerprint toggles. If monarch-setup-security-fingerprint has
-# been run, re-apply the lock-screen toggles it owns, otherwise the reader no
-# longer arms on the lock screen (a finger tap does nothing until you type).
-# Done here, while Noctalia is stopped, so it doesn't get clobbered on logout.
+# The wholesale copy above drops user-only settings. Re-apply the fingerprint
+# lock-screen toggles while Noctalia is stopped so they survive logout.
 settings_file="$HOME/.config/noctalia/settings.json"
 if [[ -f $HOME/.local/state/monarch/fingerprint-enabled ]] \
    && command -v jq >/dev/null && [[ -f $settings_file ]]; then
@@ -55,12 +45,38 @@ if [[ -f $HOME/.local/state/monarch/fingerprint-enabled ]] \
   fi
 fi
 
+# Likewise re-add the LazyVPN bar widget (a user-only CustomButton) if LazyVPN
+# is still installed. Idempotent: skip if the button already exists.
+if monarch-cmd-present monarch-lazyvpn-status \
+   && command -v jq >/dev/null && [[ -f $settings_file ]]; then
+  if ! jq -e '[.. | objects | select(.textCommand? == "monarch-lazyvpn-status")] | length > 0' \
+       "$settings_file" >/dev/null 2>&1; then
+    tmp=$(mktemp)
+    if jq '.bar.widgets.right = (
+             (.bar.widgets.right // []) as $w
+             | {
+                 "id": "CustomButton",
+                 "icon": "shield",
+                 "parseJson": true,
+                 "textCommand": "monarch-lazyvpn-status",
+                 "textIntervalMs": 5000,
+                 "leftClickExec": "monarch-launch-floating-terminal-with-presentation monarch-lazyvpn"
+               } as $btn
+             | ($w | map(.id == "Tray") | index(true)) as $i
+             | if $i == null then [$btn] + $w else $w[0:$i+1] + [$btn] + $w[$i+1:] end
+           )' \
+         "$settings_file" >"$tmp"; then
+      mv "$tmp" "$settings_file"
+    else
+      rm -f "$tmp"
+    fi
+  fi
+fi
+
 setsid uwsm-app -- qs -c noctalia-shell >/dev/null 2>&1 &
 
-# After Noctalia is up, re-apply the Monarch theme so the wallpaper IPC
-# actually lands. The install-time monarch-theme-apply seeds the wallpaper
-# directory but its `wallpaper set` IPC silently fails (Noctalia not alive
-# yet at install). Detached so this script returns immediately.
+# Once Noctalia is up, re-apply the theme so the wallpaper IPC lands (it
+# silently no-ops at install time). Detached so this script returns immediately.
 setsid --fork bash -c '
   for _ in $(seq 1 30); do
     if qs -c noctalia-shell ipc call wallpaper refresh >/dev/null 2>&1; then
