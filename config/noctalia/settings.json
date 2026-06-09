@@ -127,6 +127,9 @@
       { "enabled": true, "id": "starship" }
     ]
   },
+  "ui": {
+    "fontFixed": "JetBrainsMono Nerd Font Mono"
+  },
   "wallpaper": {
     "enabled": true,
     "directory": "~/.config/monarch/backgrounds/monarch",
