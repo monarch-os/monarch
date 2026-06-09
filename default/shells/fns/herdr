@@ -1,0 +1,116 @@
+# herdr dev-layout helpers (ported from the old tmux tdl/tdlm/tsl).
+#
+# herdr exposes a JSON socket API; we drive it through the `herdr` CLI and parse
+# ids with jq. The current pane is identified by $HERDR_PANE_ID (herdr injects it
+# into every pane's shell — the analog of tmux's $TMUX_PANE). Splits are even
+# (herdr has no CLI ratio flag); resize afterwards with the prefix+r resize mode.
+#
+# Pane/tab/workspace id shapes (confirmed against herdr 0.6.8):
+#   pane split  -> .result.pane.pane_id        (new pane)
+#   tab create  -> .result.root_pane.pane_id   (the new tab's pane)
+#   pane get    -> .result.pane.{tab_id,workspace_id}
+
+# Create a herdr dev layout with editor, ai, and terminal
+# Usage: tdl <c|cx|codex|other_ai> [<second_ai>]
+tdl() {
+  [[ -z $1 ]] && { echo "Usage: tdl <c|cx|codex|other_ai> [<second_ai>]"; return 1; }
+  [[ -z $HERDR_PANE_ID ]] && { echo "You must start herdr to use tdl."; return 1; }
+
+  local current_dir="${PWD}"
+  local editor_pane ai_pane ai2_pane tab_id
+  local ai="$1"
+  local ai2="$2"
+
+  # The pane we're running in (stable even if focus changes)
+  editor_pane="$HERDR_PANE_ID"
+
+  # Name the current tab after the base directory name
+  tab_id=$(herdr pane get "$editor_pane" | jq -r '.result.pane.tab_id')
+  herdr tab rename "$tab_id" "$(basename "$current_dir")"
+
+  # Split a bottom terminal pane off the editor (leave it as a plain shell)
+  herdr pane split "$editor_pane" --direction down --cwd "$current_dir" --no-focus >/dev/null
+
+  # Split the editor to the right for the AI pane (capture the new pane id)
+  ai_pane=$(herdr pane split "$editor_pane" --direction right --cwd "$current_dir" --no-focus \
+    | jq -r '.result.pane.pane_id')
+
+  # If a second AI is provided, split the AI pane downward
+  if [[ -n $ai2 ]]; then
+    ai2_pane=$(herdr pane split "$ai_pane" --direction down --cwd "$current_dir" --no-focus \
+      | jq -r '.result.pane.pane_id')
+    herdr pane run "$ai2_pane" "$ai2"
+  fi
+
+  # Run ai in the right pane
+  herdr pane run "$ai_pane" "$ai"
+
+  # Run the editor in the left pane
+  herdr pane run "$editor_pane" "$EDITOR ."
+
+  # Focus the editor pane
+  herdr pane focus "$editor_pane"
+}
+
+# Create multiple tdl tabs with one per subdirectory in the current directory
+# Usage: tdlm <c|cx|codex|other_ai> [<second_ai>]
+tdlm() {
+  [[ -z $1 ]] && { echo "Usage: tdlm <c|cx|codex|other_ai> [<second_ai>]"; return 1; }
+  [[ -z $HERDR_PANE_ID ]] && { echo "You must start herdr to use tdlm."; return 1; }
+
+  local ai="$1"
+  local ai2="$2"
+  local base_dir="$PWD"
+  local workspace_id first=true
+
+  # Rename the workspace after the current directory name
+  workspace_id=$(herdr pane get "$HERDR_PANE_ID" | jq -r '.result.pane.workspace_id')
+  herdr workspace rename "$workspace_id" "$(basename "$base_dir" | tr '.:' '--')"
+
+  for dir in "$base_dir"/*/; do
+    [[ -d $dir ]] || continue
+    local dirpath="${dir%/}"
+
+    if $first; then
+      # Reuse the current pane for the first project
+      herdr pane run "$HERDR_PANE_ID" "cd '$dirpath' && tdl $ai $ai2"
+      first=false
+    else
+      local pane_id
+      pane_id=$(herdr tab create --workspace "$workspace_id" --cwd "$dirpath" \
+        --label "$(basename "$dirpath")" --no-focus | jq -r '.result.root_pane.pane_id')
+      herdr pane run "$pane_id" "tdl $ai $ai2"
+    fi
+  done
+}
+
+# Create a multi-pane swarm layout with the same command started in each pane (great for AI)
+# Usage: tsl <pane_count> <command>
+tsl() {
+  [[ -z $1 || -z $2 ]] && { echo "Usage: tsl <pane_count> <command>"; return 1; }
+  [[ -z $HERDR_PANE_ID ]] && { echo "You must start herdr to use tsl."; return 1; }
+
+  local count="$1"
+  local cmd="$2"
+  local current_dir="${PWD}"
+  local tab_id
+  local -a panes
+
+  tab_id=$(herdr pane get "$HERDR_PANE_ID" | jq -r '.result.pane.tab_id')
+  herdr tab rename "$tab_id" "$(basename "$current_dir")"
+
+  panes+=("$HERDR_PANE_ID")
+
+  while (( ${#panes[@]} < count )); do
+    local new_pane
+    new_pane=$(herdr pane split "${panes[-1]}" --direction right --cwd "$current_dir" --no-focus \
+      | jq -r '.result.pane.pane_id')
+    panes+=("$new_pane")
+  done
+
+  for pane in "${panes[@]}"; do
+    herdr pane run "$pane" "$cmd"
+  done
+
+  herdr pane focus "${panes[0]}"
+}

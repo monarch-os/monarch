@@ -45,7 +45,7 @@ alias ....='cd ../../..'
 
 # Tools
 alias d='docker'
-alias t='tmux attach || tmux new -s Work'
+alias t='herdr'
 n() { if [ "$#" -eq 0 ]; then command nvim . ; else command nvim "$@"; fi; }
 
 # Git
@@ -63,8 +63,6 @@ alias gcad='git commit -a --amend'
 
 
 # Directories, Git, Ide
-alias tn='tmux new'
-alias ta='tmux attach'
 alias b='bat'
 alias v='nvim'
 alias c='opencode'

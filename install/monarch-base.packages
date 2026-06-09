@@ -51,6 +51,7 @@ gum
 gvfs-mtp
 gvfs-nfs
 gvfs-smb
+herdr-bin
 hyprpicker
 imagemagick
 imv
@@ -109,7 +110,6 @@ sushi
 system-config-printer
 tesseract
 tesseract-data-eng
-tmux
 tree-sitter-cli
 try-rs-bin
 ttf-jetbrains-mono-nerd

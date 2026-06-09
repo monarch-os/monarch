@@ -780,11 +780,9 @@ show_update_process_menu() {
 show_update_config_menu() {
   case $(menu "Use default config" "  Niri
 󱣴  Plymouth
-  Tmux
   Noctalia") in
   *Niri*) present_terminal monarch-refresh-niri ;;
   *Plymouth*) present_terminal monarch-refresh-plymouth ;;
-  *Tmux*) present_terminal monarch-refresh-tmux ;;
   *Noctalia*) present_terminal monarch-refresh-noctalia ;;
   *) show_update_menu ;;
   esac

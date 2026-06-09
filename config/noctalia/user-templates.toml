@@ -26,3 +26,13 @@ post_hook = "monarch-sddm-theme"
 [templates.fuzzel]
 input_path = "~/.config/noctalia/templates/fuzzel.ini"
 output_path = "~/.config/fuzzel/fuzzel.ini"
+
+# herdr terminal multiplexer (the tmux replacement, launched via Mod+Shift+Return
+# and the t alias). The template carries the prefix + theme; Noctalia creates
+# ~/.config/herdr/ if missing and re-renders on every color generation. The
+# post_hook reloads the running server so the scheme applies live (no-op when
+# herdr is not running).
+[templates.herdr]
+input_path = "~/.config/noctalia/templates/herdr.toml"
+output_path = "~/.config/herdr/config.toml"
+post_hook = "herdr server reload-config 2>/dev/null || true"

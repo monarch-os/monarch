@@ -196,7 +196,7 @@ prioritize_entries() {
     line = $0
     prio = 50
     if (match(line, /Terminal/)) prio = 0
-    if (match(line, /Tmux/)) prio = 1
+    if (match(line, /Herdr/)) prio = 1
     if (match(line, /Browser/) && !match(line, /Browser[[:space:]]*\(/) && !match(line, /SUPER SHIFT.*\+.*B.*→.*Browser/)) prio = 2
     if (match(line, /File manager/) && !match(line, /File manager \(cwd\)/))  prio = 3
     if (match(line, /Launch apps/))  prio = 4

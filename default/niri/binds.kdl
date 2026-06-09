@@ -13,7 +13,7 @@ binds {
 
     // --- Applications ---
     Mod+Return hotkey-overlay-title="Terminal" { spawn-sh "uwsm-app -- xdg-terminal-exec --dir=\"$(monarch-cmd-terminal-cwd)\""; }
-    Mod+Shift+Return hotkey-overlay-title="Tmux terminal" { spawn-sh "uwsm-app -- xdg-terminal-exec --dir=\"$(monarch-cmd-terminal-cwd)\" bash -c 'tmux attach || tmux new -s Work'"; }
+    Mod+Shift+Return hotkey-overlay-title="Herdr terminal" { spawn-sh "uwsm-app -- xdg-terminal-exec --dir=\"$(monarch-cmd-terminal-cwd)\" herdr"; }
     Ctrl+Alt+F hotkey-overlay-title="File manager" { spawn "uwsm-app" "--" "nautilus" "--new-window"; }
     Ctrl+Alt+Shift+F hotkey-overlay-title="File manager (cwd)" { spawn-sh "uwsm-app -- nautilus --new-window \"$(monarch-cmd-terminal-cwd)\""; }
     Ctrl+Alt+E hotkey-overlay-title="Exegol" { spawn "monarch-menu-pentestenv"; }

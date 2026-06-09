@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# monarch:summary=Reload the herdr config in the running server (no-op if not running)
+
+# herdr's config (~/.config/herdr/config.toml) is owned by Noctalia's
+# [templates.herdr] user-template, which already reloads on every color
+# generation. This covers the manual path: re-read config.toml live without
+# dropping panes. Silent no-op when no server is running.
+herdr server reload-config 2>/dev/null || true
