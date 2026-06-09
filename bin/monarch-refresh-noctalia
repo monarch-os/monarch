@@ -37,6 +37,24 @@ if command -v jq >/dev/null; then
   fi
 fi
 
+# The settings.json refresh above is a wholesale copy of the Monarch default,
+# which has no fingerprint toggles. If monarch-setup-security-fingerprint has
+# been run, re-apply the lock-screen toggles it owns, otherwise the reader no
+# longer arms on the lock screen (a finger tap does nothing until you type).
+# Done here, while Noctalia is stopped, so it doesn't get clobbered on logout.
+settings_file="$HOME/.config/noctalia/settings.json"
+if [[ -f $HOME/.local/state/monarch/fingerprint-enabled ]] \
+   && command -v jq >/dev/null && [[ -f $settings_file ]]; then
+  tmp=$(mktemp)
+  if jq '.general = (.general // {})
+         | .general.autoStartAuth = true
+         | .general.allowPasswordWithFprintd = true' "$settings_file" >"$tmp"; then
+    mv "$tmp" "$settings_file"
+  else
+    rm -f "$tmp"
+  fi
+fi
+
 setsid uwsm-app -- qs -c noctalia-shell >/dev/null 2>&1 &
 
 # After Noctalia is up, re-apply the Monarch theme so the wallpaper IPC
