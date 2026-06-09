@@ -50,5 +50,12 @@ layout {
 
     tab-indicator {
         hide-when-single-tab
+        position "top"               // horizontal bar above the column (browser-like)
+        place-within-column          // attached to the window, not floating in the gap
+        length total-proportion=1.0  // segments span the full column width (default 0.5)
+        width 7                      // bar thickness — wide enough to read the urgent red
+        gap 6                        // distance between the bar and the window
+        gaps-between-tabs 4          // space between tab segments
+        corner-radius 4              // rounded segments
     }
 }
