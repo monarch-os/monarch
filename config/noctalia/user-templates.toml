@@ -36,3 +36,17 @@ output_path = "~/.config/fuzzel/fuzzel.ini"
 input_path = "~/.config/noctalia/templates/herdr.toml"
 output_path = "~/.config/herdr/config.toml"
 post_hook = "herdr server reload-config 2>/dev/null || true"
+
+# Zed editor. The template is the full Zed theme JSON (4 variants: Noctalia
+# Dark/Light + transparent), rendered from Noctalia's Material 3 tokens —
+# adapted verbatim from the upstream noctalia-dev/community-templates "zed"
+# entry so it stays drop-in updatable. Noctalia re-renders on every color
+# generation; Zed watches its themes/ dir and hot-reloads, so no post_hook is
+# needed. Both dark and light blocks are always populated, so Zed's
+# "theme": { "mode": "system", … } follows Noctalia's dark/light toggle on its
+# own (set by monarch-install-zed). Registered for every install (like
+# nvim/obsidian); the rendered output is harmless when Zed is absent. This
+# replaces the old standalone `monzed` package (the pre-Niri Zed theme bridge).
+[templates.zed]
+input_path = "~/.config/noctalia/templates/zed.json"
+output_path = "~/.config/zed/themes/noctalia.json"

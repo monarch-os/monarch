@@ -1,11 +1,36 @@
 #!/bin/bash
 
-# monarch:summary=Install Zed Editor and configure it with the current Monarch theme
+# monarch:summary=Install Zed Editor and theme it via the Noctalia user-template
+
+set -euo pipefail
 
 echo "Installing Zed Editor..."
-monarch-pkg-add zed monzed
+monarch-pkg-add zed
 
-# Apply monarch theme to Zed
-monzed setup
+# Zed follows the active Monarch/Noctalia scheme through the [templates.zed]
+# Noctalia user-template (config/noctalia/templates/zed.json renders to
+# ~/.config/zed/themes/noctalia.json, shipped in the default config). Noctalia
+# re-renders it on every color generation and Zed hot-reloads its themes/ dir,
+# so theme switching is live. (This replaces the old `monzed` package.)
+
+# Select the theme so Zed actually uses it (the template only makes it
+# available). Fresh installs have no settings.json yet, so seed one that follows
+# the system dark/light toggle; never rewrite an existing (JSONC) settings file.
+zed_settings="$HOME/.config/zed/settings.json"
+theme_block='"theme": { "mode": "system", "light": "Noctalia Light", "dark": "Noctalia Dark" }'
+mkdir -p "$HOME/.config/zed"
+if [[ ! -f $zed_settings ]]; then
+  printf '{\n  %s\n}\n' "$theme_block" > "$zed_settings"
+elif ! grep -q '"Noctalia ' "$zed_settings"; then
+  echo "Note: set ${theme_block} in $zed_settings to follow the Monarch theme."
+fi
+
+# Render the theme now so it exists before first launch: re-selecting the active
+# scheme makes Noctalia regenerate colors and render all user templates.
+if command -v qs >/dev/null 2>&1; then
+  scheme=$(jq -r '.colorSchemes.predefinedScheme // "Monarch"' \
+    "$HOME/.config/noctalia/settings.json" 2>/dev/null || echo "Monarch")
+  qs -c noctalia-shell ipc call colorScheme set "$scheme" >/dev/null 2>&1 || true
+fi
 
 setsid gtk-launch dev.zed.Zed
