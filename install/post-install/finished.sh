@@ -6,7 +6,7 @@ echo_in_style() {
 
 clear
 echo
-tte -i ~/.local/share/monarch/logo.txt --canvas-width 0 --anchor-text c --frame-rate 920 laseretch
+tte -i "$MONARCH_PATH"/logo.txt --canvas-width 0 --anchor-text c --frame-rate 920 laseretch
 echo
 
 # Display installation time if available

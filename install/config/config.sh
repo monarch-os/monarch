@@ -1,6 +1,6 @@
 # Copy over Monarch configs
 mkdir -p ~/.config
-cp -R ~/.local/share/monarch/config/* ~/.config/
+cp -R "$MONARCH_PATH"/config/* ~/.config/
 
 # Seed Noctalia's shell-state BEFORE its first launch to suppress the "Privacy
 # Update" telemetry wizard. Because Monarch ships ~/.config/noctalia/settings.json
@@ -31,7 +31,7 @@ fi
 # the default showing. Seeding the cache here paints the Monarch wallpaper on
 # frame one. Mirrors the scheme folder that settings.json's wallpaper.directory
 # points at (~/.config/monarch/backgrounds/monarch).
-monarch_bg_src="$HOME/.local/share/monarch/themes/monarch"
+monarch_bg_src="$MONARCH_PATH/themes/monarch"
 monarch_bg_dir="$HOME/.config/monarch/backgrounds/monarch"
 if [[ -d $monarch_bg_src ]] && command -v jq >/dev/null; then
   mkdir -p "$monarch_bg_dir"
@@ -53,10 +53,10 @@ if [[ -d $monarch_bg_src ]] && command -v jq >/dev/null; then
 fi
 
 # Use default RC from Monarch
-cp ~/.local/share/monarch/default/bashrc ~/.bashrc
+cp "$MONARCH_PATH"/default/bashrc ~/.bashrc
 
 # Install ZSH
-cp ~/.local/share/monarch/default/zshrc ~/.zshrc
+cp "$MONARCH_PATH"/default/zshrc ~/.zshrc
 
 # Change shell
 sudo chsh -s /bin/zsh ${USER}

@@ -3,16 +3,15 @@ if [[ -n ${MONARCH_ONLINE_INSTALL:-} ]]; then
   monarch-pkg-add base-devel
 
   # Configure pacman
-  sudo cp -f ~/.local/share/monarch/default/pacman/pacman.conf /etc/pacman.conf
-  sudo cp -f ~/.local/share/monarch/default/pacman/mirrorlist /etc/pacman.d/mirrorlist
+  sudo cp -f "$MONARCH_PATH"/default/pacman/pacman.conf /etc/pacman.conf
+  sudo cp -f "$MONARCH_PATH"/default/pacman/mirrorlist /etc/pacman.d/mirrorlist
 
-  # Cachy OS
-  sudo pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com
-  sudo pacman-key --lsign-key F3B607488DB35A47
-
-  # Monarch
-  sudo pacman-key --recv-keys 519BC3D5AEA652C94F89F0AAC13B3766D969CE82 --keyserver keys.openpgp.org
-  sudo pacman-key --lsign-key 519BC3D5AEA652C94F89F0AAC13B3766D969CE82
+  # Import and locally sign the repo keys listed in keys.conf
+  while read -r key_id keyserver; do
+    [[ -z $key_id || $key_id == \#* ]] && continue
+    sudo pacman-key --recv-keys "$key_id" --keyserver "$keyserver"
+    sudo pacman-key --lsign-key "$key_id"
+  done <"$MONARCH_PATH"/default/pacman/keys.conf
 
   sudo pacman -Sy
   monarch-pkg-add monarch-keyring
