@@ -2,4 +2,4 @@
 
 # monarch:summary=Launch the Monarch audio controls TUI (provided by wiremix).
 
-monarch-launch-or-focus-tui wiremix $@
+monarch-launch-or-focus-tui wiremix "$@"

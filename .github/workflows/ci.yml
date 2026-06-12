@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+
+jobs:
+  cli-tests:
+    name: CLI tests & route check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run CLI test suite
+        run: bash test/monarch-cli-test.sh
+
+      - name: Validate command routes and metadata
+        run: bin/monarch commands --check
+
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint bin/ scripts
+        # zsh scripts are skipped: shellcheck only supports sh/bash/dash/ksh.
+        run: |
+          grep -rlE '^#!/(usr/)?bin/(env +)?(ba)?sh\b' bin/ \
+            | xargs shellcheck --severity=error
+
+      - name: Lint install scripts and migrations
+        # Sourced scripts: no shebang, so the shell must be forced.
+        run: |
+          find install migrations -name '*.sh' \
+            | xargs shellcheck --shell=bash --severity=error
