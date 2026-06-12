@@ -57,7 +57,6 @@ imagemagick
 imv
 inetutils
 inxi
-iwd
 jq
 kernel-modules-hook
 kvantum-qt5
@@ -126,6 +125,7 @@ wireplumber
 wl-clipboard
 wl-mirror
 wlsunset
+wpa_supplicant
 wtype
 woff2-font-awesome
 xdg-desktop-portal-gnome
