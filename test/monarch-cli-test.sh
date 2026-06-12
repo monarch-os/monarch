@@ -116,7 +116,7 @@ output=$("$CLI" menu share)
 assert_output_contains "bare required-arg filename route renders CLI help" "$output" "monarch share <clipboard|file|folder> [path...]"
 
 output=$("$CLI" branch set)
-assert_output_contains "bare required-choice route renders CLI help" "$output" "monarch branch set <master|dev>"
+assert_output_contains "bare required-choice route renders CLI help" "$output" "monarch branch set <main|dev>"
 
 CLI="$CLI" python3 <<'PY'
 import json
