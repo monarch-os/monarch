@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# monarch:summary=Remove monarch-todo
+
+echo "Removing monarch-todo..."
+
+# Remove the package
+monarch-pkg-drop monarch-todo
+
+# Remove the app-launcher entry
+monarch-tui-remove "Todo"
+
+# Remove the Noctalia bar widget (any CustomButton tied to `monarch-todo bar`).
+# Noctalia hot-reloads settings.json, so the bar drops it without a restart.
+NOCTALIA_CFG="$HOME/.config/noctalia/settings.json"
+if command -v jq >/dev/null && [[ -f "$NOCTALIA_CFG" ]]; then
+  if jq -e '[.. | objects | select(.textCommand? == "monarch-todo bar")] | length > 0' \
+       "$NOCTALIA_CFG" >/dev/null 2>&1; then
+    echo "Removing the Todo widget from the Noctalia bar..."
+    tmp=$(mktemp)
+    if jq '(.bar.widgets.left, .bar.widgets.center, .bar.widgets.right) |=
+             ((. // []) | map(select(.textCommand? != "monarch-todo bar")))' \
+         "$NOCTALIA_CFG" >"$tmp"; then
+      mv "$tmp" "$NOCTALIA_CFG"
+    else
+      rm -f "$tmp"
+      echo "  Warning: could not update $NOCTALIA_CFG; remove the widget manually." >&2
+    fi
+  fi
+fi
+
+# Remove Niri keybinding + window rule (marker block in ~/.config/niri/user.kdl).
+USER_KDL="$HOME/.config/niri/user.kdl"
+if [[ -f "$USER_KDL" ]] && grep -q 'monarch:todo:begin' "$USER_KDL"; then
+  echo "Removing Niri keybinding and window rule..."
+  sed -i '/\/\/ monarch:todo:begin/,/\/\/ monarch:todo:end/d' "$USER_KDL"
+  if pgrep -x niri >/dev/null 2>&1; then
+    niri msg action reload-config >/dev/null 2>&1 || true
+  fi
+fi
+
+echo -e "\nmonarch-todo removed!"
+echo "The task store remains at \${MONARCH_TODO_FILE:-~/.local/state/monarch/todo.json}."
