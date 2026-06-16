@@ -29,14 +29,16 @@ if command -v jq >/dev/null && [[ -f "$NOCTALIA_CFG" ]]; then
   fi
 fi
 
-# Remove Niri keybinding (marker block in ~/.config/niri/user.kdl).
-USER_KDL="$HOME/.config/niri/user.kdl"
+# Remove the dedicated niri include file and its one-line include in user.kdl.
+NIRI_DIR="$HOME/.config/niri"
+rm -f "$NIRI_DIR/monarch-lazyvpn.kdl"
+USER_KDL="$NIRI_DIR/user.kdl"
 if [[ -f "$USER_KDL" ]] && grep -q 'monarch:lazyvpn:begin' "$USER_KDL"; then
-  echo "Removing Niri keybinding..."
+  echo "Removing the LazyVPN keybinding..."
   sed -i '/\/\/ monarch:lazyvpn:begin/,/\/\/ monarch:lazyvpn:end/d' "$USER_KDL"
-  if pgrep -x niri >/dev/null 2>&1; then
-    niri msg action reload-config >/dev/null 2>&1 || true
-  fi
+fi
+if pgrep -x niri >/dev/null 2>&1; then
+  niri msg action load-config-file >/dev/null 2>&1 || true
 fi
 
 echo -e "\nLazyVPN removed!"
