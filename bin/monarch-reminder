@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # monarch:summary=Set and show lightweight desktop notification reminders
-# monarch:args=<minutes> [message] | show | clear
-# monarch:examples=monarch reminder 5 | monarch reminder 30 "Check the oven" | monarch reminder show | monarch reminder clear
+# monarch:args=<minutes> [message] [-u low|normal|critical] | show | clear
+# monarch:examples=monarch reminder 5 | monarch reminder 30 "Check the oven" | monarch reminder 60 "Standup" -u normal | monarch reminder show | monarch reminder clear
 
 set -euo pipefail
 
@@ -20,55 +20,32 @@ format_remaining() {
   fi
 }
 
-parse_systemd_timespan() {
-  local timespan="$1"
-  local total=0
-  local value unit whole
-
-  while read -r value unit; do
-    whole=${value%.*}
-
-    case $unit in
-    d) total=$((total + whole * 86400)) ;;
-    h) total=$((total + whole * 3600)) ;;
-    min) total=$((total + whole * 60)) ;;
-    s) total=$((total + whole)) ;;
-    ms | us) ;;
-    esac
-  done < <(grep -oE '[0-9]+([.][0-9]+)?(d|h|min|s|ms|us)' <<<"$timespan" | sed -E 's/^([0-9.]+)([a-z]+)$/\1 \2/')
-
-  echo "$total"
-}
-
 show_reminders() {
-  local timers timer next next_seconds uptime remaining body=""
   local reminder_dir="${XDG_RUNTIME_DIR:-/tmp}/monarch-reminders"
-  local reminder_message=""
+  local now timer base rest set_at reminder_minutes fire_at remaining message body=""
+  now=$(date +%s)
 
-  timers=$(systemctl --user list-timers --all --no-legend --no-pager "monarch-reminder-*.timer" 2>/dev/null | awk '{ print $(NF - 1) }')
-  uptime=${SECONDS_SINCE_BOOT:-$(awk '{ print int($1) }' /proc/uptime)}
+  # Everything needed is in the unit name (monarch-reminder-<minutes>m-<set_at>,
+  # set_at being a wall-clock epoch), so compute remaining time against `date`
+  # — never the monotonic clock, which diverges from wall time across suspend.
+  while read -r timer; do
+    [[ -z $timer ]] && continue
+    base=${timer%.timer}
+    rest=${base#monarch-reminder-}
+    set_at=${rest##*-}
+    reminder_minutes=${rest%%m-*}
+    [[ $set_at =~ ^[0-9]+$ && $reminder_minutes =~ ^[0-9]+$ ]] || continue
 
-  for timer in $timers; do
-    next=$(systemctl --user show -P NextElapseUSecMonotonic "$timer" 2>/dev/null || true)
-    [[ -z $next ]] && continue
+    fire_at=$((set_at + reminder_minutes * 60))
+    remaining=$((fire_at - now))
+    ((remaining <= 0)) && continue
 
-    next_seconds=$(parse_systemd_timespan "$next")
-    ((next_seconds <= uptime)) && continue
+    message=""
+    [[ -f $reminder_dir/$base.message ]] && message=$(<"$reminder_dir/$base.message")
+    [[ -z $message ]] && message="${reminder_minutes}-min reminder"
 
-    remaining=$((next_seconds - uptime))
-    reminder=${timer%.timer}
-    reminder=${reminder#monarch-reminder-}
-    set_at=${reminder##*-}
-    reminder_minutes=${reminder%%m-*}
-    reminder_message=""
-    [[ -f $reminder_dir/${timer%.timer}.message ]] && reminder_message=$(<"$reminder_dir/${timer%.timer}.message")
-
-    if [[ -n $reminder_message ]]; then
-      body+="$reminder_message in $(format_remaining $remaining) ($(date -d "@$((set_at + reminder_minutes * 60))" +%-H:%M))"$'\n'
-    else
-      body+="${reminder_minutes}-min reminder in $(format_remaining $remaining) ($(date -d "@$((set_at + reminder_minutes * 60))" +%-H:%M))"$'\n'
-    fi
-  done
+    body+="$message in $(format_remaining "$remaining") ($(date -d "@$fire_at" +%-H:%M))"$'\n'
+  done < <(systemctl --user list-timers --all --no-legend --no-pager "monarch-reminder-*.timer" 2>/dev/null | awk '{ print $(NF - 1) }')
 
   if [[ -z $body ]]; then
     monarch-notification-send "󰔛" "Upcoming reminders" "No outstanding reminders" -u low
@@ -90,6 +67,33 @@ clear_reminders() {
   rm -f "$reminder_dir"/monarch-reminder-*.message 2>/dev/null || true
   monarch-notification-send "󰔛" "All reminders have been cleared" -u low
 }
+
+# Pull an optional urgency flag from anywhere in the args. The default stays
+# "critical" so `monarch reminder <minutes> [message]` is unchanged; callers
+# like the todo TUI pass -u to match a task's priority.
+urgency="critical"
+args=()
+while (($#)); do
+  case $1 in
+  -u | --urgency)
+    urgency="${2:-critical}"
+    shift 2
+    ;;
+  *)
+    args+=("$1")
+    shift
+    ;;
+  esac
+done
+set -- ${args[@]+"${args[@]}"}
+
+case $urgency in
+low | normal | critical) ;;
+*)
+  echo "Urgency must be low, normal, or critical."
+  exit 1
+  ;;
+esac
 
 case ${1:-} in
 show | list)
@@ -134,6 +138,6 @@ if [[ -n $custom_message ]]; then
 fi
 
 systemd-run --user --quiet --collect --on-active="${minutes}m" --unit="$unit" \
-  bash -c 'monarch-notification-send "󰔛" "Reminder" "$1" -u critical; rm -f "$2"' bash "$message" "$message_file"
+  bash -c 'monarch-notification-send "󰔛" "Reminder" "$1" -u "$3"; rm -f "$2"' bash "$message" "$message_file" "$urgency"
 
 monarch-notification-send "󰔛" "$confirmation_title" "$confirmation" -u low
