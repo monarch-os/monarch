@@ -43,6 +43,7 @@ window-rule {
     default-column-width { fixed 760; }
     default-window-height { fixed 560; }
 }
+spawn-at-startup "monarch-todo" "reload-reminders"
 EOF
 
 USER_KDL="$NIRI_DIR/user.kdl"
