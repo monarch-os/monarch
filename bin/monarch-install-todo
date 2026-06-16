@@ -60,6 +60,26 @@ if pgrep -x niri >/dev/null 2>&1; then
   niri msg action load-config-file >/dev/null 2>&1 || true
 fi
 
+# Reminder timers are transient systemd --user timers (dropped on reboot). A
+# oneshot service re-arms them from the store at every session start — cleaner
+# and compositor-agnostic vs a niri spawn-at-startup.
+SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
+mkdir -p "$SYSTEMD_USER_DIR"
+cat >"$SYSTEMD_USER_DIR/monarch-todo-reminders.service" <<'EOF'
+[Unit]
+Description=Re-arm monarch-todo reminder timers from the store
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/monarch-todo reload-reminders
+
+[Install]
+WantedBy=graphical-session.target
+EOF
+systemctl --user daemon-reload 2>/dev/null || true
+systemctl --user enable --now monarch-todo-reminders.service 2>/dev/null || true
+
 # Noctalia bar widget: live open-task count (click opens the TUI). The count
 # comes from `monarch-todo bar` (JSON), so no store logic is duplicated here.
 # Idempotent: skip if the button already exists. Noctalia hot-reloads.
@@ -73,7 +93,7 @@ if command -v jq >/dev/null && [[ -f "$NOCTALIA_CFG" ]]; then
              (.bar.widgets.right // []) as $w
              | {
                  "id": "CustomButton",
-                 "icon": "format-list-checks",
+                 "icon": "format-list-checkbox",
                  "parseJson": true,
                  "hideMode": "expandWithOutput",
                  "textCommand": "monarch-todo bar",

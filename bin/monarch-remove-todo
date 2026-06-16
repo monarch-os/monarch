@@ -7,6 +7,12 @@ echo "Removing monarch-todo..."
 # Remove the package
 monarch-pkg-drop monarch-todo
 
+# Remove the reminder re-arm service (+ any pending reminder timers).
+systemctl --user disable --now monarch-todo-reminders.service 2>/dev/null || true
+systemctl --user stop 'monarch-todo-reminder-*.timer' 2>/dev/null || true
+rm -f "$HOME/.config/systemd/user/monarch-todo-reminders.service"
+systemctl --user daemon-reload 2>/dev/null || true
+
 # Remove the app-launcher entry
 monarch-tui-remove "Todo"
 
