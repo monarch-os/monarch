@@ -56,6 +56,6 @@ remove_noctalia_lockscreen
 remove_fingerprint_marker
 
 echo "Removing fingerprint packages..."
-monarch-pkg-drop fprintd libfprint-git
+monarch-pkg-drop fprintd libfprint
 
 echo -e "\e[32mFingerprint authentication has been completely removed.\e[0m"
