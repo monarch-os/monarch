@@ -25,15 +25,15 @@ StartupNotify=true
 EOF
 chmod +x "$DESKTOP_FILE"
 
-# Niri keybinding (Mod+T) + a fitted floating window-rule, added to the user
-# override file inside a marker block so removal is exact. The rule sizes the
-# TUI like a compact picker rather than the tall shared terminal float.
-USER_KDL="$HOME/.config/niri/user.kdl"
-if [[ -f "$USER_KDL" ]] && ! grep -q 'monarch:todo:begin' "$USER_KDL"; then
-  echo -e "\nAdding Niri keybinding (Mod+T) and window rule..."
-  cat >>"$USER_KDL" <<'EOF'
-
-// monarch:todo:begin
+# Niri keybinding (Mod+T) + a fitted floating window-rule. They go in a
+# DEDICATED file with their own binds{} block; user.kdl only gets a one-line
+# include. Niri allows just one binds{} per file but merges binds ACROSS files,
+# so this never collides with another feature's binds block (appending a second
+# binds{} straight into user.kdl is what broke the whole file before).
+NIRI_DIR="$HOME/.config/niri"
+mkdir -p "$NIRI_DIR"
+cat >"$NIRI_DIR/monarch-todo.kdl" <<'EOF'
+// Managed by `monarch install todo` — removed by `monarch remove todo`.
 binds {
     Mod+T hotkey-overlay-title="Todo" { spawn "monarch-launch-tui" "monarch-todo"; }
 }
@@ -43,11 +43,21 @@ window-rule {
     default-column-width { fixed 760; }
     default-window-height { fixed 560; }
 }
+EOF
+
+USER_KDL="$NIRI_DIR/user.kdl"
+if [[ -f "$USER_KDL" ]] && ! grep -q 'monarch:todo:begin' "$USER_KDL"; then
+  echo -e "\nAdding the Todo keybinding (Mod+T)..."
+  cat >>"$USER_KDL" <<'EOF'
+
+// monarch:todo:begin
+include "./monarch-todo.kdl"
 // monarch:todo:end
 EOF
-  if pgrep -x niri >/dev/null 2>&1; then
-    niri msg action reload-config >/dev/null 2>&1 || true
-  fi
+fi
+
+if pgrep -x niri >/dev/null 2>&1; then
+  niri msg action load-config-file >/dev/null 2>&1 || true
 fi
 
 # Noctalia bar widget: live open-task count (click opens the TUI). The count

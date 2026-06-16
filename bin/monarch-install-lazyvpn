@@ -24,24 +24,32 @@ StartupNotify=true
 EOF
 chmod +x "$DESKTOP_FILE"
 
-# Add the Niri keybinding (Mod+Ctrl+V) via the user override file, matching the
-# Mod+Ctrl namespace used by the Bluetooth (Mod+Ctrl+B) and Wifi (Mod+Ctrl+W)
-# controls. The block is wrapped in unique markers so monarch-remove-lazyvpn can
-# strip it later.
-USER_KDL="$HOME/.config/niri/user.kdl"
-if [[ -f "$USER_KDL" ]] && ! grep -q 'monarch:lazyvpn:begin' "$USER_KDL"; then
-  echo -e "\nAdding Niri keybinding (Mod+Ctrl+V)..."
-  cat >>"$USER_KDL" <<'EOF'
-
-// monarch:lazyvpn:begin
+# Niri keybinding (Mod+Ctrl+V, matching the Mod+Ctrl namespace of the Bluetooth
+# and Wifi controls). It goes in a DEDICATED file with its own binds{} block;
+# user.kdl only gets a one-line include. Niri merges binds across files, so this
+# never collides with another feature's binds block (one binds{} per file).
+NIRI_DIR="$HOME/.config/niri"
+mkdir -p "$NIRI_DIR"
+cat >"$NIRI_DIR/monarch-lazyvpn.kdl" <<'EOF'
+// Managed by `monarch install lazyvpn` — removed by `monarch remove lazyvpn`.
 binds {
     Mod+Ctrl+V hotkey-overlay-title="LazyVPN controls" { spawn "monarch-launch-floating-terminal-with-presentation" "monarch-lazyvpn"; }
 }
+EOF
+
+USER_KDL="$NIRI_DIR/user.kdl"
+if [[ -f "$USER_KDL" ]] && ! grep -q 'monarch:lazyvpn:begin' "$USER_KDL"; then
+  echo -e "\nAdding the LazyVPN keybinding (Mod+Ctrl+V)..."
+  cat >>"$USER_KDL" <<'EOF'
+
+// monarch:lazyvpn:begin
+include "./monarch-lazyvpn.kdl"
 // monarch:lazyvpn:end
 EOF
-  if pgrep -x niri >/dev/null 2>&1; then
-    niri msg action reload-config >/dev/null 2>&1 || true
-  fi
+fi
+
+if pgrep -x niri >/dev/null 2>&1; then
+  niri msg action load-config-file >/dev/null 2>&1 || true
 fi
 
 # Add a Noctalia bar widget showing live VPN status (click to open the TUI).
