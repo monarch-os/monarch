@@ -94,7 +94,7 @@ if command -v jq >/dev/null && [[ -f "$NOCTALIA_CFG" ]]; then
              (.bar.widgets.right // []) as $w
              | {
                  "id": "CustomButton",
-                 "icon": "format-list-checkbox",
+                 "icon": "checkbox",
                  "parseJson": true,
                  "hideMode": "expandWithOutput",
                  "textCommand": "monarch-todo bar",
