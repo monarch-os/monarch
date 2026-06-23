@@ -1,0 +1,115 @@
+#!/bin/bash
+
+# monarch:summary=Connect to a Wi-Fi network from the terminal (TUI)
+# monarch:examples=monarch wifi connect
+
+set -uo pipefail
+
+command -v nmcli >/dev/null 2>&1 || { echo "nmcli is required for Wi-Fi setup."; exit 1; }
+have_gum() { command -v gum >/dev/null 2>&1; }
+
+# Run a command behind a gum spinner when available, plainly otherwise.
+spin() {
+  local msg=$1; shift
+  if have_gum; then
+    gum spin --spinner dot --title "$msg" -- "$@"
+  else
+    echo "  $msg"
+    "$@"
+  fi
+}
+
+# Present labels, print the chosen one on stdout.
+pick() {
+  if have_gum; then
+    printf '%s\n' "$@" | gum choose --height "$(($# + 2))"
+  else
+    local choice
+    PS3=$'\nSelect a network: '
+    select choice in "$@"; do
+      [[ -n $choice ]] && { echo "$choice"; return; }
+    done
+  fi
+}
+
+nmcli radio wifi on >/dev/null 2>&1 || true
+
+while true; do
+  spin "Scanning for Wi-Fi networks…" nmcli dev wifi rescan >/dev/null 2>&1 || true
+
+  declare -A NET_SSID NET_SEC
+  declare -A SEEN=()
+  labels=()
+
+  # SIGNAL and SECURITY never contain ':'; SSID is last and may carry an
+  # escaped '\:' — strip the escape so the menu shows the real name.
+  while IFS= read -r line; do
+    [[ -z $line ]] && continue
+    signal=${line%%:*}; rest=${line#*:}
+    security=${rest%%:*}; ssid=${rest#*:}
+    ssid=${ssid//\\:/:}
+    [[ -z $ssid ]] && continue
+    [[ -n ${SEEN[$ssid]:-} ]] && continue   # keep strongest (list is signal-sorted)
+    SEEN[$ssid]=1
+
+    if [[ -z $security || $security == "--" ]]; then sec="  (open)"; else sec=""; fi
+    key=$(printf '%3s%%  %s%s' "$signal" "$ssid" "$sec")
+    NET_SSID[$key]=$ssid
+    NET_SEC[$key]=$security
+    labels+=("$key")
+  done < <(nmcli -t -f SIGNAL,SECURITY,SSID dev wifi list 2>/dev/null)
+
+  if ((${#labels[@]} == 0)); then
+    echo "  No Wi-Fi networks found."
+    if have_gum && gum confirm "Scan again?"; then
+      unset NET_SSID NET_SEC SEEN; continue
+    fi
+    exit 1
+  fi
+
+  labels+=("↻  Rescan" "✕  Cancel")
+  sel=$(pick "${labels[@]}")
+
+  case "$sel" in
+    "↻  Rescan") unset NET_SSID NET_SEC SEEN; continue ;;
+    "✕  Cancel"|"") exit 1 ;;
+  esac
+
+  ssid=${NET_SSID[$sel]}
+  security=${NET_SEC[$sel]}
+
+  args=(dev wifi connect "$ssid")
+  # Ask for a password only when the network is secured and we have no saved
+  # profile already (nmcli reuses stored credentials otherwise).
+  if [[ -n $security && $security != "--" ]] \
+     && ! nmcli -g NAME connection show 2>/dev/null | grep -Fxq "$ssid"; then
+    if have_gum; then
+      pw=$(gum input --password --placeholder "Password for $ssid")
+    else
+      read -rs -p "Password for $ssid: " pw; echo
+    fi
+    [[ -n $pw ]] && args+=(password "$pw")
+  fi
+
+  if have_gum; then
+    out=$(gum spin --show-output --spinner dot --title "Connecting to $ssid…" -- nmcli "${args[@]}" 2>&1)
+  else
+    out=$(nmcli "${args[@]}" 2>&1)
+  fi
+  rc=$?
+
+  unset NET_SSID NET_SEC SEEN
+
+  if ((rc == 0)); then
+    echo "  ✓ Connected to $ssid"
+    exit 0
+  fi
+
+  echo "  ✗ Could not connect to $ssid"
+  [[ -n $out ]] && echo "    ${out}"
+  if have_gum; then
+    gum confirm "Try another network?" || exit 1
+  else
+    read -n1 -p "  Press any key to try again, Ctrl-C to quit…" -r _ || exit 1; echo
+  fi
+done
