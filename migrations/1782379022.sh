@@ -1,4 +1,4 @@
-echo "Enable the user ssh-agent so SSH key passphrases are cached for the session"
+echo "Enable the user ssh-agent and default SSH keys to it via a global drop-in"
 
 uwsm_env="$HOME/.config/uwsm/env"
 if [[ -f $uwsm_env ]] && ! grep -q 'SSH_AUTH_SOCK' "$uwsm_env"; then
