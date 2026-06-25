@@ -4,6 +4,9 @@
 export MONARCH_PATH=$HOME/.local/share/monarch
 export PATH=$MONARCH_PATH/bin:$PATH:$HOME/.local/bin
 
+# SSH agent (graphical session only, not shell rc — keeps agent forwarding intact)
+export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"
+
 # Set default terminal and editor
 source ~/.config/uwsm/default
 
