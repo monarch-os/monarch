@@ -1,6 +1,6 @@
 # File system
 if command -v eza &> /dev/null; then
-  alias ls='eza -lh --group-directories-first --icons=auto --hyperlink'
+  alias ls='eza -lh --group-directories-first --icons=auto --hyperlink=auto'
   alias lsa='ls -a'
   alias lt='eza --tree --level=2 --long --icons --git --hyperlink'
   alias lta='lt -a'
