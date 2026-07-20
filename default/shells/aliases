@@ -74,6 +74,7 @@ alias z='zeditor'
 alias Z='zeditor .'
 alias p='python'
 alias cdtmp='pushd $(mktemp -d)'
+alias mup='MISE_MINIMUM_RELEASE_AGE=0 mise up'  # update mise tools without the release-age guard
 
 ## File Management
 alias ll='ls'
