@@ -58,7 +58,7 @@ binds {
     Mod+BackSpace hotkey-overlay-title="Toggle window transparency" { toggle-window-rule-opacity; }
 
     // --- Captures ---
-    Print hotkey-overlay-title="Screenshot (with editor)" { spawn "monarch-capture-screenshot"; }
+    Print hotkey-overlay-title="Screenshot (with editor)" { spawn "monarch-capture-screenshot" "smart" "edit"; }
     Mod+Shift+S hotkey-overlay-title="Screenshot to clipboard" { spawn "monarch-capture-screenshot" "smart" "copy"; }
     Alt+Print hotkey-overlay-title="Screen recording" { spawn "monarch-menu" "screenrecord"; }
     Mod+Print hotkey-overlay-title="Color picker" { spawn-sh "pkill hyprpicker || hyprpicker -a"; }

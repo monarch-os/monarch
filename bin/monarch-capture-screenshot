@@ -2,8 +2,8 @@
 
 # monarch:summary=Take a screenshot
 # monarch:group=capture
-# monarch:args=[smart|region|windows|fullscreen] [slurp|copy|save] [--editor=<name>]
-# monarch:examples=monarch screenshot | monarch capture screenshot region
+# monarch:args=[smart|region|windows|fullscreen] [slurp|copy|save|edit] [--editor=<name>]
+# monarch:examples=monarch screenshot | monarch capture screenshot region | monarch screenshot smart edit
 # monarch:aliases=monarch screenshot
 
 [[ -f ~/.config/user-dirs.dirs ]] && source ~/.config/user-dirs.dirs
@@ -133,7 +133,7 @@ case "$PROCESSING" in
     wl-copy <"$FILEPATH"
 
     (
-      ACTION=$(notify-send "Screenshot saved to clipboard and file" "Edit with Super + Alt + , (or click this)" -t 10000 -i "$FILEPATH" -A "default=edit")
+      ACTION=$(notify-send "Screenshot saved to clipboard and file" "Click to edit" -t 10000 -i "$FILEPATH" -A "default=edit")
       [[ $ACTION == "default" ]] && open_editor "$FILEPATH"
     ) >/dev/null 2>&1 &
     ;;
@@ -143,5 +143,11 @@ case "$PROCESSING" in
   save)
     grim -g "$SELECTION" "$FILEPATH" || exit 1
     echo "$FILEPATH"
+    ;;
+  # Straight into the editor; satty writes back over the same file on save.
+  edit)
+    grim -g "$SELECTION" "$FILEPATH" || exit 1
+    echo "$FILEPATH"
+    open_editor "$FILEPATH"
     ;;
 esac
