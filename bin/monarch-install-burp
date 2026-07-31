@@ -1,29 +1,54 @@
-#!/bin/zsh
+#!/bin/bash
 
 # monarch:summary=Install burpsuite community or pro
+# monarch:args=[Community|Pro]
+# monarch:examples=monarch install burp | monarch install burp Community
 
-burp_version=$(gum choose --height 5 --header "Select BURP version" Community Pro)
+install_burp() {
+  local product=$1 dir=$2 label=$3
 
+  if [[ -d $dir ]]; then
+    echo "[!] $label already installed"
+    return 0
+  fi
+
+  echo "[+] Install $label"
+
+  local installer
+  installer=$(mktemp) || return 1
+
+  # -f so an HTTP error page is never handed to `sudo bash`; PortSwigger
+  # answers 200 with HTML on a bad product name, and the redirect to the CDN
+  # needs -L.
+  if ! curl -fsSL "https://portswigger.net/burp/releases/download?product=$product&type=Linux" -o "$installer"; then
+    echo "[!] Could not download the $label installer" >&2
+    rm -f "$installer"
+    return 1
+  fi
+
+  sudo bash "$installer" -q
+  local status=$?
+
+  rm -f "$installer"
+  return $status
+}
+
+# Take the edition as an argument so the welcome wizard and scripts can install
+# it unattended; fall back to asking when it is omitted.
+burp_version=$1
+
+if [[ -z $burp_version ]]; then
+  # Esc leaves gum with a non-zero status: that is a deliberate cancel, so exit
+  # cleanly rather than reporting a failed install.
+  burp_version=$(gum choose --height 5 --header "Select BURP version" Community Pro) || exit 0
+fi
 
 case "$burp_version" in
-Community)
-  if [ -d "/opt/BurpSuiteCommunity" ]; then
-    echo "[!] BurpSuite Community already installed"
-  else
-    echo "[+] Install BurpSuite Community"
-    curl "https://portswigger.net/burp/releases/download?product=community&type=Linux" -o /tmp/burp_install.sh
-    sudo bash /tmp/burp_install.sh -q
-    rm /tmp/burp_install.sh
-  fi
-  ;;
-Pro)
-  if [ -d "/opt/BurpSuitePro" ]; then
-    echo "[!] BurpSuitePro already installed"
-  else
-    echo "[+] Install BurpSuitePro"
-    curl "https://portswigger.net/burp/releases/download?product=pro&type=Linux" -o /tmp/burp_install.sh
-    sudo bash /tmp/burp_install.sh -q
-    rm /tmp/burp_install.sh
-  fi
+Community) install_burp community /opt/BurpSuiteCommunity "BurpSuite Community" ;;
+Pro) install_burp pro /opt/BurpSuitePro "BurpSuite Pro" ;;
+"") exit 0 ;;
+*)
+  echo "Usage: monarch-install-burp [Community|Pro]" >&2
+  exit 1
   ;;
 esac
