@@ -74,6 +74,7 @@ mise
 mpv
 nautilus
 nautilus-python
+neovim
 networkmanager
 niri
 noctalia-shell
@@ -81,7 +82,6 @@ noto-fonts
 noto-fonts-cjk
 noto-fonts-emoji
 nss-mdns
-nvim
 nwg-displays
 obsidian
 pamixer
