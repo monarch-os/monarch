@@ -1,0 +1,113 @@
+#!/bin/bash
+
+# monarch:summary=Launch the default coding agent in a terminal
+# monarch:args=[--inline] [--pick]
+# monarch:examples=monarch agent | monarch agent --inline
+
+inline=false
+pick=false
+
+# Flags only. A bare prompt would shadow the subcommands under this group, so
+# prompts go through monarch-agent-prompt, which passes one here as --prompt.
+while (($#)); do
+  case "$1" in
+    --inline)
+      inline=true
+      shift
+      ;;
+    --pick)
+      pick=true
+      shift
+      ;;
+    --prompt)
+      prompt=${2:?--prompt needs a value}
+      shift 2
+      ;;
+    *)
+      echo "Unexpected argument: $1" >&2
+      echo "To pass a prompt: monarch agent prompt \"$*\"" >&2
+      exit 1
+      ;;
+  esac
+done
+
+# Agents refuse to remember trust for $HOME, so launches from the keybinding or
+# menu start in the work directory instead of re-asking on every session.
+[[ $PWD == "$HOME" && -d $HOME/Work ]] && cd "$HOME/Work"
+
+agent=$(monarch-default-agent)
+
+# Monarch ships without a default agent, so there is nothing to launch until one
+# is picked. --pick offers the choice instead of the error, which is what the
+# keybinding wants: a keypress that opens nothing explains nothing.
+if [[ -z $agent ]]; then
+  if [[ $pick == "true" ]]; then
+    choice=$(monarch-menu-select "Coding agent" "Claude Code" "Codex" "OpenCode" "Pi" "Gemini" "GitHub Copilot")
+    [[ -z $choice ]] && exit 0
+    case "$choice" in
+    "Claude Code") exec monarch-default-agent claude ;;
+    "Codex") exec monarch-default-agent codex ;;
+    "OpenCode") exec monarch-default-agent opencode ;;
+    "Pi") exec monarch-default-agent pi ;;
+    "Gemini") exec monarch-default-agent gemini ;;
+    "GitHub Copilot") exec monarch-default-agent copilot ;;
+    esac
+    exit 0
+  fi
+  echo "Choose default agent with: monarch default agent <name>" >&2
+  exit 1
+fi
+
+if monarch-cmd-missing "$agent"; then
+  echo "$agent is not installed. Choose an installed agent with: monarch default agent <name>" >&2
+  exit 1
+fi
+
+# Agents launched from the keybinding or menu run unattended, so each one starts
+# with its own spelling of "don't stop to ask". Pi has no approval prompts.
+case "$agent" in
+opencode)
+  command=(opencode --auto)
+  [[ -n ${prompt:-} ]] && command+=(--prompt "$prompt")
+  ;;
+gemini)
+  command=(gemini --yolo)
+  [[ -n ${prompt:-} ]] && command+=(--prompt-interactive "$prompt")
+  ;;
+copilot)
+  command=(copilot --allow-all)
+  [[ -n ${prompt:-} ]] && command+=(--interactive "$prompt")
+  ;;
+crush)
+  # --yolo belongs to the interactive command only; `crush run` never prompts.
+  if [[ -n ${prompt:-} ]]; then
+    command=(crush run "$prompt")
+  else
+    command=(crush --yolo)
+  fi
+  ;;
+claude | grok)
+  command=("$agent" --permission-mode bypassPermissions)
+  [[ -n ${prompt:-} ]] && command+=(-- "$prompt")
+  ;;
+codex)
+  command=(codex --dangerously-bypass-approvals-and-sandbox)
+  [[ -n ${prompt:-} ]] && command+=(-- "$prompt")
+  ;;
+pi)
+  command=(pi)
+  [[ -n ${prompt:-} ]] && command+=("$prompt")
+  ;;
+*)
+  echo "Unsupported default agent: $agent" >&2
+  exit 1
+  ;;
+esac
+
+if [[ $inline == "true" ]]; then
+  exec "${command[@]}"
+else
+  # A fixed app-id rather than the default org.monarch.<binary>, so every agent
+  # window shares one class for window rules and themes to single out.
+  exec monarch-launch-tui --app-id=org.monarch.agent "${command[@]}"
+fi

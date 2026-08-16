@@ -68,6 +68,7 @@
       ],
       "right": [
         { "id": "Tray" },
+        { "id": "plugin:monarch-agents" },
         { "id": "Network" },
         { "id": "Bluetooth" },
         { "id": "Volume" },

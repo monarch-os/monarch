@@ -1,0 +1,89 @@
+#!/bin/bash
+
+# monarch:summary=Set and launch the default coding agent
+# monarch:args=[claude|codex|opencode|pi|gemini|copilot|crush|grok]
+# monarch:examples=monarch default agent | monarch default agent claude | monarch default agent codex
+
+# Monarch already ships most agents: claude-code is a pacman package and the
+# npm-based agents get npx wrappers in ~/.local/bin from install/packaging/npx.sh.
+# So unlike upstream — which installs everything through `mise use -g` on demand
+# — this only has to install the ones that are missing, and each one knows which
+# of the two mechanisms it belongs to.
+
+agent_file="$HOME/.config/monarch/defaults/agent"
+
+if (($# == 0)); then
+  if [[ -f $agent_file ]]; then
+    read -r agent <"$agent_file"
+  fi
+
+  # Silent when unset rather than defaulting: Monarch picks no agent for you, so
+  # the menu leaves every entry unchecked until one is chosen.
+  [[ -n ${agent:-} ]] && echo "$agent"
+  exit 0
+fi
+
+installing=false
+if [[ $1 == "--install" ]]; then
+  installing=true
+  shift
+fi
+
+# pkg: a pacman package. npx: an npm package wrapped by monarch-npx-install.
+case "$1" in
+claude | claude-code) agent="claude"; name="Claude Code"; source="pkg"; package="claude-code" ;;
+codex) agent="codex"; name="Codex"; source="npx"; package="@openai/codex" ;;
+opencode | open-code) agent="opencode"; name="OpenCode"; source="npx"; package="opencode-ai" ;;
+pi) agent="pi"; name="Pi"; source="npx"; package="@earendil-works/pi-coding-agent" ;;
+gemini | gemini-cli) agent="gemini"; name="Gemini"; source="npx"; package="@google/gemini-cli" ;;
+copilot | github-copilot) agent="copilot"; name="GitHub Copilot"; source="npx"; package="@github/copilot" ;;
+crush) agent="crush"; name="Crush"; source="npx"; package="@charmland/crush" ;;
+grok) agent="grok"; name="Grok"; source="npx"; package="@xai-official/grok" ;;
+*)
+  echo "Usage: monarch-default-agent <claude|codex|opencode|pi|gemini|copilot|crush|grok>" >&2
+  exit 1
+  ;;
+esac
+
+# The install runs in a floating terminal so the user sees pacman/npx work,
+# then re-enters here with --install to finish and hand over to the agent.
+if [[ $installing == "false" ]] && monarch-cmd-missing "$agent"; then
+  exec monarch-launch-floating-terminal-with-presentation "monarch-default-agent --install $agent"
+fi
+
+if monarch-cmd-missing "$agent"; then
+  case "$source" in
+  pkg)
+    monarch-pkg-add "$package" || {
+      echo "Could not install $name" >&2
+      exit 1
+    }
+    ;;
+  npx)
+    monarch-npx-install "$package" "$agent" || {
+      echo "Could not install $name" >&2
+      exit 1
+    }
+    ;;
+  esac
+  hash -r
+fi
+
+mkdir -p "$(dirname "$agent_file")"
+printf '%s\n' "$agent" >"$agent_file"
+
+# Collect usage now rather than leaving the bar empty until the shell's own
+# refresh comes round. Detached and quiet: the collectors reach the network and
+# walk the transcripts, and neither the agent launch below nor the terminal it
+# runs in should wait on that.
+if monarch-cmd-present monarch-agent-usage-update; then
+  setsid --fork monarch-agent-usage-update --force >/dev/null 2>&1 &
+fi
+
+if [[ $installing == "true" ]]; then
+  printf '\033[2J\033[3J\033[H'
+  exec monarch-agent --inline
+else
+  notify-send -u low "󰚩    $name is now the default coding agent"
+  exec monarch-agent
+fi
