@@ -1,12 +1,16 @@
 #!/bin/bash
 
 # monarch:summary=Install one of the supported databases in a Docker container with the suitable development options.
+# monarch:args=[MySQL|PostgreSQL|Redis|MongoDB|MariaDB|MSSQL]
+# monarch:examples=monarch install docker-dbs | monarch install docker-dbs PostgreSQL Redis
 # monarch:requires-sudo=true
 
 options=("MySQL" "PostgreSQL" "Redis" "MongoDB" "MariaDB" "MSSQL")
 
 if (( $# == 0 )); then
-  choices=$(printf "%s\n" "${options[@]}" | gum choose --header "Select database (return to install, esc to cancel)") || main_menu
+  # Esc leaves gum with a non-zero status; nothing to fall back to here, so
+  # just stop rather than calling a menu function this script does not define.
+  choices=$(printf "%s\n" "${options[@]}" | gum choose --header "Select database (return to install, esc to cancel)") || exit 0
 else
   choices="$@"
 fi

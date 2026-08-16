@@ -1,13 +1,18 @@
-#!/bin/zsh
+#!/bin/bash
 
 # monarch:summary=Install SecOps tools like RDP client and SSH manager
 # monarch:requires-sudo=true
 
-TOOLS_DIR=/opt/secops
-[ ! -d $TOOLS_DIR ] && sudo chown $USER:$USER /opt && mkdir -p /opt/secops
+# freerdp: RDP client, and the backend Remmina uses for its RDP plugin. This
+# was named `xfreerdp` here, which is a binary the package ships (alongside
+# wlfreerdp3 and sdl-freerdp3), not a package name — nothing provides it, so
+# the install failed outright.
+# remmina + libvncserver: one GUI for RDP/VNC/SPICE/SSH, driving the freerdp
+# above; libvncserver is what enables its VNC plugin.
+#
+# Traffic analysis is deliberately absent: termshark ships in the base package
+# set with its own launcher, and migration 1762160733 dropped wireshark-qt in
+# its favour.
+echo "Installing SecOps tools..."
 
-
-echo "Install sys tools..."
-
-yes|sudo pacman -S --noconfirm --needed xfreerdp
-yay --noconfirm --needed -S sshm-bin
+monarch-pkg-add freerdp remmina libvncserver sshm-bin
