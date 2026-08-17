@@ -18,10 +18,14 @@
 # Click handling lives in the widget's leftClickExec
 # (monarch-capture-screenrecording, which stops the active recording).
 
+# The glyph matches Omarchy's ScreenRecording indicator (shell/plugins/bar/
+# indicators/ScreenRecording.qml), which renders 󰻂 with a "Stop recording"
+# tooltip rather than a text badge. Its visibility rule is the same as ours:
+# the indicator is only on screen while a recording runs.
 prev="__init__"
 while true; do
   if pgrep -f "^gpu-screen-recorder" >/dev/null; then
-    line='{"text":"● REC","tooltip":"Stop recording","textColor":"error"}'
+    line='{"text":"󰻂","tooltip":"Stop recording","textColor":"error"}'
   else
     line='{}'
   fi

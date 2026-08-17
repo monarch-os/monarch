@@ -2,6 +2,11 @@
 mkdir -p ~/.config
 cp -R "$MONARCH_PATH"/config/* ~/.config/
 
+# Noctalia v5 discovers local plugins under ~/.local/share/noctalia/plugins/,
+# not ~/.config/, so the bar indicators are seeded separately from config/.
+mkdir -p ~/.local/share/noctalia/plugins
+cp -R "$MONARCH_PATH"/default/noctalia/plugins/* ~/.local/share/noctalia/plugins/
+
 # Seed Noctalia's shell-state BEFORE its first launch to suppress the "Privacy
 # Update" telemetry wizard. Because Monarch ships ~/.config/noctalia/settings.json
 # above, Noctalia never sees a fresh install (isFreshInstall=false); it then
