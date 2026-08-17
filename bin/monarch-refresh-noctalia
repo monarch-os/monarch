@@ -3,13 +3,26 @@
 # monarch:summary=Reset Noctalia configuration to Monarch defaults, silence the first-run popups, re-apply the Monarch wallpaper, and reload the shell.
 # monarch:examples=monarch refresh noctalia
 
-monarch-refresh-config noctalia/settings.json
+monarch-refresh-config noctalia/config.toml
+monarch-refresh-config noctalia/palettes/Monarch.json
 
+# TODO(noctalia-v5): everything from here to the `setsid uwsm-app` line below is
+# v4 JSON surgery and no longer runs — it all reads $settings_file, which v5
+# replaced with config.toml, so each block's `[[ -f $settings_file ]]` guard is
+# now false and they no-op safely. Three real behaviours are parked until they
+# have a v5 form, and none of them is theming:
+#   - the shell-state.json telemetry-wizard floor (v5 tracks state in
+#     ~/.local/state/noctalia/state.toml)
+#   - the fingerprint lock-screen toggles (general.autoStartAuth /
+#     allowPasswordWithFprintd)
+#   - the LazyVPN and monarch-agents bar widgets — both were CustomButton /
+#     QML-plugin entries, which v5 only offers as Luau plugins
+#
 # Stop Noctalia before seeding shell-state.json, else the running instance
 # rewrites it from memory (empty lastSeenVersion) and the telemetry wizard fires.
-pkill -f 'qs.*noctalia-shell' 2>/dev/null || true
+pkill -x noctalia 2>/dev/null || true
 for _ in $(seq 1 30); do
-  pgrep -f 'qs.*noctalia-shell' >/dev/null 2>&1 || break
+  pgrep -x noctalia >/dev/null 2>&1 || break
   sleep 0.1
 done
 
@@ -17,7 +30,7 @@ state_file="$HOME/.cache/noctalia/shell-state.json"
 mkdir -p "$(dirname "$state_file")"
 [[ -f $state_file ]] || echo '{}' >"$state_file"
 
-ver=$(pacman -Q noctalia-shell 2>/dev/null | awk '{print $2}' | cut -d- -f1)
+ver=$(pacman -Q noctalia 2>/dev/null | awk '{print $2}' | cut -d- -f1)
 [[ -z $ver ]] && ver="4.0.2"  # telemetryIntroVersion floor
 
 if command -v jq >/dev/null; then
@@ -90,13 +103,15 @@ if command -v jq >/dev/null && [[ -f $settings_file && -f $plugins_file ]] \
   fi
 fi
 
-setsid uwsm-app -- qs -c noctalia-shell >/dev/null 2>&1 &
+setsid uwsm-app -- noctalia -d >/dev/null 2>&1 &
 
 # Once Noctalia is up, re-apply the theme so the wallpaper IPC lands (it
-# silently no-ops at install time). Detached so this script returns immediately.
+# silently no-ops at install time). `msg status` is the readiness probe: it
+# prints state as JSON and fails while no instance is listening on the socket.
+# Detached so this script returns immediately.
 setsid --fork bash -c '
   for _ in $(seq 1 30); do
-    if qs -c noctalia-shell ipc call wallpaper refresh >/dev/null 2>&1; then
+    if noctalia msg status >/dev/null 2>&1; then
       break
     fi
     sleep 1

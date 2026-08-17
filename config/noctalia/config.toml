@@ -1,0 +1,158 @@
+# Monarch defaults for Noctalia v5. Override via the Settings UI or by adding
+# another *.toml here — v5 merges every .toml in ~/.config/noctalia/ and keeps
+# its own mutable state in ~/.local/state/noctalia/settings.toml.
+#
+# Ported from the v4 settings.json against a running v5.0.0-beta.8; every key
+# below is checked with `noctalia config validate`. What the port changed:
+#   - keys are snake_case, sections regrouped (general/ui -> shell)
+#   - bars are named and plural: bar.widgets.{left,center,right} became
+#     bar.<name>.{start,center,end}
+#   - the palette moved to palettes/Monarch.json (same JSON format as v4)
+#   - user templates are gone; you enable catalog ids instead
+
+[theme]
+# palettes/Monarch.json is seeded to ~/.config/noctalia/palettes/. The file
+# keeps the v4 schema (mPrimary… plus the terminal block) — only its location
+# changed. `source = "custom"` makes custom_palette win over the builtin,
+# community and wallpaper sources.
+source = "custom"
+custom_palette = "Monarch"
+mode = "dark"
+
+[theme.templates]
+# v5 has no user-template mechanism. `[templates.<name>]` with input_path /
+# output_path / post_hook is only valid inside a template's own template.toml,
+# under the builtin (/usr/share/noctalia/assets/templates) or community
+# (~/.local/state/noctalia/community-templates) tree — putting it in the user
+# config is rejected as an unknown section. Monarch's neovim, obsidian, fuzzel
+# and zed templates all exist in the community catalog, so they are enabled by
+# id rather than shipped. Templates whose client is not installed are skipped
+# silently, so listing all four is safe on any machine.
+#
+# sddm and herdr have no catalog entry; monarch-theme-apply renders them off
+# the colors_changed hook below.
+community_ids = ["fuzzel", "neovim", "obsidian", "zed"]
+enable_community_templates = true
+enable_builtin_templates = true
+
+[hooks]
+# v4's hooks.colorGeneration. Fires on every palette regeneration — where
+# monarch-theme-apply re-applies what Noctalia cannot reach itself.
+colors_changed = ["monarch-theme-apply"]
+
+[bar]
+order = ["default"]
+
+  [bar.default]
+  position = "top"
+  capsule = false
+  # v5 ships a floating bar (ends_margin 100, 12px corners); v4's bar ran edge
+  # to edge, so all four corners and both margins go to zero.
+  margin_ends = 0
+  margin_edge = 0
+  radius = 0
+  radius_top_left = 0
+  radius_top_right = 0
+  radius_bottom_left = 0
+  radius_bottom_right = 0
+  start = ["control-center", "workspaces", "media"]
+  center = [
+    "clock",
+    "monarch/indicators:screen-recording",
+    "monarch/indicators:monarch-update",
+    "monarch/indicators:voxtype",
+  ]
+  end = [
+    "tray",
+    "monarch/indicators:lazyvpn",
+    "network",
+    "bluetooth",
+    "volume",
+    "brightness",
+    "battery",
+  ]
+  # The four monarch/indicators entries replace v4's CustomButton widgets (see
+  # default/noctalia/plugins/monarch-indicators/). Each hides itself when it has
+  # nothing to report, so they can all sit in the default layout.
+  #
+  # Still missing from the v4 layout: plugin:monarch-agents, which is QML and
+  # has to be rewritten before it can come back.
+  #
+  # v4's bar.density = "compact" has no v5 equivalent either; thickness and
+  # widget_spacing are the dimensional knobs now, left at their defaults.
+
+# Per-widget settings live in top-level [widget.<id>] sections, NOT inline in
+# the lane arrays and not under [bar.<name>] — the lanes only ever hold plain
+# strings. An inline table there is accepted by the TOML validator but silently
+# drops the widget at load time.
+[widget.control-center]
+# v4: ControlCenter { useDistroLogo = false, icon = "crown" }. v5 names the
+# glyph key `glyph`; `custom_image` takes an image path instead.
+glyph = "crown"
+
+[widget.workspaces]
+# v4: Workspace { hideUnoccupied = true, labelMode = "name" }. Without these v5
+# renders all twelve workspaces whether or not they hold windows.
+hide_when_empty = true
+labels_only_when_occupied = true
+
+[widget.clock]
+# v4: Clock { formatHorizontal = "ddd dd MMM  HH:mm" }, restated as strftime.
+format = "%a %d %b  %H:%M"
+
+# Icon-only status widgets: drop the text label next to the glyph, so the
+# network widget shows the connection icon rather than "enp0s3" and the rest
+# stay symmetrical with it. `show_label` is the generic label toggle and exists
+# only on these five — media has no label setting at all (see below), and
+# clock/workspaces/tray/control-center are label-less by nature.
+[widget.network]
+show_label = false
+
+[widget.bluetooth]
+show_label = false
+
+[widget.volume]
+show_label = false
+
+[widget.brightness]
+show_label = false
+
+[widget.battery]
+show_label = false
+
+[shell]
+# v4 kept these under general/ui, which no longer exist as sections.
+corner_radius_scale = 1.0
+clipboard_enabled = true
+
+  [shell.panel]
+  # The network and bluetooth widgets both open the control center. It is
+  # already "attached", but v5 anchors it to the bar centre unless told to
+  # follow the click — so a right-hand widget opened a centred panel.
+  open_near_click_control_center = true
+# v4's ui.fontFixed = "JetBrainsMono Nerd Font Mono" is dropped: v5 exposes a
+# single font_family for the shell, with no separate monospace slot.
+
+[wallpaper]
+enabled = true
+directory = "~/.config/monarch/backgrounds/monarch"
+transition_duration = 1500
+
+[idle]
+# v4's flat idle.{lockTimeout,screenOffTimeout,…} became named behaviours with
+# their own timeouts, ordered by behavior_order. v4's idle.customCommands (the
+# screensaver at 150s) has no equivalent here and is not ported.
+behavior_order = ["lock", "screen-off"]
+
+  [idle.behavior.lock]
+  action = "lock"
+  enabled = true
+  timeout = 300.0
+  command = "MONARCH_LOCK_ONLY=true monarch-system-lock"
+
+  [idle.behavior.screen-off]
+  action = "screen_off"
+  enabled = true
+  timeout = 330.0
+  command = "monarch-brightness-keyboard off"
+  resume_command = "monarch-system-wake"

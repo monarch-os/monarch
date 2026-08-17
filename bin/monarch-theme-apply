@@ -27,34 +27,39 @@
 # login screen, by contrast, follows the scheme on its own via Noctalia's
 # user-template system (templates.sddm → theme.conf), so it needs nothing here.
 #
-# Colors are read from the scheme JSON shipped under
-# ~/.config/noctalia/colorschemes/<Scheme>/<Scheme>.json (mPrimary = accent,
-# mSurface = background), preferring the active appearance block. Built-in
-# Noctalia schemes ship no such JSON, so the color-derived concerns no-op for
-# them; the wallpaper concern still works (it keys off the folder name).
+# Colors are read from the palette JSON shipped under
+# ~/.config/noctalia/palettes/<Scheme>.json (mPrimary = accent, mSurface =
+# background), preferring the active appearance block. v5 kept v4's palette
+# schema and only moved the file: colorschemes/<S>/<S>.json became the flat
+# palettes/<S>.json. Built-in Noctalia schemes ship no such JSON, so the
+# color-derived concerns no-op for them; the wallpaper concern still works (it
+# keys off the folder name).
 
 set -uo pipefail
 
-SETTINGS="$HOME/.config/noctalia/settings.json"
-SCHEMES_DIR="$HOME/.config/noctalia/colorschemes"
+SCHEMES_DIR="$HOME/.config/noctalia/palettes"
 USER_BG_ROOT="$HOME/.config/monarch/backgrounds"
 MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
 SRC_THEMES="$MONARCH_ROOT/themes"
 
 command -v jq >/dev/null 2>&1 || exit 0
-[[ -f $SETTINGS ]] || exit 0
+command -v noctalia >/dev/null 2>&1 || exit 0
 
 # Active appearance: Noctalia hands over "dark"|"light" as $1 on the hook; when run
-# by hand it's empty, so fall back to the current darkMode toggle. darkMode is owned
-# by Noctalia (global toggle) — this script never writes it.
+# by hand it's empty, so ask the shell. The mode is owned by Noctalia (global
+# toggle) — this script never writes it.
 appearance="${1:-}"
 if [[ -z $appearance ]]; then
-  appearance=$(jq -r 'if (.colorSchemes.darkMode // true) then "dark" else "light" end' "$SETTINGS")
+  appearance=$(noctalia msg theme-mode-get 2>/dev/null)
+  [[ -n $appearance ]] || appearance="dark"
 fi
 
 # --- Resolve the current scheme ----------------------------------------------
-# Noctalia's colorGeneration hook gives us the appearance, not the scheme name.
-scheme=$(jq -r '.colorSchemes.predefinedScheme // "Monarch"' "$SETTINGS")
+# The colors_changed hook gives us the appearance, not the scheme name.
+# `color-scheme-get` prints "<source> <name>"; only the name indexes the palette
+# file and the background folder.
+scheme=$(noctalia msg color-scheme-get 2>/dev/null | cut -d' ' -f2-)
+[[ -n $scheme ]] || scheme="Monarch"
 
 # Display name → kebab-case background folder (Catppuccin-Latte → catppuccin-latte);
 # a few built-ins need an alias.
@@ -64,12 +69,11 @@ rosepine) folder="rose-pine" ;; # Noctalia built-in "Rosepine" → Monarch "rose
 esac
 
 target_dir="$USER_BG_ROOT/$folder"
-target_setting="~/.config/monarch/backgrounds/$folder"
 
 # --- Resolve colors from the shipped scheme JSON (if any) --------------------
 # Monarch ships both "dark" and "light" blocks; prefer the active appearance and
 # fall back to whichever block exists (so a not-yet-authored light block is safe).
-scheme_json="$SCHEMES_DIR/$scheme/$scheme.json"
+scheme_json="$SCHEMES_DIR/$scheme.json"
 accent="" bg_hex=""
 if [[ -f $scheme_json ]]; then
   variant=""
@@ -94,30 +98,18 @@ expand_tilde() {
   esac
 }
 
-# Atomic jq edit of settings.json. Noctalia watches the file (watchChanges) and
-# reloads on atomic replacement, so each writer must temp+mv.
-settings_set() {
-  local filter=$1
-  shift
-  local tmp
-  tmp=$(mktemp "${SETTINGS}.XXXXXX") || return 1
-  if jq "$@" "$filter" "$SETTINGS" >"$tmp"; then
-    mv -f "$tmp" "$SETTINGS"
-  else
-    rm -f "$tmp"
-    return 1
-  fi
-}
+# NOTE(noctalia-v5): settings_set() lived here to jq-edit settings.json, which
+# v5 replaced with config.toml. It is gone along with its only caller, the
+# wallpaper.directory repointing in sync_wallpaper — see the comment there.
 
 # --- Wallpaper ---------------------------------------------------------------
-# Apply the first wallpaper from the folder + refresh the picker. Noctalia
-# watches settings.json (a directory change reloads on its own) but not arbitrary
-# background folders — a freshly seeded folder needs an explicit refresh.
+# Apply the first wallpaper from the folder. v5's wallpaper-set persists and
+# takes effect immediately, so the separate refresh call v4 needed (its
+# `wallpaper refresh`, which has no v5 equivalent) is gone.
 apply_wallpaper() {
   local first=$1
-  pgrep -f 'qs.*noctalia-shell' >/dev/null 2>&1 || return 0
-  qs -c noctalia-shell ipc call wallpaper set "$first" "" >/dev/null 2>&1 || true
-  qs -c noctalia-shell ipc call wallpaper refresh >/dev/null 2>&1 || true
+  pgrep -x noctalia >/dev/null 2>&1 || return 0
+  noctalia msg wallpaper-set "$first" >/dev/null 2>&1 || true
 }
 
 # Keep Noctalia's single wallpaper.directory pointed at the current scheme's
@@ -138,22 +130,17 @@ sync_wallpaper() {
   mapfile -d '' -t backgrounds < <(find -L "$target_dir" -maxdepth 1 -type f -print0 2>/dev/null | sort -z)
   ((${#backgrounds[@]})) || return 0
 
-  # Idempotence: only act when the scheme's folder actually changed. Skips a
-  # plain dark/light toggle (same scheme → same folder) so the user's current
-  # wallpaper within the folder is preserved.
-  local current
-  current=$(jq -r '.wallpaper.directory // ""' "$SETTINGS")
-  if [[ "$(expand_tilde "$current")" == "$(expand_tilde "$target_setting")" ]]; then
-    # Directory unchanged: only act if we just seeded it (first install), so the
-    # picker surfaces a wallpaper; otherwise preserve the user's current pick.
-    ((seeded)) && apply_wallpaper "${backgrounds[0]}"
-    return 0
-  fi
-
-  # Repoint the directory (atomic write → live reload → picker follows) and apply
-  # a wallpaper from the new folder so the screen really changes.
-  settings_set '.wallpaper.directory = $dir' --arg dir "$target_setting" || return 1
-  apply_wallpaper "${backgrounds[0]}"
+  # TODO(noctalia-v5): v4 repointed wallpaper.directory at the active scheme's
+  # folder here, so the picker followed the theme. v5 keeps that directory in
+  # config.toml and exposes no IPC to change it (`noctalia msg --help` has
+  # wallpaper-set/get/next/previous/random and nothing for the directory), so
+  # per-scheme wallpaper folders currently have no mechanism. config.toml pins
+  # the directory to the Monarch folder; switching to another scheme applies one
+  # of its wallpapers but leaves the picker pointed at Monarch's.
+  #
+  # Only apply on first seed, so a later run never overrides the user's pick.
+  ((seeded)) && apply_wallpaper "${backgrounds[0]}"
+  return 0
 }
 
 # --- Keyboard RGB ------------------------------------------------------------
