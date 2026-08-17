@@ -137,6 +137,11 @@ show_label = false
 [widget.battery]
 show_label = false
 
+[widget.media]
+# Collapse the pill when no MPRIS player is active, instead of leaving a
+# permanent "Nothing playing".
+hide_when_no_media = true
+
 [shell]
 # v4 kept these under general/ui, which no longer exist as sections.
 corner_radius_scale = 1.0
