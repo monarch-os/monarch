@@ -3,5 +3,5 @@
 # monarch:summary=Restart the Noctalia desktop shell.
 # monarch:examples=monarch restart noctalia
 
-pkill -f 'qs.*noctalia-shell' 2>/dev/null || true
-setsid uwsm-app -- qs -c noctalia-shell >/dev/null 2>&1 &
+pkill -x noctalia 2>/dev/null || true
+setsid uwsm-app -- noctalia -d >/dev/null 2>&1 &

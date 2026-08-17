@@ -2,4 +2,4 @@
 
 # monarch:summary=Open the Noctalia bluetooth panel (Bluetooth controls).
 
-exec qs -c noctalia-shell ipc call bluetooth togglePanel
+exec noctalia msg panel-toggle control-center bluetooth

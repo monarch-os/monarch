@@ -27,10 +27,16 @@ fi
 
 # Render the theme now so it exists before first launch: re-selecting the active
 # scheme makes Noctalia regenerate colors and render all user templates.
-if command -v qs >/dev/null 2>&1; then
+#
+# TODO(noctalia-v5): the scheme name is still read from the v4 settings.json,
+# which v5 ignores (it reads noctalia_config.toml). The palette source keyword
+# is also a guess — `color-scheme-set` expects
+# <builtin|wallpaper|community|custom> <name-or-scheme>, and which one Monarch's
+# own scheme registers as has to be confirmed in the VM.
+if command -v noctalia >/dev/null 2>&1; then
   scheme=$(jq -r '.colorSchemes.predefinedScheme // "Monarch"' \
     "$HOME/.config/noctalia/settings.json" 2>/dev/null || echo "Monarch")
-  qs -c noctalia-shell ipc call colorScheme set "$scheme" >/dev/null 2>&1 || true
+  noctalia msg color-scheme-set custom "$scheme" >/dev/null 2>&1 || true
 fi
 
 setsid gtk-launch dev.zed.Zed

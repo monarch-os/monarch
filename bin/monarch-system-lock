@@ -5,7 +5,7 @@
 # monarch:name=lock
 # monarch:examples=monarch system lock
 
-qs -c noctalia-shell ipc call lockScreen lock >/dev/null 2>&1
+noctalia msg session lock >/dev/null 2>&1
 
 # Ensure 1password is locked
 if pgrep -x "1password" >/dev/null; then

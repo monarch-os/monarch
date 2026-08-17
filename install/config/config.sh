@@ -12,7 +12,7 @@ cp -R "$MONARCH_PATH"/config/* ~/.config/
 state_file="$HOME/.cache/noctalia/shell-state.json"
 mkdir -p "$(dirname "$state_file")"
 [[ -f $state_file ]] || echo '{}' >"$state_file"
-ver=$(pacman -Q noctalia-shell 2>/dev/null | awk '{print $2}' | cut -d- -f1)
+ver=$(pacman -Q noctalia 2>/dev/null | awk '{print $2}' | cut -d- -f1)
 [[ -z $ver ]] && ver="4.0.2" # telemetryIntroVersion floor
 if command -v jq >/dev/null; then
   tmp=$(mktemp)

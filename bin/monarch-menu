@@ -291,7 +291,7 @@ show_screensaver_menu() {
 }
 
 show_background_menu() {
-  qs -c noctalia-shell ipc call wallpaper toggle
+  noctalia msg panel-toggle wallpaper
 }
 
 show_font_menu() {
@@ -834,7 +834,7 @@ show_main_menu() {
 
 go_to_menu() {
   case "${1,,}" in
-  *apps*) qs -c noctalia-shell ipc call launcher toggle ;;
+  *apps*) noctalia msg panel-toggle launcher ;;
   *learn*) show_learn_menu ;;
   *trigger*) show_trigger_menu ;;
   *toggle*) show_toggle_menu ;;

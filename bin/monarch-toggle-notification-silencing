@@ -2,4 +2,4 @@
 
 # monarch:summary=Toggle notification do-not-disturb mode via Noctalia
 
-exec qs -c noctalia-shell ipc call notifications toggleDND
+exec noctalia msg notification-dnd-toggle
