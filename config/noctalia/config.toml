@@ -31,7 +31,25 @@ mode = "dark"
 #
 # sddm and herdr have no catalog entry; monarch-theme-apply renders them off
 # the colors_changed hook below.
-community_ids = ["fuzzel", "neovim", "obsidian", "zed"]
+# The v4 equivalent of these two lists was templates.activeTemplates, which
+# named nine ids: alacritty, kitty, foot, ghostty, btop, helix, niri, code and
+# starship. Eight of them are v5 builtins; `code` is now the community `vscode`.
+# The enable_* switches below are only master toggles — an id absent from these
+# arrays is never rendered, however true they are.
+#
+# A template whose client is not installed is skipped silently, so listing all
+# of them is safe on any machine.
+builtin_ids = [
+  "alacritty",
+  "kitty",
+  "foot",
+  "ghostty",
+  "btop",
+  "helix",
+  "niri",
+  "starship",
+]
+community_ids = ["fuzzel", "neovim", "obsidian", "zed", "vscode"]
 enable_community_templates = true
 enable_builtin_templates = true
 
