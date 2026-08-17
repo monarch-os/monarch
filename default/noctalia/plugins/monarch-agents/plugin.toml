@@ -1,0 +1,69 @@
+# Coding-agent usage: one bar pill and one panel.
+#
+# Port of the v4 QML plugin (config/noctalia/plugins/monarch-agents), which v5
+# cannot load — plugins are Luau now. The split mirrors the original:
+#   service.luau  the data side, formerly Main.qml + Agent.qml
+#   widget.luau   the bar pill, formerly BarWidget.qml
+#   panel.luau    the display, formerly Panel.qml
+#
+# The service publishes through noctalia.state; the widget and panel only read
+# it, so neither of them ever touches disk formats. All extraction stays behind
+# monarch-agent-usage-update, exactly as before.
+
+id          = "monarch/agents"
+name        = "Agents"
+version     = "1.0.0"
+# 22 is the floor for relative `require()` of .luau modules, shared by all three
+# entries, and the highest level this shell accepts: v5.0.0-beta.8 supports API
+# 3-23 despite the docs advertising 3-27. That rules out runAsync's
+# argument-array form (24+), so commands are built as shell strings and their
+# arguments quoted by hand — see shellQuote in agents.luau.
+plugin_api  = 22
+author      = "monarch"
+license     = "MIT"
+description = "Coding agent rate limits, token history, and per-model usage in a Noctalia bar panel."
+icon        = "ai"
+
+# Settings must use label_key/description_key, never a literal label — the lint
+# rejects the latter outright. The keys resolve through this plugin's own
+# catalog in translations/, which is why that file has to exist.
+[[setting]]
+key             = "refresh_interval_sec"
+type            = "int"
+label_key       = "settings.refresh-interval.label"
+description_key = "settings.refresh-interval.description"
+default         = 900
+min             = 60
+
+[[setting]]
+key             = "warning_threshold"
+type            = "float"
+label_key       = "settings.warning-threshold.label"
+description_key = "settings.warning-threshold.description"
+default         = 0.9
+min             = 0.0
+max             = 1.0
+
+# Headless collector. Kept separate from the widget so the cadence keeps running
+# while no bar is on screen, and so widget and panel share one set of records.
+[[service]]
+id    = "collector"
+entry = "service.luau"
+
+[[widget]]
+id    = "usage"
+entry = "widget.luau"
+
+# Entry ids are unique across the whole plugin, not per kind — the widget above
+# already claims "usage", so the panel it opens is "details".
+[[panel]]
+id     = "details"
+entry  = "panel.luau"
+width  = 420
+height = 760
+# Open under the bar button rather than in the middle of the screen. Both keys
+# live here, in the panel's own manifest — not in [shell.panel] (which only
+# knows the built-in panels) and not in [plugin_settings]. The user can still
+# override either one from Settings > Plugins.
+placement       = "attached"
+open_near_click = true

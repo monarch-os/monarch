@@ -82,6 +82,7 @@ order = ["default"]
   ]
   end = [
     "tray",
+    "monarch/agents:usage",
     "monarch/indicators:lazyvpn",
     "network",
     "bluetooth",
@@ -89,12 +90,10 @@ order = ["default"]
     "brightness",
     "battery",
   ]
-  # The four monarch/indicators entries replace v4's CustomButton widgets (see
-  # default/noctalia/plugins/monarch-indicators/). Each hides itself when it has
-  # nothing to report, so they can all sit in the default layout.
-  #
-  # Still missing from the v4 layout: plugin:monarch-agents, which is QML and
-  # has to be rewritten before it can come back.
+  # The four monarch/indicators entries replace v4's CustomButton widgets, and
+  # monarch/agents:usage replaces the QML plugin of the same name (both under
+  # default/noctalia/plugins/). Each hides itself when it has nothing to report,
+  # so they can all sit in the default layout.
   #
   # v4's bar.density = "compact" has no v5 equivalent either; thickness and
   # widget_spacing are the dimensional knobs now, left at their defaults.
