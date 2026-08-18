@@ -5,10 +5,17 @@
 # monarch:examples=monarch menu | monarch menu style | monarch menu trigger.capture
 
 # The menu's content is data: default/monarch/monarch-menu.jsonc, overlaid by
-# ~/.config/monarch/extensions/monarch-menu.jsonc. This file only renders it.
-# See the header of the .jsonc for the entry schema.
+# ~/.config/monarch/extensions/monarch-menu.jsonc — see that file for the entry
+# schema. The menu is drawn by the monarch/menu Noctalia panel; this command
+# loads the data for it, evaluates the guards, and routes the keybinds to it.
 
 MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+
+# Guard expressions call monarch-* commands, and this runs from a keybind, from
+# the Noctalia panel and from a plain shell — none of which can be relied on to
+# have Monarch's bin on PATH. Without this every guard fails and rows silently
+# vanish, differently depending on the caller.
+PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd):$PATH"
 
 # Fall back to the checkout this script lives in when the installed tree has no
 # menu data. That is the case in CI and whenever a developer runs bin/monarch-menu
@@ -21,16 +28,9 @@ fi
 DEFAULT_MENU="$MONARCH_ROOT/default/monarch/monarch-menu.jsonc"
 USER_MENU="$HOME/.config/monarch/extensions/monarch-menu.jsonc"
 
-STATE_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/monarch"
-MENU_PID_FILE="$STATE_DIR/menu.pid"
-PICKER_PID_FILE="$STATE_DIR/menu-picker.pid"
-STATE_DIR_READY=false
-
-CHECK_MARK="✓"
-SELECTED=""
-
 # Row sources the data cannot express: `list` enumerates values, `current` names
-# the selected one, `action` receives it. An extension may point a submenu at one
+# the selected one, `action` receives it. Declared here rather than in the panel
+# so the CLI and the panel cannot drift; an extension may point a submenu at one
 # of these but cannot declare a new one.
 declare -A PROVIDER_LIST=(
   [fonts]="monarch-font-list"
@@ -44,10 +44,6 @@ declare -A PROVIDER_ACTION=(
   [fonts]="monarch-font-set"
   [power-profiles]="powerprofilesctl set"
 )
-declare -A PROVIDER_WIDTH=(
-  [fonts]="350"
-)
-
 # ── Data ─────────────────────────────────────────────────────────────────────
 
 # JSONC is JSON plus whole-line // comments and trailing commas, both stripped
@@ -154,174 +150,7 @@ resolve_route() {
     $r' <<<"$MENU_JSON" | head -1
 }
 
-# ── Picker ───────────────────────────────────────────────────────────────────
-
-claim_menu_instance() {
-  mkdir -p "$STATE_DIR"
-  echo $$ >"$MENU_PID_FILE"
-  STATE_DIR_READY=true
-  trap 'rm -f "$MENU_PID_FILE" "$PICKER_PID_FILE"' EXIT
-}
-
-running_menu_pids() {
-  local menu_pid picker_pid picker_comm
-
-  read -r menu_pid <"$MENU_PID_FILE" 2>/dev/null || return 1
-  read -r picker_pid <"$PICKER_PID_FILE" 2>/dev/null || return 1
-  [[ $menu_pid =~ ^[0-9]+$ && $picker_pid =~ ^[0-9]+$ ]] || return 1
-  [[ $(tr -d '\0' <"/proc/$menu_pid/cmdline" 2>/dev/null) == *monarch-menu* ]] || return 1
-  # `read`, not `$(<...)`: procfs files report size 0 and the latter comes back empty.
-  read -r picker_comm <"/proc/$picker_pid/comm" 2>/dev/null || return 1
-  [[ $picker_comm == fuzzel ]] || return 1
-
-  echo "$menu_pid"
-  echo "$picker_pid"
-}
-
-# fuzzel is single-instance per display (it holds /run/user/UID/fuzzel-$WAYLAND_DISPLAY.lock
-# and a second one exits 1), so any live picker has to go before a menu can open.
-# When it is our own, the monarch-menu behind it goes too: an empty selection
-# reads as "go back", so killing the picker alone pops the parent menu straight
-# back up instead of closing.
-toggle_existing_menu() {
-  pgrep -x fuzzel >/dev/null || return
-
-  local -a pids
-  mapfile -t pids < <(running_menu_pids)
-  if ((${#pids[@]} == 2)); then
-    kill "${pids[@]}" 2>/dev/null
-  else
-    pkill -x fuzzel 2>/dev/null
-  fi
-  exit 0
-}
-
-# fuzzel runs in the background so its pid can be published for
-# toggle_existing_menu; `wait` keeps the call synchronous.
-pick() {
-  local prompt="$1" width="$2" preselect="$3"
-  local args=(--dmenu --lines 12 -p "$prompt… ")
-  [[ -n $width ]] && args+=(--width "$width")
-  [[ -n $preselect ]] && args+=("--select=$preselect")
-
-  local input output
-  input=$(mktemp) || return 1
-  output=$(mktemp) || {
-    rm -f "$input"
-    return 1
-  }
-  cat >"$input"
-
-  fuzzel "${args[@]}" <"$input" >"$output" 2>/dev/null &
-  local picker_pid=$!
-  [[ $STATE_DIR_READY == true ]] && echo "$picker_pid" >"$PICKER_PID_FILE"
-  wait "$picker_pid"
-  [[ $STATE_DIR_READY == true ]] && rm -f "$PICKER_PID_FILE"
-
-  cat "$output"
-  rm -f "$input" "$output"
-}
-
-# ── Rendering ────────────────────────────────────────────────────────────────
-
 guard_passes() { (eval "$1") >/dev/null 2>&1; }
-
-# Actions are detached: the menu has said its piece and should not stay in the
-# process tree of whatever it launched.
-run_action() {
-  setsid bash -c "$1" >/dev/null 2>&1 &
-  exit 0
-}
-
-# Sets SELECTED to the chosen id, or leaves it empty when the row was inert.
-# Returns 1 when the picker was dismissed, which is how a level says "go back".
-show_menu() {
-  local id="$1"
-  SELECTED=""
-
-  local provider
-  provider=$(field "$id" provider)
-  [[ -n $provider ]] && {
-    show_provider "$id" "$provider"
-    return $?
-  }
-
-  local -a row_ids=() row_labels=()
-  local key icon label when checked disabled line
-
-  while IFS=$'\x1f' read -r key icon label when checked disabled; do
-    [[ -z $key ]] && continue
-    [[ -n $when ]] && ! guard_passes "$when" && continue
-
-    line="$label"
-    [[ -n $icon ]] && line="$icon  $label"
-
-    if [[ -n $disabled ]] && guard_passes "$disabled"; then
-      # A disabled row keeps its place in the list but cannot be entered.
-      row_ids+=("")
-      row_labels+=("$line  $CHECK_MARK")
-      continue
-    fi
-
-    [[ -n $checked ]] && guard_passes "$checked" && line="$line  $CHECK_MARK"
-
-    row_ids+=("$key")
-    row_labels+=("$line")
-  done < <(level_rows "$id")
-
-  if ((${#row_ids[@]} == 0)); then
-    monarch-notification-send "󰍜" "Empty menu" "$id has nothing to show" -u low
-    return 1
-  fi
-
-  local selection i
-  selection=$(printf '%s\n' "${row_labels[@]}" | pick "$(menu_title "$id")" "" "")
-  [[ -z $selection ]] && return 1
-
-  for i in "${!row_labels[@]}"; do
-    [[ ${row_labels[$i]} == "$selection" ]] || continue
-    SELECTED="${row_ids[$i]}"
-    return 0
-  done
-
-  return 1
-}
-
-show_provider() {
-  local id="$1" name="$2"
-  local list="${PROVIDER_LIST[$name]:-}"
-
-  if [[ -z $list ]]; then
-    monarch-notification-send "󰍜" "Unknown menu provider" "$name" -u critical
-    return 1
-  fi
-
-  local rows current selection
-  rows=$($list) || return 1
-  current=$(${PROVIDER_CURRENT[$name]} 2>/dev/null)
-
-  selection=$(printf '%s\n' "$rows" | pick "$(menu_title "$id")" "${PROVIDER_WIDTH[$name]:-}" "$current")
-  [[ -z $selection || $selection == "CNCLD" ]] && return 1
-
-  run_action "${PROVIDER_ACTION[$name]} \"$selection\""
-}
-
-# Recursion is the back stack: a dismissed child returns here and this level is
-# drawn again, and dismissing the level the menu was opened at ends it.
-browse() {
-  local id="$1" action target
-
-  while true; do
-    show_menu "$id" || return 1
-    [[ -z $SELECTED ]] && continue
-
-    action=$(field "$SELECTED" action)
-    [[ -n $action ]] && run_action "$action"
-
-    target=$(field "$SELECTED" target)
-    browse "${target:-$SELECTED}" || true
-  done
-}
 
 # ── Inspection ───────────────────────────────────────────────────────────────
 
@@ -368,6 +197,89 @@ check_menu() {
 }
 
 case "${1:-}" in
+--state)
+  # Tree and guards in one payload, which is what the panel asks for on every
+  # open: one subprocess instead of two, and the tree can never go stale against
+  # the file the way a cached copy does.
+  #
+  # Guards come back as an object keyed `<id>:<w|c|d>`, not as lines: the
+  # consumer decodes it natively, and parsing 130 lines in Luau is enough to
+  # blow a plugin callback's CPU budget.
+  load_menu
+  guard_pairs=$(
+    while IFS=$'\x1f' read -r key kind expression; do
+      [[ -z $expression ]] && continue
+      if guard_passes "$expression"; then
+        printf '%s:%s\ttrue\n' "$key" "$kind"
+      else
+        printf '%s:%s\tfalse\n' "$key" "$kind"
+      fi
+    done < <(jq -r 'to_entries[] | .key as $k |
+      (if .value.when then [$k, "w", .value.when] else empty end),
+      (if .value.checked then [$k, "c", .value.checked] else empty end),
+      (if .value.disabled then [$k, "d", .value.disabled] else empty end)
+      | join("\u001f")' <<<"$MENU_JSON")
+  )
+  jq -nc \
+    --argjson tree "$(jq -c 'to_entries | map({id: .key} + .value)' <<<"$MENU_JSON")" \
+    --argjson guards "$(printf '%s' "$guard_pairs" | jq -R -s 'split("\n") | map(select(length > 0) | split("\t")) | map({key: .[0], value: (.[1] == "true")}) | from_entries')" \
+    '{tree: $tree, guards: $guards}'
+  exit 0
+  ;;
+--json)
+  # The whole tree as an ordered array, for consumers that cannot parse JSONC
+  # themselves — the Noctalia panel is killed by its per-callback CPU budget
+  # long before a 40 kB strip-and-decode finishes.
+  load_menu
+  jq -c 'to_entries | map({id: .key} + .value)' <<<"$MENU_JSON"
+  exit 0
+  ;;
+--provider)
+  # A provider's rows, as JSON, for a consumer that renders them itself. The
+  # provider definitions stay here so the CLI and the panel cannot drift.
+  load_menu
+  provider=$(field "${2:-}" provider)
+  list=""
+  [[ -n $provider ]] && list="${PROVIDER_LIST[$provider]:-}"
+  if [[ -z $list ]]; then
+    echo "monarch-menu: ${2:-} has no known provider" >&2
+    exit 1
+  fi
+  current=$(${PROVIDER_CURRENT[$provider]} 2>/dev/null)
+  $list | jq -R --arg current "$current" '{label: ., value: ., current: (. == $current)}' | jq -sc .
+  exit 0
+  ;;
+--provider-set)
+  load_menu
+  provider=$(field "${2:-}" provider)
+  action=""
+  [[ -n $provider ]] && action="${PROVIDER_ACTION[$provider]:-}"
+  if [[ -z $action ]]; then
+    echo "monarch-menu: ${2:-} has no known provider" >&2
+    exit 1
+  fi
+  exec $action "${3:-}"
+  ;;
+--guards)
+  # Every guard in the tree, evaluated in this one process rather than one per
+  # row, and printed as `<id><TAB><w|c|d><TAB><0|1>`. The panel opens on the
+  # previous answers and corrects itself when this lands, so the runtime here is
+  # exactly how long a row can contradict the state it describes.
+  load_menu
+  while IFS=$'\x1f' read -r key kind expression; do
+    [[ -z $expression ]] && continue
+    if guard_passes "$expression"; then
+      printf '%s\t%s\t1\n' "$key" "$kind"
+    else
+      printf '%s\t%s\t0\n' "$key" "$kind"
+    fi
+  done < <(jq -r 'to_entries[] | .key as $k |
+    (if .value.when then [$k, "w", .value.when] else empty end),
+    (if .value.checked then [$k, "c", .value.checked] else empty end),
+    (if .value.disabled then [$k, "d", .value.disabled] else empty end)
+    | join("\u001f")' <<<"$MENU_JSON")
+  exit 0
+  ;;
 --resolve)
   load_menu
   resolve_route "${2:-}"
@@ -391,25 +303,13 @@ esac
 
 # ── Entry point ──────────────────────────────────────────────────────────────
 
-toggle_existing_menu
-claim_menu_instance
-load_menu
+# The menu itself is the monarch/menu Noctalia panel. This only routes: the
+# route is passed as the panel's context, and panel-toggle means a second press
+# of the same keybind closes it.
+PANEL="monarch/menu:panel"
 
-route=$(resolve_route "${1:-}")
+case "${1:-}" in
+close) exec noctalia msg panel-close "$PANEL" ;;
+esac
 
-if [[ $route != root ]] && ! ids | grep -qxF "$route"; then
-  monarch-notification-send "󰍜" "Unknown menu route" "$route" -u critical
-  exit 1
-fi
-
-# A route that names an action runs it rather than opening a menu with no rows.
-if [[ $route != root ]]; then
-  route_action=$(field "$route" action)
-  [[ -n $route_action ]] && run_action "$route_action"
-
-  route_target=$(field "$route" target)
-  [[ -n $route_target ]] && route="$route_target"
-fi
-
-browse "$route"
-exit 0
+exec noctalia msg panel-toggle "$PANEL" "${1:-root}"
