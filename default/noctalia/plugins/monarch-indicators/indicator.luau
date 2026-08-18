@@ -34,6 +34,15 @@ function M.bin(name: string): string
   return monarchRoot() .. "/bin/" .. name
 end
 
+-- Absolute path to a command shipped by a Monarch *package* (monarch-todo,
+-- monarch-lazyvpn) rather than by the repo's bin/. These land in /usr/bin, which
+-- is on Noctalia's PATH — but the widgets still need a real path to probe with
+-- fileExists, since both packages are install-on-demand and the widget hides
+-- itself when its command is absent.
+function M.pkgBin(name: string): string
+  return "/usr/bin/" .. name
+end
+
 -- Apply one decoded payload. An empty object (or one with no text) hides the
 -- widget, which is how the scripts signal "nothing to report".
 local function apply(payload)

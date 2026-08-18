@@ -81,37 +81,10 @@ EOF
 systemctl --user daemon-reload 2>/dev/null || true
 systemctl --user enable --now monarch-todo-reminders.service 2>/dev/null || true
 
-# Noctalia bar widget: live open-task count (click opens the TUI). The count
-# comes from `monarch-todo bar` (JSON), so no store logic is duplicated here.
-# Idempotent: skip if the button already exists. Noctalia hot-reloads.
-NOCTALIA_CFG="$HOME/.config/noctalia/settings.json"
-if command -v jq >/dev/null && [[ -f "$NOCTALIA_CFG" ]]; then
-  if ! jq -e '[.. | objects | select(.textCommand? == "monarch-todo bar")] | length > 0' \
-       "$NOCTALIA_CFG" >/dev/null 2>&1; then
-    echo -e "\nAdding the Todo widget to the Noctalia bar..."
-    tmp=$(mktemp)
-    if jq '.bar.widgets.right = (
-             (.bar.widgets.right // []) as $w
-             | {
-                 "id": "CustomButton",
-                 "icon": "checkbox",
-                 "parseJson": true,
-                 "hideMode": "expandWithOutput",
-                 "textCommand": "monarch-todo bar",
-                 "textIntervalMs": 10000,
-                 "leftClickExec": "monarch-launch-tui monarch-todo"
-               } as $btn
-             | ($w | map(.id == "Tray") | index(true)) as $i
-             | if $i == null then [$btn] + $w else $w[0:$i+1] + [$btn] + $w[$i+1:] end
-           )' \
-         "$NOCTALIA_CFG" >"$tmp"; then
-      mv "$tmp" "$NOCTALIA_CFG"
-    else
-      rm -f "$tmp"
-      echo "  Warning: could not update $NOCTALIA_CFG; add the widget manually." >&2
-    fi
-  fi
-fi
+# No bar wiring here. The open-task count is declared by the monarch-indicators
+# Noctalia plugin (default/noctalia/plugins/monarch-indicators/todo.luau) and
+# sits in the default layout permanently, staying hidden while this package is
+# absent — see monarch-install-lazyvpn for why that beats splicing it in here.
 
 echo -e "\nmonarch-todo installed!"
 echo "  - Launch from app menu: Todo"

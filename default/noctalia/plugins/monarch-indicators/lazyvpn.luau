@@ -11,9 +11,10 @@
 
 local indicator = require("./indicator.luau")
 
--- Absolute paths: Noctalia's PATH does not contain Monarch's bin/ (see
--- indicator.bin).
-local STATUS_CMD = indicator.bin("monarch-lazyvpn-status")
+-- monarch-lazyvpn-status comes from the monarch-lazyvpn package (/usr/bin), not
+-- from the repo's bin/ — see indicator.pkgBin. The launcher below does come from
+-- bin/, hence the two different resolvers.
+local STATUS_CMD = indicator.pkgBin("monarch-lazyvpn-status")
 local POLL_MS = 5000
 
 noctalia.setUpdateInterval(POLL_MS)

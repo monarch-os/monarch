@@ -84,16 +84,18 @@ order = ["default"]
     "tray",
     "monarch/agents:usage",
     "monarch/indicators:lazyvpn",
+    "monarch/indicators:todo",
     "network",
     "bluetooth",
     "volume",
     "brightness",
     "battery",
   ]
-  # The four monarch/indicators entries replace v4's CustomButton widgets, and
+  # The five monarch/indicators entries replace v4's CustomButton widgets, and
   # monarch/agents:usage replaces the QML plugin of the same name (both under
   # default/noctalia/plugins/). Each hides itself when it has nothing to report,
-  # so they can all sit in the default layout.
+  # so they can all sit in the default layout — including lazyvpn and todo,
+  # whose packages are install-on-demand.
   #
   # v4's bar.density = "compact" has no v5 equivalent either; thickness and
   # widget_spacing are the dimensional knobs now, left at their defaults.
@@ -146,6 +148,11 @@ hide_when_no_media = true
 # v4 kept these under general/ui, which no longer exist as sections.
 corner_radius_scale = 1.0
 clipboard_enabled = true
+# v4 silenced the telemetry wizard by pinning a version floor in
+# shell-state.json; v5 has no wizard, just this opt-out. The setting is
+# `telemetry_enabled` — the settings UI groups it as "shell.telemetry", which is
+# a UI path, not a config key, and `shell.telemetry` is rejected as unknown.
+telemetry_enabled = false
 
   [shell.panel]
   # The network and bluetooth widgets both open the control center. It is

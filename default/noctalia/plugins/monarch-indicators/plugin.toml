@@ -33,9 +33,14 @@ entry = "monarch-update.luau"
 id    = "voxtype"
 entry = "voxtype.luau"
 
-# Hides itself when LazyVPN is not installed, so it can sit in the default bar
-# layout unconditionally — unlike v4, where monarch-install-lazyvpn had to
-# splice the button into settings.json and monarch-remove-lazyvpn to strip it.
+# The two install-on-demand widgets. Each hides itself when its package is
+# absent, so both can sit in the default bar layout unconditionally — unlike v4,
+# where monarch-install-lazyvpn / monarch-install-todo had to splice a
+# CustomButton into settings.json and their remove counterparts to strip it out.
 [[widget]]
 id    = "lazyvpn"
 entry = "lazyvpn.luau"
+
+[[widget]]
+id    = "todo"
+entry = "todo.luau"
