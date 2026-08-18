@@ -99,7 +99,8 @@ Exceptions are allowed for bootstrap, preflight, migration, and package-helper s
 # Menu
 
 **The menu is data, not code.** `default/monarch/monarch-menu.jsonc` holds the
-tree; `bin/monarch-menu` only renders it with fuzzel. Adding a menu entry means
+tree; the `monarch/menu` Noctalia panel draws it; `bin/monarch-menu` loads the
+data for the panel and routes the keybinds to it. Adding a menu entry means
 editing the `.jsonc`, never the renderer.
 
 - IDs are object keys and **the dotted ID is the tree** — `trigger.share.file`
@@ -121,10 +122,42 @@ editing the `.jsonc`, never the renderer.
 - Dynamic rows come from a `provider` (`fonts`, `power-profiles`), defined in the
   renderer's `PROVIDER_*` maps. Data can point at one but cannot declare one.
 
+Install rows carry `disabled` with a presence check, so software already on the
+machine reads as installed instead of vanishing — the list stays a catalog of
+what Monarch can install. Remove rows are the opposite and hide with `when` what
+is not there to remove.
+
+The panel (`default/noctalia/plugins/monarch-menu/`) never parses the JSONC: it
+calls `monarch-menu --state` for the tree and every guard in one payload, and
+`--provider <id>` for runtime rows. The same tree is exposed to the global
+launcher by the plugin's `[[launcher_provider]]` entry (`/mm`). **Do not cache
+the tree across opens** — editing the JSONC or the user's extension would then
+change nothing until the shell restarted; `--state` is one subprocess and the
+guards have to be re-read anyway. Two hard-won constraints govern any panel
+work:
+
+- **A plugin callback has a small CPU budget and the host kills the callback that
+  exceeds it.** The cost that matters is per-callback total, so do the expensive
+  things once and index them: decoding 38 kB of JSON and indexing 266 entries is
+  ~3 ms, but deriving a level's children by scanning every entry made `isVisible`
+  quadratic (~70 000 pattern matches) and was killed every time. Build lookups in
+  the load pass, never per level.
+- **Anything per-entry must be a native call, not a Luau loop.** The guards come
+  back as a JSON object keyed `<id>:<w|c|d>` precisely so `json.decode` builds
+  it; parsing the same 130 lines in Luau blew the budget. Search results are
+  capped and breadcrumbs memoised for the same reason — `onQueryChanged` fires
+  per keystroke.
+- **`ui.box` takes no children** — wrapping a row in one silently drops
+  everything inside it (`ui tree: 'box' cannot have children`). Rows carry their
+  own `fill`/`radius`/`padding`.
+
+Escape is consumed by the host and closes the panel, so back-navigation is Left
+(and clearing the search field), never Escape.
+
 Validate with `bin/monarch-menu --check` (dangling targets, unknown providers,
 orphaned parents, childless submenus) and `bash test/monarch-menu-test.sh`, which
-drives real navigation through a fake `fuzzel` on `PATH`. `--resolve <route>` and
-`--rows <id>` print what the renderer would do without opening a window.
+covers the data layer and the payloads the panel consumes. `--resolve <route>`
+and `--rows <id>` print what a level resolves to without opening a window.
 
 # Theming
 

@@ -346,8 +346,25 @@ result with `wallpaper-set`. Design items 2 and 6 together.
   `test/monarch-menu-test.sh` covering loading, the overlay, routes, guards and
   navigation — the last through a fake `fuzzel` on `PATH`, so none of it needs a
   compositor. `monarch-menu --check` validates the data in CI.
-- **Step 2 — the Noctalia panel.** Everything below still applies: the data file
-  is the input, and the panel replaces fuzzel as the renderer.
+- **Step 2 — the Noctalia panel.** Shipped on `feat/menu-panel`: the
+  `monarch/menu` plugin renders the tree, and `bin/monarch-menu` drops the picker
+  and the renderer to become the data server plus a `panel-toggle` route.
+  Verified in the VM: routes, guards against real hardware, the fonts provider
+  with the current value ticked and pre-selected, keyboard navigation, global
+  search across the whole tree with breadcrumbs, and an action that actually
+  flipped do-not-disturb. Quattro's `disabled` convention came with it: 55
+  Install rows now dim and tick what is already installed, 28 Remove rows hide
+  what is not there. A `[[launcher_provider]]` entry puts the whole menu behind
+  `/mm` in Mod+Space. **fuzzel still ships** — `monarch-menu-select`, `-input`,
+  `-file` and `-keybindings` all still use it.
+
+  Not ported, deliberately: quattro's `apps` provider lists desktop entries
+  inside the menu and offers right-click uninstall. Monarch's Apps row opens the
+  Noctalia launcher instead, which already ranks and pins applications. The
+  uninstall gesture is not recoverable on this API level anyway — `onRightClick`
+  is accepted only by `ui.button`, never by a row, and `panel.openContextMenu`
+  needs `plugin_api 28` against our ceiling of 23. Revisit if that ceiling
+  moves.
 
 **What quattro did.** `bin/omarchy-menu` went from ~800 lines of nested bash to
 **52 lines** of IPC wrapper. The content became data
