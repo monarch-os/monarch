@@ -29,20 +29,11 @@ remove_noctalia_lockscreen() {
 
   rm -f "$HOME/.config/environment.d/noctalia-fingerprint.conf"
 
-  # Restore the lock-screen auth defaults so it no longer waits on a sensor
-  # that is gone.
-  local cfg="$HOME/.config/noctalia/settings.json"
-  if command -v jq >/dev/null && [[ -f $cfg ]]; then
-    local tmp
-    tmp=$(mktemp)
-    if jq '.general = (.general // {})
-           | .general.autoStartAuth = false
-           | .general.allowPasswordWithFprintd = false' "$cfg" >"$tmp"; then
-      mv "$tmp" "$cfg"
-    else
-      rm -f "$tmp"
-    fi
-  fi
+  # Restore the lock-screen auth defaults so it no longer waits on a sensor that
+  # is gone. Dropping the file is the whole revert: lockscreen.fingerprint is
+  # only ever set there, so the merged config falls back to the v5 default.
+  rm -f "$HOME/.config/noctalia/monarch-fingerprint.toml"
+  noctalia msg config-reload >/dev/null 2>&1 || true
 }
 
 remove_fingerprint_marker() {
