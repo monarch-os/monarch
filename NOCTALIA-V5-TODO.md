@@ -60,8 +60,10 @@ Explicitly set aside. No v5 blocker known; it is simply not started.
 
 ## New features requested
 
-Three net-new features modelled on Omarchy quattro, detailed below against the
-actual `basecamp/omarchy@quattro` source.
+Three net-new features modelled on Omarchy quattro (items 4–6), detailed below
+against the actual `basecamp/omarchy@quattro` source. Item 7 was not requested:
+it came out of a later review of quattro's menu and is recorded here because it
+is the same kind of decision.
 
 ### The architectural catch, read this first
 
@@ -71,12 +73,24 @@ plugins.** Quattro dropped waybar and now ships its own shell under `shell/`
 `~/.config/omarchy/shell.json`.
 
 So the two projects took opposite bets at the same moment: Omarchy moved *to*
-Quickshell, Noctalia moved *away* from it. **Nothing below can be ported — every
-item is a reimplementation** against Noctalia's Luau plugin API, whose ceiling we
-already know (API level 23, no argument arrays, declarative `ui.*` tree only).
+Quickshell, Noctalia moved *away* from it. **No quattro source file can be
+reused — every item below is a reimplementation** against Noctalia's Luau plugin
+API, whose ceiling this build sets at API level 23 (no `runAsync` argument
+arrays, declarative `ui.*` tree only).
 
-That ceiling is the deciding factor for items 5 and 6, and the reason to do 4
-first: it is the one that fits comfortably inside it.
+Reimplementation is not the same as impossibility, and an earlier revision of
+this file overstated the ceiling by treating "bar widgets" as the whole plugin
+API. **A v5 plugin declares five kinds of entry** — `[[widget]]`, `[[panel]]`,
+`[[launcher_provider]]`, `[[desktop_widget]]`, `[[shortcut]]` — so quattro's
+*architecture* often does port even though its code does not. Item 7 is the case
+where that distinction changes the answer outright.
+
+The authoritative API reference is `noctalia.d.luau` at the root of
+`github.com/noctalia-dev/official-plugins`: full type declarations for
+`noctalia.*`, `barWidget.*`, `panel.*`, `launcher.*`, `desktopWidget.*`,
+`shortcut.*` and the `ui.*` node set, plus the entry-point callback list. Read it
+before concluding that something cannot be done; the two plugin repos
+(`official-plugins`, `community-plugins`) are the worked examples.
 
 ### 4. Status indicators: do-not-disturb, night mode, … — *done, verified in VM*
 
@@ -322,6 +336,122 @@ second path exactly. So rather than fighting for a Noctalia IPC that does not
 exist, do the resolution Monarch-side in `monarch-theme-apply` and write the
 result with `wallpaper-set`. Design items 2 and 6 together.
 
+### 7. Menu: quattro's data-driven menu, as a Noctalia panel
+
+**Not blocking, not requested. Do it after this branch merges.** A separate lot
+of four targeted `bin/monarch-menu` fixes is already done and does not depend on
+this — see the *Menu: fixes already landed* subsection at the end.
+
+**What quattro did.** `bin/omarchy-menu` went from ~800 lines of nested bash to
+**52 lines** of IPC wrapper. The content became data
+(`default/omarchy/omarchy-menu.jsonc`, 358 lines), the rendering became a shell
+plugin (`shell/plugins/menu/Menu.qml`, 1473 lines), and the pure logic became
+`MenuModel.js` (524 lines, loadable by Node so `test/shell.d/menu-test.sh` and
+`menu-guards-test.sh` exercise it directly). Their data model:
+
+- Object keys are ids; **dotted ids are the tree** (`trigger.share.file` is a
+  child of `trigger.share`). No `parent` field to keep in sync.
+- Kind is inferred: `action` → action, `target` → link, otherwise submenu.
+- Fields: `icon`, `iconFont`, `label`, `title`, `aliases`, `description`,
+  `provider`, and three shell-condition guards — `when` (hide), `checked`
+  (append ✓), `disabled` (keep listed, dim, ✓, unselectable).
+- The user's `~/.config/omarchy/extensions/omarchy-menu.jsonc` overlays the
+  defaults **per key and per field**: reusing a shipped id retitles or re-icons
+  a row without re-declaring its action, and keeps its position.
+- `provider:` fills a submenu at runtime (`apps`, `fonts`, `power-profiles`),
+  one tab-delimited `label\tvalue\tcurrent` line per row.
+- Guards are batched into **one** bash process per (re)load and per open, off a
+  single `pacman -Q` snapshot, with `$(...)` readers shared between rows
+  (`GUARD_READERS`); a test fails the build when a multi-row reader is missing
+  from that list.
+
+**Why this ports, contrary to what this file said before.** The menu needs a
+panel, and v5 plugins can declare one. Verified against `noctalia.d.luau` and
+the two plugin repos:
+
+| quattro | Noctalia v5 |
+|---|---|
+| Quickshell plugin `omarchy.menu` | a `[[panel]]` entry of a Monarch plugin |
+| `Menu.qml` rendering | `panel.render(...)` over the `ui.*` tree |
+| `omarchy-shell shell toggle omarchy.menu '{"menu":"style"}'` | `noctalia msg panel-toggle monarch/menu:menu style` — the panel's `context` **is** the route, delivered to `onOpen(context)` |
+| ad-hoc plugin calls | `noctalia msg plugin <author/plugin:entry> <target> <event> [payload]` → `onIpc(event, payload)` |
+| `MenuModel.js` | a Luau module behind `require("./model.luau")` |
+| JSONC data + user overlay | same shape, read with `noctalia.readFileAsync` |
+| `apps` / `fonts` providers | `runAsync`, `commandExists`, `processMatches`, same row contract |
+| search inside the menu | `noctalia.fuzzyScore`, plus a `[[launcher_provider]]` entry with `include_in_global_search` |
+| `omarchy-menu-select` / `-input` | `ui.input` in the panel, or the same launcher provider |
+
+The `ui.*` set is large enough: `column`, `row`, `box`, `label`, `markdown`,
+`glyph`, `image`, `separator`, `spacer`, `progress`, `button`, `graph`, `input`,
+`select`, `slider`, `toggle`, `scroll`, `dragSource`, `dropZone`. Panel
+callbacks are `onOpen(context)`, `onClose()`, `onKey(chord, pressed)`,
+`onIpc(event, payload)`, `onFrameTick(deltaMs)`.
+
+**The manifest gates are all below our ceiling.** `dismiss_on_outside_click`
+needs API ≥ 8, `keyboard_focus` ≥ 10, `capture_keys` ≥ 13 — read off shipped
+plugins that declare them (`bitwarden` 8, `tailscale` 10, `bookmarks` 13). This
+build accepts up to 23, so a keyboard-driven menu panel is in range. Only
+`panel.openContextMenu` (≥ 28) is out, and the menu does not need it.
+
+**Two things this buys that fuzzel cannot.** The panel is drawn by Noctalia, so
+it is themed with the rest of the shell for free; and a `[[launcher_provider]]`
+entry makes every menu action reachable from the global launcher — something
+even quattro does not do, since its search stops at the menu's own field.
+
+**What it costs.** A comparable panel plugin — `dunarand/bookmarks`, a
+searchable list with `capture_keys` — is 1447 lines of Luau, in the same range
+as quattro's 1473 lines of QML. Budget a rendering layer, not a translation.
+And note the guard problem comes back with it: today's bash builds only the
+level being shown, lazily, so per-row conditions are cheap; a panel evaluates
+the tree before drawing, which is exactly why quattro batches. `MenuModel.js`
+stops being a QML curiosity and becomes the reference to port.
+
+**Reference implementations to read first**: `noctalia/notes` (a `[[panel]]` +
+`[[launcher_provider]]` + `[[widget]]` in one manifest, with
+`width`/`height`/`placement`/`position`), `dunarand/bookmarks` (keyboard-driven
+searchable list), `noctalia/kaomoji` (launcher provider with category filters).
+
+**Only then can fuzzel leave `install/monarch-base.packages`.** It currently has
+five consumers — `monarch-menu`, `monarch-menu-select`, `monarch-menu-input`,
+`monarch-menu-file`, `monarch-menu-keybindings` — and one theming dependency:
+`fuzzel` is in `community_ids` in `config/noctalia/config.toml`, so dropping the
+package means dropping that template id too. Removing the package before all six
+are handled breaks the menu outright.
+
+**There is a cheaper intermediate step, and it does not need the panel.**
+`noctalia dmenu [-p prompt]` reads newline-separated items on stdin, presents
+them in the launcher and prints the selection on stdout — the same contract as
+`fuzzel --dmenu`, already flagged as "not yet adopted" in `AGENTS.md`. It is
+absent from `noctalia --help` but present in the shipped binary (v5.0.0). Left
+to verify before swapping: whether it accepts empty stdin and returns typed text
+(what `monarch-menu-input` needs), and what replaces `--lines` / `--width` /
+`--select`, which it does not take. If it holds up, fuzzel can be dropped in a
+first pass, and the panel port then becomes purely about the menu's *shape*
+rather than its renderer.
+
+#### Menu: fixes already landed
+
+Independent of the port, applied to the current bash menu:
+
+- `monarch menu screenshot` routed to `show_screenshot_menu`, which was never
+  defined — a dead route that failed silently. Now runs
+  `monarch-capture-screenshot`, matching quattro's `trigger.capture.screenshot`.
+- `toggle_existing_menu` ran `pkill -x fuzzel` and stopped there, leaving the
+  monarch-menu behind the picker alive: an empty selection reads as "go back",
+  so the keybind popped the parent menu back up instead of closing the menu. It
+  now tracks its own pids in `$XDG_RUNTIME_DIR/monarch/menu{,-picker}.pid`
+  (re-checked against `/proc`, since a pid file outlives its process) and kills
+  both. **A foreign picker is still dismissed**, and has to be: fuzzel is
+  single-instance per display — it holds
+  `/run/user/UID/fuzzel-$WAYLAND_DISPLAY.lock` and a second instance exits 1
+  with `failed to acquire lock`. So "leave other pickers alone" is not an
+  option; the menu simply would not open. Verified in the VM.
+- `install "obs-studio" "pinta" "kdenlive"` installed only `pinta`: `install()`
+  reads `$1` as the label and `$2` as the package list, and ignored `$3`.
+- Cosmetic: `show_setup_security_menu` and `show_setup_default_menu` were
+  indented as if nested. They were not — a mis-indentation that made
+  `show_setup_default_menu` read as a function defined inside another one.
+
 ---
 
 ## v5 facts worth not rediscovering
@@ -367,6 +497,16 @@ advertising 3–27, which rules out `runAsync`'s argument-array form (24+) — h
 the hand-quoting in `agents.luau`'s `shellQuote`. Entry ids are unique across the
 whole plugin, not per kind. Settings must use `label_key` / `description_key`
 with a `translations/` catalog; a literal `label` is rejected.
+
+**A plugin is not just bar widgets.** The five entry kinds are `[[widget]]`,
+`[[panel]]`, `[[launcher_provider]]`, `[[desktop_widget]]` and `[[shortcut]]`,
+and one manifest may declare several. Bar widgets are simply the only kind
+Monarch uses so far — do not read that as the API's ceiling, which is how item 7
+was nearly written off. `noctalia.d.luau`, at the root of
+`github.com/noctalia-dev/official-plugins`, is the authoritative surface: it
+declares `noctalia.*`, `barWidget.*`, `panel.*`, `launcher.*`, `desktopWidget.*`,
+`shortcut.*`, every `ui.*` node and every entry-point callback. Consult it before
+the binary's strings.
 
 **An unparseable config falls back to defaults silently.** No notification, no
 message on the bar — the shell simply comes up with stock settings. The tells
