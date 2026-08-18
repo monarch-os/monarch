@@ -1,0 +1,24 @@
+{
+  "id": "monarch-agents",
+  "name": "Agents",
+  "version": "1.0.0",
+  "author": "Monarch",
+  "license": "MIT",
+  "description": "Coding agent rate limits, token history, and per-model usage in a Noctalia bar panel.",
+  "entryPoints": {
+    "main": "Main.qml",
+    "barWidget": "BarWidget.qml",
+    "panel": "Panel.qml"
+  },
+  "metadata": {
+    "displayName": "Agents",
+    "description": "One bar pill and one panel: rate-limit meters, the last week of token usage, and the all-time model breakdown for every coding agent on the machine.",
+    "icon": "ai",
+    "category": "AI",
+    "allowMultiple": false,
+    "defaultSettings": {
+      "refreshIntervalSec": 900,
+      "warningThreshold": 0.9
+    }
+  }
+}

@@ -1,6 +1,18 @@
 #!/bin/bash
 
 # monarch:summary=Launch a TUI command in the default terminal with Monarch styling
-# monarch:args=<command> [args...]
+# monarch:args=[--app-id=<id>] <command> [args...]
 
-exec setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.$(basename $1) -e "$1" "${@:2}"
+# An optional leading --app-id=<id> overrides the default org.monarch.<command>
+# app-id, the same way monarch-launch-floating-terminal-with-presentation takes
+# one. Coding agents use it to share a single app-id across every agent binary,
+# so one niri window rule covers them all.
+appid=""
+if [[ $1 == --app-id=* ]]; then
+  appid="${1#--app-id=}"
+  shift
+fi
+
+[[ -z $appid ]] && appid="org.monarch.$(basename "$1")"
+
+exec setsid uwsm-app -- xdg-terminal-exec --app-id="$appid" -e "$1" "${@:2}"

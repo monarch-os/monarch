@@ -73,6 +73,23 @@ if monarch-cmd-present monarch-lazyvpn-status \
   fi
 fi
 
+# The default settings.json carries the monarch-agents bar widget, so the copy
+# above already restores it. What it cannot restore is the plugin's enabled
+# state, which lives in plugins.json and is left alone by the refresh — so a
+# user who disabled the plugin would get its pill back pointing at nothing.
+# Drop the widget again in that case.
+plugins_file="$HOME/.config/noctalia/plugins.json"
+if command -v jq >/dev/null && [[ -f $settings_file && -f $plugins_file ]] \
+   && ! jq -e '.states."monarch-agents".enabled == true' "$plugins_file" >/dev/null 2>&1; then
+  tmp=$(mktemp)
+  if jq '.bar.widgets.right = ((.bar.widgets.right // [])
+           | map(select(.id != "plugin:monarch-agents")))' "$settings_file" >"$tmp"; then
+    mv "$tmp" "$settings_file"
+  else
+    rm -f "$tmp"
+  fi
+fi
+
 setsid uwsm-app -- qs -c noctalia-shell >/dev/null 2>&1 &
 
 # Once Noctalia is up, re-apply the theme so the wallpaper IPC lands (it
