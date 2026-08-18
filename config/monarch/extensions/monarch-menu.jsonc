@@ -1,0 +1,39 @@
+{
+  // Extend or override the Monarch menu.
+  //
+  // IDs are object keys and the dotted ID is the tree, so "personal.notes"
+  // appears under "personal", and "personal" appears on the root menu. Reuse a
+  // shipped ID to override it: only the fields declared here are replaced, the
+  // rest are kept, and the row stays where it was. New IDs are appended.
+  //
+  // Fields:
+  //   icon        Nerd Font glyph shown in the icon column
+  //   label       visible row title
+  //   title       header shown when the submenu is open; defaults to label
+  //   action      shell command to run. Without one, the row is a submenu
+  //   target      existing submenu ID to open; use for links
+  //   provider    a row source the renderer already defines (fonts,
+  //               power-profiles). New ones cannot be declared here
+  //   aliases     extra `monarch menu <name>` routes
+  //   when        shell condition; the row is hidden when it fails
+  //   checked     shell condition; appends a check mark when it succeeds
+  //   disabled    shell condition; the row stays listed but cannot be selected
+  //
+  // JSONC means JSON plus whole-line // comments and trailing commas. An inline
+  // trailing comment breaks the parse, and a file that does not parse
+  // contributes nothing — the shipped menu keeps working on its own.
+  //
+  // Run `monarch menu --check` after editing: it reports dangling targets,
+  // unknown providers and entries whose parent does not exist.
+  //
+  // Examples:
+  // "personal": {"icon":"","label":"Personal"},
+  // "personal.notes": {"icon":"󰎞","label":"Notes","action":"monarch-launch-editor ~/notes"},
+  // "personal.files": {"icon":"","label":"Files","action":"nautilus ~/Documents"},
+  //
+  // Replace the About action, keeping its icon and label:
+  // "about": {"action":"monarch-launch-or-focus-tui \"zsh -c 'fastfetch; read -k 1'\""},
+  //
+  // Hide a shipped row without deleting it:
+  // "install.gaming": {"when":"false"},
+}

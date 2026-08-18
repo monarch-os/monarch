@@ -15,8 +15,14 @@ jobs:
       - name: Run CLI test suite
         run: bash test/monarch-cli-test.sh
 
+      - name: Run menu test suite
+        run: bash test/monarch-menu-test.sh
+
       - name: Validate command routes and metadata
         run: bin/monarch commands --check
+
+      - name: Validate menu data
+        run: bin/monarch-menu --check
 
   shellcheck:
     name: ShellCheck
