@@ -9,6 +9,15 @@
 # See the header of the .jsonc for the entry schema.
 
 MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+
+# Fall back to the checkout this script lives in when the installed tree has no
+# menu data. That is the case in CI and whenever a developer runs bin/monarch-menu
+# straight out of a clone, where relying on MONARCH_PATH being exported is a trap:
+# the test suite sets it, a bare invocation does not, and the two disagree.
+if [[ ! -f "$MONARCH_ROOT/default/monarch/monarch-menu.jsonc" ]]; then
+  MONARCH_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+fi
+
 DEFAULT_MENU="$MONARCH_ROOT/default/monarch/monarch-menu.jsonc"
 USER_MENU="$HOME/.config/monarch/extensions/monarch-menu.jsonc"
 
