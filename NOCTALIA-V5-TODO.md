@@ -78,7 +78,72 @@ already know (API level 23, no argument arrays, declarative `ui.*` tree only).
 That ceiling is the deciding factor for items 5 and 6, and the reason to do 4
 first: it is the one that fits comfortably inside it.
 
-### 4. Status indicators: do-not-disturb, night mode, … — *cheap, do this first*
+### 4. Status indicators: do-not-disturb, night mode, … — *done, verified in VM*
+
+Shipped as three `monarch/indicators` entries — `dnd`, `caffeine`,
+`nightlight` — in the bar's **centre** lane, each hidden unless its state is on.
+Quattro's `Reminder.qml` maps onto `monarch/indicators:todo`, already shipped.
+
+**Why not the stock widgets.** v5 does have `caffeine`, `nightlight` and
+`notifications` widget types (the full list is `active-window audio-visualizer
+battery bluetooth brightness caffeine clipboard clock control-center
+custom-button keyboard-layout launcher lock-keys media network nightlight
+notifications power-profile privacy screenshot session settings spacer sysmon
+taskbar text theme-mode tray volume wallpaper weather workspaces`), and they
+were tried first. They are always visible and accept **no settings at all** —
+probed by feeding candidate keys to `noctalia config validate`, which *does*
+report unknown `[widget.<id>]` keys: every `hide_when_*` was rejected on
+`caffeine` and `nightlight`, and `notifications` accepts only
+`hide_when_no_unread` (unread count, not DND). Nothing there can express
+"show only when active".
+
+**The state problem, and the shape that solves it.** A plugin can only render
+what it can read, and v5 will not report caffeine or forced night light: no
+status verb (`noctalia msg --help` on a live shell is authoritative), nothing in
+`~/.local/state/noctalia/settings.toml`, no DBus (`dev.noctalia.Debug` exposes
+only verbose-logging control, `dev.noctalia.Mpris` only media), and
+`caffeine-enable` takes the wayland idle-inhibit path so it is not in
+`systemd-inhibit --list` either.
+
+So Monarch owns the state, following the `omarchy-toggle-idle` shape: the
+`monarch-toggle-*` command is both the toggle and the source of truth, gains
+`[toggle|on|off|status]` subcommands, and prints `{"enabled":…,"tooltip":…}` on
+`status`. The indicator polls that one command every 2s and knows nothing else —
+`indicator.pollToggle()` in the plugin is shared by all three. DND needs no
+bookkeeping at all, since `notification-dnd-status` reports the real thing.
+
+Consequences worth knowing:
+
+- caffeine and forced night light are tracked in `$XDG_RUNTIME_DIR/monarch/`,
+  not `~/.local/state/monarch/toggles/`: they mirror live shell state and must
+  die with the session, since a fresh shell always starts with both off.
+  `monarch-restart-noctalia` clears them for the same reason
+- the control center's caffeine, nightlight and notification shortcuts are
+  **removed** from `[[control_center.shortcuts]]`, which keeps only wifi,
+  bluetooth and power_profile. For caffeine and night light this is
+  correctness — a toggle from there would desync the indicator until the next
+  `monarch-toggle-*` call re-converged it. DND could not drift, and is dropped
+  for consistency. Every path now goes through the commands: `Mod+Ctrl+I`,
+  `Mod+Ctrl+N`, `Mod+Ctrl+Comma` (rewired from raw `notification-dnd-toggle`
+  IPC to `monarch-toggle-notification-silencing`), `monarch menu toggle`, and
+  the pill itself while it is on. Notification *history* is untouched — it is a
+  control center sidebar tab, not a shortcut tile. The array is restated in
+  full, since arrays of tables are replaced across `.toml` files, not merged
+- quattro's hover-reveal of *inactive* indicators is still not reproduced, and
+  cannot be from a plugin — but hiding them outright serves the same intent
+
+Verified on the running VM (v5.0.0, shell restarted): all three off shows a bare
+clock; toggling each on makes exactly its glyph appear in accent colour within
+the poll interval, driven from the CLI the way the keybindings do. The click
+path (`onClick` → same command, then an immediate refresh) is not exercised by
+that test and still wants a real click. `noctalia plugins lint` passes on the
+plugin. `[osd.kinds]` defaults `caffeine`, `dnd` and `nightlight` to
+`true`, so a keyboard toggle also pops an OSD for free.
+
+The original analysis follows, kept for the presentation idea (hover-reveal) and
+the IPC facts.
+
+#### Original analysis
 
 Quattro puts a **single aggregate widget** `omarchy.indicators` in the bar centre
 (`shell/plugins/bar/widgets/Indicators.qml`), which hosts six indicators from
@@ -130,18 +195,33 @@ verb, and each has both a getter and a toggle:
 | night light | *(none — see below)* | `nightlight-force-toggle` |
 | caffeine | *(none — see below)* | `caffeine-toggle` |
 
-**Known gap:** there is no `nightlight-status` or `caffeine-status`. `msg status`
-returns only `barVisible`, `panelOpen`, `activePanelId`, `locked`. So an indicator
-can *toggle* those two but cannot *read* them back — it would have to track state
-it set itself, which breaks as soon as the user toggles from the control center.
-Resolve this before building: check whether the state leaks into
-`~/.local/state/noctalia/settings.toml`, and if not, it is worth an upstream
-request for the two missing getters.
+**Known gap (still true, now moot for this item):** there is no
+`nightlight-status` or `caffeine-status`. `msg status` returns only
+`barVisible`, `panelOpen`, `activePanelId`, `locked`; the complete inventory of
+read verbs in the binary is `bluetooth-status`, `wifi-status`,
+`notification-dnd-status`, `color-scheme-get`, `theme-mode-get`, `wallpaper-get`,
+`get-volume`, `log-level-status`, `workspace-alert-status`. So a *plugin* can
+toggle nightlight and caffeine but cannot read them back. Two partial escape
+hatches were found while checking:
 
-**Plan:** one `monarch/indicators` widget per concern (the plugin already hosts
+- both have idempotent setters, not just toggles — `caffeine-on|off|enable|
+  disable` and `nightlight-on|off|enable|disable`, plus `nightlight-force-toggle`
+- `[nightlight] force` is a real config key — but **it is not a state readback**:
+  toggling with `nightlight-force-toggle` in the VM left
+  `~/.local/state/noctalia/settings.toml` without a `[nightlight]` section at
+  all. Like caffeine (a live logind/wayland inhibitor), the forced state exists
+  only in the running shell. Nothing on disk to poll for either one
+
+Neither is needed now that the stock widgets do the job, but the two missing
+getters are the right upstream request for anything plugin-side — they are the
+*only* way to read these states from outside the shell.
+
+~~**Plan:** one `monarch/indicators` widget per concern (the plugin already hosts
 five), plus a decision on whether Noctalia's Luau `ui.*` tree can express the
-hover-reveal grouping. If it cannot, ship them as separate always-visible pills
-and treat the grouping as a later refinement.
+hover-reveal grouping.~~ Superseded — the stock widgets cover it. The
+always-visible-pills fallback is what shipped, and the hover-reveal grouping
+remains a later refinement (and an upstream request, since only the shell can
+implement it).
 
 ### 5. Network widget on par with Omarchy quattro — *expensive, scope carefully*
 
@@ -287,6 +367,15 @@ advertising 3–27, which rules out `runAsync`'s argument-array form (24+) — h
 the hand-quoting in `agents.luau`'s `shellQuote`. Entry ids are unique across the
 whole plugin, not per kind. Settings must use `label_key` / `description_key`
 with a `translations/` catalog; a literal `label` is rejected.
+
+**An unparseable config falls back to defaults silently.** No notification, no
+message on the bar — the shell simply comes up with stock settings. The tells
+are visual (the Monarch palette reverts to Noctalia's) and, decisively,
+`noctalia msg color-scheme-get` returning `builtin Noctalia` instead of
+`custom Monarch`. `noctalia config export merged` is what prints the actual
+parse error with a line number; `config validate` on a file that was truncated
+mid-copy can still pass, so when testing in the VM, checksum the config after
+copying it in rather than trusting the copy.
 
 **`config-reload` applies config changes live** — verified by changing a clock
 format and reading it back off the bar. A full shell restart is only needed when

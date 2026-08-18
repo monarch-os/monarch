@@ -1,12 +1,76 @@
 #!/bin/bash
 
 # monarch:summary=Toggle nightlight screen temperature (forced on/off) via Noctalia
-# monarch:examples=monarch toggle nightlight
+# monarch:args=[toggle|on|off|status]
+# monarch:examples=monarch toggle nightlight | monarch toggle nightlight status
 
 # v4 had to edit nightLight.forced + .enabled together in settings.json, because
 # its single `nightLight toggle` IPC cycled off -> forced -> scheduled -> off and
 # a keypress could land on the invisible "scheduled" state. v5 separates the two:
 # nightlight-toggle drives the schedule, nightlight-force-toggle the clean binary
 # forced on/off this command has always wanted.
+#
+# Like monarch-toggle-idle (see there for the reasoning), this command owns the
+# state and prints it as JSON on `status`, which is all the bar indicator reads.
+# v5 has no `nightlight-status` IPC. `[nightlight] force` is a real config key,
+# but nightlight-force-toggle does not persist it — after a toggle,
+# ~/.local/state/noctalia/settings.toml has no [nightlight] section at all, so
+# the forced state exists only in the running shell.
+#
+# Unlike caffeine there is no forced-state *setter*, only nightlight-force-toggle,
+# so `on` and `off` check the flag first and toggle only when the state actually
+# has to change. This tracks the forced state alone; the schedule
+# (nightlight-toggle / [nightlight] enabled) stays out of the bar, as in v4.
 
-exec noctalia msg nightlight-force-toggle
+STATE_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/monarch/nightlight"
+
+nightlight_forced() {
+  [[ -f $STATE_FILE ]]
+}
+
+apply_state() {
+  case "$1" in
+    on)
+      nightlight_forced && return 0
+      noctalia msg nightlight-force-toggle >/dev/null 2>&1 || return 1
+      mkdir -p "$(dirname "$STATE_FILE")"
+      touch "$STATE_FILE"
+      ;;
+    off)
+      nightlight_forced || return 0
+      noctalia msg nightlight-force-toggle >/dev/null 2>&1 || return 1
+      rm -f "$STATE_FILE"
+      ;;
+  esac
+}
+
+print_status() {
+  if nightlight_forced; then
+    printf '{"enabled":true,"tooltip":"Night light on - restore day temperature"}\n'
+  else
+    printf '{"enabled":false,"tooltip":"Night light off"}\n'
+  fi
+}
+
+case "${1:-toggle}" in
+  toggle)
+    if nightlight_forced; then
+      apply_state off
+    else
+      apply_state on
+    fi
+    ;;
+  on)
+    apply_state on
+    ;;
+  off)
+    apply_state off
+    ;;
+  status | --status)
+    print_status
+    ;;
+  *)
+    echo "Usage: $0 [toggle|on|off|status]" >&2
+    exit 1
+    ;;
+esac

@@ -1,11 +1,79 @@
 #!/bin/bash
 
 # monarch:summary=Toggle idle locking (Noctalia caffeine)
+# monarch:args=[toggle|on|off|status]
+# monarch:examples=monarch toggle idle | monarch toggle idle status
 
 # v4 flipped `idle.enabled` in settings.json. v5 has no such switch — inhibiting
 # idle is caffeine, and the shell owns it: the toggle raises its own "Caffeine
 # On/Off" OSD, so the hand-rolled notify-send this script used to print is gone.
 #
 # Lid-close lock is handled separately by niri switch-events and is unaffected.
+#
+# This command also owns the *state*, following the omarchy-toggle-idle shape:
+# subcommands to set it either way and a `status` that prints JSON, which is the
+# only thing the bar indicator talks to. Monarch has to keep the state itself
+# because v5 exposes no way to read caffeine back — there is no `caffeine-status`
+# IPC, nothing is written to ~/.local/state/noctalia/settings.toml, and
+# `caffeine-enable` takes the wayland idle-inhibit path rather than logind, so it
+# does not even appear in `systemd-inhibit --list`.
+#
+# The flag lives in the runtime dir rather than ~/.local/state/monarch/toggles/
+# (monarch-toggle) on purpose: those flags are user preferences that must survive
+# a reboot, while this one mirrors live shell state and has to die with the
+# session — a fresh shell always comes up with caffeine off.
+# monarch-restart-noctalia clears it for the same reason.
+#
+# caffeine-enable / caffeine-disable are idempotent setters, so the flag stays
+# authoritative instead of the two drifting apart the way a blind toggle would.
 
-exec noctalia msg caffeine-toggle
+STATE_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/monarch/caffeine"
+
+caffeine_enabled() {
+  [[ -f $STATE_FILE ]]
+}
+
+apply_state() {
+  case "$1" in
+    on)
+      noctalia msg caffeine-enable >/dev/null 2>&1 || return 1
+      mkdir -p "$(dirname "$STATE_FILE")"
+      touch "$STATE_FILE"
+      ;;
+    off)
+      noctalia msg caffeine-disable >/dev/null 2>&1 || return 1
+      rm -f "$STATE_FILE"
+      ;;
+  esac
+}
+
+print_status() {
+  if caffeine_enabled; then
+    printf '{"enabled":true,"tooltip":"Caffeine on - allow idle lock"}\n'
+  else
+    printf '{"enabled":false,"tooltip":"Stay awake"}\n'
+  fi
+}
+
+case "${1:-toggle}" in
+  toggle)
+    if caffeine_enabled; then
+      apply_state off
+    else
+      apply_state on
+    fi
+    ;;
+  on | stay-awake)
+    apply_state on
+    ;;
+  off | allow-idle)
+    apply_state off
+    ;;
+  status | --status)
+    print_status
+    ;;
+  *)
+    echo "Usage: $0 [toggle|on|off|status]" >&2
+    exit 1
+    ;;
+esac

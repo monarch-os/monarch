@@ -46,9 +46,13 @@ binds {
     // --- Noctalia panels ---
     Mod+Comma hotkey-overlay-title="Control center" { spawn-sh "noctalia msg panel-toggle control-center"; }
     Mod+Shift+Comma hotkey-overlay-title="Noctalia settings" { spawn-sh "noctalia msg settings-toggle"; }
-    Mod+Ctrl+Comma hotkey-overlay-title="Toggle Do Not Disturb" { spawn-sh "noctalia msg notification-dnd-toggle"; }
 
     // --- Toggles ---
+    // All three go through their monarch-toggle-* command rather than raw IPC:
+    // the command is what owns the state the bar indicators read, and it is the
+    // only way to reach caffeine and night light now that they are out of the
+    // control center's shortcut row.
+    Mod+Ctrl+Comma hotkey-overlay-title="Toggle Do Not Disturb" { spawn "monarch-toggle-notification-silencing"; }
     Mod+Ctrl+I hotkey-overlay-title="Toggle idle lock" { spawn "monarch-toggle-idle"; }
     Mod+Ctrl+N hotkey-overlay-title="Toggle nightlight" { spawn "monarch-toggle-nightlight"; }
     // Toggle the focused window's opacity rule (semitransparent <-> opaque). Ports the old

@@ -18,7 +18,7 @@ version     = "1.0.0"
 plugin_api  = 22
 author      = "monarch"
 license     = "MIT"
-description = "Screen-recording, system-update and dictation indicators for the Monarch bar"
+description = "Status indicators for the Monarch bar, each shown only while it has something to report"
 icon        = "activity-heartbeat"
 
 [[widget]]
@@ -44,3 +44,20 @@ entry = "lazyvpn.luau"
 [[widget]]
 id    = "todo"
 entry = "todo.luau"
+
+# The three shell-state toggles. v5 has stock `caffeine`, `nightlight` and
+# `notifications` widgets, but they are always visible and accept no settings, so
+# they cannot do the one thing wanted here: appear only while active. Each entry
+# below polls the `status` subcommand of the matching monarch-toggle-* command,
+# which is what owns the state — see bin/monarch-toggle-idle.
+[[widget]]
+id    = "dnd"
+entry = "dnd.luau"
+
+[[widget]]
+id    = "caffeine"
+entry = "caffeine.luau"
+
+[[widget]]
+id    = "nightlight"
+entry = "nightlight.luau"

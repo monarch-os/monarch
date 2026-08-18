@@ -79,6 +79,9 @@ order = ["default"]
     "monarch/indicators:screen-recording",
     "monarch/indicators:monarch-update",
     "monarch/indicators:voxtype",
+    "monarch/indicators:dnd",
+    "monarch/indicators:caffeine",
+    "monarch/indicators:nightlight",
   ]
   end = [
     "tray",
@@ -96,6 +99,13 @@ order = ["default"]
   # default/noctalia/plugins/). Each hides itself when it has nothing to report,
   # so they can all sit in the default layout — including lazyvpn and todo,
   # whose packages are install-on-demand.
+  #
+  # dnd / caffeine / nightlight sit in the centre next to the other indicators,
+  # matching Omarchy quattro's single indicator cluster, and each is hidden
+  # unless its state is actually on. They are Monarch plugin entries rather than
+  # the stock v5 `notifications` / `caffeine` / `nightlight` widgets, which are
+  # always visible and accept no settings at all — `noctalia config validate`
+  # rejects every hide_when_* key on them. See the plugin's plugin.toml.
   #
   # v4's bar.density = "compact" has no v5 equivalent either; thickness and
   # widget_spacing are the dimensional knobs now, left at their defaults.
@@ -143,6 +153,34 @@ show_label = false
 # Collapse the pill when no MPRIS player is active, instead of leaving a
 # permanent "Nothing playing".
 hide_when_no_media = true
+
+[control_center]
+# The stock shortcut row is wifi / bluetooth / caffeine / nightlight /
+# notification / power_profile. The three that Monarch owns as toggles —
+# caffeine, night light and notification (do-not-disturb) — are dropped, so
+# every path to them goes through the matching monarch-toggle-* command: the
+# keybindings (Mod+Ctrl+I / Mod+Ctrl+N / Mod+Ctrl+Comma), `monarch menu toggle`,
+# and the bar indicator itself while it is on.
+#
+# For caffeine and night light this is a correctness requirement, not tidiness:
+# those commands own state v5 will not let anything read back, so a toggle from
+# the control center would silently desync the bar indicator until the next
+# monarch-toggle-* call. DND could not drift — the indicator reads
+# notification-dnd-status — and is dropped for consistency alone.
+#
+# Notification *history* is unaffected: it lives in the control center's own
+# sidebar tab, not in this shortcut row.
+#
+# The whole array is restated because arrays are replaced across .toml files
+# rather than merged — the same rule as the bar lanes.
+[[control_center.shortcuts]]
+type = "wifi"
+
+[[control_center.shortcuts]]
+type = "bluetooth"
+
+[[control_center.shortcuts]]
+type = "power_profile"
 
 [shell]
 # v4 kept these under general/ui, which no longer exist as sections.

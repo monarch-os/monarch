@@ -72,6 +72,48 @@ local function apply(payload)
   end
 end
 
+-- Render a monarch-toggle-* command's state, shown only while it is on.
+--
+-- v5 ships stock `caffeine` and `nightlight` bar widgets, but they are always
+-- visible and accept no settings whatsoever (probed against `noctalia config
+-- validate`, which does report unknown [widget.<id>] keys). Omarchy quattro's
+-- indicator cluster reveals inactive indicators on hover instead of pinning
+-- them; Monarch shows nothing at all until the state is active, which is the
+-- same intent within what a plugin can express.
+--
+-- The command owns the state and prints {"enabled":bool,"tooltip":string} on
+-- its `status` subcommand — the same split as omarchy-toggle-idle, and the only
+-- workable one here since v5 offers no way to read caffeine or forced night
+-- light back out of the shell. See bin/monarch-toggle-idle for the details.
+function M.pollToggle(command: string, glyph: string)
+  noctalia.runAsync(M.bin(command) .. " status", function(result)
+    if result.exitCode ~= 0 then
+      barWidget.clearTooltip()
+      barWidget.setVisible(false)
+      return
+    end
+
+    local payload = noctalia.json.decode(result.stdout)
+    if type(payload) ~= "table" or payload.enabled ~= true then
+      barWidget.clearTooltip()
+      barWidget.setVisible(false)
+      return
+    end
+
+    barWidget.setText(glyph)
+    barWidget.setColor("primary")
+
+    local tooltip = payload.tooltip
+    if type(tooltip) == "string" and tooltip ~= "" then
+      barWidget.setTooltip(tooltip)
+    else
+      barWidget.clearTooltip()
+    end
+
+    barWidget.setVisible(true)
+  end)
+end
+
 -- Start streaming `script`. Lines that are not valid JSON are logged and
 -- skipped rather than left to blank the widget, so a transient failure in a
 -- script does not silently make the indicator disappear.
