@@ -81,7 +81,7 @@ EOF
 systemctl --user daemon-reload 2>/dev/null || true
 systemctl --user enable --now monarch-todo-reminders.service 2>/dev/null || true
 
-# No bar wiring here. The open-task count is declared by the monarch-indicators
+# No bar wiring here. The open-task indicator is declared by the monarch-indicators
 # Noctalia plugin (default/noctalia/plugins/monarch-indicators/todo.luau) and
 # sits in the default layout permanently, staying hidden while this package is
 # absent — see monarch-install-lazyvpn for why that beats splicing it in here.
@@ -91,4 +91,4 @@ echo "  - Launch from app menu: Todo"
 echo "  - Keyboard shortcut: WIN+T"
 echo "  - Command line (TUI): monarch-todo"
 echo "  - Command line (CLI): monarch-todo add|list|done|...; '?' in the TUI for keys"
-echo "  - Bar widget: open-task count (shown in the Noctalia bar)"
+echo "  - Bar widget: open-task indicator (shown in the Noctalia bar while tasks are open)"

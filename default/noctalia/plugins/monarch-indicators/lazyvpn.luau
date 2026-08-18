@@ -4,7 +4,9 @@
 -- install and remove commands no longer have to edit the bar layout at all.
 --
 -- LazyVPN is install-on-demand, so the widget hides itself when the status
--- command is missing rather than being added and removed from the bar.
+-- command is missing rather than being added and removed from the bar. It also
+-- hides while the VPN is simply off — only a live tunnel or a killswitch left
+-- blocking traffic is worth a pill.
 --
 -- Polled, not streamed: monarch-lazyvpn-status is a one-shot command, matching
 -- the v4 textIntervalMs = 5000.
@@ -21,6 +23,22 @@ noctalia.setUpdateInterval(POLL_MS)
 barWidget.setGlyph("shield")
 barWidget.setVisible(false)
 
+-- monarch-lazyvpn-status emits one glyph for every visible state and puts the
+-- state in `class`, modelled on the LazyVPN-for-Omarchy waybar module. The
+-- colour is this plugin's job — Omarchy does it in waybar CSS, which v5 has no
+-- equivalent of.
+--
+-- `ks-blocking` is the one that matters: no tunnel, but the killswitch is still
+-- loaded and dropping every packet, so the pill turns red instead of vanishing.
+-- Plain `disconnected` sends empty text and collapses the widget, which is what
+-- retired the permanently-visible unlocked padlock.
+local function colorForClass(class)
+  if class == "ks-blocking" or class == "error" then
+    return "error"
+  end
+  return "primary"
+end
+
 local function apply(payload)
   local text = if type(payload) == "table" then payload.text else nil
 
@@ -31,6 +49,7 @@ local function apply(payload)
   end
 
   barWidget.setText(text)
+  barWidget.setColor(colorForClass(payload.class))
   barWidget.setVisible(true)
 
   local tooltip = payload.tooltip

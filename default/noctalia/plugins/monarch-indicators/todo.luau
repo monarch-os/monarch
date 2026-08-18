@@ -1,7 +1,8 @@
 --!strict
--- Open-task count. Ports the v4 CustomButton that monarch-install-todo used to
--- splice into settings.json with jq — declaring it here instead means the
--- install and remove commands no longer have to edit the bar layout at all.
+-- Open-task indicator: the glyph alone, no count in the bar. Ports the v4
+-- CustomButton that monarch-install-todo used to splice into settings.json with
+-- jq — declaring it here instead means the install and remove commands no
+-- longer have to edit the bar layout at all.
 --
 -- monarch-todo is install-on-demand, so the widget hides itself when the command
 -- is missing rather than being added to and removed from the bar.
@@ -20,8 +21,10 @@ noctalia.setUpdateInterval(POLL_MS)
 barWidget.setGlyph("checkbox")
 barWidget.setVisible(false)
 
--- v4's hideMode = "expandWithOutput" collapsed the pill when the command
--- returned no text, which is how `monarch-todo bar` reports "no open tasks".
+-- The pill shows the glyph alone. `monarch-todo bar` still reports the open
+-- count in `text`, but it is only read as a presence signal — an empty object is
+-- how the command says "no open tasks", which collapses the pill the way v4's
+-- hideMode = "expandWithOutput" did. The count itself stays in the tooltip.
 local function apply(payload)
   local text = if type(payload) == "table" then payload.text else nil
 
@@ -31,7 +34,6 @@ local function apply(payload)
     return
   end
 
-  barWidget.setText(text)
   barWidget.setVisible(true)
 
   local tooltip = payload.tooltip
