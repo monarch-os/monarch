@@ -1,24 +1,11 @@
 #!/bin/bash
 
-# monarch:summary=Toggle idle locking (Noctalia IdleService)
+# monarch:summary=Toggle idle locking (Noctalia caffeine)
 
-# Idle handling (screensaver / lock / DPMS) lives in Noctalia's IdleService,
-# driven by `idle.enabled` in settings.json (hot-reloaded). Lid-close lock is
-# handled separately by niri switch-events and is unaffected by this toggle.
+# v4 flipped `idle.enabled` in settings.json. v5 has no such switch — inhibiting
+# idle is caffeine, and the shell owns it: the toggle raises its own "Caffeine
+# On/Off" OSD, so the hand-rolled notify-send this script used to print is gone.
+#
+# Lid-close lock is handled separately by niri switch-events and is unaffected.
 
-cfg="$HOME/.config/noctalia/settings.json"
-[[ -f $cfg ]] || { mkdir -p "$(dirname "$cfg")"; echo '{}' >"$cfg"; }
-
-tmp=$(mktemp)
-if jq '.idle = (.idle // {}) | (.idle.enabled | not) as $new | .idle.enabled = $new' "$cfg" >"$tmp"; then
-  mv "$tmp" "$cfg"
-  if jq -e '.idle.enabled' "$cfg" >/dev/null; then
-    notify-send -u low "󱫖    Now locking computer when idle"
-  else
-    notify-send -u low "󱫖    Stop locking computer when idle"
-  fi
-else
-  rm -f "$tmp"
-  echo "monarch-toggle-idle: could not update $cfg" >&2
-  exit 1
-fi
+exec noctalia msg caffeine-toggle
