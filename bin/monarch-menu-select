@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Pick one option with Walker
+# monarch:summary=Pick one option with fuzzel
 # monarch:group=menu
 # monarch:name=select
 # monarch:args=prompt option... [-- fuzzel args...]

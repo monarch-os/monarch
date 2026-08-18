@@ -17,15 +17,56 @@ back_to() {
   fi
 }
 
+STATE_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/monarch"
+MENU_PID_FILE="$STATE_DIR/menu.pid"
+PICKER_PID_FILE="$STATE_DIR/menu-picker.pid"
+
+# Print the menu and picker pids when this session's own menu is on screen. Both
+# are re-checked against /proc: a pid file outlives the process it names, and the
+# number may since have been recycled onto something else entirely.
+running_menu_pids() {
+  local menu_pid picker_pid picker_comm
+
+  read -r menu_pid <"$MENU_PID_FILE" 2>/dev/null || return 1
+  read -r picker_pid <"$PICKER_PID_FILE" 2>/dev/null || return 1
+  [[ $menu_pid =~ ^[0-9]+$ && $picker_pid =~ ^[0-9]+$ ]] || return 1
+  [[ $(tr -d '\0' <"/proc/$menu_pid/cmdline" 2>/dev/null) == *monarch-menu* ]] || return 1
+  # `read`, not `$(<...)`: procfs files report size 0 and the latter comes back empty.
+  read -r picker_comm <"/proc/$picker_pid/comm" 2>/dev/null || return 1
+  [[ $picker_comm == fuzzel ]] || return 1
+
+  echo "$menu_pid"
+  echo "$picker_pid"
+}
+
+# fuzzel is single-instance per display (it holds /run/user/UID/fuzzel-$WAYLAND_DISPLAY.lock
+# and a second one exits 1), so any live picker has to go before a menu can open.
+# When it is our own, the monarch-menu behind it goes too: an empty selection
+# reads as "go back", so killing the picker alone pops the parent menu straight
+# back up instead of closing.
 toggle_existing_menu() {
-  if pgrep -x fuzzel >/dev/null; then
-    pkill -x fuzzel >/dev/null 2>&1
-    exit 0
+  pgrep -x fuzzel >/dev/null || return
+
+  local -a pids
+  mapfile -t pids < <(running_menu_pids)
+  if ((${#pids[@]} == 2)); then
+    kill "${pids[@]}" 2>/dev/null
+  else
+    pkill -x fuzzel 2>/dev/null
   fi
+  exit 0
+}
+
+claim_menu_instance() {
+  mkdir -p "$STATE_DIR"
+  echo $$ >"$MENU_PID_FILE"
+  trap 'rm -f "$MENU_PID_FILE" "$PICKER_PID_FILE"' EXIT
 }
 
 # Pop a dmenu picker via fuzzel. `extra` and `preselect` are kept for source
-# compatibility with the previous walker-based menu helper.
+# compatibility with the previous walker-based menu helper. fuzzel runs in the
+# background so its pid can be published for toggle_existing_menu; `wait` keeps
+# the call synchronous.
 menu() {
   local prompt="$1"
   local options="$2"
@@ -37,7 +78,22 @@ menu() {
     args+=("--select=$preselect")
   fi
 
-  echo -e "$options" | fuzzel --dmenu --lines 12 -p "$prompt… " "${args[@]}" 2>/dev/null
+  local input output
+  input=$(mktemp) || return 1
+  output=$(mktemp) || {
+    rm -f "$input"
+    return 1
+  }
+  echo -e "$options" >"$input"
+
+  fuzzel --dmenu --lines 12 -p "$prompt… " "${args[@]}" <"$input" >"$output" 2>/dev/null &
+  local picker_pid=$!
+  echo "$picker_pid" >"$PICKER_PID_FILE"
+  wait "$picker_pid"
+  rm -f "$PICKER_PID_FILE"
+
+  cat "$output"
+  rm -f "$input" "$output"
 }
 
 terminal() {
@@ -336,17 +392,17 @@ show_setup_power_menu() {
 
 show_setup_security_menu() {
   case $(menu "Setup" "󰈷  Fingerprint\n  Fido2") in
-    *Fingerprint*) present_terminal monarch-setup-security-fingerprint ;;
-    *Fido2*) present_terminal monarch-setup-security-fido2 ;;
-    *) show_setup_menu ;;
-    esac
-  }
+  *Fingerprint*) present_terminal monarch-setup-security-fingerprint ;;
+  *Fido2*) present_terminal monarch-setup-security-fido2 ;;
+  *) show_setup_menu ;;
+  esac
+}
 
-  show_setup_default_menu() {
-    case $(menu "Default" "  Browser\n  Terminal\n  Editor") in
-    *Browser*) show_setup_default_browser_menu ;;
-    *Terminal*) show_setup_default_terminal_menu ;;
-    *Editor*) show_setup_default_editor_menu ;;
+show_setup_default_menu() {
+  case $(menu "Default" "  Browser\n  Terminal\n  Editor") in
+  *Browser*) show_setup_default_browser_menu ;;
+  *Terminal*) show_setup_default_terminal_menu ;;
+  *Editor*) show_setup_default_editor_menu ;;
   *) show_setup_menu ;;
   esac
 }
@@ -522,7 +578,7 @@ show_install_service_menu() {
   *Tailscale*) present_terminal monarch-install-tailscale ;;
   *NordVPN*) present_terminal monarch-install-nordvpn ;;
   *LazyVPN*) present_terminal monarch-install-lazyvpn ;;
-  *Creator*) install "obs-studio" "pinta" "kdenlive";;
+  *Creator*) install "Creator Apps" "obs-studio pinta kdenlive" ;;
   *Bitwarden*) install_and_launch "Bitwarden" "bitwarden bitwarden-cli" "bitwarden" ;;
   *Chromium*) present_terminal monarch-install-chromium-google-account ;;
   *) show_install_menu ;;
@@ -845,7 +901,7 @@ go_to_menu() {
   *background*) show_background_menu ;;
   *capture*) show_capture_menu ;;
   *style*) show_style_menu ;;
-  *screenshot*) show_screenshot_menu ;;
+  *screenshot*) monarch-capture-screenshot ;;
   *screenrecord*) show_screenrecord_menu ;;
   *setup*) show_setup_menu ;;
   *power*) show_setup_power_menu ;;
@@ -862,6 +918,7 @@ USER_EXTENSIONS="$HOME/.config/monarch/extensions/menu.sh"
 [[ -f $USER_EXTENSIONS ]] && source "$USER_EXTENSIONS"
 
 toggle_existing_menu
+claim_menu_instance
 
 if [[ -n $1 ]]; then
   BACK_TO_EXIT=true

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Prompt for text input with Walker
+# monarch:summary=Prompt for text input with fuzzel
 # monarch:group=menu
 # monarch:name=input
 # monarch:args=prompt [fuzzel args...]
