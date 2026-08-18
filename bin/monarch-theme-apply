@@ -7,11 +7,11 @@
 # `hooks.colorGeneration`, which fires on every color (re)generation — i.e.
 # whenever the active color scheme (or dark/light) changes. Noctalia passes the
 # resolved appearance ("dark" | "light") as $1; it does NOT pass the scheme name,
-# so we read `colorSchemes.predefinedScheme` straight from settings.
+# so we ask for it over IPC (`color-scheme-get`), which prints "<source> <name>".
 #
 # Noctalia owns the colors AND dark/light: Monarch ships a single scheme
 # (Monarch) with both "dark" and "light" blocks, so dark/light is just Noctalia's
-# global toggle (GTK/Qt follow natively via colorSchemes.syncGsettings). This
+# global toggle, which GTK/Qt follow natively. This
 # script never writes darkMode — it only covers what Noctalia can't reach:
 #   - wallpaper.directory      : keep the picker folder pointed at the current
 #                               scheme's backgrounds, and apply one.

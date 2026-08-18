@@ -1,107 +1,30 @@
 #!/bin/bash
 
-# monarch:summary=Reset Noctalia configuration to Monarch defaults, silence the first-run popups, re-apply the Monarch wallpaper, and reload the shell.
+# monarch:summary=Reset Noctalia configuration to Monarch defaults, re-apply the Monarch wallpaper, and restart the shell.
 # monarch:examples=monarch refresh noctalia
 
 monarch-refresh-config noctalia/config.toml
 monarch-refresh-config noctalia/palettes/Monarch.json
 
-# TODO(noctalia-v5): everything from here to the `setsid uwsm-app` line below is
-# v4 JSON surgery and no longer runs — it all reads $settings_file, which v5
-# replaced with config.toml, so each block's `[[ -f $settings_file ]]` guard is
-# now false and they no-op safely. Three real behaviours are parked until they
-# have a v5 form, and none of them is theming:
-#   - the shell-state.json telemetry-wizard floor (v5 tracks state in
-#     ~/.local/state/noctalia/state.toml)
-#   - the fingerprint lock-screen toggles (general.autoStartAuth /
-#     allowPasswordWithFprintd)
-#   - the LazyVPN and monarch-agents bar widgets — both were CustomButton /
-#     QML-plugin entries, which v5 only offers as Luau plugins
+# v4 needed ~85 lines of jq surgery between here and the restart below, to put
+# back what the wholesale config copy had just wiped. None of it is needed now,
+# and none of it was theming:
+#   - the telemetry-wizard version floor in shell-state.json: v5 has no wizard
+#     and no changelog prompt at all, only the plain shell.telemetry_enabled
+#     opt-out, which config.toml carries
+#   - the fingerprint lock-screen toggles: they live in their own
+#     monarch-fingerprint.toml, which this refresh never touches
+#   - the LazyVPN and monarch-agents bar widgets: both are Luau plugin entries in
+#     the shipped bar layout now, and each hides itself when it has nothing to
+#     show, so there is no user-only state left to restore
 #
-# Stop Noctalia before seeding shell-state.json, else the running instance
-# rewrites it from memory (empty lastSeenVersion) and the telemetry wizard fires.
+# The stop/start pair survives only to reload the copied config, so a plain
+# restart is enough.
 pkill -x noctalia 2>/dev/null || true
 for _ in $(seq 1 30); do
   pgrep -x noctalia >/dev/null 2>&1 || break
   sleep 0.1
 done
-
-state_file="$HOME/.cache/noctalia/shell-state.json"
-mkdir -p "$(dirname "$state_file")"
-[[ -f $state_file ]] || echo '{}' >"$state_file"
-
-ver=$(pacman -Q noctalia 2>/dev/null | awk '{print $2}' | cut -d- -f1)
-[[ -z $ver ]] && ver="4.0.2"  # telemetryIntroVersion floor
-
-if command -v jq >/dev/null; then
-  tmp=$(mktemp)
-  if jq --arg v "$ver" '.changelogState = ((.changelogState // {}) | .lastSeenVersion = $v)' \
-       "$state_file" >"$tmp"; then
-    mv "$tmp" "$state_file"
-  else
-    rm -f "$tmp"
-  fi
-fi
-
-# The wholesale copy above drops user-only settings. Re-apply the fingerprint
-# lock-screen toggles while Noctalia is stopped so they survive logout.
-settings_file="$HOME/.config/noctalia/settings.json"
-if [[ -f $HOME/.local/state/monarch/fingerprint-enabled ]] \
-   && command -v jq >/dev/null && [[ -f $settings_file ]]; then
-  tmp=$(mktemp)
-  if jq '.general = (.general // {})
-         | .general.autoStartAuth = true
-         | .general.allowPasswordWithFprintd = true' "$settings_file" >"$tmp"; then
-    mv "$tmp" "$settings_file"
-  else
-    rm -f "$tmp"
-  fi
-fi
-
-# Likewise re-add the LazyVPN bar widget (a user-only CustomButton) if LazyVPN
-# is still installed. Idempotent: skip if the button already exists.
-if monarch-cmd-present monarch-lazyvpn-status \
-   && command -v jq >/dev/null && [[ -f $settings_file ]]; then
-  if ! jq -e '[.. | objects | select(.textCommand? == "monarch-lazyvpn-status")] | length > 0' \
-       "$settings_file" >/dev/null 2>&1; then
-    tmp=$(mktemp)
-    if jq '.bar.widgets.right = (
-             (.bar.widgets.right // []) as $w
-             | {
-                 "id": "CustomButton",
-                 "icon": "shield",
-                 "parseJson": true,
-                 "textCommand": "monarch-lazyvpn-status",
-                 "textIntervalMs": 5000,
-                 "leftClickExec": "monarch-launch-floating-terminal-with-presentation monarch-lazyvpn"
-               } as $btn
-             | ($w | map(.id == "Tray") | index(true)) as $i
-             | if $i == null then [$btn] + $w else $w[0:$i+1] + [$btn] + $w[$i+1:] end
-           )' \
-         "$settings_file" >"$tmp"; then
-      mv "$tmp" "$settings_file"
-    else
-      rm -f "$tmp"
-    fi
-  fi
-fi
-
-# The default settings.json carries the monarch-agents bar widget, so the copy
-# above already restores it. What it cannot restore is the plugin's enabled
-# state, which lives in plugins.json and is left alone by the refresh — so a
-# user who disabled the plugin would get its pill back pointing at nothing.
-# Drop the widget again in that case.
-plugins_file="$HOME/.config/noctalia/plugins.json"
-if command -v jq >/dev/null && [[ -f $settings_file && -f $plugins_file ]] \
-   && ! jq -e '.states."monarch-agents".enabled == true' "$plugins_file" >/dev/null 2>&1; then
-  tmp=$(mktemp)
-  if jq '.bar.widgets.right = ((.bar.widgets.right // [])
-           | map(select(.id != "plugin:monarch-agents")))' "$settings_file" >"$tmp"; then
-    mv "$tmp" "$settings_file"
-  else
-    rm -f "$tmp"
-  fi
-fi
 
 setsid uwsm-app -- noctalia -d >/dev/null 2>&1 &
 

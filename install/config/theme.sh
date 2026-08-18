@@ -12,6 +12,6 @@ echo '{"browser":{"theme":{"color_scheme":0,"color_scheme2":0}}}' | sudo tee /us
 rm -rf ~/.config/chromium/SingletonLock # otherwise archiso will own the chromium singleton
 
 # Theming is delegated to Noctalia (colors, dark/light, templates). The shipped
-# Monarch scheme and settings.json are already in place via config.sh. Apply the
+# Monarch palette and config.toml are already in place via config.sh. Apply the
 # residual system layer once (seeds the wallpaper folder, themes Chromium/keyboard).
 monarch-theme-apply

@@ -7,11 +7,12 @@ set -euo pipefail
 echo "Installing Zed Editor..."
 monarch-pkg-add zed
 
-# Zed follows the active Monarch/Noctalia scheme through the [templates.zed]
-# Noctalia user-template (config/noctalia/templates/zed.json renders to
-# ~/.config/zed/themes/noctalia.json, shipped in the default config). Noctalia
-# re-renders it on every color generation and Zed hot-reloads its themes/ dir,
-# so theme switching is live. (This replaces the old `monzed` package.)
+# Zed follows the active Monarch/Noctalia scheme through the `zed` community
+# template, enabled by id in config/noctalia/config.toml — v5 dropped the
+# user-template mechanism Monarch used to ship its own renderer through.
+# Noctalia re-renders it on every color generation and Zed hot-reloads its
+# themes/ dir, so theme switching is live. (This replaces the old `monzed`
+# package.)
 
 # Select the theme so Zed actually uses it (the template only makes it
 # available). Fresh installs have no settings.json yet, so seed one that follows
@@ -25,18 +26,12 @@ elif ! grep -q '"Noctalia ' "$zed_settings"; then
   echo "Note: set ${theme_block} in $zed_settings to follow the Monarch theme."
 fi
 
-# Render the theme now so it exists before first launch: re-selecting the active
-# scheme makes Noctalia regenerate colors and render all user templates.
-#
-# TODO(noctalia-v5): the scheme name is still read from the v4 settings.json,
-# which v5 ignores (it reads noctalia_config.toml). The palette source keyword
-# is also a guess — `color-scheme-set` expects
-# <builtin|wallpaper|community|custom> <name-or-scheme>, and which one Monarch's
-# own scheme registers as has to be confirmed in the VM.
+# Render the theme now so it exists before first launch. v4 had to re-select the
+# active scheme to force a re-render, which meant reading the scheme name back
+# out of settings.json first; v5 has a verb for exactly this, so neither the
+# read nor the round-trip through color-scheme-set is needed.
 if command -v noctalia >/dev/null 2>&1; then
-  scheme=$(jq -r '.colorSchemes.predefinedScheme // "Monarch"' \
-    "$HOME/.config/noctalia/settings.json" 2>/dev/null || echo "Monarch")
-  noctalia msg color-scheme-set custom "$scheme" >/dev/null 2>&1 || true
+  noctalia msg templates-apply >/dev/null 2>&1 || true
 fi
 
 setsid gtk-launch dev.zed.Zed

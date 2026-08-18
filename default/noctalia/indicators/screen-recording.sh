@@ -1,19 +1,17 @@
 #!/bin/bash
 
-# Streaming text source for the Noctalia "screen-recording" CustomButton widget.
+# Streaming text source for the Noctalia "screen-recording" bar indicator.
 #
 # Replaces the old Waybar custom/screenrecording-indicator (default/waybar/
 # indicators/screen-recording.sh), which Noctalia has no built-in widget for.
-# CustomButton runs this via `sh -lc` in textStream mode: every emitted line
-# updates the widget.
+# The monarch-indicators plugin runs this through indicator.luau's runStream and
+# maps each emitted line onto the widget.
 #
-# Visibility must be driven by TEXT, not an icon: CustomButton's `_pillVisible`
-# is `hasOutput || (showIcon && hasActualIcon)`, and `hasActualIcon` is always
-# true because the widget's static icon falls back to a non-empty metadata
-# default ("heart") that an empty `icon` setting can't clear. So the widget
-# runs with showIcon:false and we emit a colored text indicator while
-# gpu-screen-recorder runs, and an empty object otherwise — with hideMode
-# "expandWithOutput", empty text (hasOutput=false) collapses the widget.
+# Visibility is driven by TEXT: we emit a colored indicator while
+# gpu-screen-recorder runs, and an empty object otherwise, which the plugin
+# turns into setVisible(false). (In v4 this was a hard constraint rather than a
+# convention — CustomButton's pill stayed visible for any icon it could fall
+# back to, so text was the only thing that could collapse it.)
 #
 # Click handling lives in the widget's leftClickExec
 # (monarch-capture-screenrecording, which stops the active recording).

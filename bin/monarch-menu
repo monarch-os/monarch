@@ -453,7 +453,7 @@ show_setup_config_menu() {
   Noctalia
 󰞅  XCompose") in
   *Niri*) open_in_editor ~/.config/niri/user.kdl && monarch-refresh-niri ;;
-  *Noctalia*) open_in_editor ~/.config/noctalia/settings.json && monarch-restart-noctalia ;;
+  *Noctalia*) open_in_editor ~/.config/noctalia/config.toml && noctalia msg config-reload ;;
   *XCompose*) open_in_editor ~/.XCompose && monarch-restart-xcompose ;;
   *) show_setup_menu ;;
   esac
