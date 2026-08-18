@@ -96,6 +96,36 @@ Exceptions are allowed for bootstrap, preflight, migration, and package-helper s
 - `default/noctalia/indicators/` - the shell scripts the bar indicators stream; each emits one JSON object per line
 - `themes/<scheme>/` - per-Noctalia-scheme wallpaper sets (flat layout, the only surviving `themes/` content); seeded into `~/.config/monarch/backgrounds/<scheme>/` by `monarch-theme-apply`
 
+# Menu
+
+**The menu is data, not code.** `default/monarch/monarch-menu.jsonc` holds the
+tree; `bin/monarch-menu` only renders it with fuzzel. Adding a menu entry means
+editing the `.jsonc`, never the renderer.
+
+- IDs are object keys and **the dotted ID is the tree** — `trigger.share.file`
+  is a child of `trigger.share`. There is no parent field to keep in sync.
+- Kind is inferred: `action` → action, `target` → link, otherwise submenu.
+  Guards are `when` (hide), `checked` (append ✓), `disabled` (listed but inert).
+- The user overlays `~/.config/monarch/extensions/monarch-menu.jsonc`, merged per
+  key *and per field*, so reusing a shipped ID overrides only what it declares
+  and keeps its position. New IDs append. The sample lives in
+  `config/monarch/extensions/`.
+- Routes resolve exact ID → alias → last ID segment, so `monarch menu style` and
+  `monarch menu trigger.capture` both work and new entries rarely need an alias.
+  **Watch the group collision**: `monarch menu share` dispatches to the
+  `monarch-menu-share` *command*, not to the menu's `trigger.share` route —
+  `monarch-menu share` is the one that opens the menu there.
+- Anything a row cannot express as one shell command belongs in a command of its
+  own (`monarch-capture-screenrecording-with-webcam`, `monarch-reminder -i`),
+  because actions run detached and cannot call helpers defined in the renderer.
+- Dynamic rows come from a `provider` (`fonts`, `power-profiles`), defined in the
+  renderer's `PROVIDER_*` maps. Data can point at one but cannot declare one.
+
+Validate with `bin/monarch-menu --check` (dangling targets, unknown providers,
+orphaned parents, childless submenus) and `bash test/monarch-menu-test.sh`, which
+drives real navigation through a fake `fuzzel` on `PATH`. `--resolve <route>` and
+`--rows <id>` print what the renderer would do without opening a window.
+
 # Theming
 
 Theming is delegated to Noctalia (see `THEMING_MIGRATION_PLAN.md`). Noctalia is the source of truth for colors, dark/light, app templates, wallpaper, and the shell. Monarch's home-grown theme engine (curated theme set, `default/themed/*.tpl`, per-theme `colors.toml`, `monarch-theme-set` and friends) has been removed.
