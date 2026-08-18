@@ -338,9 +338,16 @@ result with `wallpaper-set`. Design items 2 and 6 together.
 
 ### 7. Menu: quattro's data-driven menu, as a Noctalia panel
 
-**Not blocking, not requested. Do it after this branch merges.** A separate lot
-of four targeted `bin/monarch-menu` fixes is already done and does not depend on
-this — see the *Menu: fixes already landed* subsection at the end.
+**Split in two. Step 1 is done; step 2 is the panel.**
+
+- **Step 1 — the data model, rendered by fuzzel.** Shipped on `feat/menu-data`:
+  `default/monarch/monarch-menu.jsonc` (266 entries), `bin/monarch-menu` reduced
+  to a renderer, the user overlay moved from sourced bash to JSONC, and
+  `test/monarch-menu-test.sh` covering loading, the overlay, routes, guards and
+  navigation — the last through a fake `fuzzel` on `PATH`, so none of it needs a
+  compositor. `monarch-menu --check` validates the data in CI.
+- **Step 2 — the Noctalia panel.** Everything below still applies: the data file
+  is the input, and the panel replaces fuzzel as the renderer.
 
 **What quattro did.** `bin/omarchy-menu` went from ~800 lines of nested bash to
 **52 lines** of IPC wrapper. The content became data

@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # monarch:summary=Set and show lightweight desktop notification reminders
-# monarch:args=<minutes> [message] [-u low|normal|critical] | show | clear
-# monarch:examples=monarch reminder 5 | monarch reminder 30 "Check the oven" | monarch reminder 60 "Standup" -u normal | monarch reminder show | monarch reminder clear
+# monarch:args=<minutes> [message] [-u low|normal|critical] | -i | show | clear
+# monarch:examples=monarch reminder 5 | monarch reminder 30 "Check the oven" | monarch reminder 60 "Standup" -u normal | monarch reminder -i | monarch reminder show | monarch reminder clear
 
 set -euo pipefail
 
@@ -72,12 +72,17 @@ clear_reminders() {
 # "critical" so `monarch reminder <minutes> [message]` is unchanged; callers
 # like the todo TUI pass -u to match a task's priority.
 urgency="critical"
+interactive=false
 args=()
 while (($#)); do
   case $1 in
   -u | --urgency)
     urgency="${2:-critical}"
     shift 2
+    ;;
+  -i | --interactive)
+    interactive=true
+    shift
     ;;
   *)
     args+=("$1")
@@ -105,6 +110,22 @@ clear)
   exit 0
   ;;
 esac
+
+# `-i` walks the two prompts the menu used to own. An empty minutes field means
+# the picker was dismissed; an invalid one re-asks rather than failing.
+if [[ $interactive == true ]]; then
+  while true; do
+    prompted_minutes=$(monarch-menu-input "Remind in minutes")
+    [[ -z $prompted_minutes ]] && exit 0
+    if [[ $prompted_minutes =~ ^[0-9]+$ ]] && ((prompted_minutes > 0)); then
+      break
+    fi
+    monarch-notification-send "󰔛" "Invalid reminder" "Enter the number of minutes" -u critical
+  done
+
+  prompted_message=$(monarch-menu-input "Reminder message")
+  set -- "$prompted_minutes" ${prompted_message:+"$prompted_message"}
+fi
 
 minutes=${1:-}
 shift || true
