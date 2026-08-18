@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# monarch:summary=Record the screen with desktop audio, microphone and a webcam overlay
+# monarch:group=capture
+# monarch:name=screenrecord-with-webcam
+# monarch:examples=monarch capture screenrecord-with-webcam
+
+# Picking the camera used to live in monarch-menu, which could call its own
+# helpers. Menu actions now run detached, so this is a command of its own.
+
+set -euo pipefail
+
+# v4l2-ctl prints a name on its own line, then its device nodes indented. Keep
+# the first node of each block: "<device>  <name>", one camera per line.
+list_webcams() {
+  v4l2-ctl --list-devices 2>/dev/null | while IFS= read -r line; do
+    if [[ $line != $'\t'* && -n $line ]]; then
+      name="$line"
+      IFS= read -r device || break
+      device=$(echo "$device" | tr -d '\t' | head -1)
+      [[ -n $device ]] && echo "$device  $name"
+    fi
+  done
+}
+
+mapfile -t webcams < <(list_webcams)
+
+if ((${#webcams[@]} == 0)); then
+  monarch-notification-send "󰄀" "No webcam devices found" -u critical
+  exit 1
+fi
+
+if ((${#webcams[@]} == 1)); then
+  selection="${webcams[0]}"
+else
+  selection=$(monarch-menu-select "Select Webcam" "${webcams[@]}")
+  [[ -z $selection ]] && exit 0
+fi
+
+exec monarch-capture-screenrecording \
+  --with-desktop-audio \
+  --with-microphone-audio \
+  --with-webcam \
+  --webcam-device="${selection%% *}"
