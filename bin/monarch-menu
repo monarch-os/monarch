@@ -152,6 +152,72 @@ resolve_route() {
 
 guard_passes() { (eval "$1") >/dev/null 2>&1; }
 
+# Evaluating the guards is the whole cost of opening the menu: 137 of them on
+# the shipped tree, ~1s of the ~1s `--state` takes. Almost all of them call one
+# of four Monarch helpers, and each helper is a script, so a guard costs a fork
+# *and* an exec of bash — for work that is either a shell builtin or a lookup in
+# state that can be read once for the whole tree.
+#
+# Defining those four as functions collapses that: a function is found before
+# PATH, so the guards get them in-process, while the scripts stay exactly where
+# they are for every other caller (and for a guard in a user's extension that
+# calls something else entirely). Measured on the shipped tree: 990ms → 190ms,
+# with all 137 verdicts unchanged.
+#
+# Parallelising instead was tried and is slower — one bash per guard costs more
+# than the execs it removes. Keep these in step with the scripts they shadow:
+# bin/monarch-{cmd,pkg,desktop}-present and bin/monarch-default-browser.
+prime_guard_helpers() {
+  monarch-cmd-present() {
+    local cmd
+    for cmd in "$@"; do
+      command -v "$cmd" >/dev/null 2>&1 || return 1
+    done
+    return 0
+  }
+
+  monarch-desktop-present() {
+    local entry="${1:-}" dir
+    [[ -z $entry ]] && return 1
+    for dir in "$HOME/.local/share/applications" "$HOME/.nix-profile/share/applications" /usr/share/applications; do
+      [[ -f "$dir/$entry" ]] && return 0
+    done
+    return 1
+  }
+
+  # One snapshot of the local database instead of a `pacman -Q` per row. Only
+  # taken when something asks, so a tree with no package rows pays nothing.
+  if [[ $MENU_JSON == *monarch-pkg-present* ]]; then
+    declare -gA PKG_PRESENT=()
+    local pkg
+    while read -r pkg; do
+      PKG_PRESENT[$pkg]=1
+    done < <(pacman -Qq 2>/dev/null)
+    monarch-pkg-present() {
+      local pkg
+      for pkg in "$@"; do
+        [[ -n ${PKG_PRESENT[$pkg]:-} ]] || return 1
+      done
+      return 0
+    }
+  fi
+
+  # xdg-settings shells out to gio, so the browser rows were each paying for a
+  # full lookup — seven of them, ~35ms apiece. Resolve it once. Only the
+  # no-argument form is a query; with arguments this is a setter, which has side
+  # effects and must reach the real script.
+  if [[ $MENU_JSON == *monarch-default-browser* ]]; then
+    DEFAULT_BROWSER=$(command monarch-default-browser 2>/dev/null)
+    monarch-default-browser() {
+      if (($# == 0)); then
+        printf '%s\n' "$DEFAULT_BROWSER"
+        return 0
+      fi
+      command monarch-default-browser "$@"
+    }
+  fi
+}
+
 # ── Inspection ───────────────────────────────────────────────────────────────
 
 # Everything above renders; nothing below it opens a window. These modes are
@@ -161,39 +227,42 @@ guard_passes() { (eval "$1") >/dev/null 2>&1; }
 # Reports what the data says that the renderer cannot discover at runtime:
 # a target or provider that does not exist, an entry whose parent is missing,
 # and a submenu with no children.
+# One jq pass over the whole tree. The obvious shape — a loop calling `field`
+# and `level_rows` per entry — spawns roughly four jq processes per entry and
+# took 55 seconds on the shipped menu, which the test suite calls four times.
 check_menu() {
-  local status=0 key target provider parent
+  local providers findings
+  providers=$(printf '%s\n' "${!PROVIDER_LIST[@]}" | jq -R . | jq -sc .)
 
-  while read -r key; do
-    target=$(field "$key" target)
-    if [[ -n $target ]] && ! ids | grep -qxF "$target"; then
-      echo "$key: target '$target' does not exist" >&2
-      status=1
-    fi
+  findings=$(jq -r --argjson providers "$providers" '
+    . as $menu
+    | (keys_unsorted) as $ids
+    | ($ids | map({key: ., value: true}) | from_entries) as $exists
+    | ($ids | map(select(test("\\.")) | sub("\\.[^.]+$"; "")) | unique) as $parents
+    | [ to_entries[]
+        | .key as $id
+        | .value as $entry
+        | (if ($entry.target != null) and (($exists[$entry.target] // false) | not)
+           then "\($id): target \u0027\($entry.target)\u0027 does not exist" else empty end),
+          (if ($entry.provider != null) and (($providers | index($entry.provider)) == null)
+           then "\($id): unknown provider \u0027\($entry.provider)\u0027" else empty end),
+          ((($id | sub("\\.[^.]+$"; "")) as $parent
+            | if ($id | test("\\.")) and (($exists[$parent] // false) | not)
+              then "\($id): parent \u0027\($parent)\u0027 does not exist" else empty end)),
+          (if ($entry.action == null)
+              and ($entry.target == null)
+              and ($entry.provider == null)
+              and (($parents | index($id)) == null)
+           then "\($id): submenu with no children" else empty end)
+      ]
+    | .[]' <<<"$MENU_JSON")
 
-    provider=$(field "$key" provider)
-    if [[ -n $provider && -z ${PROVIDER_LIST[$provider]:-} ]]; then
-      echo "$key: unknown provider '$provider'" >&2
-      status=1
-    fi
+  if [[ -n $findings ]]; then
+    printf '%s\n' "$findings" >&2
+    return 1
+  fi
 
-    if [[ $key == *.* ]]; then
-      parent="${key%.*}"
-      if ! ids | grep -qxF "$parent"; then
-        echo "$key: parent '$parent' does not exist" >&2
-        status=1
-      fi
-    fi
-
-    if [[ -z $target && -z $provider ]] && [[ -z $(field "$key" action) ]] &&
-      [[ -z $(level_rows "$key") ]]; then
-      echo "$key: submenu with no children" >&2
-      status=1
-    fi
-  done < <(ids)
-
-  ((status == 0)) && echo "Menu data check passed ($(ids | wc -l) entries)"
-  return $status
+  echo "Menu data check passed ($(jq -r 'length' <<<"$MENU_JSON") entries)"
 }
 
 case "${1:-}" in
@@ -206,6 +275,7 @@ case "${1:-}" in
   # consumer decodes it natively, and parsing 130 lines in Luau is enough to
   # blow a plugin callback's CPU budget.
   load_menu
+  prime_guard_helpers
   guard_pairs=$(
     while IFS=$'\x1f' read -r key kind expression; do
       [[ -z $expression ]] && continue
@@ -224,14 +294,6 @@ case "${1:-}" in
     --argjson tree "$(jq -c 'to_entries | map({id: .key} + .value)' <<<"$MENU_JSON")" \
     --argjson guards "$(printf '%s' "$guard_pairs" | jq -R -s 'split("\n") | map(select(length > 0) | split("\t")) | map({key: .[0], value: (.[1] == "true")}) | from_entries')" \
     '{tree: $tree, guards: $guards}'
-  exit 0
-  ;;
---json)
-  # The whole tree as an ordered array, for consumers that cannot parse JSONC
-  # themselves — the Noctalia panel is killed by its per-callback CPU budget
-  # long before a 40 kB strip-and-decode finishes.
-  load_menu
-  jq -c 'to_entries | map({id: .key} + .value)' <<<"$MENU_JSON"
   exit 0
   ;;
 --provider)
@@ -260,26 +322,6 @@ case "${1:-}" in
   fi
   exec $action "${3:-}"
   ;;
---guards)
-  # Every guard in the tree, evaluated in this one process rather than one per
-  # row, and printed as `<id><TAB><w|c|d><TAB><0|1>`. The panel opens on the
-  # previous answers and corrects itself when this lands, so the runtime here is
-  # exactly how long a row can contradict the state it describes.
-  load_menu
-  while IFS=$'\x1f' read -r key kind expression; do
-    [[ -z $expression ]] && continue
-    if guard_passes "$expression"; then
-      printf '%s\t%s\t1\n' "$key" "$kind"
-    else
-      printf '%s\t%s\t0\n' "$key" "$kind"
-    fi
-  done < <(jq -r 'to_entries[] | .key as $k |
-    (if .value.when then [$k, "w", .value.when] else empty end),
-    (if .value.checked then [$k, "c", .value.checked] else empty end),
-    (if .value.disabled then [$k, "d", .value.disabled] else empty end)
-    | join("\u001f")' <<<"$MENU_JSON")
-  exit 0
-  ;;
 --resolve)
   load_menu
   resolve_route "${2:-}"
@@ -287,6 +329,7 @@ case "${1:-}" in
   ;;
 --rows)
   load_menu
+  prime_guard_helpers
   while IFS=$'\x1f' read -r key icon label when checked disabled; do
     [[ -z $key ]] && continue
     [[ -n $when ]] && ! guard_passes "$when" && continue
@@ -310,6 +353,12 @@ PANEL="monarch/menu:panel"
 
 case "${1:-}" in
 close) exec noctalia msg panel-close "$PANEL" ;;
+--*)
+  # Anything else starting with a dash is a typo, not a route: without this it
+  # would fall through and toggle the panel, which looks like the flag worked.
+  echo "monarch-menu: unknown option '$1'" >&2
+  exit 2
+  ;;
 esac
 
 exec noctalia msg panel-toggle "$PANEL" "${1:-root}"

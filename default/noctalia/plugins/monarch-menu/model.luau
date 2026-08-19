@@ -31,9 +31,9 @@ export type Menu = {
   crumbs: { [string]: string },
 }
 
--- The panel never parses the JSONC itself. `monarch-menu --json` already loads
--- the shipped file, overlays the user's and emits one ordered array, so this is
--- a plain decode of what bash produced.
+-- The panel never parses the JSONC itself. `monarch-menu --state` already loads
+-- the shipped file, overlays the user's and emits one ordered array alongside
+-- every evaluated guard, so this is a plain decode of what bash produced.
 --
 -- That split is not only taste: a plugin callback has a CPU budget, and a
 -- line-by-line strip of the 40 kB JSONC in Luau exceeds it. Decoding what bash

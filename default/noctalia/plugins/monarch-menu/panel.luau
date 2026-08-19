@@ -20,6 +20,10 @@ local cursor = 1
 local query = ""
 local searchRevision = 0
 local status = "Loading the menu…"
+-- Set the moment the user does anything with the panel. The state refresh lands
+-- after the first frame is already on screen and interactive, so it must correct
+-- the data under them rather than yank them back to the route they opened on.
+local interacted = false
 -- Provider rows are fetched per level and cached until another level is opened.
 local providerRows = {}
 local providerFor = nil
@@ -69,9 +73,11 @@ end
 local render
 
 -- Tree and guards come back together, on every open. Caching the tree across
--- opens would be cheaper but wrong: editing monarch-menu.jsonc, or the user's
--- own extension, would then change nothing until the shell restarted. Guards
--- have to be re-read every time anyway, so this costs one subprocess, not two.
+-- opens *instead* of re-reading it would be wrong: editing monarch-menu.jsonc, or
+-- the user's own extension, would then change nothing until the shell restarted.
+-- Guards have to be re-read every time anyway, so this costs one subprocess, not
+-- two. What the previous open left in `menu`/`guards` is still used to paint the
+-- first frame — see onOpen — but it is never what the panel settles on.
 local function refreshState(onDone)
   noctalia.runAsync(monarchShell("monarch-menu --state"), function(result)
     if not result or result.exitCode ~= 0 then
@@ -288,6 +294,8 @@ local function runEntry(id: string)
 end
 
 function activate()
+  interacted = true
+
   local row = rows[cursor]
   if not row then
     return
@@ -329,6 +337,8 @@ function activate()
 end
 
 local function back(): boolean
+  interacted = true
+
   if query ~= "" then
     query = ""
     searchRevision += 1
@@ -349,6 +359,8 @@ local function back(): boolean
 end
 
 local function moveCursor(delta: number)
+  interacted = true
+
   if #rows == 0 then
     return
   end
@@ -392,15 +404,50 @@ end
 
 local pendingContext = nil
 
+-- Whether last open's tree is safe to draw this route from, before the fresh
+-- state lands. Navigating a level is: the worst a stale guard does is show a row
+-- that turns out to be hidden, which the refresh corrects a moment later. Running
+-- an action is not — it would fire a command chosen on stale guards, and twice,
+-- since the refresh re-runs the route. An unknown route is not either: it pops an
+-- error and closes, which fresh data may well disprove. Both wait.
+local function canPaintFromRetained(context): boolean
+  if not menu then
+    return false
+  end
+
+  local route = model.resolveRoute(menu, context)
+  if route == "root" then
+    return true
+  end
+
+  local entry = menu.entries[route]
+  return entry ~= nil and entry.action == nil
+end
+
 function onOpen(context)
   pendingContext = context
+  interacted = false
+  -- Provider rows belong to the previous open, whichever path draws this one.
+  providerFor = nil
+  providerRows = {}
 
-  if not menu then
+  -- Paint from what the last open left behind, so the panel is on screen and
+  -- usable on the first frame instead of sitting on "Loading the menu…" for as
+  -- long as the guards take. refreshState() corrects it in place below.
+  if canPaintFromRetained(context) then
+    openAt(context)
+  elseif not menu then
     render()
   end
 
   refreshState(function()
-    -- Provider rows belong to the previous open; the level is re-entered below.
+    if interacted then
+      -- They have already typed or moved. Re-entering the route here would throw
+      -- that away, so only the data underneath them is refreshed.
+      refreshRows()
+      render()
+      return
+    end
     providerFor = nil
     providerRows = {}
     openAt(pendingContext)
@@ -408,6 +455,7 @@ function onOpen(context)
 end
 
 function onQueryChanged(value)
+  interacted = true
   query = value or ""
   cursor = 1
   refreshRows()

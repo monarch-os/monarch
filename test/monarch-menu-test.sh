@@ -216,37 +216,37 @@ rm -f "$USER_MENU"
 
 # ── The payloads the panel consumes ──────────────────────────────────────────
 
-output=$("$MENU" --json | jq -r '.[0].id + " " + .[-1].id')
-assert_equals "--json emits the tree in declaration order" "$output" "apps system.shutdown"
+# One payload feeds both the panel and the launcher: the tree in declaration
+# order, and every guard already evaluated.
+output=$("$MENU" --state | jq -r '.tree[0].id + " " + .tree[-1].id')
+assert_equals "--state emits the tree in declaration order" "$output" "apps system.shutdown"
 
-output=$("$MENU" --json | jq 'length')
-assert_equals "--json emits every entry" "$output" "$("$MENU" --rows '' >/dev/null; "$MENU" --json | jq 'length')"
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "learn.bash") | .action')
+assert_contains "--state carries the fields the panel renders" "$output" "devhints.io/bash"
 
-output=$("$MENU" --json | jq -r '.[] | select(.id == "learn.bash") | .action')
-assert_contains "--json carries the fields the panel renders" "$output" "devhints.io/bash"
-
-output=$("$MENU" --guards | awk -F'\t' '{print $2}' | sort -u | tr '\n' ' ')
-assert_equals "--guards reports all three guard kinds" "${output% }" "c d w"
+# Guards are keyed `<id>:<w|c|d>` so the consumer decodes them natively.
+output=$("$MENU" --state | jq -r '.guards | keys | map(split(":")[1]) | unique | join(" ")')
+assert_equals "--state reports all three guard kinds" "$output" "c d w"
 
 # Install rows stay listed when the software is already there, and say so with a
 # `disabled` guard; Remove rows are the opposite and hide what is not installed.
-output=$("$MENU" --json | jq -r '[.[] | select(.id | startswith("install.")) | select(.disabled)] | length')
+output=$("$MENU" --state | jq -r '[.tree[] | select(.id | startswith("install.")) | select(.disabled)] | length')
 if [[ $output -lt 40 ]]; then
   fail "install rows carry a presence guard"
 fi
 pass "install rows carry a presence guard"
 
-output=$("$MENU" --json | jq -r '[.[] | select(.id | startswith("install.")) | select(.when)] | length')
+output=$("$MENU" --state | jq -r '[.tree[] | select(.id | startswith("install.")) | select(.when)] | length')
 assert_equals "install rows never hide with when" "$output" "0"
 
-output=$("$MENU" --json | jq -r '[.[] | select(.id | startswith("remove.")) | select(.disabled)] | length')
+output=$("$MENU" --state | jq -r '[.tree[] | select(.id | startswith("remove.")) | select(.disabled)] | length')
 assert_equals "remove rows never dim with disabled" "$output" "0"
 
-output=$("$MENU" --guards | grep -c 'trigger.hardware')
+output=$("$MENU" --state | jq -r '[.guards | keys[] | select(startswith("trigger.hardware"))] | length')
 if [[ $output -lt 1 ]]; then
-  fail "--guards evaluates the hardware guards"
+  fail "--state evaluates the hardware guards"
 fi
-pass "--guards evaluates the hardware guards"
+pass "--state evaluates the hardware guards"
 
 # Providers are resolved by id, and only for entries that declare one. What a
 # provider lists depends on the machine — a CI runner has no power profiles — so
