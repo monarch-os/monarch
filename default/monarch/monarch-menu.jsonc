@@ -42,8 +42,8 @@
 
   // Learn
   "learn.keybindings": {"icon":"","label":"Keybindings","action":"monarch-menu-keybindings"},
-  "learn.monarch": {"icon":"","label":"Monarch","action":"monarch-launch-webapp 'https://docs.monarchlinux.com/'"},
-  "learn.niri": {"icon":"","label":"Niri","action":"monarch-launch-webapp 'https://yalter.github.io/niri/'"},
+  "learn.monarch": {"icon":"󰆥","label":"Monarch","action":"monarch-launch-webapp 'https://docs.monarchlinux.com/'"},
+  "learn.niri": {"icon":"","label":"Niri","action":"monarch-launch-webapp 'https://yalter.github.io/niri/'"},
   "learn.arch": {"icon":"󰣇","label":"Arch","action":"monarch-launch-webapp 'https://wiki.archlinux.org/title/Main_page'"},
   "learn.neovim": {"icon":"","label":"Neovim","action":"monarch-launch-webapp 'https://www.lazyvim.org/keymaps'"},
   "learn.bash": {"icon":"󱆃","label":"Bash","action":"monarch-launch-webapp 'https://devhints.io/bash'"},
@@ -104,7 +104,7 @@
   // Style
   "style.font": {"icon":"","label":"Font","provider":"fonts"},
   "style.background": {"icon":"","label":"Background","aliases":["wallpaper"],"action":"noctalia msg panel-toggle wallpaper"},
-  "style.niri": {"icon":"","label":"Niri","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\""},
+  "style.niri": {"icon":"","label":"Niri","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\""},
   "style.screensaver": {"icon":"󱄄","label":"Screensaver"},
   "style.about": {"icon":"","label":"About"},
 
@@ -117,12 +117,12 @@
   "style.about.default": {"icon":"","label":"Restore Default","action":"monarch-branding-about reset"},
 
   // Setup
-  "setup.audio": {"label":"Audio","action":"monarch-launch-audio"},
-  "setup.wifi": {"label":"Wifi","action":"monarch-launch-wifi"},
+  "setup.audio": {"icon":"","label":"Audio","action":"monarch-launch-audio"},
+  "setup.wifi": {"icon":"󱚾","label":"Wifi","action":"monarch-launch-wifi"},
   "setup.bluetooth": {"icon":"󰂯","label":"Bluetooth","action":"monarch-launch-bluetooth"},
   "setup.power": {"icon":"󱐋","label":"Power Profile","title":"Power Profile","provider":"power-profiles"},
-  "setup.sleep": {"label":"System Sleep","title":"System Sleep"},
-  "setup.niri": {"label":"Niri","when":"[[ -f $HOME/.config/niri/user.kdl ]]","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\""},
+  "setup.sleep": {"icon":"󰒲","label":"System Sleep","title":"System Sleep"},
+  "setup.niri": {"icon":"","label":"Niri","when":"[[ -f $HOME/.config/niri/user.kdl ]]","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\""},
   "setup.defaults": {"icon":"","label":"Defaults","title":"Defaults"},
   "setup.dns": {"icon":"󰱔","label":"DNS","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-dns"},
   "setup.language": {"icon":"󰗊","label":"Language","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-language"},
@@ -170,8 +170,8 @@
   "setup.defaults.editor.emacs": {"icon":"","label":"Emacs","when":"monarch-cmd-present emacs","checked":"[[ $(monarch-default-editor) == emacs ]]","action":"monarch-default-editor emacs"},
 
   // Setup > Config
-  "setup.config.niri": {"label":"Niri","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\" && monarch-refresh-niri"},
-  "setup.config.noctalia": {"label":"Noctalia","action":"notify-send -u low 'Editing config file' \"$HOME/.config/noctalia/config.toml\"; monarch-launch-editor \"$HOME/.config/noctalia/config.toml\" && noctalia msg config-reload"},
+  "setup.config.niri": {"icon":"","label":"Niri","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\" && monarch-refresh-niri"},
+  "setup.config.noctalia": {"icon":"󰕮","label":"Noctalia","action":"notify-send -u low 'Editing config file' \"$HOME/.config/noctalia/config.toml\"; monarch-launch-editor \"$HOME/.config/noctalia/config.toml\" && noctalia msg config-reload"},
   "setup.config.xcompose": {"icon":"󰞅","label":"XCompose","action":"notify-send -u low 'Editing config file' \"$HOME/.XCompose\"; monarch-launch-editor \"$HOME/.XCompose\" && monarch-restart-xcompose"},
 
   // Install
@@ -323,16 +323,16 @@
 
   // Remove > Development. Most rows carry no icon here, matching the bash menu.
   "remove.development.rails": {"icon":"󰫏","label":"Ruby on Rails","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env ruby\"","when":"monarch-cmd-present ruby"},
-  "remove.development.javascript": {"label":"JavaScript"},
-  "remove.development.go": {"label":"Go","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env go\"","when":"monarch-cmd-present go"},
-  "remove.development.php": {"label":"PHP"},
-  "remove.development.python": {"label":"Python","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env python\""},
-  "remove.development.elixir": {"label":"Elixir"},
-  "remove.development.zig": {"label":"Zig","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env zig\"","when":"monarch-cmd-present zig"},
-  "remove.development.rust": {"label":"Rust","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env rust\"","when":"monarch-cmd-present cargo"},
-  "remove.development.java": {"label":"Java","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env java\"","when":"monarch-cmd-present java"},
-  "remove.development.dotnet": {"label":".NET","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env dotnet\"","when":"monarch-cmd-present dotnet"},
-  "remove.development.ocaml": {"label":"OCaml","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env ocaml\"","when":"monarch-cmd-present ocaml"},
+  "remove.development.javascript": {"icon":"","label":"JavaScript"},
+  "remove.development.go": {"icon":"","label":"Go","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env go\"","when":"monarch-cmd-present go"},
+  "remove.development.php": {"icon":"","label":"PHP"},
+  "remove.development.python": {"icon":"","label":"Python","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env python\""},
+  "remove.development.elixir": {"icon":"","label":"Elixir"},
+  "remove.development.zig": {"icon":"","label":"Zig","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env zig\"","when":"monarch-cmd-present zig"},
+  "remove.development.rust": {"icon":"","label":"Rust","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env rust\"","when":"monarch-cmd-present cargo"},
+  "remove.development.java": {"icon":"","label":"Java","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env java\"","when":"monarch-cmd-present java"},
+  "remove.development.dotnet": {"icon":"","label":".NET","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env dotnet\"","when":"monarch-cmd-present dotnet"},
+  "remove.development.ocaml": {"icon":"","label":"OCaml","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env ocaml\"","when":"monarch-cmd-present ocaml"},
   "remove.development.clojure": {"icon":"","label":"Clojure","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env clojure\"","when":"monarch-cmd-present clojure"},
   "remove.development.scala": {"icon":"","label":"Scala","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env scala\"","when":"monarch-cmd-present scala"},
 
@@ -358,14 +358,14 @@
   "update.timezone": {"icon":"","label":"Timezone","action":"monarch-launch-floating-terminal-with-presentation monarch-tz-select"},
   "update.time": {"icon":"","label":"Time","action":"monarch-launch-floating-terminal-with-presentation monarch-update-time"},
 
-  "update.channel.stable": {"icon":"🟢","label":"Stable","action":"monarch-launch-floating-terminal-with-presentation \"monarch-channel-set stable\""},
-  "update.channel.dev": {"icon":"🔴","label":"Dev","action":"monarch-launch-floating-terminal-with-presentation \"monarch-channel-set dev\""},
+  "update.channel.stable": {"icon":"󰕥","label":"Stable","action":"monarch-launch-floating-terminal-with-presentation \"monarch-channel-set stable\""},
+  "update.channel.dev": {"icon":"󰂓","label":"Dev","action":"monarch-launch-floating-terminal-with-presentation \"monarch-channel-set dev\""},
 
-  "update.config.niri": {"label":"Niri","action":"monarch-launch-floating-terminal-with-presentation monarch-refresh-niri"},
+  "update.config.niri": {"icon":"","label":"Niri","action":"monarch-launch-floating-terminal-with-presentation monarch-refresh-niri"},
   "update.config.plymouth": {"icon":"󱣴","label":"Plymouth","action":"monarch-launch-floating-terminal-with-presentation monarch-refresh-plymouth"},
-  "update.config.noctalia": {"label":"Noctalia","action":"monarch-launch-floating-terminal-with-presentation monarch-refresh-noctalia"},
+  "update.config.noctalia": {"icon":"󰕮","label":"Noctalia","action":"monarch-launch-floating-terminal-with-presentation monarch-refresh-noctalia"},
 
-  "update.process.noctalia": {"label":"Noctalia","action":"monarch-restart-noctalia"},
+  "update.process.noctalia": {"icon":"󰕮","label":"Noctalia","action":"monarch-restart-noctalia"},
 
   "update.hardware.audio": {"icon":"","label":"Audio","action":"monarch-launch-floating-terminal-with-presentation monarch-restart-pipewire"},
   "update.hardware.wifi": {"icon":"󱚾","label":"Wi-Fi","action":"monarch-launch-floating-terminal-with-presentation monarch-restart-wifi"},
