@@ -101,15 +101,33 @@ early. And v5 passes the hook **no arguments** — v4's appearance as `$1` is go
 so both the appearance and the scheme name come over IPC; the header comment
 claiming otherwise was wrong and has been fixed.
 
-**The picker itself is a separate layer (Part 2, tied to item 6).** The user
-wants Omarchy quattro's image-grid switcher, which is a Quickshell plugin
-(`omarchy-shell image-selector open` → its `ImagePicker`) and does not port.
-Reproducing it on v5 means building an image-grid picker as a Noctalia `[[panel]]`
-over the `ui.*` tree (`image`, `scroll`, `input`, `button`; keyboard via
-`capture_keys` ≥ 13, in range) reading the same two folders and driving
-`wallpaper-set` — the same rendering-layer effort as item 7's menu panel. The
-farm above is the shared data model both the native picker and a future grid sit
-on. Decide alongside items 6 and 7.
+**The picker is settled: Noctalia already ships one.** This section used to plan
+an image-grid picker as a Monarch `[[panel]]`, on the premise that v5 had none.
+That premise is wrong. `noctalia msg panel-open wallpaper` opens a native panel
+with a virtual grid of thumbnails, a filter field, per-wallpaper favourites,
+sorting by name/date/random, a flatten toggle and a per-monitor selector — richer
+than quattro's. It reads `wallpaper.directory`, so it is already sitting on the
+farm above.
+
+Two ids are easy to confuse: the *panel* is `wallpaper`, while `wallpaper-selector`
+is the **bar widget**. `panel-toggle` returns `ok` for any id, valid or not, so a
+wrong one fails silently; `panel-open` validates and prints the valid ids in its
+error, which is the quick way to check.
+
+A Monarch alternative modelled on quattro's carousel was built and measured
+against it. Verdict: keep the native panel, revisit when Noctalia's plugin API
+can express the look. Reasons, in order of weight:
+
+- quattro's slices are masked parallelograms with an explicit z-order, and the
+  v5 plugin API has no shape, transform, mask or stacking primitive — see the
+  facts section. What *can* be matched (portrait slices, overlap via a negative
+  `gap`, dimming via `opacity` on a wrapper, a centred selection) gets close but
+  not there.
+- a plugin cannot fix that: the API is a fixed vocabulary of node types with
+  allowlisted props, and unknown props are logged and dropped.
+- doing it outside Noctalia — a Quickshell overlay, which is how Omarchy hosts
+  its picker — is possible and cheap on disk, but expensive in memory. See the
+  facts section for the numbers.
 
 ---
 
@@ -399,6 +417,12 @@ second path exactly. So rather than fighting for a Noctalia IPC that does not
 exist, do the resolution Monarch-side in `monarch-theme-apply` and write the
 result with `wallpaper-set`. Design items 2 and 6 together.
 
+The background half of that is now done and verified (item 2), and the picker
+question that hung off it is closed: Noctalia ships its own, and Monarch keeps
+it. What remains here is the *theming* half — user-authored templates — which
+the plugin API's rendering ceiling does not affect either way, since it is about
+what the shell renders per app, not about what a plugin may draw.
+
 ### 7. Menu: quattro's data-driven menu, as a Noctalia panel
 
 **Split in two. Step 1 is done; step 2 is the panel.**
@@ -516,6 +540,36 @@ to verify before swapping: whether it accepts empty stdin and returns typed text
 first pass, and the panel port then becomes purely about the menu's *shape*
 rather than its renderer.
 
+#### Menu: applications as menu rows — *built, then rolled back*
+
+Quattro's `apps` entry declares `"provider":"apps"` and renders the application
+list as rows of the menu; Monarch's hands off to Noctalia's launcher. The quattro
+shape was implemented and worked end to end — `monarch app list` enumerating
+desktop entries (XDG order, `NoDisplay`/`Hidden`/`OnlyShowIn`/`NotShowIn`, user
+copies shadowing system ones) with each `Icon=` resolved through the icon themes,
+`monarch app launch` running one by id via `uwsm-app`, the rows spliced into the
+tree so search reached them, and real per-app icons drawn with `ui.image`.
+
+Rolled back (`d0defa51`, recoverable with `git cherry-pick`) once the follow-up
+question — a right-click action such as uninstall — turned out to be unbuildable
+here: right-click is button-only and plugin context menus need API 28 (see the
+facts section). An uninstall would also have covered only 21 of 34 applications,
+the rest being the webapps and TUIs Monarch generates, which have their own
+removal paths. Without a secondary action the list adds little over the native
+launcher, which already has icons, fuzzy search and frecency.
+
+Two findings worth keeping if this is revisited:
+
+- **Catalogue vs selector.** A provider that declares a `current` command is a
+  selector (fonts, power profiles) and needs its tick, so it stays on the runtime
+  path; one without is a catalogue and can be merged into the tree, where search
+  and activation treat its rows like any shipped entry.
+- **A merged entry must stop advertising `provider`.** The panel fetches one at
+  runtime whenever it sees the field, and then displays that older batch instead
+  of the merged rows. The symptom is indistinguishable from icons failing to
+  render — the rows appear, but blank and without images — and cost four rounds
+  of blaming `ui.image`, which was innocent.
+
 #### Menu: fixes already landed
 
 Independent of the port, applied to the current bash menu:
@@ -544,6 +598,62 @@ Independent of the port, applied to the current bash menu:
 ## v5 facts worth not rediscovering
 
 Hard-won during the port; all verified against a running v5.0.0-beta.8.
+
+**The plugin UI API is a vocabulary, not a toolkit.** A plugin describes a tree
+of typed nodes and the host renders it: `column row box label glyph image
+separator spacer progress button graph input markdown select slider toggle scroll
+dragSource dropZone`, each with an allowlist of props (`kFlex`, `kBox`, `kImage`…
+in `src/ui/ui_tree_reconciler.cpp`). Anything else is logged as
+`ui tree: '<node>' has no prop '<name>', ignored` and dropped. There is **no**
+shape or vector geometry, transform, mask, shader or z-order — children paint in
+tree order. Quickshell, which Omarchy uses, exposes the whole Qt Quick scene
+graph instead; that is the difference, and it is a deliberate one, since v5 left
+Quickshell for C++ and gives script callbacks a CPU budget.
+
+Nothing suggests this changes soon. 28 API levels shipped in a few months and
+every one is a *capability* — HTTP streaming, drag and drop, keyboard focus,
+system monitoring, audio, markdown, module loading, context menus — none a
+rendering primitive; six weeks of commits on the reconciler are all widgets and
+interaction. Three upstream requests cover exactly the gap and none is triaged:
+[#3507](https://github.com/noctalia-dev/noctalia/issues/3507) (transform,
+clipping, transitions), [#3607](https://github.com/noctalia-dev/noctalia/issues/3607)
+(skew), [#3923](https://github.com/noctalia-dev/noctalia/issues/3923) (animated
+gradients) — no label, no milestone, no comment, no reaction, in a backlog of
+132 open feature issues with no milestones and no published roadmap.
+
+**A prop set to nil is not cleared, it is left alone.** The host applies a prop
+only when it is present, and `row`/`column` have no clear-on-absence path (only
+`drop_zone` does). `fill = selected and "primary/0.12" or nil` therefore left the
+old fill painted, so every row the cursor passed through stayed highlighted. Pass
+an explicit value — `"primary/0"` — for the off state.
+
+**`opacity` and a negative `gap` both work.** Useful when a design needs dimming
+or overlap: `opacity` is valid on `row`/`column`/`box` (not on `image`, so wrap
+it), and `setGap` does not clamp negatives, so children overlap. `ui.spacer` is
+*flexible* space and will swallow a row; a fixed gap wants `ui.box({width = n})`.
+
+**Right-click is button-only, and plugin context menus are not in beta.8.**
+`onRightClick` appears in `kButton` alone; `row`/`column` take `onClick` and
+`onHover`. The plugin-facing context-menu API arrived at API level 28 and is
+absent from the shipped binary, which supports up to 23. Any secondary action on
+a list row has to be a button, a keyboard chord, or a submenu until Monarch moves
+to a newer Noctalia.
+
+**Quickshell as an escape hatch: cheap on disk, expensive in memory.** Measured
+on a Monarch install: 13 MiB installed and 3.1 MiB downloaded, because SDDM
+already pulls `qt6-base` (66 MiB) and `qt6-declarative` (120 MiB) — only
+`quickshell`, `qt6-wayland`, `libdwarf` and `cpptrace` are new. Noctalia itself
+depends on no Qt at all. But an *empty* Quickshell instance costs 205 MiB RSS /
+125 MiB PSS, more than the whole Noctalia shell (159 / 113), and a wallpaper
+picker with thumbnails ~255 / 174 — the naive version, loading full-resolution
+images, hit 765 / 684, which is why quattro loads pre-generated thumbnails.
+Note the disk figure is contingent: swap SDDM for `noctalia-greeter` and nothing
+pulls `qt6-declarative`, so Quickshell would cost ~193 MiB instead of 13.
+
+**The `colors_changed` hook fires late and passes nothing.** It runs a few
+seconds after the change, not synchronously — long enough to conclude it never
+fired if you look too early. And v5 passes the hook **no arguments**: v4's
+`"dark"`/`"light"` as `$1` is gone, so appearance and scheme both come over IPC.
 
 **The validator has blind spots.** `noctalia config validate` does *not* check
 inline tables, `[plugin_settings]` keys, widget ids, or enum values.
