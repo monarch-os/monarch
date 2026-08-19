@@ -22,6 +22,12 @@ local function monarchRoot(): string
   return noctalia.expandPath("~/.local/share/monarch")
 end
 
+-- runAsync's argv-table form needs plugin_api >= 24 and this plugin targets 22,
+-- so every command is a shell string and its arguments are quoted by hand.
+local function shellQuote(text: string): string
+  return "'" .. text:gsub("'", "'\\''") .. "'"
+end
+
 function M.indicatorPath(name: string): string
   return monarchRoot() .. "/default/noctalia/indicators/" .. name
 end
@@ -120,8 +126,14 @@ end
 function M.stream(script: string)
   barWidget.setVisible(false)
 
+  -- Run through bash rather than exec'ing the path: the executable bit does not
+  -- survive every way this repo reaches a machine — the ISO installer copies it
+  -- with `cp -r`, which drops it, and restored it only for `bin/` and for three
+  -- waybar paths that the v5 port deleted. All three streamed indicators were
+  -- therefore non-executable on every installed system, and a stream that never
+  -- starts is invisible: exactly the failure that survived the whole port.
   local path = M.indicatorPath(script)
-  local ok = noctalia.runStream(path, function(line: string)
+  local ok = noctalia.runStream("bash " .. shellQuote(path), function(line: string)
     if line == "" then
       return
     end
