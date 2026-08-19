@@ -1,0 +1,451 @@
+--!nonstrict
+-- The Monarch menu as a Noctalia panel. Replaces the fuzzel renderer in
+-- bin/monarch-menu, which is now only an IPC wrapper: the tree still comes from
+-- default/monarch/monarch-menu.jsonc, and all of the parsing, route resolution
+-- and guard batching lives in model.luau next door.
+--
+-- The shell runs without Monarch's bin on PATH, so every action and every guard
+-- is launched through a shell with that directory prepended — see monarchBin.
+
+local model = require("./model.luau")
+
+local HOME = noctalia.getenv("HOME") or ""
+local MONARCH_BIN = HOME .. "/.local/share/monarch/bin"
+
+local menu = nil
+local guards = {}
+local stack = { "root" }
+local rows = {}
+local cursor = 1
+local query = ""
+local searchRevision = 0
+local status = "Loading the menu…"
+-- Provider rows are fetched per level and cached until another level is opened.
+local providerRows = {}
+local providerFor = nil
+
+local function shellQuote(text: string): string
+  return "'" .. text:gsub("'", "'\\''") .. "'"
+end
+
+-- Anything Monarch ships is resolved from its own bin, which the shell's own
+-- PATH does not include.
+local function monarchShell(command: string): string
+  return "bash -c " .. shellQuote("export PATH=" .. MONARCH_BIN .. ':"$PATH"\n' .. command)
+end
+
+local function currentLevel(): string
+  return stack[#stack]
+end
+
+-- Rows are uniform whichever level they come from: an entry row carries an id,
+-- a provider row carries the value the provider will be handed back. Cursor,
+-- rendering and activation only ever see this shape.
+local function entryRows(ids: { string })
+  local out = {}
+  for _, id in ids do
+    table.insert(out, { kind = "entry", id = id })
+  end
+  return out
+end
+
+local function refreshRows()
+  if query ~= "" then
+    rows = entryRows(model.search(menu, query, guards))
+  elseif providerFor == currentLevel() then
+    rows = providerRows
+  else
+    rows = entryRows(model.visibleChildren(menu, currentLevel(), guards))
+  end
+
+  if cursor > #rows then
+    cursor = #rows
+  end
+  if cursor < 1 then
+    cursor = 1
+  end
+end
+
+local render
+
+-- Tree and guards come back together, on every open. Caching the tree across
+-- opens would be cheaper but wrong: editing monarch-menu.jsonc, or the user's
+-- own extension, would then change nothing until the shell restarted. Guards
+-- have to be re-read every time anyway, so this costs one subprocess, not two.
+local function refreshState(onDone)
+  noctalia.runAsync(monarchShell("monarch-menu --state"), function(result)
+    if not result or result.exitCode ~= 0 then
+      status = "monarch-menu --state failed"
+      render()
+      return
+    end
+
+    local payload = noctalia.json.decode(result.stdout or "")
+    if type(payload) ~= "table" then
+      status = "The menu data did not parse"
+      render()
+      return
+    end
+
+    local parsed = model.fromArray(payload.tree)
+    if not parsed then
+      status = "The menu data did not parse"
+      render()
+      return
+    end
+
+    menu = parsed
+    -- Already an object keyed `<id>:<w|c|d>`: decoded natively, never parsed here.
+    guards = payload.guards or {}
+
+    if onDone then
+      onDone()
+    end
+  end)
+end
+
+local function providerRowFor(row, index: number)
+  return ui.row({
+    key = "value:" .. row.value,
+    gap = 10,
+    align = "center",
+    padding = 8,
+    radius = 8,
+    fill = index == cursor and "primary/0.12" or nil,
+    onClick = function()
+      cursor = index
+      activate()
+    end,
+  }, {
+    ui.label({ text = row.label, flexGrow = 1, color = "on_surface" }),
+    row.current and ui.label({ text = "✓", color = "primary" }) or ui.label({ text = "" }),
+  })
+end
+
+local function rowFor(row, index: number)
+  if row.kind == "value" then
+    return providerRowFor(row, index)
+  end
+
+  local id = row.id
+  local entry = menu.entries[id]
+  local selected = index == cursor
+  local isDisabled = entry.disabled and entry.disabled ~= "" and guards[id .. ":d"] == true
+  local isChecked = isDisabled
+    or (entry.checked and entry.checked ~= "" and guards[id .. ":c"] == true)
+
+  local label = model.labelOf(menu, id)
+  -- While searching, rows come from the whole tree, so each one says where it
+  -- lives — otherwise three rows called "PHP" are indistinguishable.
+  if query ~= "" then
+    local parent = model.parentOf(menu, id)
+    if parent ~= "root" then
+      label = label .. "  ·  " .. model.breadcrumb(menu, parent)
+    end
+  end
+
+  local children = {
+    ui.label({
+      text = entry.icon or "",
+      width = 22,
+      color = isDisabled and "on_surface_variant" or "on_surface",
+    }),
+    ui.label({
+      text = label,
+      flexGrow = 1,
+      color = isDisabled and "on_surface_variant" or "on_surface",
+    }),
+  }
+
+  if isChecked then
+    table.insert(children, ui.label({ text = "✓", color = "primary" }))
+  elseif not entry.action and not entry.target then
+    table.insert(children, ui.label({ text = "›", color = "on_surface_variant" }))
+  end
+
+  -- The row is its own highlight: `ui.box` takes no children, so wrapping one
+  -- around the row silently drops everything inside it.
+  return ui.row({
+    key = id,
+    gap = 10,
+    align = "center",
+    padding = 8,
+    radius = 8,
+    fill = selected and "primary/0.12" or nil,
+    onClick = isDisabled and nil or function()
+      cursor = index
+      activate()
+    end,
+  }, children)
+end
+
+function render()
+  if not menu then
+    panel.render(ui.column({ flexGrow = 1, gap = 12 }, {
+      ui.label({ text = status, color = "on_surface_variant" }),
+    }))
+    return
+  end
+
+  local children = {}
+  if #rows == 0 then
+    table.insert(children, ui.label({ text = "Nothing here", color = "on_surface_variant" }))
+  else
+    for index, row in rows do
+      table.insert(children, rowFor(row, index))
+    end
+  end
+
+  panel.render(ui.column({ flexGrow = 1, gap = 10 }, {
+    ui.row({ align = "center", gap = 8 }, {
+      ui.label({
+        text = query ~= "" and "Search" or model.breadcrumb(menu, currentLevel()),
+        fontSize = 15,
+        fontWeight = "bold",
+        color = "on_surface",
+        flexGrow = 1,
+      }),
+      ui.button({ glyph = "close", onClick = "onCloseClicked" }),
+    }),
+
+    ui.input({
+      key = "search-" .. searchRevision,
+      placeholder = "Search the menu…",
+      focus = true,
+      onChange = "onQueryChanged",
+      onSubmit = "onQuerySubmitted",
+    }),
+
+    ui.scroll({ flexGrow = 1, gap = 2, align = "stretch" }, children),
+  }))
+end
+
+-- ── Navigation ───────────────────────────────────────────────────────────────
+
+-- Provider rows only exist at runtime, so they are fetched when their level is
+-- opened rather than held with the tree. The cursor lands on the current value,
+-- which is what the fuzzel renderer got from --select.
+local function fetchProvider(id: string)
+  providerFor = nil
+  providerRows = {}
+
+  noctalia.runAsync(monarchShell("monarch-menu --provider " .. shellQuote(id)), function(result)
+    if not result or result.exitCode ~= 0 then
+      return
+    end
+
+    local decoded = noctalia.json.decode(result.stdout or "")
+    if type(decoded) ~= "table" then
+      return
+    end
+
+    local out = {}
+    for _, item in decoded do
+      table.insert(out, { kind = "value", label = item.label, value = item.value, current = item.current })
+    end
+
+    providerRows = out
+    providerFor = id
+    cursor = 1
+    for index, row in out do
+      if row.current then
+        cursor = index
+        break
+      end
+    end
+
+    refreshRows()
+    render()
+  end)
+end
+
+local function enter(id: string)
+  stack = { "root" }
+  local segments = {}
+  local walk = id
+  while walk ~= "root" do
+    table.insert(segments, 1, walk)
+    walk = model.parentOf(menu, walk)
+  end
+  for _, segment in segments do
+    table.insert(stack, segment)
+  end
+  cursor = 1
+
+  local entry = menu.entries[id]
+  if entry and entry.provider then
+    fetchProvider(id)
+  end
+end
+
+local function runEntry(id: string)
+  local entry = menu.entries[id]
+  if not entry or not entry.action then
+    return
+  end
+  noctalia.runAsync(monarchShell(entry.action))
+  panel.close()
+end
+
+function activate()
+  local row = rows[cursor]
+  if not row then
+    return
+  end
+
+  -- A provider row hands its value straight back to the provider that produced
+  -- it; the mapping from provider name to command lives in bin/monarch-menu.
+  if row.kind == "value" then
+    noctalia.runAsync(monarchShell(
+      "monarch-menu --provider-set " .. shellQuote(providerFor) .. " " .. shellQuote(row.value)
+    ))
+    panel.close()
+    return
+  end
+
+  local id = row.id
+  local entry = menu.entries[id]
+  if not entry then
+    return
+  end
+
+  if entry.disabled and entry.disabled ~= "" and guards[id .. ":d"] == true then
+    return
+  end
+
+  if entry.action then
+    runEntry(id)
+    return
+  end
+
+  local destination = entry.target or id
+  -- Leaving search mode: the row was found across the tree, so the level it
+  -- opens is wherever it actually lives.
+  query = ""
+  searchRevision += 1
+  enter(destination)
+  refreshRows()
+  render()
+end
+
+local function back(): boolean
+  if query ~= "" then
+    query = ""
+    searchRevision += 1
+    refreshRows()
+    render()
+    return true
+  end
+
+  if #stack <= 1 then
+    return false
+  end
+
+  table.remove(stack)
+  cursor = 1
+  refreshRows()
+  render()
+  return true
+end
+
+local function moveCursor(delta: number)
+  if #rows == 0 then
+    return
+  end
+  cursor += delta
+  if cursor < 1 then
+    cursor = #rows
+  elseif cursor > #rows then
+    cursor = 1
+  end
+  render()
+end
+
+-- ── Host callbacks ───────────────────────────────────────────────────────────
+
+local function openAt(context: string?)
+  local route = model.resolveRoute(menu, context)
+
+  if route ~= "root" and not menu.entries[route] then
+    noctalia.notifyError("Unknown menu route", route)
+    panel.close()
+    return
+  end
+
+  local entry = route ~= "root" and menu.entries[route] or nil
+  -- A route that names an action runs it rather than opening an empty level.
+  if entry and entry.action then
+    runEntry(route)
+    return
+  end
+
+  if entry and entry.target then
+    route = entry.target
+  end
+
+  query = ""
+  searchRevision += 1
+  enter(route)
+  refreshRows()
+  render()
+end
+
+local pendingContext = nil
+
+function onOpen(context)
+  pendingContext = context
+
+  if not menu then
+    render()
+  end
+
+  refreshState(function()
+    -- Provider rows belong to the previous open; the level is re-entered below.
+    providerFor = nil
+    providerRows = {}
+    openAt(pendingContext)
+  end)
+end
+
+function onQueryChanged(value)
+  query = value or ""
+  cursor = 1
+  refreshRows()
+  render()
+end
+
+function onQuerySubmitted(_value)
+  activate()
+end
+
+function onKey(chord, pressed)
+  if not pressed or not menu then
+    return
+  end
+
+  if chord == "down" or chord == "ctrl+j" then
+    moveCursor(1)
+  elseif chord == "up" or chord == "ctrl+k" then
+    moveCursor(-1)
+  elseif chord == "return" or chord == "right" then
+    activate()
+  elseif chord == "left" then
+    back()
+  elseif chord == "escape" then
+    if not back() then
+      panel.close()
+    end
+  end
+end
+
+function onCloseClicked()
+  panel.close()
+end
+
+-- `monarch menu <route>` reaches the panel through this when it is already
+-- open, so a second keybind press re-routes instead of doing nothing.
+function onIpc(event, payload)
+  if event == "open" then
+    openAt(payload)
+  end
+end

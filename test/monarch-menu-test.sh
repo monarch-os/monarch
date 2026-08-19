@@ -214,74 +214,78 @@ pass "check rejects an entry whose parent is missing"
 
 rm -f "$USER_MENU"
 
-# ── Navigation ───────────────────────────────────────────────────────────────
+# ── The payloads the panel consumes ──────────────────────────────────────────
 
-# The renderer talks to the picker by running `fuzzel`, so a fake one earlier on
-# PATH drives real selections: it reads the rows on stdin and echoes back the
-# next scripted choice, or nothing at all to mean the picker was dismissed.
+output=$("$MENU" --json | jq -r '.[0].id + " " + .[-1].id')
+assert_equals "--json emits the tree in declaration order" "$output" "apps system.shutdown"
+
+output=$("$MENU" --json | jq 'length')
+assert_equals "--json emits every entry" "$output" "$("$MENU" --rows '' >/dev/null; "$MENU" --json | jq 'length')"
+
+output=$("$MENU" --json | jq -r '.[] | select(.id == "learn.bash") | .action')
+assert_contains "--json carries the fields the panel renders" "$output" "devhints.io/bash"
+
+output=$("$MENU" --guards | awk -F'\t' '{print $2}' | sort -u | tr '\n' ' ')
+assert_equals "--guards reports all three guard kinds" "${output% }" "c d w"
+
+# Install rows stay listed when the software is already there, and say so with a
+# `disabled` guard; Remove rows are the opposite and hide what is not installed.
+output=$("$MENU" --json | jq -r '[.[] | select(.id | startswith("install.")) | select(.disabled)] | length')
+if [[ $output -lt 40 ]]; then
+  fail "install rows carry a presence guard"
+fi
+pass "install rows carry a presence guard"
+
+output=$("$MENU" --json | jq -r '[.[] | select(.id | startswith("install.")) | select(.when)] | length')
+assert_equals "install rows never hide with when" "$output" "0"
+
+output=$("$MENU" --json | jq -r '[.[] | select(.id | startswith("remove.")) | select(.disabled)] | length')
+assert_equals "remove rows never dim with disabled" "$output" "0"
+
+output=$("$MENU" --guards | grep -c 'trigger.hardware')
+if [[ $output -lt 1 ]]; then
+  fail "--guards evaluates the hardware guards"
+fi
+pass "--guards evaluates the hardware guards"
+
+# Providers are resolved by id, and only for entries that declare one. What a
+# provider lists depends on the machine — a CI runner has no power profiles — so
+# the shape is only asserted when there is a row to assert it on.
+output=$("$MENU" --provider setup.power | jq -r 'type')
+assert_equals "--provider emits a JSON array" "$output" "array"
+
+if [[ $("$MENU" --provider setup.power | jq 'length') -gt 0 ]]; then
+  output=$("$MENU" --provider setup.power | jq -r '.[0] | has("label"), has("value"), has("current")' | tr '\n' ' ')
+  assert_equals "--provider rows carry label/value/current" "${output% }" "true true true"
+else
+  pass "--provider rows carry label/value/current (no rows on this machine)"
+fi
+
+if "$MENU" --provider learn >/dev/null 2>&1; then
+  fail "--provider rejects an entry with no provider"
+fi
+pass "--provider rejects an entry with no provider"
+
+# ── Routing to the panel ─────────────────────────────────────────────────────
+
+# The menu itself is a Noctalia panel now, so the command only dispatches. A
+# fake `noctalia` on PATH records what it was asked to do.
 FAKE_BIN="$TMPDIR/bin"
 mkdir -p "$FAKE_BIN"
-export CHOICES_FILE="$TMPDIR/choices" STEP_FILE="$TMPDIR/step" ACTION_LOG="$TMPDIR/actions"
-
-cat >"$FAKE_BIN/fuzzel" <<'EOF'
+cat >"$FAKE_BIN/noctalia" <<'EOF'
 #!/bin/bash
-rows=$(cat)
-step=$(cat "$STEP_FILE" 2>/dev/null || echo 0)
-echo $((step + 1)) >"$STEP_FILE"
-choice=$(sed -n "$((step + 1))p" "$CHOICES_FILE")
-[[ -z $choice || $choice == "<dismiss>" ]] && exit 0
-grep -m1 -F -- "$choice" <<<"$rows"
+echo "$*"
 EOF
-
-# Stand-ins for the commands the actions launch, so a selection is observable.
-for stub in monarch-launch-webapp monarch-launch-about monarch-notification-send; do
-  cat >"$FAKE_BIN/$stub" <<EOF
-#!/bin/bash
-echo "$stub \$*" >>"\$ACTION_LOG"
-EOF
-done
-chmod +x "$FAKE_BIN"/*
+chmod +x "$FAKE_BIN/noctalia"
 export PATH="$FAKE_BIN:$PATH"
 
-# Runs the menu against a scripted list of choices and returns what it launched.
-drive_menu() {
-  local route="$1"
-  shift
-  printf '%s\n' "$@" >"$CHOICES_FILE"
-  : >"$STEP_FILE"
-  : >"$ACTION_LOG"
+assert_equals "a bare call toggles the panel at the root" \
+  "$("$MENU")" "msg panel-toggle monarch/menu:panel root"
 
-  XDG_RUNTIME_DIR="$TMPDIR/run" "$MENU" "$route" >/dev/null 2>&1
+assert_equals "a route is passed as the panel context" \
+  "$("$MENU" style)" "msg panel-toggle monarch/menu:panel style"
 
-  # Actions are detached on purpose, so give the fork a moment to land.
-  local waited=0
-  while [[ ! -s $ACTION_LOG ]] && ((waited < 50)); do
-    sleep 0.1
-    waited=$((waited + 1))
-  done
-  cat "$ACTION_LOG"
-}
-
-mkdir -p "$TMPDIR/run"
-
-output=$(drive_menu "" "Learn" "Bash")
-assert_contains "walking root into a submenu runs the chosen action" "$output" "devhints.io/bash"
-
-output=$(drive_menu learn "Bash")
-assert_contains "a route opens that level directly" "$output" "devhints.io/bash"
-
-# Dismissing a child must return to its parent, not end the menu: the third
-# choice is only reachable if the root menu was drawn a second time.
-output=$(drive_menu "" "Learn" "<dismiss>" "About")
-assert_contains "dismissing a submenu returns to its parent" "$output" "monarch-launch-about"
-
-# Dismissing the level the menu was opened at ends it instead of climbing to a
-# parent the user never asked for.
-output=$(drive_menu learn "<dismiss>" "About")
-refute_contains "dismissing an entered route closes the menu" "$output" "monarch-launch-about"
-
-# A route naming an action runs it rather than opening an empty menu.
-output=$(drive_menu about)
-assert_contains "a route that names an action runs it" "$output" "monarch-launch-about"
+assert_equals "close closes the panel" \
+  "$("$MENU" close)" "msg panel-close monarch/menu:panel"
 
 printf '\nAll menu tests passed.\n'
