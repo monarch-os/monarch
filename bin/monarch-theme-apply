@@ -4,17 +4,25 @@
 # monarch:examples=monarch theme apply
 
 # Thin residual layer that lives alongside Noctalia. It is wired to Noctalia's
-# `hooks.colorGeneration`, which fires on every color (re)generation — i.e.
-# whenever the active color scheme (or dark/light) changes. Noctalia passes the
-# resolved appearance ("dark" | "light") as $1; it does NOT pass the scheme name,
-# so we ask for it over IPC (`color-scheme-get`), which prints "<source> <name>".
+# `hooks.colors_changed` (v4's `hooks.colorGeneration`), which fires on every
+# color (re)generation — i.e. whenever the active color scheme or dark/light
+# changes, and once when the shell starts. It runs a few seconds after the
+# change, not synchronously with it.
+#
+# v5 passes the hook NO arguments — v4's resolved appearance ("dark" | "light")
+# as $1 is gone, verified by logging every invocation. So both the appearance and
+# the scheme name are asked for over IPC: `theme-mode-get`, and
+# `color-scheme-get` which prints "<source> <name>". The $1 handling below is
+# kept only so a hand invocation can still pin the appearance.
 #
 # Noctalia owns the colors AND dark/light: Monarch ships a single scheme
 # (Monarch) with both "dark" and "light" blocks, so dark/light is just Noctalia's
 # global toggle, which GTK/Qt follow natively. This
 # script never writes darkMode — it only covers what Noctalia can't reach:
-#   - wallpaper.directory      : keep the picker folder pointed at the current
-#                               scheme's backgrounds, and apply one.
+#   - wallpaper picker         : rebuild the symlink farm that
+#                               wallpaper.directory points at, so Noctalia's
+#                               picker/cycler follow the current scheme, and
+#                               apply one.
 #   - keyboard RGB             : ASUS ROG (asusctl) + Framework 16 (qmk_hid).
 #   - Chromium policy color    : managed BrowserThemeColor.
 #
@@ -39,15 +47,21 @@ set -uo pipefail
 
 SCHEMES_DIR="$HOME/.config/noctalia/palettes"
 USER_BG_ROOT="$HOME/.config/monarch/backgrounds"
+FARM_DIR="$USER_BG_ROOT/current"          # symlink farm wallpaper.directory points at
+EXTRA_SOURCES_DIR="$USER_BG_ROOT/sources" # user-mounted wallpaper folders (dir symlinks)
 MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
 SRC_THEMES="$MONARCH_ROOT/themes"
+# Records that a Monarch wallpaper has actually reached the shell at least once.
+# See sync_wallpaper: without it there is no way to tell a fresh install from a
+# user who deliberately picked Noctalia's own default.
+APPLIED_STAMP="$HOME/.local/state/monarch/wallpaper-applied"
 
 command -v jq >/dev/null 2>&1 || exit 0
 command -v noctalia >/dev/null 2>&1 || exit 0
 
-# Active appearance: Noctalia hands over "dark"|"light" as $1 on the hook; when run
-# by hand it's empty, so ask the shell. The mode is owned by Noctalia (global
-# toggle) — this script never writes it.
+# Active appearance. v5's hook passes nothing, so this is normally the IPC answer;
+# $1 stays honoured so a hand invocation can pin it. The mode is owned by Noctalia
+# (global toggle) — this script never writes it.
 appearance="${1:-}"
 if [[ -z $appearance ]]; then
   appearance=$(noctalia msg theme-mode-get 2>/dev/null)
@@ -55,7 +69,7 @@ if [[ -z $appearance ]]; then
 fi
 
 # --- Resolve the current scheme ----------------------------------------------
-# The colors_changed hook gives us the appearance, not the scheme name.
+# The colors_changed hook gives us nothing at all, the scheme name included.
 # `color-scheme-get` prints "<source> <name>"; only the name indexes the palette
 # file and the background folder.
 scheme=$(noctalia msg color-scheme-get 2>/dev/null | cut -d' ' -f2-)
@@ -106,40 +120,108 @@ expand_tilde() {
 # Apply the first wallpaper from the folder. v5's wallpaper-set persists and
 # takes effect immediately, so the separate refresh call v4 needed (its
 # `wallpaper refresh`, which has no v5 equivalent) is gone.
+#
+# Reports whether the wallpaper actually reached the shell, which the caller
+# needs: the config-stage run happens before the shell exists, so a silent
+# success there would record a wallpaper that was never set.
 apply_wallpaper() {
   local first=$1
-  pgrep -x noctalia >/dev/null 2>&1 || return 0
-  noctalia msg wallpaper-set "$first" >/dev/null 2>&1 || true
+  pgrep -x noctalia >/dev/null 2>&1 || return 1
+  noctalia msg wallpaper-set "$first" >/dev/null 2>&1
 }
 
-# Keep Noctalia's single wallpaper.directory pointed at the current scheme's
-# background folder and apply a wallpaper from it, so both picker and screen
-# follow the theme.
+# Point Noctalia's picker/cycler at the current scheme's backgrounds and apply
+# one, so both picker and screen follow the theme.
+#
+# v5 keeps wallpaper.directory in config.toml and exposes no IPC to move it
+# (`noctalia msg --help`: wallpaper-set/get/next/previous/random and nothing for
+# the directory). So instead of repointing the directory per scheme, config.toml
+# pins it once at a Monarch-owned symlink farm ($FARM_DIR) that this rebuilds on
+# every color hook. The farm unions the scheme's shipped and user backgrounds —
+# the two-folder model `omarchy-theme-bg-next` uses (a theme's own
+# `backgrounds/` plus the user's `~/.config/omarchy/backgrounds/<theme>/`) —
+# mapped onto v5's single-directory picker. Since the directory path never
+# changes, no config-reload is needed: the picker re-reads the folder's contents
+# on open, and wallpaper-next/-previous cycle whatever the farm currently holds.
+#
+# The picker scans one directory flat (like omarchy-theme-bg-next's find), so the
+# farm holds only file links, never a subdirectory. A user who wants a whole
+# collection (e.g. ~/Pictures/Wallpapers) available in every scheme drops a
+# directory symlink into $EXTRA_SOURCES_DIR; its images are flattened into the
+# farm here — the "pass N directories" model omarchy-menu-images uses, adapted to
+# Noctalia's single-directory picker.
 sync_wallpaper() {
-  # Seed the user-writable folder from shipped backgrounds (idempotent).
-  # `themes/<scheme>/` ships wallpapers flat (the old per-concern subdirs are gone).
-  local seeded=0
-  if [[ ! -d $target_dir && -d "$SRC_THEMES/$folder" ]]; then
-    mkdir -p "$target_dir"
-    cp -rn "$SRC_THEMES/$folder/." "$target_dir/" 2>/dev/null || true
-    seeded=1
+  local shipped_dir="$SRC_THEMES/$folder" # backgrounds shipped with the scheme
+  local user_dir="$target_dir"            # user's own additions for the scheme
+
+  # Rebuild the farm. unlink removes the link only; it never follows a symlink to
+  # its target, so no wallpaper file is deleted — the targets are never touched.
+  # Nothing is copied.
+  mkdir -p "$FARM_DIR"
+  local link
+  for link in "$FARM_DIR"/*; do
+    [[ -L $link ]] && unlink "$link"
+  done
+
+  # Union sources, highest priority first (first to claim a basename wins):
+  #   1. the scheme's user backgrounds   (~/.config/monarch/backgrounds/<scheme>)
+  #   2. the scheme's shipped backgrounds (themes/<scheme>)
+  #   3. every folder mounted under       (~/.config/monarch/backgrounds/sources/)
+  local -a sources=("$user_dir" "$shipped_dir")
+  local s
+  if [[ -d $EXTRA_SOURCES_DIR ]]; then
+    for s in "$EXTRA_SOURCES_DIR"/*; do
+      [[ -d $s ]] && sources+=("$s") # -d follows a symlink, so a dir symlink counts
+    done
   fi
 
-  # Fallback: nothing to point at → leave the current directory untouched.
-  local backgrounds
-  mapfile -d '' -t backgrounds < <(find -L "$target_dir" -maxdepth 1 -type f -print0 2>/dev/null | sort -z)
-  ((${#backgrounds[@]})) || return 0
+  local src f base
+  for src in "${sources[@]}"; do
+    [[ -d $src ]] || continue
+    while IFS= read -r -d '' f; do
+      base=${f##*/}
+      # -e OR -L: an already-linked name wins even if its target is unresolvable,
+      # so a higher-priority source always shadows a same-named file below it.
+      [[ -e "$FARM_DIR/$base" || -L "$FARM_DIR/$base" ]] && continue
+      ln -sf "$f" "$FARM_DIR/$base"
+    done < <(find -L "$src" -maxdepth 1 -type f \
+      \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \
+      -o -iname '*.gif' -o -iname '*.bmp' -o -iname '*.webp' \) \
+      -print0 2>/dev/null | sort -z)
+  done
 
-  # TODO(noctalia-v5): v4 repointed wallpaper.directory at the active scheme's
-  # folder here, so the picker followed the theme. v5 keeps that directory in
-  # config.toml and exposes no IPC to change it (`noctalia msg --help` has
-  # wallpaper-set/get/next/previous/random and nothing for the directory), so
-  # per-scheme wallpaper folders currently have no mechanism. config.toml pins
-  # the directory to the Monarch folder; switching to another scheme applies one
-  # of its wallpapers but leaves the picker pointed at Monarch's.
+  # Nothing to show → leave whatever is applied alone. (`-L -type f` lists the
+  # links that resolve to a real file, not the links themselves.)
+  local links
+  mapfile -d '' -t links < <(find -L "$FARM_DIR" -maxdepth 1 -type f -print0 2>/dev/null | sort -z)
+  ((${#links[@]})) || return 0
+
+  # Apply a wallpaper in exactly two cases, so a scheme change never overrides a
+  # pick the user made:
   #
-  # Only apply on first seed, so a later run never overrides the user's pick.
-  ((seeded)) && apply_wallpaper "${backgrounds[0]}"
+  #   1. Monarch has never had one on screen ($APPLIED_STAMP missing). Testing
+  #      "is anything set?" instead does not work: the config-stage run happens
+  #      before the shell exists, so nothing is applied then, and by the time this
+  #      runs again Noctalia has started and posted its own bundled default. That
+  #      is a real, existing file, so an "is anything set?" test reads it as a
+  #      deliberate choice and declines — permanently, on every hook and every
+  #      boot. A fresh install kept Noctalia's wallpaper and never showed a
+  #      Monarch one.
+  #   2. What is set no longer exists — which is how a scheme change reaches the
+  #      screen at all: the pick was a farm link, and rebuilding the farm for the
+  #      new scheme removed it. A pick that outlives the rebuild (anything under a
+  #      mounted source, or a path outside the farm entirely) is left alone.
+  #
+  # Resolve to the real path so what we apply is not itself a link the next
+  # rebuild will drop.
+  local current
+  current=$(noctalia msg wallpaper-get 2>/dev/null)
+  if [[ ! -f $APPLIED_STAMP || -z $current || ! -f $current ]]; then
+    if apply_wallpaper "$(readlink -f "${links[0]}")"; then
+      mkdir -p "${APPLIED_STAMP%/*}"
+      : >"$APPLIED_STAMP"
+    fi
+  fi
   return 0
 }
 

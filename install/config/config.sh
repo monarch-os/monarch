@@ -7,15 +7,22 @@ cp -R "$MONARCH_PATH"/config/* ~/.config/
 mkdir -p ~/.local/share/noctalia/plugins
 cp -R "$MONARCH_PATH"/default/noctalia/plugins/* ~/.local/share/noctalia/plugins/
 
-# Put the Monarch backgrounds where config.toml's wallpaper.directory points.
+# Seed the Monarch scheme's user background folder. This is the per-scheme user
+# dir (mirroring omarchy's ~/.config/omarchy/backgrounds/<theme>/), not the
+# folder wallpaper.directory points at: config.toml pins that at a symlink farm
+# (~/.config/monarch/backgrounds/current) which the config-stage monarch-theme-apply
+# below rebuilds from this folder before the shell ever starts.
 #
 # v4 also had to seed ~/.cache/noctalia/wallpapers.json here, because it resolved
 # the on-screen wallpaper from that cache and fell back to its bundled
-# noctalia.png when the file was missing — a visible race, since Monarch only
-# applies the wallpaper over IPC once the shell is already up. v5 resolves it
-# from wallpaper.directory instead, so dropping the copy below into place is
-# enough: verified by cold-starting the shell with no persisted wallpaper state
-# at all, which still painted the Monarch background on the first frame.
+# noctalia.png when the file was missing. v5 has no such cache, so that seeding is
+# gone — but the race it papered over is not: Monarch can only apply a wallpaper
+# over IPC once the shell is up, and the config-stage monarch-theme-apply runs
+# before that. A booted VM came up on Noctalia's own bundled wallpaper. Copying
+# the files here is therefore necessary but not sufficient; what actually paints
+# the first Monarch background is sync_wallpaper's first-run stamp
+# (~/.local/state/monarch/wallpaper-applied), on the first colors_changed hook
+# after the shell starts.
 #
 # The "Privacy Update" telemetry wizard that used to be seeded around here is
 # gone too — v5 has no wizard and no changelog prompt, only the plain

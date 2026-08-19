@@ -7,8 +7,14 @@ this migration is forced rather than opportunistic. The package is `extra/noctal
 in the Arch official repos, so there is no packaging work — the binary is
 `noctalia`, the daemon is `noctalia -d`, and IPC is `noctalia msg <verb>`.
 
-Branch status: 12 commits, 62 files, +1438 / −2851 vs `dev`. Nothing pushed.
-Tests 58/58, `bin/monarch commands --check` OK on 256 commands.
+Branch status: 20 commits, 86 files, +4706 / −3736 vs `dev`, pushed, and taking
+merges through PRs rather than direct commits. Tests 58/58 (CLI) and 39/39
+(menu), `bin/monarch commands --check` OK on 258 commands, `monarch-menu --check`
+OK on 266 entries.
+
+What is left is items 1, 2, 5 and 6 below. **Item 1 is now the one to write**: it
+was deliberately deferred until the branch was feature-complete, and with the
+menu finished (item 7) nothing else blocks it.
 
 ---
 
@@ -34,19 +40,76 @@ entirely, and gets none of the v5 config. Needs a migration under `migrations/`
 
 This is the largest remaining gap and the one that breaks real machines.
 
-### 2. Per-scheme wallpaper directory pinning
+### 2. Per-scheme wallpaper directory pinning — *done, verified in a booted VM*
 
 v4 repointed `wallpaper.directory` at the active scheme's background folder on
 every color change (`monarch-theme-apply`). v5 exposes no IPC for it: there is
 `wallpaper-set`, `wallpaper-get`, `wallpaper-next/previous/random`, but nothing
-that moves the picker's source folder. Options, none verified yet:
+that moves the picker's source folder.
 
-- write `[wallpaper] directory` into a Monarch-owned `.toml` and
-  `noctalia msg config-reload` (the same trick used for the fingerprint toggle;
-  reload is verified to apply config changes live)
-- or accept a single shared backgrounds folder and drop the per-scheme behaviour
+**Shipped solution — a symlink farm at a fixed directory.** Rather than move
+`wallpaper.directory` per scheme (which would need the unverified two-`.toml`
+merge-precedence trick and a `config-reload`-repoints-the-picker assumption),
+`config.toml` pins it once at `~/.config/monarch/backgrounds/current`, a
+Monarch-owned directory of symlinks that `monarch-theme-apply` rebuilds on every
+`colors_changed` hook. The farm unions the active scheme's shipped
+(`themes/<scheme>/`) and user (`~/.config/monarch/backgrounds/<scheme>/`)
+backgrounds — the same two-folder model `omarchy-theme-bg-next` uses — with the
+user file shadowing a shipped one of the same name. The directory path never
+changes, so no reload is needed; the native picker and `wallpaper-next/-previous`
+cycle whatever the farm currently holds. Rebuild only ever `unlink`s the links,
+never their targets, so no wallpaper file is deleted.
 
-Related to item 7 below — decide them together.
+**Cold start needs a first-run stamp.** An earlier note here claimed the
+config-stage `monarch-theme-apply` was enough to paint the first frame. It is
+not, and a booted VM showed the desktop coming up on Noctalia's own bundled
+wallpaper. The config-stage run builds the farm but cannot apply anything —
+noctalia is installed by then but is not *running*, so `apply_wallpaper` returns
+early. Noctalia then starts and posts its own default, which is a real existing
+file, so an "apply only when nothing is set" test reads it as a deliberate choice
+and declines on every later hook and every later boot. `sync_wallpaper` therefore
+records that a Monarch wallpaper actually reached the shell, in
+`~/.local/state/monarch/wallpaper-applied`, and applies one while that stamp is
+missing *or* while what is set no longer exists. The stamp is written only when
+`wallpaper-set` succeeded, so the config-stage run does not claim a wallpaper it
+never set.
+
+**Custom folders.** The picker scans one directory flat, so the farm can only
+hold file links, not a mounted subdirectory. A user who wants a whole collection
+(e.g. `~/Pictures/Wallpapers`) in every scheme drops a directory symlink into
+`~/.config/monarch/backgrounds/sources/`; `sync_wallpaper` flattens each mounted
+folder's images into the farm — the "pass N directories" model
+`omarchy-menu-images` uses, adapted to Noctalia's single-directory picker. The
+farm's `find` filters by image extension (jpg/jpeg/png/gif/bmp/webp), matching
+`omarchy-theme-bg-next`, so a stray `.txt`/`.md` in a mounted folder is ignored.
+Union priority (first to claim a basename wins): per-scheme user → shipped →
+mounted sources.
+
+Files: `config/noctalia/config.toml` (`[wallpaper] directory`),
+`bin/monarch-theme-apply` (`sync_wallpaper`), `install/config/config.sh` comment.
+**Verified in a booted VM** (autoinstalled from the branch ISO): the union and
+its priority, a directory symlink under `sources/` flattened in, the extension
+filter, stale-link cleanup with the link targets untouched, and the farm
+following a scheme change in both directions. Noctalia's own `wallpaper-set`
+applies a farm *link* path and the screen changes, `wallpaper-next` cycles the
+farm, and after a scheme change the same noctalia process cycles the new contents
+with no restart — so the picker re-scans the directory live, as assumed.
+
+Two things the VM corrected. The `colors_changed` hook fires ~5s after the
+change, not synchronously, which reads as "the hook never fired" if you look too
+early. And v5 passes the hook **no arguments** — v4's appearance as `$1` is gone,
+so both the appearance and the scheme name come over IPC; the header comment
+claiming otherwise was wrong and has been fixed.
+
+**The picker itself is a separate layer (Part 2, tied to item 6).** The user
+wants Omarchy quattro's image-grid switcher, which is a Quickshell plugin
+(`omarchy-shell image-selector open` → its `ImagePicker`) and does not port.
+Reproducing it on v5 means building an image-grid picker as a Noctalia `[[panel]]`
+over the `ui.*` tree (`image`, `scroll`, `input`, `button`; keyboard via
+`capture_keys` ≥ 13, in range) reading the same two folders and driving
+`wallpaper-set` — the same rendering-layer effort as item 7's menu panel. The
+farm above is the shared data model both the native picker and a future grid sit
+on. Decide alongside items 6 and 7.
 
 ---
 

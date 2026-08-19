@@ -202,7 +202,12 @@ telemetry_enabled = false
 
 [wallpaper]
 enabled = true
-directory = "~/.config/monarch/backgrounds/monarch"
+# A fixed Monarch-owned symlink farm, not a real wallpaper folder: v5 exposes no
+# IPC to move wallpaper.directory per scheme, so monarch-theme-apply rebuilds
+# this directory on every color hook to union the active scheme's shipped
+# (themes/<scheme>/) and user (~/.config/monarch/backgrounds/<scheme>/)
+# backgrounds. The path stays put; only its contents follow the theme.
+directory = "~/.config/monarch/backgrounds/current"
 transition_duration = 1500
 
 [idle]
