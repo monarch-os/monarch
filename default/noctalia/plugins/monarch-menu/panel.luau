@@ -117,7 +117,11 @@ local function providerRowFor(row, index: number)
     align = "center",
     padding = 8,
     radius = 8,
-    fill = index == cursor and "primary/0.12" or nil,
+    -- "primary/0" and not nil: the host only applies a prop that is present,
+    -- and for row/column there is no clear-on-absence path (only drop_zone has
+    -- one), so dropping the key leaves the previous fill painted. Every row the
+    -- cursor passed through then stays highlighted.
+    fill = index == cursor and "primary/0.12" or "primary/0",
     onClick = function()
       cursor = index
       activate()
@@ -177,7 +181,11 @@ local function rowFor(row, index: number)
     align = "center",
     padding = 8,
     radius = 8,
-    fill = selected and "primary/0.12" or nil,
+    -- "primary/0" and not nil: the host only applies a prop that is present,
+    -- and for row/column there is no clear-on-absence path (only drop_zone has
+    -- one), so dropping the key leaves the previous fill painted. Every row the
+    -- cursor passed through then stays highlighted.
+    fill = selected and "primary/0.12" or "primary/0",
     onClick = isDisabled and nil or function()
       cursor = index
       activate()
