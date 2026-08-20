@@ -1,10 +1,8 @@
 echo "Keep Wi-Fi power save off, and retire any iwd the installer left behind"
 
 # Monarch shipped a udev rule that turned power save *on* whenever the mains
-# went away. It trades 20-300ms latency spikes on an idle link for a fraction of
-# a watt, and some firmware drops the link rather than waking cleanly — ath11k
-# and Intel BE200/BE211 are the ones people report. Omarchy keeps it off
-# unconditionally and ships no udev rule.
+# went away — latency spikes on an idle link for a fraction of a watt, and some
+# firmware drops the link rather than waking cleanly.
 
 if [[ -f /etc/udev/rules.d/99-wifi-powersave.rules ]]; then
   echo "  Removing the rule that enabled power save on battery."
@@ -21,19 +19,19 @@ CONF
 
 sudo nmcli general reload conf >/dev/null 2>&1 || true
 
-# NetworkManager only applies wifi.powersave when a connection activates, so
-# switch it off on the running interfaces too rather than wait for a reconnect.
+# wifi.powersave only lands when a connection activates; do the running
+# interfaces now rather than wait for a reconnect.
 shopt -s nullglob
 for wireless in /sys/class/net/*/wireless; do
   iface=$(basename "$(dirname "$wireless")")
   sudo iw dev "$iface" set power_save off 2>/dev/null || true
 done
 
-# Same installer path, second gift: `network_config: iso` installs and enables
-# iwd when the live session joined a Wi-Fi, so a machine installed over Wi-Fi
-# has been racing wpa_supplicant for the radio ever since. Migration 1781266508
-# only removed iwd where the old backend config was present, which a fresh
-# install never had.
+# Defensive: archinstall's `network_config: iso` installs and enables iwd when
+# the live session left .psk files behind. Monarch installs offline so that
+# never happens on the supported path — but nothing retires iwd if someone ran
+# iwctl by hand, and 1781266508 only covered installs carrying the old backend
+# config. Guarded on that same config, so a deliberate iwd setup is left alone.
 if systemctl is-enabled iwd.service >/dev/null 2>&1 ||
   systemctl is-active iwd.service >/dev/null 2>&1; then
   echo "  Disabling iwd; NetworkManager drives wpa_supplicant."
