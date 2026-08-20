@@ -68,10 +68,18 @@ printf 'Connected to 00:11 (on wlan0)\n\tSSID: %s\n\tfreq: %s\n\tsignal: -42 dBm
 STUB
 
 printf '#!/bin/bash\nexit 0\n' >"$TMP/bin/ping"
+
+# NOCTALIA_UP decides whether the shell answers, which is what picks the branch.
+cat >"$TMP/bin/noctalia" <<'STUB'
+#!/bin/bash
+printf '%s\n' "$*" >>"$NOCTALIA_CALLS"
+[[ ${NOCTALIA_UP:-yes} == yes ]] || exit 1
+STUB
 chmod +x "$TMP"/bin/*
 export PATH="$TMP/bin:$ROOT/bin:$PATH"
-export NM_CALLS="$TMP/calls"
+export NM_CALLS="$TMP/calls" NOCTALIA_CALLS="$TMP/ipc"
 : >"$NM_CALLS"
+: >"$NOCTALIA_CALLS"
 
 # monarch-network-status reads /sys to tell wireless from wired; point it at a
 # tree the test owns by running from a fake root is not possible, so the wired
@@ -186,14 +194,38 @@ assert_equals "radio status reports enabled as JSON" \
 assert_equals "radio status reports disabled" \
   "$(NM_RADIO=disabled "$RADIO" status | cut -d, -f1)" '{"enabled":false'
 
+# The read never goes through the shell: NetworkManager owns the state, asking
+# it directly cannot go stale, and `status` must answer with no shell running.
+: >"$NOCTALIA_CALLS"
+NM_RADIO=enabled "$RADIO" status >/dev/null
+assert_equals "status asks NetworkManager, not the shell" \
+  "$(grep -c wifi "$NOCTALIA_CALLS" || true)" "0"
+
+# Writes prefer the IPC, so Noctalia's own panel is not left behind.
+for action in "toggle:wifi-toggle" "on:wifi-enable" "off:wifi-disable"; do
+  : >"$NM_CALLS"; : >"$NOCTALIA_CALLS"
+  NOCTALIA_UP=yes NM_RADIO=enabled "$RADIO" "${action%%:*}"
+  assert_equals "${action%%:*} goes through the shell when it is up" \
+    "$(grep -c "msg ${action##*:}" "$NOCTALIA_CALLS")" "1"
+  assert_equals "${action%%:*} leaves nmcli alone when the shell answered" \
+    "$(grep -c 'radio wifi' "$NM_CALLS" || true)" "0"
+done
+
+# And fall back when it is not, which is what keeps the command usable from a
+# TTY, over SSH, or during an install.
 : >"$NM_CALLS"
-NM_RADIO=enabled "$RADIO" toggle
-assert_equals "toggle turns an enabled radio off" \
+NOCTALIA_UP=no NM_RADIO=enabled "$RADIO" toggle
+assert_equals "toggle falls back and turns an enabled radio off" \
   "$(grep -c 'radio wifi off' "$NM_CALLS")" "1"
 
 : >"$NM_CALLS"
-NM_RADIO=disabled "$RADIO" toggle
-assert_equals "toggle turns a disabled radio on" \
+NOCTALIA_UP=no NM_RADIO=disabled "$RADIO" toggle
+assert_equals "toggle falls back and turns a disabled radio on" \
+  "$(grep -c 'radio wifi on' "$NM_CALLS")" "1"
+
+: >"$NM_CALLS"
+NOCTALIA_UP=no "$RADIO" on
+assert_equals "on falls back to nmcli" \
   "$(grep -c 'radio wifi on' "$NM_CALLS")" "1"
 
 echo
