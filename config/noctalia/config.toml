@@ -192,6 +192,13 @@ clipboard_enabled = true
 # a UI path, not a config key, and `shell.telemetry` is rejected as unknown.
 telemetry_enabled = false
 
+# The authentication dialog for pkexec and anything else that asks polkit. v5
+# registers its own agent (/org/noctalia/PolkitAuthenticationAgent) and draws the
+# prompt in the Monarch theme, but ships it disabled — this key is what retires
+# the GTK polkit-gnome agent niri used to spawn. Only one agent can hold a
+# session, so the two must never both run; see default/niri/autostart.kdl.
+polkit_agent = true
+
   [shell.panel]
   # The network and bluetooth widgets both open the control center. It is
   # already "attached", but v5 anchors it to the bar centre unless told to

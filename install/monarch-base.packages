@@ -88,7 +88,6 @@ pamixer
 playerctl
 plocate
 plymouth
-polkit-gnome
 power-profiles-daemon
 python
 python-gobject
