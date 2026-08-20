@@ -21,9 +21,7 @@ remove_pam_config() {
 }
 
 remove_noctalia_lockscreen() {
-  # v5 reads neither of these — it authenticates the lock screen against the
-  # "login" stack and drives the reader over D-Bus — but an install set up before
-  # that was understood still carries both, so removal still clears them.
+  # Inert on v5, but installs set up before that still carry both.
   if [[ -f /etc/pam.d/noctalia ]]; then
     echo "Removing the v4 lock-screen PAM service..."
     sudo rm -f /etc/pam.d/noctalia

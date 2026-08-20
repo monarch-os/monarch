@@ -42,21 +42,8 @@ EOF
 }
 
 setup_noctalia_lockscreen() {
-  # The lock screen needs one thing from us, and it is not a PAM service. v5
-  # authenticates against the "login" stack — hardcoded, with pam_fprintd
-  # stripped out of it — and drives the reader itself over D-Bus, because the two
-  # cannot share the sensor. So there is nothing to point it at and nothing to
-  # include: `lockscreen.fingerprint` is the whole switch.
-  #
-  # v4 needed a dedicated /etc/pam.d/noctalia and NOCTALIA_PAM_SERVICE to reach
-  # it. Neither exists in v5 — the variable is gone from the source entirely —
-  # and both are cleaned off existing installs by the migration that came with
-  # this change.
-  #
-  # The toggle goes in its own file rather than config.toml: v5 merges every
-  # *.toml in this directory, and monarch-refresh-noctalia overwrites config.toml
-  # with the shipped default, which would take a user-only toggle with it.
-  # Removed by monarch-remove-security-fingerprint.
+  # Own file, not config.toml: Noctalia merges every *.toml in this directory,
+  # and monarch-refresh-noctalia overwrites config.toml with the shipped default.
   echo "Configuring Noctalia lock screen for fingerprint authentication..."
   mkdir -p "$HOME/.config/noctalia"
   cat >"$HOME/.config/noctalia/monarch-fingerprint.toml" <<'EOF'
@@ -66,16 +53,10 @@ setup_noctalia_lockscreen() {
 fingerprint = true
 EOF
 
-  # A reload is enough, and it is enough right now: v4 had to restart the shell
-  # outright, because it held settings.json in memory and rewrote it on logout,
-  # reverting the edit.
   noctalia msg config-reload >/dev/null 2>&1 || true
 }
 
 add_fingerprint_marker() {
-  # Noctalia's lock screen delegates to PAM (pam_fprintd.so via the dedicated
-  # noctalia service). Persist a marker so the rest of Monarch can adapt UI
-  # hints accordingly.
   mkdir -p "$HOME/.local/state/monarch"
   touch "$HOME/.local/state/monarch/fingerprint-enabled"
 }
