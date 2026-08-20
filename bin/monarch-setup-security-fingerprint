@@ -18,12 +18,49 @@ check_fingerprint_hardware() {
   return 0
 }
 
+# The lid gate, in front of pam_fprintd in every stack that has one: with the
+# lid shut the reader is physically unreachable, so this skips fingerprint
+# (success=1) and PAM drops straight to the password instead of blocking on the
+# sensor until it times out. Lid open, nothing changes — fingerprint first,
+# password as the fallback.
+#
+# pam_exec expands nothing and wants a literal absolute path, and PAM runs as
+# root for whichever user is authenticating, so the checkout under $HOME is the
+# wrong thing to name: a second user's sudo would resolve a path that is not
+# theirs. The helper is copied to /usr/local/bin instead, which also keeps the
+# gate working if the checkout moves. If that copy ever goes missing, pam_exec
+# fails, the `default=ignore` arm takes it, and the stack behaves exactly as it
+# did before the gate existed.
+GATE_BIN="/usr/local/bin/monarch-hw-laptop-closed"
+FPRINTD_GATE="auth      [success=1 default=ignore] pam_exec.so quiet $GATE_BIN"
+
+install_gate() {
+  local source="${MONARCH_PATH:-$HOME/.local/share/monarch}/bin/monarch-hw-laptop-closed"
+  [[ -f $source ]] || return 0
+  sudo install -Dm755 "$source" "$GATE_BIN"
+}
+
+# Insert the gate immediately before pam_fprintd, so `success=1` skips exactly
+# that one module and nothing else.
+add_gate_to() {
+  local pam="$1" label="$2"
+  [[ -f $pam ]] || return 0
+  grep -q 'pam_fprintd\.so' "$pam" || return 0
+  grep -q 'monarch-hw-laptop-closed' "$pam" && return 0
+
+  echo "Adding lid gate to $label..."
+  sudo sed -i "/pam_fprintd\.so/i $FPRINTD_GATE" "$pam"
+}
+
 setup_pam_config() {
+  install_gate
+
   # Configure sudo
   if ! grep -q pam_fprintd.so /etc/pam.d/sudo; then
     echo "Configuring sudo for fingerprint authentication..."
     sudo sed -i '1i auth    sufficient pam_fprintd.so' /etc/pam.d/sudo
   fi
+  add_gate_to /etc/pam.d/sudo sudo
 
   # Configure polkit
   if [[ -f /etc/pam.d/polkit-1 ]] && ! grep -q 'pam_fprintd.so' /etc/pam.d/polkit-1; then
@@ -31,7 +68,8 @@ setup_pam_config() {
     sudo sed -i '1i auth      sufficient pam_fprintd.so' /etc/pam.d/polkit-1
   elif [[ ! -f /etc/pam.d/polkit-1 ]]; then
     echo "Creating polkit configuration with fingerprint authentication..."
-    sudo tee /etc/pam.d/polkit-1 >/dev/null <<'EOF'
+    sudo tee /etc/pam.d/polkit-1 >/dev/null <<EOF
+$FPRINTD_GATE
 auth      sufficient pam_fprintd.so
 auth      required pam_unix.so
 account   required pam_unix.so
@@ -39,6 +77,12 @@ password  required pam_unix.so
 session   required pam_unix.so
 EOF
   fi
+  add_gate_to /etc/pam.d/polkit-1 polkit
+
+  # The lock screen deliberately has no gate: v5 authenticates against the
+  # "login" stack with pam_fprintd stripped and drives the reader itself over
+  # D-Bus, so a closed lid leaves the password field usable rather than blocking
+  # a PAM module.
 }
 
 setup_noctalia_lockscreen() {
