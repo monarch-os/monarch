@@ -79,7 +79,11 @@ scheme=$(noctalia msg color-scheme-get 2>/dev/null | cut -d' ' -f2-)
 # a few built-ins need an alias.
 folder=$(printf '%s' "$scheme" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
 case $folder in
-rosepine) folder="rose-pine" ;; # Noctalia built-in "Rosepine" → Monarch "rose-pine"
+# Noctalia's builtin is "Rosé Pine", which derives to "rosé-pine" — accent and
+# space-turned-dash both. Send every spelling to themes/rose-pine, the folder the
+# Quattro palette of that name already brings. The two are different palettes
+# (the builtin is dark, Quattro's is Dawn) sharing one set of backgrounds.
+rosé-pine | rosepine) folder="rose-pine" ;;
 esac
 
 target_dir="$USER_BG_ROOT/$folder"
