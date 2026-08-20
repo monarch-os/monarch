@@ -20,25 +20,30 @@ menu finished (item 7) nothing else blocks it.
 
 ## Blocking before merge
 
-### 1. No migration for existing v4 installs
+### 1. Migration for existing v4 installs — *done, `migrations/1787176715.sh`*
 
-Only fresh installs are covered today. An existing v0.x machine upgrading into
-this branch keeps its v4 `~/.config/noctalia/settings.json`, which v5 ignores
-entirely, and gets none of the v5 config. Needs a migration under `migrations/`
-(create with `monarch-dev-add-migration --no-edit`) that at minimum:
+An existing v4 machine now gets the whole switch in one migration: the package
+swap (`noctalia-shell` declares no conflict with `noctalia`, so pacman would
+otherwise keep both, and `-Rns` takes the `noctalia-qs` Quickshell fork along),
+the v4 state removal, the v5 config and plugin seeding, the fingerprint toggle
+carried into `monarch-fingerprint.toml`, and `monarch-refresh-niri` so
+`config.kdl` stops spawning `qs -c noctalia-shell`.
 
-- drops the obsolete v4 files it can identify (`settings.json`, `plugins.json`,
-  the `templates/` user-template dir, `~/.cache/noctalia/shell-state.json` and
-  `wallpapers.json` — all inert under v5)
-- seeds `config.toml` + `palettes/Monarch.json` (`monarch-refresh-config`)
-- enables the two bundled plugins (`noctalia msg plugins enable monarch/indicators`
-  and `monarch/agents`) — discovery is not activation, a discovered plugin stays
-  disabled, which is what `install/first-run/welcome.sh` already handles for fresh
-  installs
-- carries over the fingerprint toggle into `monarch-fingerprint.toml` when
-  `~/.local/state/monarch/fingerprint-enabled` exists
+Two things the original plan got wrong, worth not re-deriving:
 
-This is the largest remaining gap and the one that breaks real machines.
+- **`~/.config/noctalia/templates/` must not be deleted.** It is still live under
+  v5 — it holds the sddm and herdr inputs `monarch-theme-apply` renders. Only the
+  inputs Monarch no longer ships are pruned.
+- **`~/.config/noctalia/colors.json` must not be deleted.** `monarch-sddm-theme`
+  and `monarch-plymouth-apply` both read it.
+
+`user-templates.toml` is removed rather than left: v5 merges every `*.toml` in
+that directory, so it is parsed, not ignored, and its `[templates.*]` sections
+are rejected as unknown.
+
+Plugin activation needs a running daemon, and a migration is stamped as done
+whether or not one answered — so when the shell is down the enable is deferred to
+a self-removing `post-boot.d` hook.
 
 ### 2. Per-scheme wallpaper directory pinning — *done, verified in a booted VM*
 
