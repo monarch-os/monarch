@@ -29,7 +29,7 @@ run_logged $MONARCH_INSTALL/config/monarch-ai-skill.sh
 run_logged $MONARCH_INSTALL/config/pi.sh
 run_logged $MONARCH_INSTALL/config/kernel-modules-hook.sh
 run_logged $MONARCH_INSTALL/config/powerprofilesctl-rules.sh
-run_logged $MONARCH_INSTALL/config/wifi-powersave-rules.sh
+run_logged $MONARCH_INSTALL/config/wifi-powersave.sh
 run_logged $MONARCH_INSTALL/config/plocate-ac-only.sh
 
 run_logged $MONARCH_INSTALL/config/sudoless-asdcontrol.sh

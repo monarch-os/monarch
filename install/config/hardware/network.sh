@@ -16,6 +16,10 @@ sudo tee /etc/NetworkManager/conf.d/dns.conf >/dev/null <<'EOF'
 dns=systemd-resolved
 EOF
 
+# `network_config: iso` enables iwd when the live session left .psk files, and
+# nothing else retires it. Cold on an offline install; free to run anyway.
+sudo systemctl disable --now iwd.service 2>/dev/null || true
+
 # NetworkManager manages the links; systemd-networkd must not compete with it.
 # monarch-iso asks archinstall for `network_config: iso`, which copies the live
 # ISO's networkd setup into the target — stock DHCP .network files and the
