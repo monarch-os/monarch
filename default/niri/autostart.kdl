@@ -1,15 +1,17 @@
 // Monarch — services and helpers launched at session start.
 
 // Noctalia: bar, launcher, notifications, control center, lock screen,
-// wallpapers and OSDs all live under a single native process. v5 is a C++
-// rewrite with no Quickshell/Qt underneath, so it is its own daemon (`-d`)
-// rather than a shell config passed to `qs`.
+// wallpapers, OSDs and the polkit authentication dialog all live under a single
+// native process. v5 is a C++ rewrite with no Quickshell/Qt underneath, so it is
+// its own daemon (`-d`) rather than a shell config passed to `qs`.
+//
+// The polkit agent is the reason there is no authentication-agent line below any
+// more: polkit admits one agent per session, so spawning polkit-gnome here would
+// take the session and leave Noctalia's registration failing. It is switched on
+// with shell.polkit_agent in config/noctalia/config.toml.
 spawn-at-startup "uwsm-app" "--" "noctalia" "-d"
 
 spawn-at-startup "uwsm-app" "--" "fcitx5" "--disable" "notificationitem"
-
-// Authentication agent
-spawn-at-startup "/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1"
 
 // Power management
 spawn-at-startup "monarch-powerprofiles-set"
