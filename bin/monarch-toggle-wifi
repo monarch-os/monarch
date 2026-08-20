@@ -1,0 +1,63 @@
+#!/bin/bash
+
+# monarch:summary=Toggle the Wi-Fi radio
+# monarch:args=[toggle|on|off|status]
+# monarch:examples=monarch toggle wifi | monarch toggle wifi status
+
+# Writes go through Noctalia when the shell is up: it exposes wifi-enable /
+# -disable / -toggle, and flipping the radio behind its back leaves its own
+# network panel to catch up on its next poll. nmcli is the fallback, so this
+# still works from a TTY, over SSH, or during an install with no shell running.
+#
+# Reads never go through the IPC. It is NetworkManager's state either way, and
+# asking it directly costs nothing, cannot go stale, and needs no shell — so
+# `status` answers in every context the command can be called from.
+
+set -uo pipefail
+
+shell_up() {
+  noctalia msg status >/dev/null 2>&1
+}
+
+radio_on() {
+  [[ $(LC_ALL=C nmcli -t radio wifi 2>/dev/null) == "enabled" ]]
+}
+
+set_radio() {
+  local want=$1
+
+  if shell_up && noctalia msg "wifi-$want" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  case "$want" in
+    enable) nmcli radio wifi on ;;
+    disable) nmcli radio wifi off ;;
+  esac
+}
+
+print_status() {
+  if radio_on; then
+    printf '{"enabled":true,"tooltip":"Wi-Fi on - click to turn the radio off"}\n'
+  else
+    printf '{"enabled":false,"tooltip":"Wi-Fi off"}\n'
+  fi
+}
+
+case "${1:-toggle}" in
+  toggle)
+    # wifi-toggle rather than reading first and picking a side: the shell owns
+    # the decision when it is there, and that leaves no window between the two.
+    if shell_up && noctalia msg wifi-toggle >/dev/null 2>&1; then
+      exit 0
+    fi
+    if radio_on; then set_radio disable; else set_radio enable; fi
+    ;;
+  on) set_radio enable ;;
+  off) set_radio disable ;;
+  status | --status) print_status ;;
+  *)
+    echo "Usage: $0 [toggle|on|off|status]" >&2
+    exit 1
+    ;;
+esac

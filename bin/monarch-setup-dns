@@ -4,6 +4,22 @@
 # monarch:args=[Cloudflare|Google|DHCP|Custom]
 # monarch:requires-sudo=true
 
+# The monarch-dns package supersedes this: it reads the current provider back,
+# writes NetworkManager's global-dns override as well as resolved.conf, and is
+# reachable from the network panel without a password. This file stays as the
+# fallback for a machine that does not have the package yet, and as the route
+# `monarch setup dns` has always been.
+# Bare, the packaged command prints the provider rather than setting one, so the
+# chooser stays here and only the applying is handed over.
+if [[ -x /usr/bin/monarch-dns ]]; then
+  provider=${1:-}
+  if [[ -z $provider ]]; then
+    provider=$(gum choose --height 6 --header "Select DNS provider" Cloudflare Google DHCP Custom)
+  fi
+  [[ -n $provider ]] || exit 1
+  exec /usr/bin/monarch-dns "$provider"
+fi
+
 lock_dns_to_resolved() {
   for file in /etc/systemd/network/*.network; do
     [[ -f $file ]] || continue

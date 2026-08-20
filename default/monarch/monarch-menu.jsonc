@@ -123,6 +123,9 @@
   // Setup
   "setup.audio": {"icon":"","label":"Audio","action":"monarch-launch-audio"},
   "setup.wifi": {"icon":"󱚾","label":"Wifi","action":"monarch-launch-wifi"},
+  // Monarch's own network panel: connection, Wi-Fi band, DNS and the list. The
+  // stock Noctalia page stays reachable from the widget's right click.
+  "setup.network": {"icon":"󰌘","label":"Network","aliases":["net","band","dns"],"action":"noctalia msg panel-open monarch/network:panel"},
   "setup.bluetooth": {"icon":"󰂯","label":"Bluetooth","action":"monarch-launch-bluetooth"},
   "setup.power": {"icon":"󱐋","label":"Power Profile","title":"Power Profile","provider":"power-profiles"},
   "setup.sleep": {"icon":"󰒲","label":"System Sleep","title":"System Sleep"},

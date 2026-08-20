@@ -1,0 +1,167 @@
+#!/bin/bash
+
+# monarch:summary=Print active network status for the shell
+# monarch:group=network
+# monarch:args=[--verbose]
+# monarch:examples=monarch network status | monarch network status --verbose
+
+# Two shapes for two callers. Bare is the bar pill: one line, cheap enough to
+# poll. --verbose is the panel header, and pays for pings and a DNS lookup.
+#
+# Port of omarchy-network-status, plus the `dns` key: Monarch has no
+# `monarch-dns` to ask, so the provider is read back off resolved.conf here.
+
+set -uo pipefail
+
+INTERNET_PROBE=${MONARCH_NETWORK_PROBE:-1.1.1.1}
+RESOLVED_CONF=${MONARCH_RESOLVED_CONF:-/etc/systemd/resolved.conf}
+
+verbose=false
+case "${1:-}" in
+  "") ;;
+  --verbose) verbose=true ;;
+  *)
+    echo "Usage: monarch-network-status [--verbose]" >&2
+    exit 2
+    ;;
+esac
+
+route_device() {
+  ip route get "$INTERNET_PROBE" 2>/dev/null |
+    awk '{ for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit } }'
+}
+
+is_wireless() {
+  [[ -d /sys/class/net/$1/wireless ]]
+}
+
+# type<TAB>name<TAB>signal<TAB>freq — the pill needs no more than this, and the
+# empty trailing fields keep the field count stable for a split on tab.
+print_status() {
+  local device nm state ssid signal freq
+
+  device=$(route_device)
+  if [[ -z $device ]]; then
+    printf 'disconnected\t\t\t\n'
+    return
+  fi
+
+  if ! is_wireless "$device"; then
+    printf 'ethernet\t%s\t\t\n' "$device"
+    return
+  fi
+
+  nm=$(LC_ALL=C nmcli -t -f GENERAL.STATE,GENERAL.CONNECTION dev show "$device" 2>/dev/null)
+  state=$(awk -F: '$1 == "GENERAL.STATE" { print $2; exit }' <<<"$nm")
+  ssid=$(awk -F: '$1 == "GENERAL.CONNECTION" { print $2; exit }' <<<"$nm")
+  signal=$(LC_ALL=C nmcli -t -f IN-USE,SIGNAL dev wifi list ifname "$device" --rescan no 2>/dev/null |
+    awk -F: '$1 == "*" { print $2; exit }')
+  freq=$(iw dev "$device" link 2>/dev/null | awk '/freq:/ { print $2; exit }')
+
+  # nmcli translates state words but not the numeric prefix, so match on that.
+  if [[ $state != 100* ]]; then
+    printf 'disconnected\t\t\t\n'
+    return
+  fi
+
+  printf 'wifi\t%s\t%s\t%s\n' "${ssid:-$device}" "$signal" "$freq"
+}
+
+# monarch-dns owns this once its package is installed — it also reads
+# NetworkManager's global-dns override, which wins over resolved.conf. Without
+# the package, fall back to sniffing resolved.conf: matched on the first server
+# of each provider, anything else a user put there is "Custom", no file "DHCP".
+print_dns() {
+  local dns
+
+  if [[ -x /usr/bin/monarch-dns ]]; then
+    printf 'dns\t%s\n' "$(/usr/bin/monarch-dns)"
+    return 0
+  fi
+
+  [[ -r $RESOLVED_CONF ]] || return 0
+  dns=$(awk -F= '/^[[:space:]]*DNS=/ { print $2; exit }' "$RESOLVED_CONF")
+
+  case "$dns" in
+    "") printf 'dns\tDHCP\n' ;;
+    1.1.1.1*) printf 'dns\tCloudflare\n' ;;
+    8.8.8.8*) printf 'dns\tGoogle\n' ;;
+    *) printf 'dns\tCustom\n' ;;
+  esac
+}
+
+ping_latency_ms() {
+  LC_ALL=C ping -n -c 1 -W 1 "$1" 2>/dev/null |
+    awk -F'time[=<]' '/time[=<]/ { split($2, parts, " "); print parts[1]; exit }'
+}
+
+# Both pings run at once: they are the slowest thing here, and one waiting on
+# the other would double the panel's time to first paint.
+print_ping_samples() {
+  local gateway=$1
+  local tmpdir router_pid=""
+
+  monarch-cmd-present ping || return 0
+  tmpdir=$(mktemp -d) || return 0
+
+  if [[ -n $gateway ]]; then
+    ping_latency_ms "$gateway" >"$tmpdir/router" &
+    router_pid=$!
+  fi
+  ping_latency_ms "$INTERNET_PROBE" >"$tmpdir/internet" &
+
+  if [[ -n $router_pid ]]; then
+    wait "$router_pid"
+    printf 'router_ping_ms\t%s\n' "$(<"$tmpdir/router")"
+  fi
+  wait
+  printf 'internet_ping_ms\t%s\n' "$(<"$tmpdir/internet")"
+  rm -rf "$tmpdir"
+}
+
+print_verbose() {
+  local route iface gw src prefix link
+
+  route=$(ip -j route get "$INTERNET_PROBE" 2>/dev/null)
+  print_dns
+  [[ -n $route ]] || return 0
+
+  iface=$(jq -r '.[0].dev // ""' <<<"$route" 2>/dev/null)
+  gw=$(jq -r '.[0].gateway // ""' <<<"$route" 2>/dev/null)
+  src=$(jq -r '.[0].prefsrc // ""' <<<"$route" 2>/dev/null)
+  [[ -n $iface ]] || return 0
+
+  prefix=$(ip -j addr show "$iface" 2>/dev/null |
+    jq -r '.[0].addr_info[]? | select(.family == "inet") | .prefixlen // ""' 2>/dev/null | head -n 1)
+
+  printf 'iface\t%s\n' "$iface"
+  printf 'ip\t%s\n' "$src"
+  printf 'prefix\t%s\n' "$prefix"
+  printf 'gateway\t%s\n' "$gw"
+
+  if is_wireless "$iface"; then
+    printf 'type\twifi\n'
+    monarch-cmd-present iw || return 0
+    link=$(iw dev "$iface" link 2>/dev/null)
+    [[ -n $link ]] || return 0
+
+    printf 'ssid\t%s\n' "$(awk '/SSID:/ { sub(/.*SSID: /, ""); print; exit }' <<<"$link")"
+    printf 'signal_dbm\t%s\n' "$(awk '/signal:/ { print $2; exit }' <<<"$link")"
+    printf 'freq\t%s\n' "$(awk '/freq:/ { print $2; exit }' <<<"$link")"
+    printf 'bitrate\t%s %s\n' \
+      "$(awk '/tx bitrate:/ { print $3; exit }' <<<"$link")" \
+      "$(awk '/tx bitrate:/ { print $4; exit }' <<<"$link")"
+  else
+    printf 'type\tethernet\n'
+    [[ -r /sys/class/net/$iface/speed ]] && printf 'speed\t%s\n' "$(</sys/class/net/"$iface"/speed)"
+    [[ -r /sys/class/net/$iface/duplex ]] && printf 'duplex\t%s\n' "$(</sys/class/net/"$iface"/duplex)"
+  fi
+
+  print_ping_samples "$gw"
+}
+
+if [[ $verbose == "true" ]]; then
+  print_verbose
+else
+  print_status
+fi

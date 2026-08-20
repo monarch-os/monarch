@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# monarch:summary=Disconnect the active Wi-Fi network
+# monarch:group=wifi
+# monarch:examples=monarch wifi disconnect
+
+# Drops the link without touching the saved profile, so the network is still
+# there to reconnect to — monarch-wifi-forget is the one that removes it.
+
+set -uo pipefail
+
+device=$(monarch-wifi-device 2>/dev/null) || {
+  echo "Error: no connected Wi-Fi device." >&2
+  exit 1
+}
+
+if out=$(LC_ALL=C nmcli device disconnect "$device" 2>&1); then
+  exit 0
+fi
+
+printf '%s\n' "${out:-Could not disconnect $device}" >&2
+exit 1
