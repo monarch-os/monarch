@@ -95,6 +95,7 @@ python-pip
 python-pipx
 python-poetry-core
 python-terminaltexteffects
+qrencode
 qt5-wayland
 ripgrep
 ruby
