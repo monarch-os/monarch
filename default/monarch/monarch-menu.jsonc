@@ -80,6 +80,9 @@
   "trigger.share.clipboard": {"icon":"","label":"Clipboard","action":"monarch-menu-share clipboard"},
   "trigger.share.file": {"icon":"","label":"File","action":"xdg-terminal-exec --app-id=org.monarch.terminal bash -c \"monarch-menu-share file\""},
   "trigger.share.folder": {"icon":"","label":"Folder","action":"xdg-terminal-exec --app-id=org.monarch.terminal bash -c \"monarch-menu-share folder\""},
+  // Hidden rather than greyed when nothing is connected. The guard is the same
+  // detection the QR command uses, so the row and the panel never disagree.
+  "trigger.share.wifi": {"icon":"󰐲","label":"Wi-Fi","aliases":["wifi-qr"],"when":"monarch-wifi-device >/dev/null 2>&1","action":"noctalia msg panel-open monarch/wifi-qr:panel"},
 
   // Trigger > Toggle
   "trigger.toggle.screensaver": {"icon":"󱄄","label":"Screensaver","action":"monarch-toggle-screensaver"},

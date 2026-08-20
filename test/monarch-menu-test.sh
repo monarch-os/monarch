@@ -79,8 +79,11 @@ output=$("$MENU" --rows "" | cut -f1 | tr '\n' ' ')
 assert_equals "root holds the ten top-level entries in declaration order" \
   "${output% }" "apps learn trigger style setup install remove update about system"
 
-output=$("$MENU" --rows trigger.share | cut -f2 | tr '\n' ' ')
-assert_equals "a level renders its own children only" "${output% }" "Clipboard File Folder"
+# A guard-free level, deliberately: trigger.share hides its Wi-Fi row on a
+# machine with no wireless connection, which would make this assertion depend on
+# the host it runs on.
+output=$("$MENU" --rows style.screensaver | cut -f2 | tr '\n' ' ')
+assert_equals "a level renders its own children only" "${output% }" "Edit Text Set From Image Restore Default"
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 
