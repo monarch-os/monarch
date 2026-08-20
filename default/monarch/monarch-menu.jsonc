@@ -296,6 +296,7 @@
   "remove.gaming": {"icon":"","label":"Gaming"},
   "remove.lazyvpn": {"icon":"󰖂","label":"LazyVPN","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-lazyvpn"},
   "remove.windows": {"icon":"󰍲","label":"Windows","action":"monarch-launch-floating-terminal-with-presentation \"monarch-windows-vm remove\""},
+  "remove.displaylink": {"icon":"󰹑","label":"Displaylink","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-displaylink","when":"monarch-pkg-present displaylink"},
   "remove.preinstalls": {"icon":"󰏓","label":"Preinstalls","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-preinstalls"},
   // Remove > Language is deliberately absent: the bash menu listed the row
   // but had no case branch for it, and there is no monarch-remove-language
