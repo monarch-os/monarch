@@ -68,6 +68,11 @@ trap cleanup EXIT
 # Spawned with no NIRI_SOCKET so the host's own session cannot answer for the
 # stand-in through anything the discovery might read.
 unset NIRI_SOCKET
+# Stated in the output because the CI step that runs this has no compositor,
+# and a log full of niri assertions should not read as if it had one.
+printf '# niri is stood in for by a copy of /bin/sleep; the naming convention\n'
+printf '# itself is only checked when a real session is present.\n'
+
 cp /bin/sleep "$TMP/niri"
 "$TMP/niri" 300 &
 FAKE_NIRI_PID=$!
