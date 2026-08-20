@@ -100,6 +100,13 @@ catch_errors() {
   echo
   gum style "Get help from the community via QR code or at https://discord.gg/tXFUdasqhY"
 
+  # An unattended install has nobody to answer this menu, and gum choose reads
+  # the TTY. The failure screen and the log tail have already rendered, so exit
+  # with the installer's status instead of blocking on a menu forever.
+  if [[ -n ${MONARCH_UNATTENDED:-} ]]; then
+    exit "$exit_code"
+  fi
+
   # Offer options menu
   while true; do
     options=()

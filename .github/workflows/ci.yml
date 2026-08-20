@@ -15,6 +15,9 @@ jobs:
       - name: Run CLI test suite
         run: bash test/monarch-cli-test.sh
 
+      - name: Run unattended install test suite
+        run: bash test/monarch-unattended-test.sh
+
       - name: Validate command routes and metadata
         run: bin/monarch commands --check
 
