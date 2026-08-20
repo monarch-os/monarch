@@ -24,8 +24,10 @@ if sudo test -f /etc/sudoers.d/99-monarch-installer; then
   sudo rm -f /etc/sudoers.d/99-monarch-installer &>/dev/null
 fi
 
-# Exit gracefully if user chooses not to reboot
-if gum confirm --padding "0 0 0 $((PADDING_LEFT + 32))" --show-help=false --default --affirmative "Reboot Now" --negative "" ""; then
+# Exit gracefully if user chooses not to reboot. An unattended install has
+# nobody to answer, and gum reads the TTY, so it would hang here forever — take
+# the reboot path, which is what the drive asked for by installing at all.
+if [[ -n ${MONARCH_UNATTENDED:-} ]] || gum confirm --padding "0 0 0 $((PADDING_LEFT + 32))" --show-help=false --default --affirmative "Reboot Now" --negative "" ""; then
   # Clear screen to hide any shutdown messages
   clear
 

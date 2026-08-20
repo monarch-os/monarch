@@ -1,6 +1,9 @@
 abort() {
   echo -e "\e[31mMonarch install requires: $1\e[0m"
   echo
+  # Nobody is there to accept the risk on an unattended install, and gum would
+  # read the TTY and hang. Refusing is the safe answer.
+  [[ -n ${MONARCH_UNATTENDED:-} ]] && exit 1
   gum confirm "Proceed anyway on your own accord and without assistance?" || exit 1
 }
 
