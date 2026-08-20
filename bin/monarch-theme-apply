@@ -200,27 +200,34 @@ sync_wallpaper() {
   mapfile -d '' -t links < <(find -L "$FARM_DIR" -maxdepth 1 -type f -print0 2>/dev/null | sort -z)
   ((${#links[@]})) || return 0
 
-  # Apply a wallpaper in exactly two cases, so a scheme change never overrides a
-  # pick the user made:
+  # Apply only when Monarch has never had one on screen ($APPLIED_STAMP — testing
+  # "is anything set?" instead reads Noctalia's own bundled default as a
+  # deliberate choice and declines forever), when what is set is gone, or when it
+  # is one of ours and this scheme no longer offers it.
   #
-  #   1. Monarch has never had one on screen ($APPLIED_STAMP missing). Testing
-  #      "is anything set?" instead does not work: the config-stage run happens
-  #      before the shell exists, so nothing is applied then, and by the time this
-  #      runs again Noctalia has started and posted its own bundled default. That
-  #      is a real, existing file, so an "is anything set?" test reads it as a
-  #      deliberate choice and declines — permanently, on every hook and every
-  #      boot. A fresh install kept Noctalia's wallpaper and never showed a
-  #      Monarch one.
-  #   2. What is set no longer exists — which is how a scheme change reaches the
-  #      screen at all: the pick was a farm link, and rebuilding the farm for the
-  #      new scheme removed it. A pick that outlives the rebuild (anything under a
-  #      mounted source, or a path outside the farm entirely) is left alone.
+  # That last case is the scheme change, and it cannot be asked as "did the file
+  # disappear": we hand Noctalia the resolved path, never the farm link, so it
+  # holds themes/<scheme>/<file> — which survives every rebuild.
   #
-  # Resolve to the real path so what we apply is not itself a link the next
-  # rebuild will drop.
-  local current
+  # Ours is $SRC_THEMES and $USER_BG_ROOT, so a pick from a mounted source stays
+  # (sources are in every scheme's farm) and anything outside them is untouched.
+  local current resolved managed=0 offered=0 link
   current=$(noctalia msg wallpaper-get 2>/dev/null)
-  if [[ ! -f $APPLIED_STAMP || -z $current || ! -f $current ]]; then
+  resolved=$(readlink -f "$current" 2>/dev/null)
+
+  if [[ -n $resolved ]]; then
+    case $resolved in
+    "$SRC_THEMES"/* | "$USER_BG_ROOT"/*) managed=1 ;;
+    esac
+    for link in "${links[@]}"; do
+      if [[ $(readlink -f "$link") == "$resolved" ]]; then
+        offered=1
+        break
+      fi
+    done
+  fi
+
+  if [[ ! -f $APPLIED_STAMP || -z $current || ! -f $current ]] || ((managed && !offered)); then
     if apply_wallpaper "$(readlink -f "${links[0]}")"; then
       mkdir -p "${APPLIED_STAMP%/*}"
       : >"$APPLIED_STAMP"
