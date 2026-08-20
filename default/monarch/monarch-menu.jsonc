@@ -65,6 +65,7 @@
   "trigger.capture.screenshot": {"icon":"","label":"Screenshot","action":"monarch-capture-screenshot"},
   "trigger.capture.screenrecord": {"icon":"","label":"Screenrecord"},
   "trigger.capture.text": {"icon":"󰴑","label":"Text Extraction","action":"monarch-capture-text-extraction"},
+  "trigger.capture.qr": {"icon":"󰐲","label":"QR Code","action":"monarch-capture-qr"},
   "trigger.capture.color": {"icon":"󰃉","label":"Color","action":"pkill hyprpicker || hyprpicker -a"},
 
   // Trigger > Capture > Screenrecord. The bash menu stopped an ongoing recording
