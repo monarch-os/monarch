@@ -147,7 +147,9 @@ Run `monarch --help` for the full list. The most common groups:
 ~/.config/noctalia/
 ├── config.toml                # Theme, bar lanes, [widget.*] settings, hooks, idle
 ├── palettes/Monarch.json      # The Monarch color scheme (dark + light + terminal blocks)
-└── templates/                 # Inputs for apps Noctalia cannot theme (sddm, herdr)
+└── templates/                 # Leftover sddm input; nothing renders it under v5
+
+~/.config/herdr/config.toml        # ANSI slot names; follows the terminal, never re-rendered
 
 ~/.local/share/noctalia/plugins/   # Luau plugins (monarch-indicators)
 ~/.local/state/noctalia/           # Noctalia's own mutable state — do not edit or ship
