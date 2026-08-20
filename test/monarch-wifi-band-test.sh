@@ -62,6 +62,8 @@ export NM_SCAN=$'2412 MHz:Cafe\n5745 MHz:Cafe\n2437 MHz:Neighbour\n'
 : >"$NM_CALLS"
 
 status=$("$BAND")
+# The panel names the network the pin applies to, so the SSID is part of status.
+assert_equals "names the connected network"  "$(awk '$1=="ssid"      {print $2}' <<<"$status")" "Cafe"
 assert_equals "reports the band in use"      "$(awk '$1=="band"      {print $2}' <<<"$status")" "5"
 assert_equals "lists both bands of the SSID" "$(awk '$1=="available" {$1=""; sub(/^ /,""); print}' <<<"$status")" "2.4 5"
 assert_equals "reports no pin as auto"       "$(awk '$1=="selected"  {print $2}' <<<"$status")" "auto"

@@ -103,6 +103,7 @@ print_status() {
   available=$(available_bands "$device" "$ssid" "$band")
   profile=$(wifi_profile "$device")
 
+  printf 'ssid\t%s\n' "$ssid"
   printf 'band\t%s\n' "$band"
   printf 'available\t%s\n' "$available"
   if [[ -n $profile ]]; then printf 'selected\t%s\n' "$(selected_band "$profile")"; fi

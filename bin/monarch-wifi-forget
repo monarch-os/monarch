@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# monarch:summary=Delete a saved Wi-Fi profile
+# monarch:group=wifi
+# monarch:args=<ssid>
+# monarch:examples=monarch wifi forget Cafe
+
+# Deletes the stored connection, credentials included, so the network stops
+# being joined automatically. Deleting the active profile disconnects it, which
+# is what "forget" means everywhere else.
+
+set -uo pipefail
+
+ssid=${1:-}
+if [[ -z $ssid ]]; then
+  echo "Usage: monarch-wifi-forget <ssid>" >&2
+  exit 2
+fi
+
+# Match the profile name exactly: a substring match would delete a neighbour's
+# saved network whose name happens to contain this one.
+if ! LC_ALL=C nmcli -g NAME connection show 2>/dev/null | grep -Fxq "$ssid"; then
+  echo "Error: no saved profile named $ssid." >&2
+  exit 1
+fi
+
+if out=$(LC_ALL=C nmcli connection delete id "$ssid" 2>&1); then
+  exit 0
+fi
+
+printf '%s\n' "${out:-Could not forget $ssid}" >&2
+exit 1

@@ -90,12 +90,17 @@ order = ["default"]
     "monarch/agents:usage",
     "monarch/indicators:lazyvpn",
     "monarch/indicators:todo",
-    "network",
+    "monarch/network:network",
     "bluetooth",
     "volume",
     "brightness",
     "battery",
   ]
+  # monarch/network:network stands in for the stock `network` widget: same pill,
+  # plus the Wi-Fi band, and its panel carries the band, the DNS provider and
+  # the network list where the stock one has only the list. Noctalia's own
+  # network page stays one right click away — see the plugin's network.luau.
+  #
   # The five monarch/indicators entries replace v4's CustomButton widgets, and
   # monarch/agents:usage replaces the QML plugin of the same name (both under
   # default/noctalia/plugins/). Each hides itself when it has nothing to report,

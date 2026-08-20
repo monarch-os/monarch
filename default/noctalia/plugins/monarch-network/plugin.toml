@@ -1,0 +1,52 @@
+# Monarch's network widget: the bar pill and the panel behind it.
+#
+# Port of quattro's omarchy.network, which is one bar-widget plugin whose panel
+# carries the connection, the Wi-Fi band, the DNS provider and the network list,
+# and which summons its QR and speed-test panels rather than embedding them.
+# Same shape here — monarch/wifi-qr is the QR panel, and the speed test is the
+# second entry below.
+#
+# It stands in for Noctalia's stock `network` widget, which has the list and the
+# radio but none of the band, DNS, QR or speed test.
+
+id          = "monarch/network"
+name        = "Monarch Network"
+version     = "1.0.0"
+# 22 everywhere in Monarch; these panels need 13 (capture_keys) at most.
+plugin_api  = 22
+author      = "monarch"
+license     = "MIT"
+description = "Connection state, Wi-Fi band, DNS and the network list in one panel."
+icon        = "wifi"
+
+[[widget]]
+id    = "network"
+entry = "network.luau"
+
+[[panel]]
+id     = "panel"
+entry  = "panel.luau"
+width  = 420
+height = 560
+# Drops out of the widget rather than landing in the middle of the screen: it
+# belongs to the pill that opens it, the way the stock network page belongs to
+# the stock widget. The QR and speed-test cards stay centred — they are summoned
+# from this panel, so they have no widget to hang off.
+placement = "attached"
+position  = "auto"
+open_near_click = true
+# Escape closes; the passphrase field takes every other key.
+keyboard_focus = "on_demand"
+capture_keys   = ["escape"]
+dismiss_on_outside_click = true
+
+[[panel]]
+id     = "speedtest"
+entry  = "speedtest.luau"
+width  = 380
+height = 280
+placement = "floating"
+position  = "center"
+keyboard_focus = "on_demand"
+capture_keys   = ["escape"]
+dismiss_on_outside_click = true

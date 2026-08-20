@@ -21,6 +21,12 @@ jobs:
       - name: Run Wi-Fi QR test suite
         run: bash test/monarch-wifi-qr-test.sh
 
+      - name: Run Wi-Fi band test suite
+        run: bash test/monarch-wifi-band-test.sh
+
+      - name: Run network test suite
+        run: bash test/monarch-network-test.sh
+
       - name: Validate command routes and metadata
         run: bin/monarch commands --check
 
