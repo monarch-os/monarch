@@ -86,47 +86,9 @@ EOF
 }
 
 setup_noctalia_lockscreen() {
-  # Noctalia's lock screen never reads /etc/pam.d/sudo or polkit-1. It
-  # authenticates through its own PAM service, taken from NOCTALIA_PAM_SERVICE
-  # (otherwise auto-detected as login/system-auth/common-auth). Give it a
-  # dedicated service rather than editing system-auth, which would also expose
-  # sudo to CVE-2024-37408 background fingerprint hijacking.
-  if ! grep -q pam_fprintd.so /etc/pam.d/noctalia 2>/dev/null; then
-    echo "Configuring Noctalia lock screen for fingerprint authentication..."
-    sudo tee /etc/pam.d/noctalia >/dev/null <<'EOF'
-#%PAM-1.0
-# Managed by Monarch (monarch-setup-security-fingerprint).
-# Fingerprint first, password (system-auth) as fallback.
-auth      sufficient pam_fprintd.so
-auth      include    system-auth
-account   include    system-auth
-password  include    system-auth
-session   include    system-auth
-EOF
-  fi
-
-  # Point Noctalia at that service. environment.d is read by the systemd user
-  # manager at login, so the uwsm-launched shell inherits it. Deliberately kept
-  # out of the versioned Niri config: setting NOCTALIA_PAM_SERVICE globally for
-  # users without /etc/pam.d/noctalia would route them to pam_deny and lock
-  # them out of their own screen.
-  mkdir -p "$HOME/.config/environment.d"
-  cat >"$HOME/.config/environment.d/noctalia-fingerprint.conf" <<'EOF'
-# Managed by Monarch (monarch-setup-security-fingerprint).
-# Removed by monarch-remove-security-fingerprint.
-NOCTALIA_PAM_SERVICE=noctalia
-EOF
-
-  # Arm the reader on the lock screen. v4 needed two keys for this
-  # (general.autoStartAuth so PAM starts before you type, and
-  # allowPasswordWithFprintd so the password field stayed usable); v5 folds both
-  # into lockscreen.fingerprint — "unlock with a fingerprint reader via fprintd,
-  # alongside password entry".
-  #
-  # It goes in its own file rather than config.toml: v5 merges every *.toml in
-  # this directory, and monarch-refresh-noctalia overwrites config.toml with the
-  # shipped default, which would take a user-only toggle with it. Removed by
-  # monarch-remove-security-fingerprint.
+  # Own file, not config.toml: Noctalia merges every *.toml in this directory,
+  # and monarch-refresh-noctalia overwrites config.toml with the shipped default.
+  echo "Configuring Noctalia lock screen for fingerprint authentication..."
   mkdir -p "$HOME/.config/noctalia"
   cat >"$HOME/.config/noctalia/monarch-fingerprint.toml" <<'EOF'
 # Managed by Monarch (monarch-setup-security-fingerprint).
@@ -135,15 +97,10 @@ EOF
 fingerprint = true
 EOF
 
-  # A reload is enough now. v4 had to restart the shell outright, because it
-  # held settings.json in memory and rewrote it on logout, reverting the edit.
   noctalia msg config-reload >/dev/null 2>&1 || true
 }
 
 add_fingerprint_marker() {
-  # Noctalia's lock screen delegates to PAM (pam_fprintd.so via the dedicated
-  # noctalia service). Persist a marker so the rest of Monarch can adapt UI
-  # hints accordingly.
   mkdir -p "$HOME/.local/state/monarch"
   touch "$HOME/.local/state/monarch/fingerprint-enabled"
 }
@@ -162,7 +119,7 @@ fi
 # Configure PAM
 setup_pam_config
 
-# Wire up the Noctalia lock screen (PAM service + env var + settings)
+# Arm the reader on the Noctalia lock screen
 setup_noctalia_lockscreen
 
 # Record that fingerprint auth is enabled for downstream Monarch tooling
@@ -180,7 +137,6 @@ if sudo fprintd-enroll "$USER"; then
   if fprintd-verify; then
     echo -e "\e[32m\nPerfect! Fingerprint authentication is now configured.\e[0m"
     echo "You can use your fingerprint for sudo, polkit, and the lock screen (Super + L)."
-    echo -e "\e[33mLog out and back in so the lock screen picks up the fingerprint reader.\e[0m"
   else
     echo -e "\e[31m\nVerification failed. You may want to try enrolling again.\e[0m"
   fi
