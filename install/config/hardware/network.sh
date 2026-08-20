@@ -16,6 +16,14 @@ sudo tee /etc/NetworkManager/conf.d/dns.conf >/dev/null <<'EOF'
 dns=systemd-resolved
 EOF
 
+# archinstall's `network_config: iso` copies the live installer's iwd .psk files
+# into the target and installs and enables iwd with them, so any machine
+# installed over Wi-Fi arrives with iwd racing wpa_supplicant for the radio.
+# Monarch left that backend deliberately — it never re-associates after suspend
+# on ath11k — so retire it here as well as in migration 1781266508, which only
+# ever fires on an install that carried the old backend config.
+sudo systemctl disable --now iwd.service 2>/dev/null || true
+
 # NetworkManager manages the links; systemd-networkd must not compete with it.
 # monarch-iso asks archinstall for `network_config: iso`, which copies the live
 # ISO's networkd setup into the target — stock DHCP .network files and the
