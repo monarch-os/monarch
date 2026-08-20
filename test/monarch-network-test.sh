@@ -107,6 +107,15 @@ printf '[Resolve]\nDNS=192.168.1.1\n' >"$MONARCH_RESOLVED_CONF"
 assert_equals "anything else is Custom" \
   "$("$STATUS" --verbose | awk '$1=="dns" {print $2}')" "Custom"
 
+# The resolved.conf sniff above is the fallback. With the monarch-dns package
+# installed the command owns the answer, because it also reads NetworkManager's
+# global-dns override — which wins over resolved.conf, so sniffing alone would
+# report the wrong provider. Asserted by reading the source rather than by
+# planting a binary in /usr/bin, which a test has no business doing.
+grep -q 'if \[\[ -x /usr/bin/monarch-dns \]\]' "$STATUS" ||
+  fail "status defers to the packaged monarch-dns when it is installed"
+pass "status defers to the packaged monarch-dns when it is installed"
+
 # ── The network list ─────────────────────────────────────────────────────────
 
 export NM_SAVED=$'Cafe\nHome\n'

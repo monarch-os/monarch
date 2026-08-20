@@ -67,11 +67,17 @@ print_status() {
   printf 'wifi\t%s\t%s\t%s\n' "${ssid:-$device}" "$signal" "$freq"
 }
 
-# Which of monarch-setup-dns's four providers wrote the current resolved.conf.
-# Matched on the first server of each, which is what makes them distinguishable;
-# anything else a user put there is "Custom", and no file at all is "DHCP".
+# monarch-dns owns this once its package is installed — it also reads
+# NetworkManager's global-dns override, which wins over resolved.conf. Without
+# the package, fall back to sniffing resolved.conf: matched on the first server
+# of each provider, anything else a user put there is "Custom", no file "DHCP".
 print_dns() {
   local dns
+
+  if [[ -x /usr/bin/monarch-dns ]]; then
+    printf 'dns\t%s\n' "$(/usr/bin/monarch-dns)"
+    return 0
+  fi
 
   [[ -r $RESOLVED_CONF ]] || return 0
   dns=$(awk -F= '/^[[:space:]]*DNS=/ { print $2; exit }' "$RESOLVED_CONF")

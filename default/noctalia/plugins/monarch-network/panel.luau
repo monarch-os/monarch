@@ -20,6 +20,10 @@ local DISCONNECT_CMD = shared.bin("monarch-wifi-disconnect")
 local RADIO_CMD = shared.bin("monarch-toggle-wifi")
 local DNS_CMD = shared.bin("monarch-setup-dns")
 local TERMINAL_CMD = shared.bin("monarch-launch-floating-terminal-with-presentation")
+-- The monarch-dns package. Root-owned, and etc/sudoers.d/monarch-dns grants the
+-- three fixed providers passwordless — which is the whole reason it is a
+-- package: a grant may only ever name a path the user cannot rewrite.
+local PACKAGED_DNS = "/usr/bin/monarch-dns"
 
 local TEXT_WIDTH = 360
 local DNS_PROVIDERS = { "Cloudflare", "Google", "DHCP", "Custom" }
@@ -124,10 +128,21 @@ local function setBand(target: string)
   runAction("band", BAND_CMD .. " " .. shared.shellQuote(target), "Could not change the Wi-Fi band")
 end
 
+local function dnsIsPackaged(): boolean
+  return noctalia.fileExists(PACKAGED_DNS)
+end
+
+-- Custom always takes the terminal: it reads servers from stdin, and it is
+-- deliberately outside the sudoers grant for exactly that reason. Without the
+-- package the other three follow it there, since monarch-setup-dns writes under
+-- /etc behind a sudo prompt this panel has no tty to answer.
 local function setDns(provider: string)
-  -- monarch-setup-dns writes under /etc behind sudo, and a plugin has no
-  -- terminal to answer a password prompt on. Custom also reads servers from
-  -- stdin. Both go to the floating terminal, which has both.
+  if provider ~= "Custom" and dnsIsPackaged() then
+    runAction("dns", PACKAGED_DNS .. " " .. shared.shellQuote(provider),
+      "Could not switch to " .. provider)
+    return
+  end
+
   noctalia.runAsync(TERMINAL_CMD .. " " .. DNS_CMD .. " " .. shared.shellQuote(provider))
   panel.close()
 end
@@ -254,7 +269,10 @@ local function dnsSection(): { any }
     sectionHeader("DNS PROVIDER"),
     ui.row({ gap = 8, align = "center" }, pills),
     ui.label({
-      text = "Opens a terminal — changing DNS needs root.",
+      text = if busy == "dns"
+        then "Applying…"
+        elseif dnsIsPackaged() then "Custom opens a terminal — it asks for the servers."
+        else "Opens a terminal — changing DNS needs root.",
       fontSize = 11,
       color = "on_surface_variant",
     }),
