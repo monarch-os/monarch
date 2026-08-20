@@ -3,8 +3,7 @@
 # monarch:summary=Set Wi-Fi power save mode on wireless interfaces
 # monarch:args=<on|off>
 
-# Only until the next reconnect: NetworkManager reasserts wifi.powersave on
-# activation. Edit conf.d/wifi-powersave.conf for the policy; this is the moment.
+# Until the next reconnect only; conf.d/wifi-powersave.conf holds the policy.
 
 for iface in /sys/class/net/*/wireless; do
   iface="$(basename "$(dirname "$iface")")"

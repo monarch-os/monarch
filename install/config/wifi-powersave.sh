@@ -1,7 +1,5 @@
-# Power save stays off, on battery as much as on mains. Monarch used to do the
-# opposite through a udev rule; NetworkManager owns the setting instead because
-# it reasserts wifi.powersave on every activation, and a rule fighting it from
-# outside only wins until the next reconnect.
+# NetworkManager rather than the udev rule this replaces: it reasserts
+# wifi.powersave on every activation, so a rule from outside loses the reconnect.
 
 sudo mkdir -p /etc/NetworkManager/conf.d
 

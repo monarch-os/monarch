@@ -16,10 +16,8 @@ sudo tee /etc/NetworkManager/conf.d/dns.conf >/dev/null <<'EOF'
 dns=systemd-resolved
 EOF
 
-# archinstall's `network_config: iso` installs and enables iwd when the live
-# session left .psk files behind. Monarch installs offline so that path is
-# normally cold, but iwd never re-associates after suspend on ath11k and nothing
-# else retires it.
+# `network_config: iso` enables iwd when the live session left .psk files, and
+# nothing else retires it. Cold on an offline install; free to run anyway.
 sudo systemctl disable --now iwd.service 2>/dev/null || true
 
 # NetworkManager manages the links; systemd-networkd must not compete with it.
