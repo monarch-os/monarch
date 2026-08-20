@@ -18,6 +18,9 @@ jobs:
       - name: Run unattended install test suite
         run: bash test/monarch-unattended-test.sh
 
+      - name: Run socket discovery tests (stand-in niri, no compositor)
+        run: bash test/monarch-niri-socket-test.sh
+
       - name: Validate command routes and metadata
         run: bin/monarch commands --check
 
