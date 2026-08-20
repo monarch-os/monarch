@@ -7,17 +7,22 @@ set -e
 
 
 remove_pam_config() {
+  # The lid gate goes with pam_fprintd: on its own it would run a helper before
+  # every sudo to decide nothing. Matched on the helper name rather than on
+  # pam_exec, so an unrelated pam_exec line in the same stack survives.
   # Remove from sudo
-  if grep -q pam_fprintd.so /etc/pam.d/sudo; then
+  if grep -Eq 'pam_fprintd\.so|monarch-hw-laptop-closed' /etc/pam.d/sudo; then
     echo "Removing fingerprint authentication from sudo..."
-    sudo sed -i '/pam_fprintd\.so/d' /etc/pam.d/sudo
+    sudo sed -i -e '/pam_fprintd\.so/d' -e '/monarch-hw-laptop-closed/d' /etc/pam.d/sudo
   fi
 
   # Remove from polkit
-  if [[ -f /etc/pam.d/polkit-1 ]] && grep -Fq 'pam_fprintd.so' /etc/pam.d/polkit-1; then
+  if [[ -f /etc/pam.d/polkit-1 ]] && grep -Eq 'pam_fprintd\.so|monarch-hw-laptop-closed' /etc/pam.d/polkit-1; then
     echo "Removing fingerprint authentication from polkit..."
-    sudo sed -i '/pam_fprintd\.so/d' /etc/pam.d/polkit-1
+    sudo sed -i -e '/pam_fprintd\.so/d' -e '/monarch-hw-laptop-closed/d' /etc/pam.d/polkit-1
   fi
+
+  sudo rm -f /usr/local/bin/monarch-hw-laptop-closed
 }
 
 remove_noctalia_lockscreen() {
