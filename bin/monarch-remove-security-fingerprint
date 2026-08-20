@@ -21,9 +21,11 @@ remove_pam_config() {
 }
 
 remove_noctalia_lockscreen() {
-  # Drop the dedicated PAM service and the env var that points Noctalia at it.
+  # v5 reads neither of these — it authenticates the lock screen against the
+  # "login" stack and drives the reader over D-Bus — but an install set up before
+  # that was understood still carries both, so removal still clears them.
   if [[ -f /etc/pam.d/noctalia ]]; then
-    echo "Removing Noctalia lock screen fingerprint configuration..."
+    echo "Removing the v4 lock-screen PAM service..."
     sudo rm -f /etc/pam.d/noctalia
   fi
 
