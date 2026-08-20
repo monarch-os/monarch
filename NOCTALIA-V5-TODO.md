@@ -399,8 +399,38 @@ which is why `omarchy bar put` can offer any installed plugin.
 catalog ids; a template that is not in the builtin or community catalog cannot be
 rendered at all. Monarch already pays this: sddm and herdr are rendered by
 `monarch-theme-apply` off the `colors_changed` hook precisely because they have no
-catalog entry. That escape hatch works but does not scale to user-authored
-theming, which is what was asked for.
+catalog entry.
+
+That last sentence was aspirational: `monarch-theme-apply` renders neither, and
+herdr turned out not to need it. **sddm still does not follow a scheme change** —
+it ships a static `theme.conf` matching the Monarch scheme and is re-tinted only
+by `monarch refresh sddm`. Wiring that into the hook is open work.
+
+Worth recording, because it cost two wrong diagnoses before the right one. herdr
+follows the scheme **on its own**: it queries the terminal for its palette at
+startup — 256 `OSC 4` queries plus `OSC 10`/`11` for foreground and background —
+so `theme = "terminal"` and colours named after ANSI slots track whatever Noctalia
+themed the terminal to. Verified by stripping `[theme.custom]` entirely and
+switching schemes: chrome teal under Retro 82, grey under Vantablack. Omarchy
+relies on exactly this — not one of its dozen `omarchy-theme-set-*` scripts
+touches herdr, and `omarchy-theme-osc` pushes the same sequences the other way to
+repaint terminals already open.
+
+Two measurement errors got there the long way, both worth not repeating:
+
+1. *"The ANSI block never moves between schemes."* Measured across `Monarch.json`
+   and a `Tokyo Night.json` that was a byte-copy of it. **Diff the palettes before
+   concluding anything about what follows them.**
+2. *"The chrome needs concrete colours."* Never tested — and the very first
+   screenshot already showed the chrome tracking ANSI blue with no config at all.
+
+What is genuinely open: an ANSI slot is the terminal's colour, not the shell's, so
+under Retro 82 herdr reads teal beside an orange bar. Matching `mPrimary` instead
+would mean rewriting the config on every colour change, and was judged not worth
+the hook cost.
+
+The escape hatch works but does not scale to user-authored theming, which is what
+was asked for.
 
 **Decide between, in increasing order of cost:**
 1. keep extending the `colors_changed` hook — works today, no upstream dependency,
