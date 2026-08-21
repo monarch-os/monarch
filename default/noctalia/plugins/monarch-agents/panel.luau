@@ -8,6 +8,13 @@
 
 local agents = require("./agents.luau")
 
+local render
+
+-- Which agent the panel is showing, held by id rather than by index: records
+-- appear and vanish as collectors report, and an index would quietly start
+-- pointing at a different agent the moment the list shifts.
+local selectedId: string? = nil
+
 -- Every bar in a chart is scaled to that chart's own busiest row, so a quiet
 -- week still reads as a shape rather than seven flat lines.
 local function ratio(value: number, peak: number): number
@@ -184,11 +191,43 @@ local function agentSection(record: any, index: number): any
     section("Last 7 days", dayRows(record)),
     section("By model", modelRows(record)),
     footer(record),
-    ui.separator({}),
   })
 end
 
-local function render()
+-- One button per reporting agent. Only drawn from the second agent onwards: a
+-- lone button offers no choice, and every machine with one collector would
+-- carry it for nothing.
+local function selector(records: { any }): any
+  local buttons = {}
+  for index, record in ipairs(records) do
+    local id = tostring(record.id or index)
+    table.insert(buttons, ui.button({
+      key = "pick-" .. id,
+      text = tostring(record.name or id),
+      variant = if id == selectedId then "primary" else "ghost",
+      onClick = function()
+        selectedId = id
+        render()
+      end,
+    }))
+  end
+  return ui.row({ gap = 6, align = "center" }, buttons)
+end
+
+-- The selected record, or the first one when the selection names an agent that
+-- has since stopped reporting.
+local function selected(records: { any }): any
+  for _, record in ipairs(records) do
+    if tostring(record.id or "") == selectedId then
+      return record
+    end
+  end
+  local first = records[1]
+  selectedId = tostring(first.id or "")
+  return first
+end
+
+function render()
   local records = noctalia.state.get(agents.KEY_RECORDS) or {}
 
   if #records == 0 then
@@ -202,17 +241,17 @@ local function render()
     return
   end
 
-  local sections = {}
-  for index, record in ipairs(records) do
-    table.insert(sections, agentSection(record, index))
+  local record = selected(records)
+
+  local children = { ui.label({ text = "Agents", fontSize = 18, fontWeight = "bold" }) }
+  if #records > 1 then
+    table.insert(children, selector(records))
   end
+  table.insert(children, ui.scroll({ flexGrow = 1, gap = 12 }, { agentSection(record, 1) }))
 
   -- flexGrow on the root as well as the scroll: the viewport grows into the
   -- panel's declared height, and without it collapses to a couple of rows.
-  panel.render(ui.column({ flexGrow = 1, gap = 12, padding = 16 }, {
-    ui.label({ text = "Agents", fontSize = 18, fontWeight = "bold" }),
-    ui.scroll({ flexGrow = 1, gap = 12 }, sections),
-  }))
+  panel.render(ui.column({ flexGrow = 1, gap = 12, padding = 16 }, children))
 end
 
 function onOpen()
