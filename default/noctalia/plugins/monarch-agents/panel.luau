@@ -139,22 +139,34 @@ end
 
 -- What the all-time numbers amount to, and — while the status says they are
 -- not authoritative — how to make them so again.
+-- An agent whose collector has no local session format to scan says so, and
+-- then the counters it cannot fill are left out rather than printed as zeroes
+-- — which would read as "nothing used" instead of "not measured". Absent means
+-- true: every record written before this carries stats.
+local function measuresLocally(record: any): boolean
+  return record.hasLocalStats ~= false
+end
+
 local function footer(record: any): any
-  local prompts = math.floor(tonumber(record.totalPrompts) or 0)
-  local days = math.floor(tonumber(record.activeDays) or 0)
   local status = tostring(record.usageStatusText or "")
   local help = tostring(record.authHelpText or "")
 
-  local cells = {
-    ui.label({
+  local cells = {}
+  if measuresLocally(record) then
+    local prompts = math.floor(tonumber(record.totalPrompts) or 0)
+    local days = math.floor(tonumber(record.activeDays) or 0)
+    table.insert(cells, ui.label({
       text = prompts .. " prompts over " .. days .. " days",
       fontSize = 11,
       color = "on_surface/0.6",
       flexGrow = 1,
-    }),
-  }
+    }))
+  end
   if status ~= "" and help ~= "" then
-    table.insert(cells, ui.label({ text = help, fontSize = 11, color = "error", maxLines = 2 }))
+    table.insert(cells, ui.label({ text = help, fontSize = 11, color = "error", maxLines = 2, flexGrow = 1 }))
+  end
+  if #cells == 0 then
+    return ui.spacer({ height = 0 })
   end
   return ui.row({ gap = 8, align = "center" }, cells)
 end
@@ -177,13 +189,15 @@ local function agentSection(record: any, index: number): any
     ui.label({ text = name, fontWeight = "bold" }),
     if subtitle ~= "" then ui.label({ text = subtitle, fontSize = 11, color = "on_surface/0.6" }) else ui.spacer({ height = 0 }),
   }))
-  table.insert(hero, ui.label({
-    text = math.floor(tonumber(record.todayPrompts) or 0)
-      .. " today · "
-      .. agents.formatTokens(tonumber(record.todayTotalTokens) or 0),
-    fontSize = 11,
-    color = "on_surface/0.6",
-  }))
+  if measuresLocally(record) then
+    table.insert(hero, ui.label({
+      text = math.floor(tonumber(record.todayPrompts) or 0)
+        .. " today · "
+        .. agents.formatTokens(tonumber(record.todayTotalTokens) or 0),
+      fontSize = 11,
+      color = "on_surface/0.6",
+    }))
+  end
 
   return ui.column({ key = "agent-" .. index, gap = 12 }, {
     ui.row({ gap = 10, align = "center" }, hero),

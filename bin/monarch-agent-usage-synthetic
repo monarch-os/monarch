@@ -1,0 +1,193 @@
+#!/usr/bin/python3
+# monarch:summary=Print the Synthetic usage record as JSON
+# monarch:args=[--force] [--limits-only]
+# monarch:hidden=true
+"""Collect Synthetic subscription quotas into one display-ready JSON record.
+
+Everything comes from GET /v2/quotas, and that call is free: the docs state it
+is not counted against the subscription, so there is nothing to cache and
+--force/--limits-only have nothing to vary.
+
+Synthetic publishes no history endpoint and writes no session format of its
+own, so this record carries live windows and no token history. hasLocalStats
+says as much, and the panel then leaves out the counters it would otherwise
+print as zeroes. The agents panel only ever reads the JSON this prints.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+AGENT_ID = "synthetic"
+AGENT_NAME = "Synthetic"
+QUOTAS_URL = "https://api.synthetic.new/v2/quotas"
+AUTH_HELP = (
+  'Set SYNTHETIC_API_KEY, or put {"apiKey": "…"} in '
+  "~/.config/monarch/agents/synthetic.json"
+)
+
+
+def number(value: Any) -> float:
+  try:
+    return float(value)
+  except (TypeError, ValueError):
+    return 0.0
+
+
+def config_path() -> Path:
+  config_home = Path(os.environ.get("XDG_CONFIG_HOME") or (Path.home() / ".config"))
+  return config_home / "monarch" / "agents" / "synthetic.json"
+
+
+def api_key() -> str:
+  # The environment variable is what Synthetic's own docs reach for. The config
+  # file is what actually reaches this collector on a desktop: it runs from the
+  # Noctalia service, which never sees a shell profile's exports. No opencode
+  # fallback — opencode ships no synthetic provider to key it on.
+  from_env = str(os.environ.get("SYNTHETIC_API_KEY", "")).strip()
+  if from_env:
+    return from_env
+  try:
+    parsed = json.loads(config_path().read_text())
+  except (OSError, json.JSONDecodeError):
+    return ""
+  if not isinstance(parsed, dict):
+    return ""
+  return str(parsed.get("apiKey") or "").strip()
+
+
+def fetch_quotas(key: str) -> dict[str, Any]:
+  request = urllib.request.Request(QUOTAS_URL, headers={"Authorization": "Bearer " + key})
+  with urllib.request.urlopen(request, timeout=15) as response:
+    payload = json.loads(response.read().decode("utf-8"))
+  return payload if isinstance(payload, dict) else {}
+
+
+def window(entry: Any, title: str, resets_field: str = "renewsAt") -> dict[str, Any] | None:
+  """A {limit, requests, renewsAt} window as one limit row.
+
+  A limit of zero is not a quota at zero percent, it is a quota that does not
+  apply — freeToolCalls reports exactly that on a paid plan.
+  """
+  if not isinstance(entry, dict):
+    return None
+  limit = number(entry.get("limit"))
+  if limit <= 0:
+    return None
+  percent = number(entry.get("requests")) / limit
+  return {
+    "title": title,
+    "percent": min(max(percent, 0.0), 1.0),
+    "resetsAt": str(entry.get(resets_field) or ""),
+  }
+
+
+def weekly_tokens(entry: Any) -> dict[str, Any] | None:
+  if not isinstance(entry, dict) or entry.get("percentRemaining") is None:
+    return None
+  percent = 1.0 - number(entry.get("percentRemaining")) / 100.0
+  # The credits are the substance of this window, and the panel has no balance
+  # section to put them in — so they ride in the title.
+  remaining = str(entry.get("remainingCredits") or "").strip()
+  maximum = str(entry.get("maxCredits") or "").strip()
+  title = "Weekly tokens"
+  if remaining and maximum:
+    title += f" · {remaining} of {maximum}"
+  return {
+    "title": title,
+    "percent": min(max(percent, 0.0), 1.0),
+    "resetsAt": str(entry.get("nextRegenAt") or ""),
+  }
+
+
+def rolling(entry: Any) -> dict[str, Any] | None:
+  if not isinstance(entry, dict):
+    return None
+  maximum = number(entry.get("max"))
+  if maximum <= 0:
+    return None
+  return {
+    "title": "Subscription requests",
+    "percent": min(max(1.0 - number(entry.get("remaining")) / maximum, 0.0), 1.0),
+    "resetsAt": str(entry.get("nextTickAt") or ""),
+  }
+
+
+def limits_from(payload: dict[str, Any]) -> list[dict[str, Any]]:
+  rows = []
+  # Heaviest constraint first: the weekly credit budget is what actually runs
+  # out, the request windows refill within hours.
+  for row in (
+    weekly_tokens(payload.get("weeklyTokenLimit")),
+    # Two views of one budget. rollingFiveHourLimit only stands in when the
+    # documented field is missing, which the API being "under development"
+    # makes worth guarding against.
+    window(payload.get("subscription"), "Subscription requests") or rolling(payload.get("rollingFiveHourLimit")),
+    window((payload.get("search") or {}).get("hourly") if isinstance(payload.get("search"), dict) else None, "Web search (hourly)"),
+    window(payload.get("freeToolCalls"), "Free tool calls"),
+  ):
+    if row:
+      rows.append(row)
+  return rows
+
+
+def main() -> None:
+  parser = argparse.ArgumentParser()
+  # Accepted for CLI compatibility with monarch-agent-usage-update and the
+  # panel's refresh; there is no scan to skip and no cache to reuse.
+  parser.add_argument("--force", action="store_true")
+  parser.add_argument("--limits-only", action="store_true")
+  parser.parse_args()
+
+  record: dict[str, Any] = {
+    "schemaVersion": 1,
+    "id": AGENT_ID,
+    "name": AGENT_NAME,
+    "updatedAt": datetime.now(timezone.utc).isoformat(),
+    # No local session format to scan: the panel reads this to leave out the
+    # per-day, per-model and prompt counters rather than printing them as 0.
+    "hasLocalStats": False,
+    "tierLabel": "",
+    "usageStatusText": "",
+    "authHelpText": "",
+    "limits": [],
+    "recentDays": [],
+    "modelUsage": {},
+    "todayPrompts": 0,
+    "todaySessions": 0,
+    "todayTotalTokens": 0,
+    "todayTokensByModel": {},
+    "totalPrompts": 0,
+    "totalSessions": 0,
+    "activeDays": 0,
+    "activeDates": [],
+  }
+
+  key = api_key()
+  if not key:
+    record["usageStatusText"] = "Waiting for auth"
+    record["authHelpText"] = AUTH_HELP
+  else:
+    try:
+      record["limits"] = limits_from(fetch_quotas(key))
+    except (urllib.error.URLError, TimeoutError, ValueError, OSError) as exc:
+      record["usageStatusText"] = "Synthetic quotas unavailable"
+      record["authHelpText"] = str(exc)
+
+  # Earned, never assumed — the same rule the Claude collector applies. Without
+  # a key there are no limits and no history, so the panel skips the agent
+  # rather than showing an empty card to someone who does not use Synthetic.
+  record["ready"] = record["totalPrompts"] > 0 or len(record["limits"]) > 0
+  print(json.dumps(record, separators=(",", ":")))
+
+
+if __name__ == "__main__":
+  main()
