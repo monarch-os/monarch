@@ -2,8 +2,7 @@
 
 # monarch:summary=Returns true if a battery is present on the system.
 
-# Every glob here used to be BAT*, which is a guess at what the firmware named
-# the pack. The type file is the actual answer and was already being read.
+# BAT* was a guess at the firmware's name; type is the actual answer.
 for bat in "${MONARCH_POWER_SUPPLY_PATH:-/sys/class/power_supply}"/*; do
   [[ -r $bat/present ]] &&
   [[ $(cat $bat/present) == "1" ]] &&

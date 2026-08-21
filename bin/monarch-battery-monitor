@@ -3,16 +3,13 @@
 # monarch:summary=Watch the battery from the user session: warn when it is low, and follow the power source
 # monarch:hidden=true
 
-# Run by monarch-battery-monitor.timer every 30 seconds. Two jobs, both of which
-# need to be in the user's session rather than in a system unit: the warning has
-# to reach a notification daemon, and the profile has to be read out of the
-# user's own per-source memory.
+# Run by monarch-battery-monitor.timer every 30 seconds. Both jobs need the
+# user's session: a notification daemon to reach, and the per-source memory.
 
 BATTERY_THRESHOLD=10
 RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$UID}
 NOTIFICATION_FLAG="$RUNTIME_DIR/monarch_battery_notified"
-# Runtime, not state: a fresh session must re-detect the supply rather than act
-# on where the cable was when the machine was last shut down.
+# Runtime, not state: where the cable was at shutdown means nothing at boot.
 SOURCE_FLAG="$RUNTIME_DIR/monarch_power_source"
 
 status=$(monarch-battery-status --shell)
@@ -37,11 +34,9 @@ if [[ -n $level && $level =~ ^[0-9]+$ ]]; then
 fi
 
 # udev sees the cable move instantly but runs as root, where the per-source
-# memory does not exist — which is why the rule it replaced could only ever set
-# one hardcoded profile. This timer is already awake, so it carries the switch.
+# memory does not exist. This timer is already awake, so it carries the switch.
 if [[ -r $SOURCE_FLAG && $(<"$SOURCE_FLAG") != "$source" ]]; then
-  # The source is passed rather than left to autodetect: this already read it
-  # from sysfs, and the command's own probe asks UPower — two oracles that can
+  # Passed rather than autodetected: sysfs here, UPower there, and the two
   # disagree for a moment either side of the transition being handled.
   monarch-powerprofiles-set "$source" >/dev/null 2>&1 || true
 fi

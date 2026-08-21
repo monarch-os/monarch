@@ -1,9 +1,6 @@
-# The profile follows the power source through monarch-powerprofiles-set, which
-# runs as the user: at login from niri's autostart, and on every transition from
-# monarch-battery-monitor's timer. A udev rule used to do it and could not —
-# udev runs as root, so the profile it remembered was written into /root and
-# never met the one the user picked, which is why it only ever set a hardcoded
-# one.
+# The profile follows the source through monarch-powerprofiles-set, which runs
+# as the user. The udev rule this replaces ran as root, so what it remembered
+# landed in /root and never met the user's pick.
 if monarch-battery-present; then
   sudo systemctl enable power-profiles-daemon
 fi

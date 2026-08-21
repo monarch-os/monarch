@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# Exercises what the power widget reads and drives — the battery fields and the
-# per-source profile memory — against a fake upower, a fake powerprofilesctl and
-# a power-supply tree the test owns, so none of it needs a battery.
+# The battery fields and the per-source profile memory, against a fake upower, a
+# fake powerprofilesctl and a power-supply tree the test owns. No battery needed.
 
 set -euo pipefail
 
@@ -14,9 +13,8 @@ SET="$ROOT/bin/monarch-powerprofiles-set"
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
-# Deliberately not named BAT: `upower -e | grep BAT` used to be the lookup, and
-# it finds nothing for the kernel's own test_power module (battery_test_battery)
-# or for a CMB0, which is a real name on shipped hardware.
+# Deliberately not named BAT: the old `upower -e | grep BAT` lookup finds neither
+# test_power's battery_test_battery nor a CMB0, which ships on real hardware.
 mkdir -p "$TMP/bin" "$TMP/sys/CMB0" "$TMP/sys/AC"
 
 pass() { printf 'ok - %s\n' "$1"; }
@@ -172,9 +170,8 @@ export UP_THRESHOLDS=$'    charge-start-threshold:        75%\n    charge-end-th
 assert_equals "prefers the pair upower reports" \
   "$(field "$("$STATUS" --shell)" threshold)" "75-80%"
 
-# Holding is what a charge limit produces and nothing reports: on mains, not
-# charging, not full. Every branch needs the draw to have actually stopped, or a
-# battery charging hard at 87% would be called held.
+# Holding is what a charge limit produces and nothing reports. Every branch needs
+# the draw to have stopped, or a battery charging hard at 87% would be called held.
 printf '14800000\n' >"$TMP/sys/CMB0/power_now"
 assert_equals "a battery still drawing power is not holding" \
   "$(field "$("$STATUS" --shell)" state)" "charging"
