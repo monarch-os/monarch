@@ -438,8 +438,13 @@ printf '[bar]\norder = ["default"]\n' >"$HOME/.config/noctalia/config.toml"
 bash "$MIGRATION" >/dev/null
 assert_equals "the DDC backend is turned on" \
   "$(grep -c '^enable_ddcutil = true' "$HOME/.config/noctalia/config.toml")" "1"
-assert_equals "and the user joins the group that rule needs" \
-  "$(grep -c 'usermod -aG i2c tester' "$SUDO_CALLS")" "1"
+# ddcutil ships 60-ddcutil-i2c.rules, whose `TAG+="uaccess"` line hands the
+# active session an ACL on every i2c bus behind a display controller. The group
+# in the same file is its own fallback for a machine without a seat; joining it
+# would grant every session, SSH included, what logind grants one and takes back
+# at logout.
+assert_equals "no group is handed out for it" \
+  "$(grep -c usermod "$SUDO_CALLS" || true)" "0"
 
 bash "$MIGRATION" >/dev/null
 assert_equals "turning it on twice does not write it twice" \

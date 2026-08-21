@@ -25,7 +25,6 @@ run_logged $MONARCH_INSTALL/config/wireshark.sh
 run_logged $MONARCH_INSTALL/config/fast-shutdown.sh
 run_logged $MONARCH_INSTALL/config/unmount-fuse.sh
 run_logged $MONARCH_INSTALL/config/input-group.sh
-run_logged $MONARCH_INSTALL/config/i2c-group.sh
 run_logged $MONARCH_INSTALL/config/monarch-ai-skill.sh
 run_logged $MONARCH_INSTALL/config/pi.sh
 run_logged $MONARCH_INSTALL/config/kernel-modules-hook.sh
