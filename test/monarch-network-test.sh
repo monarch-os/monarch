@@ -12,6 +12,8 @@ LIST="$ROOT/bin/monarch-wifi-list"
 JOIN="$ROOT/bin/monarch-wifi-join"
 FORGET="$ROOT/bin/monarch-wifi-forget"
 RADIO="$ROOT/bin/monarch-toggle-wifi"
+CHOOSER="$ROOT/bin/monarch-setup-dns"
+PANEL="$ROOT/default/noctalia/plugins/monarch-network/panel.luau"
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -51,7 +53,7 @@ case "$*" in
     printf 'GENERAL.STATE:%s\nGENERAL.CONNECTION:%s\n' "$NM_STATE" "$NM_CONN" ;;
   *"IN-USE,SIGNAL dev wifi list"*) printf '*:%s\n' "$NM_SIGNAL" ;;
   *"IN-USE,SIGNAL,SECURITY,SSID dev wifi list"*) printf '%s' "$NM_SCAN" ;;
-  *"DEVICE,TYPE device status"*) printf 'wlan0:wifi\n' ;;
+  *"DEVICE,TYPE device status"*) printf '%s\n' "${NM_DEVICES-wlan0:wifi}" ;;
   *"DEVICE,TYPE,STATE device status"*) printf 'wlan0:wifi:connected\n' ;;
   *"-g NAME connection show"*) printf '%s' "$NM_SAVED" ;;
   *"radio wifi off"*|*"radio wifi on"*) : ;;
@@ -155,6 +157,36 @@ grep -q 'if \[\[ -x /usr/bin/monarch-dns \]\]' "$STATUS" ||
   fail "status defers to the packaged monarch-dns when it is installed"
 pass "status defers to the packaged monarch-dns when it is installed"
 
+# ── The DNS chooser ──────────────────────────────────────────────────────────
+
+# Same reason as above: what these pin is which path gets elevated, and a test
+# may not plant a binary in /usr/bin to find out. The rule naming that path
+# lives with the package, in monarch-pkgs, and so does the test for its shape.
+
+grep -Fxq 'PACKAGED_DNS=/usr/bin/monarch-dns' "$CHOOSER" ||
+  fail "the chooser hands over to the path the grant names"
+pass "the chooser hands over to the path the grant names"
+
+# The guard that matters: writing DNS lived here too, and the two copies drifted.
+if grep -qE 'resolved\.conf|systemd/network|nmcli connection modify' "$CHOOSER"; then
+  fail "the chooser writes no DNS configuration of its own"
+fi
+pass "the chooser writes no DNS configuration of its own"
+
+grep -q 'monarch-pkg-add monarch-dns' "$CHOOSER" ||
+  fail "the chooser installs the package the panel sends it here for"
+pass "the chooser installs the package the panel sends it here for"
+
+grep -Fq 'local PACKAGED_DNS = "/usr/bin/monarch-dns"' "$PANEL" ||
+  fail "the panel elevates the same path and no other"
+pass "the panel elevates the same path and no other"
+
+# Custom takes servers from the caller, which is why the grant leaves it out: a
+# panel routing it there would hand user input to a line that never stops to ask.
+grep -q 'provider ~= "Custom"' "$PANEL" ||
+  fail "the panel keeps Custom off the passwordless path"
+pass "the panel keeps Custom off the passwordless path"
+
 # ── The network list ─────────────────────────────────────────────────────────
 
 export NM_SAVED=$'Cafe\nHome\n'
@@ -189,6 +221,12 @@ assert_equals "--rescan asks for a fresh sweep" \
 export NM_SCAN=$':60:WPA2:Guest:5G\n'
 assert_equals "matches an SSID containing a colon" \
   "$("$LIST" | cut -f5)" "Guest:5G"
+
+# A dual-band router under one name is two BSSes, and the star sits on the one
+# the radio associated with — which is not always the strongest.
+export NM_SCAN=$':90:WPA2:Cafe\n*:40:WPA2:Cafe\n'
+assert_equals "the in-use star is found on any BSS of the name" \
+  "$("$LIST" | cut -f3)" "yes"
 
 # ── The actions ──────────────────────────────────────────────────────────────
 
@@ -256,9 +294,14 @@ assert_equals "a failed enterprise join discards its profile" \
 
 assert_equals "radio status reports enabled as JSON" \
   "$(NM_RADIO=enabled "$RADIO" status)" \
-  '{"enabled":true,"tooltip":"Wi-Fi on - click to turn the radio off"}'
+  '{"enabled":true,"present":true,"tooltip":"Wi-Fi on - click to turn the radio off"}'
 assert_equals "radio status reports disabled" \
   "$(NM_RADIO=disabled "$RADIO" status | cut -d, -f1)" '{"enabled":false'
+
+# A machine with no adapter must not read as a radio someone switched off.
+assert_equals "radio status reports a missing adapter" \
+  "$(NM_DEVICES= NM_RADIO=enabled "$RADIO" status)" \
+  '{"enabled":false,"present":false,"tooltip":"No Wi-Fi adapter"}'
 
 # The read never goes through the shell: NetworkManager owns the state, asking
 # it directly cannot go stale, and `status` must answer with no shell running.

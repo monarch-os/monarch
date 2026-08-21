@@ -28,25 +28,44 @@ local TERMINAL_CMD = shared.bin("monarch-launch-floating-terminal-with-presentat
 local PACKAGED_DNS = "/usr/bin/monarch-dns"
 
 local TEXT_WIDTH = 360
-local DNS_PROVIDERS = { "Cloudflare", "Google", "DHCP", "Custom" }
+local DNS_PROVIDERS = {
+  { name = "DHCP", tooltip = "Use the DNS servers DHCP hands out" },
+  { name = "Cloudflare", tooltip = "Set DNS to Cloudflare" },
+  { name = "Google", tooltip = "Set DNS to Google" },
+  { name = "Custom", tooltip = "Set custom DNS servers — opens a terminal" },
+}
 -- Roughly the last half-minute of probes, at one per tick.
 local PING_WINDOW = 24
+-- Rescans while the panel is open, which is why it has no refresh button.
+local RESCAN_TICKS = 10
+local PHRASE_TICKS = 3
+local PHRASES = {
+  "Wiring bits",
+  "Handling packets",
+  "Sorting frames",
+  "Hauling bytes",
+  "Routing crumbs",
+  "Counting collisions",
+  "Bending light",
+}
 
 local info = {}
 local band = { band = "", selected = "auto", available = {} }
 local networks = {}
 local radioOn = true
+local radioPresent = true
 local scanning = false
 local loaded = false
 
--- The row opened for its actions, what was typed into its credential fields,
--- and the action currently in flight ("" when idle). One at a time on purpose:
--- joining two networks at once is not a thing, and a single token keeps every
--- button's disabled state derivable from one value.
-local expanded = ""
+-- One action at a time, so every button's disabled state derives from one value.
+-- The two SSIDs say which row owns the token and the message; empty means the
+-- panel itself — the band, the DNS or the radio.
+local promptSsid = ""
 local password = ""
 local identity = ""
 local busy = ""
+local busySsid = ""
+local failedSsid = ""
 local errorText = ""
 
 -- Throughput is a delta between two samples and packet loss is a window of
@@ -58,6 +77,7 @@ local pings = {}
 local pingIface = ""
 local statusInFlight = false
 local ticks = 0
+local phrase = 1
 
 -- Reads and writes both take a ticket: a refresh started before the last click
 -- must not land its stale answer on top of the newer state.
@@ -84,6 +104,17 @@ end
 -- reports is measurement noise, not precision.
 local function formatMs(ms: number): string
   return (ms < 10 and string.format("%.1f", ms) or string.format("%.0f", ms)) .. " ms"
+end
+
+-- A virtual or unplugged NIC reports -1, which is "unknown", not a speed.
+local function formatLinkSpeed(mbps: string?): string
+  local speed = tonumber(mbps or "")
+  if not speed or speed <= 0 then
+    return ""
+  elseif speed >= 1000 then
+    return string.format(speed % 1000 == 0 and "%.0f Gb/s" or "%.1f Gb/s", speed / 1000)
+  end
+  return string.format("%d Mb/s", speed)
 end
 
 -- The counters only ever grow, until the interface changes or its driver resets
@@ -153,6 +184,15 @@ local function packetLoss(): number
   return math.floor(lost / #pings * 100 + 0.5)
 end
 
+local function connectedNetwork()
+  for _, network in ipairs(networks) do
+    if network.connected then
+      return network
+    end
+  end
+  return nil
+end
+
 -- Guarded rather than queued: a probe on a dead route waits out its ping
 -- timeout, and a second tick behind it would only pile up.
 local function pollStatus()
@@ -193,14 +233,30 @@ local function pollBand()
   end)
 end
 
-local function refresh(rescan: boolean)
-  generation += 1
+local function pollNetworks(rescan: boolean)
   local ticket = generation
 
   if rescan then
     scanning = true
     render()
   end
+
+  noctalia.runAsync(LIST_CMD .. (rescan and " --rescan" or ""), function(result)
+    if ticket ~= generation then return end
+    scanning = false
+    -- The last good list stands when a sweep fails: NetworkManager refuses a
+    -- rescan too close behind the last one, and blanking on that reads as a
+    -- neighbourhood that emptied out.
+    if result and result.exitCode == 0 then
+      networks = shared.parseNetworks(result.stdout or "")
+    end
+    render()
+  end)
+end
+
+local function refresh(rescan: boolean)
+  generation += 1
+  local ticket = generation
 
   -- Whatever was in flight is already disowned by the bump above, so the guard
   -- it set must not keep this read from starting.
@@ -212,38 +268,31 @@ local function refresh(rescan: boolean)
     if ticket ~= generation then return end
     local state = result and noctalia.json.decode(result.stdout or "")
     radioOn = not state or state.enabled ~= false
+    radioPresent = not state or state.present ~= false
     render()
   end)
 
-  -- The scan is the slow one; a rescan takes seconds and the rest of the panel
-  -- must not wait on it.
-  noctalia.runAsync(LIST_CMD .. (rescan and " --rescan" or ""), function(result)
-    if ticket ~= generation then return end
-    scanning = false
-    networks = (result and result.exitCode == 0) and shared.parseNetworks(result.stdout or "") or {}
-    render()
-  end)
+  pollNetworks(rescan)
 end
 
 -- Every action ends the same way: clear the in-flight token, keep whatever the
 -- command said on stderr, and re-read rather than guess at the new state.
-local function runAction(token: string, command: string, fallback: string)
+local function runAction(kind: string, ssid: string, command: string, fallback: string)
   if busy ~= "" then
     return
   end
 
-  busy = token
-  errorText = ""
+  busy, busySsid = kind, ssid
+  failedSsid, errorText = "", ""
   render()
 
   noctalia.runAsync(command, function(result)
-    busy = ""
+    busy, busySsid = "", ""
     if not result or result.exitCode ~= 0 then
       errorText = shared.errorFrom(result, fallback)
+      failedSsid = ssid
     else
-      expanded = ""
-      password = ""
-      identity = ""
+      promptSsid, password, identity = "", "", ""
     end
     refresh(false)
   end)
@@ -253,7 +302,7 @@ local function setBand(target: string)
   if target == band.selected then
     return
   end
-  runAction("band", BAND_CMD .. " " .. shared.shellQuote(target), "Could not change the Wi-Fi band")
+  runAction("band", "", BAND_CMD .. " " .. shared.shellQuote(target), "Could not change the Wi-Fi band")
 end
 
 local function dnsIsPackaged(): boolean
@@ -262,11 +311,11 @@ end
 
 -- Custom always takes the terminal: it reads servers from stdin, and it is
 -- deliberately outside the sudoers grant for exactly that reason. Without the
--- package the other three follow it there, since monarch-setup-dns writes under
--- /etc behind a sudo prompt this panel has no tty to answer.
+-- package the other three follow it there, where monarch-setup-dns can install
+-- it behind a sudo prompt this panel has no tty to answer.
 local function setDns(provider: string)
   if provider ~= "Custom" and dnsIsPackaged() then
-    runAction("dns", PACKAGED_DNS .. " " .. shared.shellQuote(provider),
+    runAction("dns", "", PACKAGED_DNS .. " " .. shared.shellQuote(provider),
       "Could not switch to " .. provider)
     return
   end
@@ -276,7 +325,6 @@ local function setDns(provider: string)
 end
 
 local function join(network)
-  local token = "join:" .. network.ssid
   local fallback = "Could not join " .. network.ssid
 
   -- A saved profile already carries its credentials; nmcli reuses them when
@@ -285,7 +333,7 @@ local function join(network)
   -- once and never rebuilt from here.
   if not network.saved and shared.isEnterprise(network) then
     if identity == "" then
-      errorText = "Enter an identity for " .. network.ssid
+      failedSsid, errorText = network.ssid, "Enter an identity"
       render()
       return
     end
@@ -295,7 +343,7 @@ local function join(network)
     if password ~= "" then
       command ..= " " .. shared.shellQuote(password)
     end
-    runAction(token, command, fallback)
+    runAction("connect", network.ssid, command, fallback)
     return
   end
 
@@ -303,56 +351,148 @@ local function join(network)
   if not network.saved and shared.isSecured(network) and password ~= "" then
     command ..= " " .. shared.shellQuote(password)
   end
-  runAction(token, command, fallback)
+  runAction("connect", network.ssid, command, fallback)
+end
+
+local function forget(network)
+  runAction("forget", network.ssid, FORGET_CMD .. " " .. shared.shellQuote(network.ssid),
+    "Could not forget " .. network.ssid)
+end
+
+local function activate(network)
+  if busy ~= "" then
+    return
+  end
+
+  if network.connected then
+    runAction("disconnect", network.ssid, DISCONNECT_CMD, "Could not disconnect")
+    return
+  end
+
+  if network.saved or not shared.isSecured(network) then
+    join(network)
+    return
+  end
+
+  promptSsid = promptSsid == network.ssid and "" or network.ssid
+  password, identity = "", ""
+  failedSsid, errorText = "", ""
+  render()
 end
 
 -- ── Rendering ────────────────────────────────────────────────────────────────
 
-local function sectionHeader(text: string, trailing)
+local function sectionHeader(key: string, text: string, trailing): any
   local row = {
-    ui.label({ text = text, fontSize = 11, fontWeight = "medium", color = "on_surface_variant", flexGrow = 1 }),
+    ui.label({
+      key = "text",
+      text = text,
+      fontSize = 11,
+      fontWeight = "medium",
+      color = "on_surface_variant",
+      flexGrow = 1,
+    }),
   }
   if trailing then
     table.insert(row, trailing)
   end
-  return ui.row({ align = "center", gap = 8 }, row)
+  return ui.row({ key = key, align = "center", gap = 8 }, row)
 end
 
 local function stat(label: string, value: string, color: string?): any
-  return ui.row({ gap = 6, align = "center", flexGrow = 1 }, {
-    ui.label({ text = label, fontSize = 12, color = "on_surface_variant", flexGrow = 1 }),
-    ui.label({ text = value, fontSize = 12, color = color or "on_surface", maxLines = 1 }),
+  return ui.row({ key = label, gap = 6, align = "center", flexGrow = 1 }, {
+    ui.label({ key = "l", text = label, fontSize = 12, color = "on_surface_variant", flexGrow = 1 }),
+    ui.label({ key = "v", text = value, fontSize = 12, color = color or "on_surface", maxLines = 1 }),
   })
 end
 
--- Two pairs to a line, as quattro's grid does: ten figures stacked one per line
--- would push the network list, which is what the panel is for, off the bottom.
-local function statRow(left, right): any
-  return ui.row({ gap = 16 }, { left, right })
+-- Two pairs to a line, as quattro's grid does: eight stacked figures would push
+-- the network list off the bottom.
+local function statRow(key: string, left, right): any
+  return ui.row({ key = key, gap = 16 }, { left, right })
+end
+
+local function heroGlyph(): string
+  if info.type == "wifi" then
+    local current = connectedNetwork()
+    return shared.signalGlyph(current and current.signal or 100)
+  elseif info.type == "ethernet" then
+    return "ethernet"
+  end
+  return "wifi-off"
+end
+
+local function heroTitle(): string
+  if info.type == "wifi" then
+    return (info.ssid ~= nil and info.ssid ~= "") and info.ssid or "Wi-Fi"
+  elseif info.type == "ethernet" then
+    local speed = formatLinkSpeed(info.speed)
+    return speed ~= "" and ("Ethernet (" .. speed .. ")") or "Ethernet"
+  elseif info.iface ~= nil and info.iface ~= "" then
+    return info.iface
+  end
+  return loaded and "Disconnected" or "Network"
+end
+
+local function heroCaption(): string
+  if not loaded then
+    return ""
+  elseif info.iface == nil or info.iface == "" then
+    return "NOT CONNECTED"
+  end
+  return PHRASES[phrase]:upper()
+end
+
+local function hero(): any
+  local children = {
+    ui.glyph({ key = "icon", name = heroGlyph(), size = 26, color = "on_surface" }),
+    ui.column({ key = "labels", gap = 2, flexGrow = 1 }, {
+      ui.label({ key = "title", text = heroTitle(), fontSize = 15, fontWeight = "bold", maxLines = 1 }),
+      ui.label({
+        key = "caption",
+        text = heroCaption(),
+        fontSize = 10,
+        fontWeight = "medium",
+        color = "on_surface_variant",
+        maxLines = 1,
+      }),
+    }),
+  }
+
+  if info.type == "wifi" then
+    table.insert(children, ui.button({
+      key = "qr",
+      glyph = "qrcode",
+      variant = "ghost",
+      controlSize = "sm",
+      tooltip = "Show the Wi-Fi QR code",
+      onClick = "onShareClicked",
+    }))
+  end
+  if info.iface ~= nil and info.iface ~= "" then
+    table.insert(children, ui.button({
+      key = "speed",
+      glyph = "activity-heartbeat",
+      variant = "ghost",
+      controlSize = "sm",
+      tooltip = "Run a speed test",
+      onClick = "onSpeedTestClicked",
+    }))
+  end
+  if radioPresent then
+    table.insert(children, ui.toggle({ key = "radio", checked = radioOn, onChange = "onRadioChanged" }))
+  end
+
+  return ui.row({ key = "hero", align = "center", gap = 12 }, children)
+end
+
+local function shown(value: string?): string
+  return (value ~= nil and value ~= "") and value or "—"
 end
 
 local function connectionBlock(): { any }
-  if not info.iface or info.iface == "" then
-    return {
-      ui.label({
-        text = loaded and "Not connected" or "Reading the route…",
-        fontSize = 12,
-        color = "on_surface_variant",
-      }),
-    }
-  end
-
-  local address = info.ip or ""
-  if address ~= "" and info.prefix and info.prefix ~= "" then
-    address ..= "/" .. info.prefix
-  end
-
-  -- The gateway carries its own latency: how far the router is says which side
-  -- of it a bad internet ping is coming from, and it costs no extra line.
-  local gateway = info.gateway or ""
-  local routerLatency = tonumber(info.router_ping_ms or "")
-  if gateway ~= "" and routerLatency then
-    gateway ..= "  ·  " .. formatMs(routerLatency)
+  if info.iface == nil or info.iface == "" then
+    return {}
   end
 
   local latency = "—"
@@ -367,46 +507,22 @@ local function connectionBlock(): { any }
   local lossColor = loss > 0 and "error" or nil
   local counted = info.rx_bytes ~= nil
 
-  local linkValue, sideLabel, sideValue = "", "Signal", ""
-  if info.type == "wifi" then
-    linkValue = shared.trim(info.bitrate or "")
-    if info.signal_dbm and info.signal_dbm ~= "" then
-      sideValue = info.signal_dbm .. " dBm"
-    end
-  else
-    -- A virtual or unplugged NIC reports -1, which is "unknown", not a speed.
-    local speed = tonumber(info.speed or "")
-    linkValue = (speed and speed > 0) and (speed .. " Mb/s") or ""
-    sideLabel = "Duplex"
-    -- The kernel writes "unknown" for a link that never negotiated — every
-    -- virtio NIC, for one. That is an absence, not a duplex mode.
-    sideValue = info.duplex ~= "unknown" and (info.duplex or "") or ""
-  end
-
-  local function shown(value: string): string
-    return value ~= "" and value or "—"
-  end
-
   return {
-    statRow(
+    statRow("stat-ping",
       stat("Ping", latency, lossColor),
       stat("Packet loss", #pings > 0 and (loss .. "%") or "—", lossColor)
     ),
-    statRow(
+    statRow("stat-rate",
       stat("Receiving", counted and formatRate(rxRate) or "—"),
       stat("Sending", counted and formatRate(txRate) or "—")
     ),
-    statRow(
+    statRow("stat-total",
       stat("Downloaded", counted and formatBytes(tonumber(info.rx_bytes) or 0) or "—"),
       stat("Uploaded", counted and formatBytes(tonumber(info.tx_bytes) or 0) or "—")
     ),
-    statRow(
-      stat(info.iface, shown(address)),
-      stat("Gateway", shown(gateway))
-    ),
-    statRow(
-      stat("Link", shown(linkValue)),
-      stat(sideLabel, shown(sideValue))
+    statRow("stat-route",
+      stat("IP address", shown(info.ip)),
+      stat("Gateway", shown(info.gateway))
     ),
   }
 end
@@ -419,31 +535,50 @@ local function bandSection(): { any }
     return {}
   end
 
-  local pills = {}
-  for _, choice in ipairs({ "auto", table.unpack(band.available) }) do
-    table.insert(pills, ui.button({
-      text = shared.bandLabel(choice),
-      -- Outline rather than ghost on the ones not in force: a ghost button with
-      -- no border reads as a caption, and these are all choices.
-      variant = band.selected == choice and "primary" or "outline",
-      controlSize = "sm",
-      enabled = busy == "",
-      onClick = function()
-        setBand(choice)
-      end,
-    }))
+  -- Under Automatic there are no pills to name the live band, so the header does.
+  local title = "WI-FI BAND"
+  if band.selected == "auto" and band.band ~= "" then
+    title ..= ": " .. band.band .. "GHZ"
   end
 
-  local note = band.selected == "auto"
-      and (band.band ~= "" and ("Automatic — on " .. shared.bandLabel(band.band)) or "Automatic")
-    or ("Pinned to " .. shared.bandLabel(band.selected))
-
-  return {
-    ui.separator({}),
-    sectionHeader("WI-FI BAND"),
-    ui.row({ gap = 8, align = "center" }, pills),
-    ui.label({ text = busy == "band" and "Reconnecting…" or note, fontSize = 11, color = "on_surface_variant" }),
+  local nodes = {
+    ui.separator({ key = "band-rule" }),
+    sectionHeader("band-head", title, ui.row({ key = "auto", align = "center", gap = 8 }, {
+      ui.label({
+        key = "label",
+        text = busy == "band" and "SWITCHING…" or "AUTOMATIC",
+        fontSize = 11,
+        fontWeight = "medium",
+        color = "on_surface_variant",
+      }),
+      ui.toggle({
+        key = "toggle",
+        checked = band.selected == "auto",
+        enabled = busy == "",
+        onChange = "onBandAutoChanged",
+      }),
+    })),
   }
+
+  if band.selected ~= "auto" then
+    local pills = {}
+    for _, choice in ipairs(band.available) do
+      table.insert(pills, ui.button({
+        key = choice,
+        text = shared.bandLabel(choice),
+        variant = band.selected == choice and "primary" or "outline",
+        controlSize = "sm",
+        flexGrow = 1,
+        enabled = busy == "",
+        onClick = function()
+          setBand(choice)
+        end,
+      }))
+    end
+    table.insert(nodes, ui.row({ key = "band-pills", gap = 6 }, pills))
+  end
+
+  return nodes
 end
 
 local function dnsSection(): { any }
@@ -451,184 +586,177 @@ local function dnsSection(): { any }
 
   for _, provider in ipairs(DNS_PROVIDERS) do
     table.insert(pills, ui.button({
-      text = provider,
-      variant = info.dns == provider and "primary" or "outline",
+      key = provider.name,
+      text = provider.name,
+      variant = info.dns == provider.name and "primary" or "outline",
       controlSize = "sm",
+      flexGrow = 1,
       enabled = busy == "",
+      tooltip = dnsIsPackaged() and provider.tooltip or (provider.tooltip .. " — opens a terminal"),
       onClick = function()
-        setDns(provider)
+        setDns(provider.name)
       end,
     }))
   end
 
   return {
-    ui.separator({}),
-    sectionHeader("DNS PROVIDER"),
-    ui.row({ gap = 8, align = "center" }, pills),
-    ui.label({
-      text = if busy == "dns"
-        then "Applying…"
-        elseif dnsIsPackaged() then "Custom opens a terminal — it asks for the servers."
-        else "Opens a terminal — changing DNS needs root.",
-      fontSize = 11,
-      color = "on_surface_variant",
-    }),
+    ui.separator({ key = "dns-rule" }),
+    sectionHeader("dns-head", busy == "dns" and "DNS PROVIDER — APPLYING…" or "DNS PROVIDER"),
+    ui.row({ key = "dns-pills", gap = 6 }, pills),
   }
 end
 
-local function networkActions(network): any
-  local joining = busy == "join:" .. network.ssid
+local function rowStatus(network): (string, string)
+  local ssid = network.ssid
 
-  if network.connected then
-    return ui.row({ gap = 8, align = "center" }, {
-      ui.button({
-        text = busy == "disconnect" and "Disconnecting…" or "Disconnect",
-        variant = "outline",
-        controlSize = "sm",
-        enabled = busy == "",
-        onClick = function()
-          runAction("disconnect", DISCONNECT_CMD, "Could not disconnect")
-        end,
-      }),
-      ui.button({
-        text = "Forget",
-        variant = "outline",
-        controlSize = "sm",
-        enabled = busy == "",
-        onClick = function()
-          runAction("forget:" .. network.ssid, FORGET_CMD .. " " .. shared.shellQuote(network.ssid),
-            "Could not forget " .. network.ssid)
-        end,
-      }),
-    })
+  if busySsid == ssid then
+    if busy == "connect" then
+      return "Connecting…", "on_surface_variant"
+    elseif busy == "disconnect" then
+      return "Disconnecting…", "on_surface_variant"
+    elseif busy == "forget" then
+      return "Forgetting…", "on_surface_variant"
+    end
   end
 
-  local row = {}
-  local credentials = {}
+  if failedSsid == ssid then
+    return errorText, "error"
+  elseif network.connected then
+    return "Connected", "on_surface"
+  end
+  return "", "on_surface_variant"
+end
+
+local function credentials(network): any
+  local fields = {}
   local enterprise = shared.isEnterprise(network)
 
-  -- A saved network needs no field: NetworkManager still holds its secret, and
-  -- asking again would invite the user to overwrite a working one by mistake.
-  if not network.saved and shared.isSecured(network) then
-    if enterprise then
-      table.insert(credentials, ui.input({
-        key = "id:" .. network.ssid,
-        placeholder = "Identity (user@domain)",
-        focus = true,
-        flexGrow = 1,
-        onChange = function(value)
-          identity = value
-        end,
-      }))
-    end
-
-    table.insert(credentials, ui.input({
-      key = "pw:" .. network.ssid,
-      placeholder = "Password",
-      password = true,
-      focus = not enterprise,
+  if enterprise then
+    table.insert(fields, ui.input({
+      key = "identity",
+      placeholder = "Identity (user@domain)",
+      focus = true,
       flexGrow = 1,
       onChange = function(value)
-        password = value
-      end,
-      onSubmit = function(value)
-        password = value
-        join(network)
+        identity = value
       end,
     }))
   end
 
-  table.insert(row, ui.button({
-    text = joining and "Connecting…" or "Connect",
+  table.insert(fields, ui.input({
+    key = "password",
+    placeholder = "Password",
+    password = true,
+    focus = not enterprise,
+    flexGrow = 1,
+    onChange = function(value)
+      password = value
+    end,
+    onSubmit = function(value)
+      password = value
+      join(network)
+    end,
+  }))
+
+  table.insert(fields, ui.button({
+    key = "connect",
+    glyph = "check",
     variant = "primary",
     controlSize = "sm",
     enabled = busy == "",
+    tooltip = "Connect",
     onClick = function()
       join(network)
     end,
   }))
 
-  if network.saved then
-    table.insert(row, ui.button({
-      text = "Forget",
-      variant = "outline",
-      controlSize = "sm",
-      enabled = busy == "",
-      onClick = function()
-        runAction("forget:" .. network.ssid, FORGET_CMD .. " " .. shared.shellQuote(network.ssid),
-          "Could not forget " .. network.ssid)
-      end,
-    }))
+  -- Two fields beside a button do not fit this width; one does.
+  if enterprise then
+    return ui.column({ key = "credentials", gap = 6 }, fields)
   end
-
-  -- PEAP asks two questions, and two fields beside a button do not fit this
-  -- width; a pre-shared key keeps its single line.
-  if #credentials > 1 then
-    return ui.column({ gap = 6 }, {
-      ui.column({ gap = 6 }, credentials),
-      ui.row({ gap = 8, align = "center" }, row),
-    })
-  end
-
-  local line = {}
-  for _, node in ipairs(credentials) do
-    table.insert(line, node)
-  end
-  for _, node in ipairs(row) do
-    table.insert(line, node)
-  end
-
-  return ui.row({ gap = 8, align = "center" }, line)
+  return ui.row({ key = "credentials", gap = 6, align = "center" }, fields)
 end
 
 local function networkRow(network): any
+  local status, statusColor = rowStatus(network)
+
+  -- One slot at the right edge, a lock or the way off. Quattro swaps the two on
+  -- hover; nothing here is cheap to redraw on hover, so the row says which it is.
+  local trailing
+  if network.saved and not network.connected then
+    trailing = ui.button({
+      key = "forget",
+      glyph = "circle-x",
+      variant = "ghost",
+      controlSize = "sm",
+      enabled = busy == "",
+      tooltip = "Forget this network",
+      onClick = function()
+        forget(network)
+      end,
+    })
+  elseif shared.isSecured(network) then
+    trailing = ui.glyph({ key = "lock", name = "lock", color = "on_surface_variant" })
+  else
+    trailing = ui.spacer({ key = "pad", width = 20 })
+  end
+
   local children = {
-    ui.row({ gap = 8, align = "center" }, {
+    ui.row({
+      key = "line",
+      gap = 10,
+      align = "center",
+      paddingH = 8,
+      paddingV = 6,
+      radius = 8,
+      fill = network.connected and "surface_variant" or nil,
+      onClick = function()
+        activate(network)
+      end,
+    }, {
       ui.glyph({
+        key = "signal",
         name = shared.signalGlyph(network.signal),
         color = network.connected and "primary" or "on_surface",
       }),
-      ui.label({
-        text = network.ssid,
-        fontSize = 13,
-        color = network.connected and "primary" or "on_surface",
-        maxLines = 1,
-        flexGrow = 1,
+      ui.column({ key = "name", gap = 1, flexGrow = 1 }, {
+        ui.label({
+          key = "ssid",
+          text = network.ssid,
+          fontSize = 13,
+          color = network.connected and "primary" or "on_surface",
+          maxLines = 1,
+        }),
+        ui.label({
+          key = "status",
+          text = status,
+          visible = status ~= "",
+          fontSize = 11,
+          color = statusColor,
+          maxWidth = TEXT_WIDTH,
+          maxLines = 1,
+        }),
       }),
-      shared.isSecured(network) and ui.glyph({ name = "lock", color = "on_surface_variant" }) or ui.spacer({}),
-      ui.label({ text = network.signal .. "%", fontSize = 11, color = "on_surface_variant" }),
+      trailing,
     }),
   }
 
-  if expanded == network.ssid then
-    table.insert(children, networkActions(network))
+  if promptSsid == network.ssid then
+    table.insert(children, credentials(network))
   end
 
-  return ui.column({
-    gap = 6,
-    onClick = function()
-      if busy ~= "" then
-        return
-      end
-      expanded = expanded == network.ssid and "" or network.ssid
-      password = ""
-      identity = ""
-      errorText = ""
-      render()
-    end,
-  }, children)
+  return ui.column({ key = "net:" .. network.ssid, gap = 6 }, children)
 end
 
 local function networkList(): { any }
-  local rows = {}
-
-  if not radioOn then
-    return { ui.label({ text = "Wi-Fi is off", fontSize = 12, color = "on_surface_variant" }) }
-  end
-
-  if #networks == 0 then
+  if not radioPresent then
+    return {}
+  elseif not radioOn then
+    return { ui.label({ key = "off", text = "Wi-Fi is off", fontSize = 12, color = "on_surface_variant" }) }
+  elseif #networks == 0 then
     return {
       ui.label({
+        key = "empty",
         text = loaded and "No networks in range" or "Scanning…",
         fontSize = 12,
         color = "on_surface_variant",
@@ -636,7 +764,17 @@ local function networkList(): { any }
     }
   end
 
-  for _, network in ipairs(networks) do
+  local rows = {}
+  local group = nil
+
+  for _, network in ipairs(shared.sortNetworks(networks)) do
+    if network.saved ~= group then
+      group = network.saved
+      table.insert(rows, sectionHeader(
+        group and "group-known" or "group-other",
+        group and "KNOWN NETWORKS" or "OTHER NETWORKS"
+      ))
+    end
     table.insert(rows, networkRow(network))
   end
 
@@ -644,39 +782,11 @@ local function networkList(): { any }
 end
 
 function render()
-  local body = {}
+  local body = { hero() }
 
-  -- Hero actions. Sharing needs a Wi-Fi connection to share; the speed test
-  -- needs any route at all.
-  local hero = {}
-  if info.type == "wifi" then
-    table.insert(hero, ui.button({
-      text = "Share",
-      glyph = "qrcode",
-      variant = "outline",
-      controlSize = "sm",
-      onClick = "onShareClicked",
-    }))
+  for _, node in ipairs(connectionBlock()) do
+    table.insert(body, node)
   end
-  if info.iface and info.iface ~= "" then
-    table.insert(hero, ui.button({
-      text = "Speed test",
-      glyph = "activity-heartbeat",
-      variant = "outline",
-      controlSize = "sm",
-      onClick = "onSpeedTestClicked",
-    }))
-  end
-  table.insert(hero, ui.spacer({ flexGrow = 1 }))
-  table.insert(hero, ui.label({ text = "Wi-Fi", fontSize = 12, color = "on_surface_variant" }))
-  table.insert(hero, ui.toggle({
-    checked = radioOn,
-    onChange = "onRadioChanged",
-  }))
-
-  table.insert(body, ui.row({ gap = 8, align = "center" }, hero))
-  table.insert(body, ui.column({ gap = 4 }, connectionBlock()))
-
   for _, node in ipairs(bandSection()) do
     table.insert(body, node)
   end
@@ -684,20 +794,9 @@ function render()
     table.insert(body, node)
   end
 
-  table.insert(body, ui.separator({}))
-  table.insert(body, sectionHeader(
-    scanning and "SCANNING WI-FI…" or "NETWORKS",
-    ui.button({
-      glyph = "refresh",
-      variant = "ghost",
-      controlSize = "sm",
-      enabled = not scanning and busy == "",
-      onClick = "onRescanClicked",
-    })
-  ))
-
-  if errorText ~= "" then
+  if errorText ~= "" and failedSsid == "" then
     table.insert(body, ui.label({
+      key = "error",
       text = errorText,
       fontSize = 12,
       color = "error",
@@ -705,40 +804,28 @@ function render()
     }))
   end
 
-  local subtitle = info.ssid or info.iface or ""
+  if radioPresent then
+    table.insert(body, ui.separator({ key = "list-rule" }))
+    if scanning then
+      table.insert(body, sectionHeader("scanning", "SCANNING WI-FI…"))
+    end
+  end
 
-  panel.render(ui.column({ flexGrow = 1, gap = 12 }, {
-    ui.row({ align = "center", gap = 8 }, {
-      ui.column({ gap = 2, flexGrow = 1 }, {
-        ui.label({ text = "Network", fontSize = 15, fontWeight = "bold", color = "on_surface" }),
-        ui.label({ text = subtitle, fontSize = 12, color = "on_surface_variant", maxLines = 1 }),
-      }),
-      ui.button({ glyph = "close", onClick = "onCloseClicked" }),
-    }),
+  table.insert(body, ui.scroll({ key = "list", flexGrow = 1, gap = 6 }, networkList()))
 
-    ui.scroll({ flexGrow = 1, gap = 10 }, (function()
-      local all = {}
-      for _, node in ipairs(body) do
-        table.insert(all, node)
-      end
-      for _, node in ipairs(networkList()) do
-        table.insert(all, node)
-      end
-      return all
-    end)()),
-  }))
+  panel.render(ui.column({ flexGrow = 1, gap = 12 }, body))
 end
 
 -- Every open re-reads: the panel is only right about the connection the machine
 -- is on at the moment it is summoned. The list comes from NetworkManager's
--- cache, so it paints at once; the refresh button is the one that scans.
+-- cache, so it paints at once; the tick below is what rescans.
 function onOpen(_context)
   loaded = false
-  expanded = ""
+  promptSsid = ""
   password = ""
   identity = ""
-  busy = ""
-  errorText = ""
+  busy, busySsid = "", ""
+  failedSsid, errorText = "", ""
   ticks = 0
   sample = { iface = "", rx = 0, tx = 0, at = 0 }
   rxRate, txRate = 0, 0
@@ -760,6 +847,13 @@ function update()
   if ticks % 4 == 0 then
     pollBand()
   end
+  if radioPresent and ticks % RESCAN_TICKS == 0 then
+    pollNetworks(true)
+  end
+  if ticks % PHRASE_TICKS == 0 then
+    phrase = phrase % #PHRASES + 1
+    render()
+  end
 end
 
 function onClose()
@@ -768,15 +862,7 @@ function onClose()
   statusInFlight = false
   password = ""
   identity = ""
-  busy = ""
-end
-
-function onCloseClicked()
-  panel.close()
-end
-
-function onRescanClicked()
-  refresh(true)
+  busy, busySsid = "", ""
 end
 
 function onShareClicked()
@@ -788,11 +874,26 @@ function onSpeedTestClicked()
 end
 
 function onRadioChanged(checked)
-  runAction("radio", RADIO_CMD .. (checked and " on" or " off"), "Could not switch the Wi-Fi radio")
+  runAction("radio", "", RADIO_CMD .. (checked and " on" or " off"), "Could not switch the Wi-Fi radio")
+end
+
+-- Switching Automatic off has to commit to something, so it pins the band the
+-- radio already landed on — the one the header is showing.
+function onBandAutoChanged(checked)
+  if checked then
+    setBand("auto")
+  else
+    setBand(band.band ~= "" and band.band or band.available[1] or "auto")
+  end
 end
 
 function onKey(chord, pressed)
   if pressed and chord == "escape" then
+    if promptSsid ~= "" then
+      promptSsid, password, identity = "", "", ""
+      render()
+      return
+    end
     panel.close()
   end
 end

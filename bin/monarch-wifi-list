@@ -46,7 +46,6 @@ LC_ALL=C nmcli -e no -t -f IN-USE,SIGNAL,SECURITY,SSID dev wifi list ifname "$de
       for (i in lines) if (lines[i] != "") known[lines[i]] = 1
     }
     {
-      in_use = ($1 == "*") ? "yes" : "no"
       signal = $2
       security = ($3 == "" || $3 == "--") ? "open" : $3
       # SSID is last in -f order, so anything after field 3 is part of the name.
@@ -55,7 +54,18 @@ LC_ALL=C nmcli -e no -t -f IN-USE,SIGNAL,SECURITY,SSID dev wifi list ifname "$de
       if (ssid == "") next
       # nmcli lists one row per BSS; the list arrives signal-sorted, so the
       # first row for a name is its strongest and the rest are the same network
-      # seen through a weaker radio.
+      # seen through a weaker radio. The in-use star, though, sits on the BSS we
+      # associated with, which a dual-band router under one name puts on a later
+      # row, so it is collected across all of them.
+      if ($1 == "*") in_use[ssid] = 1
       if (seen[ssid]++) next
-      printf "%s\t%s\t%s\t%s\t%s\n", signal, security, in_use, (ssid in known ? "yes" : "no"), ssid
+      order[++rows] = ssid
+      strongest[ssid] = signal "\t" security
+    }
+    END {
+      for (i = 1; i <= rows; i++) {
+        ssid = order[i]
+        printf "%s\t%s\t%s\t%s\n", strongest[ssid], (ssid in in_use ? "yes" : "no"),
+          (ssid in known ? "yes" : "no"), ssid
+      }
     }'

@@ -4,96 +4,27 @@
 # monarch:args=[Cloudflare|Google|DHCP|Custom]
 # monarch:requires-sudo=true
 
-# The monarch-dns package supersedes this: it reads the current provider back,
-# writes NetworkManager's global-dns override as well as resolved.conf, and is
-# reachable from the network panel without a password. This file stays as the
-# fallback for a machine that does not have the package yet, and as the route
-# `monarch setup dns` has always been.
-# Bare, the packaged command prints the provider rather than setting one, so the
-# chooser stays here and only the applying is handed over.
-if [[ -x /usr/bin/monarch-dns ]]; then
-  provider=${1:-}
-  if [[ -z $provider ]]; then
-    provider=$(gum choose --height 6 --header "Select DNS provider" Cloudflare Google DHCP Custom)
-  fi
-  [[ -n $provider ]] || exit 1
-  exec /usr/bin/monarch-dns "$provider"
+# The chooser, and nothing else. Writing DNS belongs to the monarch-dns package:
+# a NOPASSWD grant may only name a path root owns, and this tree is a checkout
+# the user can rewrite.
+
+set -uo pipefail
+
+# The launching shell's PATH carries no bin/ of ours. Appended, never prepended.
+PATH="$PATH:$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)"
+
+PACKAGED_DNS=/usr/bin/monarch-dns
+
+# The one caller with a terminal, which is why the panel sends its buttons here.
+if [[ ! -x $PACKAGED_DNS ]]; then
+  echo "Setting the DNS provider needs the monarch-dns package."
+  monarch-pkg-add monarch-dns || exit 1
 fi
 
-lock_dns_to_resolved() {
-  for file in /etc/systemd/network/*.network; do
-    [[ -f $file ]] || continue
-    if ! grep -q "^\[DHCPv4\]" "$file"; then continue; fi
-
-    if ! sed -n '/^\[DHCPv4\]/,/^\[/p' "$file" | grep -q "^UseDNS="; then
-      sudo sed -i '/^\[DHCPv4\]/a UseDNS=no' "$file"
-    fi
-
-    if grep -q "^\[IPv6AcceptRA\]" "$file" && ! sed -n '/^\[IPv6AcceptRA\]/,/^\[/p' "$file" | grep -q "^UseDNS="; then
-      sudo sed -i '/^\[IPv6AcceptRA\]/a UseDNS=no' "$file"
-    fi
-  done
-}
-
-unlock_dns_to_dhcp() {
-  for file in /etc/systemd/network/*.network; do
-    [[ -f $file ]] || continue
-    sudo sed -i '/^\[DHCPv4\]/{n;/^UseDNS=no$/d}' "$file"
-    sudo sed -i '/^\[IPv6AcceptRA\]/{n;/^UseDNS=no$/d}' "$file"
-  done
-}
-
-if [[ -z $1 ]]; then
-  dns=$(gum choose --height 6 --header "Select DNS provider" Cloudflare Google DHCP Custom)
-else
-  dns=$1
+provider=${1:-}
+if [[ -z $provider ]]; then
+  provider=$(gum choose --height 6 --header "Select DNS provider" Cloudflare Google DHCP Custom)
 fi
+[[ -n $provider ]] || exit 1
 
-case "$dns" in
-Cloudflare)
-  sudo tee /etc/systemd/resolved.conf >/dev/null <<'EOF'
-[Resolve]
-DNS=1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com 2606:4700:4700::1111#cloudflare-dns.com 2606:4700:4700::1001#cloudflare-dns.com
-FallbackDNS=9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net 2620:fe::fe#dns.quad9.net 2620:fe::9#dns.quad9.net
-DNSOverTLS=opportunistic
-EOF
-  lock_dns_to_resolved
-  ;;
-
-Google)
-  sudo tee /etc/systemd/resolved.conf >/dev/null <<'EOF'
-[Resolve]
-DNS=8.8.8.8#dns.google 8.8.4.4#dns.google 2001:4860:4860::8888#dns.google 2001:4860:4860::8844#dns.google
-FallbackDNS=9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net 2620:fe::fe#dns.quad9.net 2620:fe::9#dns.quad9.net
-DNSOverTLS=opportunistic
-EOF
-  lock_dns_to_resolved
-  ;;
-
-DHCP)
-  sudo tee /etc/systemd/resolved.conf >/dev/null <<'EOF'
-[Resolve]
-DNSOverTLS=no
-EOF
-  unlock_dns_to_dhcp
-  ;;
-
-Custom)
-  echo "Enter your DNS servers (space-separated, e.g. '192.168.1.1 1.1.1.1'):"
-  read -r dns_servers
-
-  if [[ -z $dns_servers ]]; then
-    echo "Error: No DNS servers provided."
-    exit 1
-  fi
-
-  sudo tee /etc/systemd/resolved.conf >/dev/null <<EOF
-[Resolve]
-DNS=$dns_servers
-FallbackDNS=9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net 2620:fe::fe#dns.quad9.net 2620:fe::9#dns.quad9.net
-EOF
-  lock_dns_to_resolved
-  ;;
-esac
-
-sudo systemctl restart systemd-networkd systemd-resolved
+exec "$PACKAGED_DNS" "$provider"
