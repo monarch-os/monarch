@@ -96,7 +96,7 @@ window-rule {
 
 // File-picker dialogs.
 window-rule {
-    match app-id=r#"^(xdg-desktop-portal-gtk|sublime_text|DesktopEditors|org\.gnome\.Nautilus)$"# title=r#"^(Open.*Files?|Open [Ff]older.*|Save.*Files?|Save.*As|Save|All Files|Share [Ff]ile.*|Share [Ff]older.*|.*wants to (open|save).*|[Cc]hoose.*)"#
+    match app-id=r#"^(xdg-desktop-portal-gtk|sublime_text|DesktopEditors|org\.gnome\.Nautilus)$"# title=r#"^(Open.*Files?|Open [Ff]older.*|Save.*Files?|Save.*As|Save|All Files|.*wants to (open|save).*|[Cc]hoose.*)"#
     open-floating true
 }
 

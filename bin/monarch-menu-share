@@ -24,9 +24,9 @@ elif (($# > 0)); then
   FILE_ARRAY=("$@")
 else
   if [[ $MODE == "folder" ]]; then
-    select_args=(--title "Share folder" --directory)
+    select_args=(--title "Choose a folder to share" --directory)
   else
-    select_args=(--title "Share files" --multiple)
+    select_args=(--title "Choose files to share" --multiple)
   fi
 
   # Command substitution so the chooser's exit status survives: reading it
