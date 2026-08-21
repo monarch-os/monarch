@@ -22,16 +22,29 @@
 
 set -uo pipefail
 
-# A systemd user service does not inherit NIRI_SOCKET (uwsm finalizes only a
-# curated set of vars), so discover it from the running niri's environment.
+# A niri socket file outlives the session that created it, and connecting to a
+# dead one only fails at connect time, so validate the pid its name carries.
+socket_live() {
+  [[ -S ${1:-} ]] || return 1
+  local pid=${1##*/}
+  pid=${pid%.sock}
+  pid=${pid##*.}
+  [[ -r /proc/$pid/comm && $(< "/proc/$pid/comm") == niri ]]
+}
+
+# uwsm finalizes NIRI_SOCKET into the systemd user environment, so the service
+# normally inherits it; the rest repairs a value a niri restart left stale.
 ensure_socket() {
-  [[ -n ${NIRI_SOCKET:-} && -S ${NIRI_SOCKET:-} ]] && return 0
+  socket_live "${NIRI_SOCKET:-}" && return 0
   local pid
-  pid=$(pgrep -x niri | head -n1) || return 1
+  pid=$(pgrep -x niri | head -n1)
   [[ -n $pid ]] || return 1
-  NIRI_SOCKET=$(tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null | sed -n 's/^NIRI_SOCKET=//p' | head -n1)
-  export NIRI_SOCKET
-  [[ -n $NIRI_SOCKET && -S $NIRI_SOCKET ]]
+  # Not read from /proc/<pid>/environ: that block is the one the process was
+  # exec'd with, and the socket does not exist yet at that point.
+  local sock
+  sock=$(printf '%s\n' "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"/niri.*."$pid".sock | head -n1)
+  [[ -S $sock ]] || return 1
+  export NIRI_SOCKET="$sock"
 }
 
 # Internal panel connector (eDP), read live so a rename can't break us.
@@ -51,6 +64,10 @@ recover() {
   notify-send -u normal "󰍹    Laptop display restored" \
     "External monitor disconnected while the laptop screen was off."
 }
+
+# Sourcing stops here: test/monarch-niri-socket-test.sh drives the discovery
+# above without entering the watch loop.
+[[ ${BASH_SOURCE[0]} == "$0" ]] || return 0
 
 # Reconnect loop: the stream ends when niri restarts; the sleep also guards a
 # hot spin while niri (and thus its socket) is not up yet.

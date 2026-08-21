@@ -8,8 +8,12 @@
 # fails while nothing is listening on the socket. Both detached so
 # monarch-first-run returns immediately.
 
-setsid --fork monarch-launch-floating-terminal-with-presentation monarch-welcome \
-  </dev/null >/dev/null 2>&1 &
+# The wizard ships as its own package, which the user may have removed. Skip it
+# rather than flashing an empty terminal on their first login.
+if monarch-cmd-present monarch-welcome; then
+  setsid --fork monarch-launch-floating-terminal-with-presentation --app-id=org.monarch.welcome monarch-welcome \
+    </dev/null >/dev/null 2>&1 &
+fi
 
 setsid --fork bash -c '
   for _ in $(seq 1 30); do
