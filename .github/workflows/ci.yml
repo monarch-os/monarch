@@ -30,6 +30,9 @@ jobs:
       - name: Run kernel headers test suite
         run: bash test/monarch-kernel-headers-test.sh
 
+      - name: Run package list resolution test suite
+        run: bash test/monarch-packages-exist-test.sh
+
       - name: Run unattended install test suite
         run: bash test/monarch-unattended-test.sh
 
