@@ -14,7 +14,7 @@
 
 set -uo pipefail
 
-FILE="$HOME/.config/niri/runtime.kdl"
+FILE="${XDG_CONFIG_HOME:-$HOME/.config}/niri/runtime.kdl"
 
 # --- Read the full current state (this file is ours, so the format is known) ---
 touchpad_off=false

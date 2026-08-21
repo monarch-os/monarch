@@ -49,4 +49,4 @@ if ! out=$(niri msg output "$output" scale "$scale" 2>&1); then
   exit 1
 fi
 
-monarch-niri-runtime output-scale "$output" "$scale"
+monarch-niri-output-set "$output" scale "$scale"
