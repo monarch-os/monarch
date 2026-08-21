@@ -6,5 +6,7 @@ pci_info=$(lspci -nn)
 
 if (echo "$pci_info" | grep -q "14e4:43a0" || echo "$pci_info" | grep -q "14e4:4331"); then
   echo "BCM4360 / BCM4331 detected"
-  monarch-pkg-add broadcom-wl dkms linux-headers
+  # broadcom-wl is prebuilt against the stock linux kernel and hard-depends on
+  # it, so it pulled a second kernel in and could never load on the cachyos one.
+  monarch-pkg-add $(monarch-hw-kernel-headers) broadcom-wl-dkms dkms
 fi
