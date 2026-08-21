@@ -18,6 +18,13 @@ local LIST_CMD = shared.bin("monarch-display-list")
 local SCALE_CMD = shared.bin("monarch-display-scale")
 local TOGGLE_CMD = shared.bin("monarch-display-toggle")
 local TEXT_CMD = shared.bin("monarch-display-text-size")
+local FOCUS_CMD = shared.bin("monarch-launch-or-focus")
+
+-- Placement is the one thing about a screen this panel does not do, and
+-- nwg-displays does it well — it ships in monarch-base.packages, speaks niri,
+-- and now shares the file Monarch writes into. Offered only when it is there:
+-- the package is removable like any other.
+local ARRANGE = noctalia.commandExists("nwg-displays")
 
 -- What Mod+Ctrl+D cycles through, and the starting point for the row of pills:
 -- each is cleaned against the output's own mode before it is offered.
@@ -242,7 +249,10 @@ local function scaleSection(): { any }
     table.sort(choices)
   end
 
-  if #choices == 0 then
+  -- One value is not a choice. A mode whose dimensions share little leaves only
+  -- 1x standing, and a lone stretched pill claiming to be a picker is worse
+  -- than saying nothing.
+  if #choices < 2 then
     return {}
   end
 
@@ -250,6 +260,9 @@ local function scaleSection(): { any }
   for _, value in ipairs(choices) do
     local active = current ~= nil and value == current
     table.insert(pills, ui.button({
+      -- Keyed, so the tree diff cannot confuse one button for another: adding
+      -- the arrange button below once left a scale pill wearing its glyph.
+      key = "scale:" .. formatScale(value),
       text = formatScale(value) .. "x",
       variant = active and "primary" or "outline",
       controlSize = "sm",
@@ -368,6 +381,22 @@ function render()
     table.insert(body, outputRow(output))
   end
 
+  -- Placement needs a canvas this panel has no room for, and a tool that does
+  -- it properly is already installed.
+  if ARRANGE then
+    table.insert(body, ui.row({ gap = 8, align = "center" }, {
+      ui.button({
+        key = "arrange",
+        text = "Arrange displays…",
+        glyph = "layout-grid",
+        variant = "outline",
+        controlSize = "sm",
+        onClick = "onArrangeClicked",
+      }),
+      ui.spacer({ flexGrow = 1 }),
+    }))
+  end
+
   -- Where the refusal to blank the last lit screen surfaces, among the rest.
   if errorText ~= "" then
     table.insert(body, ui.label({ text = errorText, fontSize = 12, color = "error", maxWidth = 380 }))
@@ -388,13 +417,14 @@ function render()
       -- in the control center tab that owns the per-display sliders. The pill's
       -- click used to land there directly.
       ui.button({
+        key = "brightness",
         glyph = "sun",
         variant = "ghost",
         controlSize = "sm",
         tooltip = "Brightness",
         onClick = "onBrightnessClicked",
       }),
-      ui.button({ glyph = "close", variant = "ghost", onClick = "onCloseClicked" }),
+      ui.button({ key = "close", glyph = "close", variant = "ghost", onClick = "onCloseClicked" }),
     }),
 
     ui.scroll({ flexGrow = 1, gap = 12 }, body),
@@ -449,6 +479,14 @@ end
 -- The control center is not a plugin panel, so togglePanel cannot name it and
 -- the tab has to be an argument; this is the same verb the stock brightness
 -- widget's own left click sends.
+-- Focus it rather than launch a second copy, and close: the arrangement happens
+-- over there, and two windows arguing about the same file is the problem this
+-- whole arrangement exists to avoid.
+function onArrangeClicked()
+  noctalia.runAsync(FOCUS_CMD .. " nwg-displays")
+  panel.close()
+end
+
 function onBrightnessClicked()
   noctalia.runAsync("noctalia msg panel-toggle control-center monitor")
   panel.close()
