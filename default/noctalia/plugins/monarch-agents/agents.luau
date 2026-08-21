@@ -58,7 +58,11 @@ end
 
 function M.formatTokens(value: number): string
   local n = math.floor(tonumber(value) or 0)
-  if n >= 1000000 then
+  -- The billion step matters once the per-model chart shows real all-time
+  -- totals: without it a heavy model reads "3485.9M".
+  if n >= 1000000000 then
+    return string.format("%.1fB", n / 1000000000)
+  elseif n >= 1000000 then
     return string.format("%.1fM", n / 1000000)
   elseif n >= 1000 then
     return string.format("%.1fk", n / 1000)

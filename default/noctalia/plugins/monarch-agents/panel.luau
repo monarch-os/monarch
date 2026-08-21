@@ -56,6 +56,10 @@ local function dayRows(record: any): { any }
     end
   end
 
+  if peak <= 0 then
+    return {}
+  end
+
   local rows = {}
   for index, day in ipairs(days) do
     local tokens = tonumber(day.messageCount) or 0
@@ -74,13 +78,31 @@ local function dayRows(record: any): { any }
   return rows
 end
 
+-- A bucket carries the four raw counters and no total; summing them is the
+-- caller's job. Reading a `total` field failed silently — nil, then 0, and
+-- every bar in the chart rendered empty.
+local function bucketTotal(value: any): number
+  if type(value) == "number" then
+    return value
+  end
+  if type(value) ~= "table" then
+    return 0
+  end
+  return (tonumber(value.inputTokens) or 0)
+    + (tonumber(value.outputTokens) or 0)
+    + (tonumber(value.cacheReadInputTokens) or 0)
+    + (tonumber(value.cacheCreationInputTokens) or 0)
+end
+
 local function modelRows(record: any): { any }
   -- modelUsage is a map; flatten and sort heaviest first so the chart has a
   -- stable order and a meaningful peak.
   local entries = {}
   for name, value in pairs(record.modelUsage or {}) do
-    local total = if type(value) == "table" then tonumber(value.total) else tonumber(value)
-    table.insert(entries, { name = tostring(name), total = total or 0 })
+    local total = bucketTotal(value)
+    if total > 0 then
+      table.insert(entries, { name = tostring(name), total = total })
+    end
   end
   table.sort(entries, function(a, b)
     return a.total > b.total
@@ -108,9 +130,34 @@ local function section(title: string, rows: { any }): any
   })
 end
 
+-- What the all-time numbers amount to, and — while the status says they are
+-- not authoritative — how to make them so again.
+local function footer(record: any): any
+  local prompts = math.floor(tonumber(record.totalPrompts) or 0)
+  local days = math.floor(tonumber(record.activeDays) or 0)
+  local status = tostring(record.usageStatusText or "")
+  local help = tostring(record.authHelpText or "")
+
+  local cells = {
+    ui.label({
+      text = prompts .. " prompts over " .. days .. " days",
+      fontSize = 11,
+      color = "on_surface/0.6",
+      flexGrow = 1,
+    }),
+  }
+  if status ~= "" and help ~= "" then
+    table.insert(cells, ui.label({ text = help, fontSize = 11, color = "error", maxLines = 2 }))
+  end
+  return ui.row({ gap = 8, align = "center" }, cells)
+end
+
 local function agentSection(record: any, index: number): any
   local name = tostring(record.name or record.id or "")
-  local plan = tostring(record.tierLabel or "")
+  -- The status wins the subtitle when there is one: "Waiting for auth" is
+  -- worth more than the plan it would otherwise be sitting next to.
+  local status = tostring(record.usageStatusText or "")
+  local subtitle = if status ~= "" then status else tostring(record.tierLabel or "")
   local mark = agents.markPath(tostring(record.id or ""))
 
   local hero = {}
@@ -121,7 +168,14 @@ local function agentSection(record: any, index: number): any
   end
   table.insert(hero, ui.column({ gap = 0, flexGrow = 1 }, {
     ui.label({ text = name, fontWeight = "bold" }),
-    if plan ~= "" then ui.label({ text = plan, fontSize = 11, color = "on_surface/0.6" }) else ui.spacer({ height = 0 }),
+    if subtitle ~= "" then ui.label({ text = subtitle, fontSize = 11, color = "on_surface/0.6" }) else ui.spacer({ height = 0 }),
+  }))
+  table.insert(hero, ui.label({
+    text = math.floor(tonumber(record.todayPrompts) or 0)
+      .. " today · "
+      .. agents.formatTokens(tonumber(record.todayTotalTokens) or 0),
+    fontSize = 11,
+    color = "on_surface/0.6",
   }))
 
   return ui.column({ key = "agent-" .. index, gap = 12 }, {
@@ -129,6 +183,7 @@ local function agentSection(record: any, index: number): any
     section("Limits", limitRows(record)),
     section("Last 7 days", dayRows(record)),
     section("By model", modelRows(record)),
+    footer(record),
     ui.separator({}),
   })
 end
@@ -137,7 +192,7 @@ local function render()
   local records = noctalia.state.get(agents.KEY_RECORDS) or {}
 
   if #records == 0 then
-    panel.render(ui.column({ gap = 12, padding = 16 }, {
+    panel.render(ui.column({ flexGrow = 1, gap = 12, padding = 16 }, {
       ui.label({ text = "Agents", fontSize = 18, fontWeight = "bold" }),
       ui.label({
         text = "No coding agent has reported usage yet.",
@@ -152,9 +207,11 @@ local function render()
     table.insert(sections, agentSection(record, index))
   end
 
-  panel.render(ui.column({ gap = 12, padding = 16 }, {
+  -- flexGrow on the root as well as the scroll: the viewport grows into the
+  -- panel's declared height, and without it collapses to a couple of rows.
+  panel.render(ui.column({ flexGrow = 1, gap = 12, padding = 16 }, {
     ui.label({ text = "Agents", fontSize = 18, fontWeight = "bold" }),
-    ui.scroll({ flexGrow = 1 }, sections),
+    ui.scroll({ flexGrow = 1, gap = 12 }, sections),
   }))
 end
 
