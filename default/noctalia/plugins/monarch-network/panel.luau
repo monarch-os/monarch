@@ -36,8 +36,7 @@ local DNS_PROVIDERS = {
 }
 -- Roughly the last half-minute of probes, at one per tick.
 local PING_WINDOW = 24
--- Ticks between rescans. Quattro leaves NetworkManager's scanner running for
--- as long as its panel is up, which is why neither has a refresh button.
+-- Rescans while the panel is open, which is why it has no refresh button.
 local RESCAN_TICKS = 10
 local PHRASE_TICKS = 3
 local PHRASES = {
@@ -58,10 +57,9 @@ local radioPresent = true
 local scanning = false
 local loaded = false
 
--- One action at a time on purpose: joining two networks at once is not a thing,
--- and a single token keeps every button's disabled state derivable from it. The
--- two SSIDs say which row owns the token and the message; empty means the panel
--- itself — the band, the DNS or the radio.
+-- One action at a time, so every button's disabled state derives from one value.
+-- The two SSIDs say which row owns the token and the message; empty means the
+-- panel itself — the band, the DNS or the radio.
 local promptSsid = ""
 local password = ""
 local identity = ""
@@ -361,8 +359,6 @@ local function forget(network)
     "Could not forget " .. network.ssid)
 end
 
--- Click semantics, quattro's: a connected row drops the link, a network we hold
--- credentials for joins on the spot, and only one we do not opens a field.
 local function activate(network)
   if busy ~= "" then
     return
@@ -410,9 +406,8 @@ local function stat(label: string, value: string, color: string?): any
   })
 end
 
--- Two pairs to a line, as quattro's grid does: eight figures stacked one per
--- line would push the network list, which is what the panel is for, off the
--- bottom.
+-- Two pairs to a line, as quattro's grid does: eight stacked figures would push
+-- the network list off the bottom.
 local function statRow(key: string, left, right): any
   return ui.row({ key = key, gap = 16 }, { left, right })
 end
@@ -431,8 +426,6 @@ local function heroTitle(): string
   if info.type == "wifi" then
     return (info.ssid ~= nil and info.ssid ~= "") and info.ssid or "Wi-Fi"
   elseif info.type == "ethernet" then
-    -- Inline after the name rather than a line of its own: Wi-Fi spends that
-    -- line on the band selector instead.
     local speed = formatLinkSpeed(info.speed)
     return speed ~= "" and ("Ethernet (" .. speed .. ")") or "Ethernet"
   elseif info.iface ~= nil and info.iface ~= "" then
@@ -542,8 +535,7 @@ local function bandSection(): { any }
     return {}
   end
 
-  -- Under Automatic there are no pills to say which band the radio landed on,
-  -- so the header says it: "WI-FI BAND: 6GHZ".
+  -- Under Automatic there are no pills to name the live band, so the header does.
   local title = "WI-FI BAND"
   if band.selected == "auto" and band.band ~= "" then
     title ..= ": " .. band.band .. "GHZ"
@@ -574,8 +566,6 @@ local function bandSection(): { any }
       table.insert(pills, ui.button({
         key = choice,
         text = shared.bandLabel(choice),
-        -- Outline rather than ghost on the ones not in force: a ghost button
-        -- with no border reads as a caption, and these are all choices.
         variant = band.selected == choice and "primary" or "outline",
         controlSize = "sm",
         flexGrow = 1,
@@ -680,8 +670,7 @@ local function credentials(network): any
     end,
   }))
 
-  -- PEAP asks two questions, and two fields beside a button do not fit this
-  -- width; a pre-shared key keeps its single line.
+  -- Two fields beside a button do not fit this width; one does.
   if enterprise then
     return ui.column({ key = "credentials", gap = 6 }, fields)
   end
@@ -692,8 +681,7 @@ local function networkRow(network): any
   local status, statusColor = rowStatus(network)
 
   -- One slot at the right edge, a lock or the way off. Quattro swaps the two on
-  -- hover; nothing here is cheap to redraw on hover, so the row that can be
-  -- forgotten simply says so.
+  -- hover; nothing here is cheap to redraw on hover, so the row says which it is.
   local trailing
   if network.saved and not network.connected then
     trailing = ui.button({

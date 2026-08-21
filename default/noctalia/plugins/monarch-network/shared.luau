@@ -31,9 +31,8 @@ function M.trim(text: string): string
   return (text:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
--- stderr if the command left any, the fallback otherwise. First line only: the
--- message lands on a network row, and nmcli's multi-line failures would push
--- the rest of the list off the panel.
+-- stderr if the command left any, the fallback otherwise. First line only: this
+-- lands on a network row, and nmcli's multi-line failures would push the list off.
 function M.errorFrom(result, fallback: string): string
   local message = M.trim(result and result.stderr or ""):match("^[^\n]*") or ""
   return message ~= "" and message or fallback
@@ -90,9 +89,8 @@ function M.parseNetworks(text: string): { Network }
   return networks
 end
 
--- Connected, then saved, then strongest — quattro's order, which is what puts
--- the two group headers in one pass. The name breaks ties so a re-render cannot
--- shuffle equal-signal rows: table.sort is not stable.
+-- Quattro's order. The name breaks ties so a re-render cannot shuffle
+-- equal-signal rows: table.sort is not stable.
 function M.sortNetworks(networks: { Network }): { Network }
   local sorted = table.move(networks, 1, #networks, 1, {})
 

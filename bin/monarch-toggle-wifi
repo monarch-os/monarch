@@ -36,9 +36,8 @@ set_radio() {
   esac
 }
 
-# A wired-only box has a radio state all the same — NetworkManager answers
-# "enabled" with no adapter in the machine — so callers that hide their switch
-# need to be told the hardware is missing, not that the radio is off.
+# NetworkManager answers "enabled" with no adapter in the machine, so a caller
+# that hides its switch has to be told the hardware is missing, not the radio off.
 radio_present() {
   LC_ALL=C nmcli -t -f DEVICE,TYPE device status 2>/dev/null |
     awk -F: '$2 == "wifi" { found = 1 } END { exit !found }'

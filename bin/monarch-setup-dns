@@ -6,21 +6,16 @@
 
 # The chooser, and nothing else. Writing DNS belongs to the monarch-dns package:
 # a NOPASSWD grant may only name a path root owns, and this tree is a checkout
-# the user can rewrite. Quattro reaches the same place from the other side — it
-# packages its whole tree into /usr/bin — so upstream carries no second copy of
-# this either, and neither should we.
+# the user can rewrite.
 
 set -uo pipefail
 
-# The shell that launches this has only /usr/local/sbin:/usr/local/bin:/usr/bin
-# on its PATH, so a sibling called by name is not found. Appended, never
-# prepended: a caller that put its own ahead of ours keeps it.
+# The launching shell's PATH carries no bin/ of ours. Appended, never prepended.
 PATH="$PATH:$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)"
 
 PACKAGED_DNS=/usr/bin/monarch-dns
 
-# This is the one caller with a terminal, so it is the one that can install the
-# package: the panel's buttons come here precisely when it is missing.
+# The one caller with a terminal, which is why the panel sends its buttons here.
 if [[ ! -x $PACKAGED_DNS ]]; then
   echo "Setting the DNS provider needs the monarch-dns package."
   monarch-pkg-add monarch-dns || exit 1

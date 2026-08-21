@@ -54,9 +54,9 @@ LC_ALL=C nmcli -e no -t -f IN-USE,SIGNAL,SECURITY,SSID dev wifi list ifname "$de
       if (ssid == "") next
       # nmcli lists one row per BSS; the list arrives signal-sorted, so the
       # first row for a name is its strongest and the rest are the same network
-      # seen through a weaker radio. The in-use star, though, is on whichever
-      # BSS we associated with — a dual-band router under one name puts it on
-      # the second row, so it is collected across all of them.
+      # seen through a weaker radio. The in-use star, though, sits on the BSS we
+      # associated with, which a dual-band router under one name puts on a later
+      # row, so it is collected across all of them.
       if ($1 == "*") in_use[ssid] = 1
       if (seen[ssid]++) next
       order[++rows] = ssid
