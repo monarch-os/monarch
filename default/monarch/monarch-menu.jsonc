@@ -94,7 +94,7 @@
   "trigger.toggle.passwordless-sudo": {"icon":"󰟵","label":"Passwordless Sudo","action":"monarch-launch-floating-terminal-with-presentation monarch-sudo-passwordless"},
 
   // Trigger > Hardware
-  "trigger.hardware.displays": {"icon":"󰍹","label":"Displays","action":"noctalia msg panel-toggle monarch/display:panel"},
+  "trigger.hardware.displays": {"icon":"󰍺","label":"Displays","action":"noctalia msg panel-toggle monarch/display:panel"},
   "trigger.hardware.display-scaling": {"icon":"󰍹","label":"Display Scaling","action":"monarch-niri-monitor-scaling-cycle"},
   "trigger.hardware.laptop-display": {"icon":"󰛧","label":"Laptop Display","when":"monarch-hw-external-monitors","action":"monarch-niri-monitor-internal toggle"},
   "trigger.hardware.hybrid-gpu": {"icon":"","label":"Hybrid GPU","when":"monarch-hw-hybrid-gpu","action":"monarch-launch-floating-terminal-with-presentation monarch-toggle-hybrid-gpu"},
