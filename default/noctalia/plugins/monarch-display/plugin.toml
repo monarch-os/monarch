@@ -1,9 +1,14 @@
 # Monarch's display panel.
 #
-# The half of quattro's omarchy.monitor that Noctalia has nothing for. Its
-# brightness slider is not here on purpose: the control center's Monitor tab
-# already draws one per display, over a service that speaks both backlight and
-# DDC. What no part of v5 offers is the compositor's side — per-output scale and
+# Laid out after quattro's omarchy.monitor, minus its brightness slider — and
+# that one is absent for a harder reason than taste. Noctalia exposes brightness
+# for writing only: `brightness-set` takes a target and a value, and there is no
+# `brightness-get` at all. A slider here would have no position to start from
+# short of reading sysfs for the internal panel and having nothing for a DDC
+# monitor, which is the service the control center's Monitor tab already owns.
+# The sun in this panel's header goes there.
+#
+# What no part of v5 offers is the compositor's side — per-output scale and
 # turning a screen off — so that is what this carries, with the text size
 # quattro puts in the same panel.
 #
