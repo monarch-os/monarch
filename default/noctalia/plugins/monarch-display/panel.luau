@@ -1,16 +1,9 @@
 --!nonstrict
--- The display panel: what each screen is doing, and the things about it that
--- only the compositor can change.
+-- The display panel, laid out after quattro's omarchy.monitor.
 --
--- Laid out after quattro's omarchy.monitor, which is the one to beat: a header
--- carrying the focused screen, then sections whose value sits on their own
--- header line, then the screens themselves. Scale acts on the focused output,
--- as it does there — one row of choices rather than a control buried in every
--- card.
---
--- Everything it knows comes from Monarch commands printing tab-separated
--- fields, so the logic that talks to niri stays in bash where it can be tested
--- without a compositor. This file is presentation and sequencing only.
+-- Presentation and sequencing only: everything it knows comes from Monarch
+-- commands printing tab-separated fields, so the logic that talks to niri stays
+-- in bash where it can be tested without a compositor.
 
 local shared = require("./shared.luau")
 
@@ -21,32 +14,28 @@ local TEXT_CMD = shared.bin("monarch-display-text-size")
 local BRIGHT_CMD = shared.bin("monarch-display-brightness")
 local FOCUS_CMD = shared.bin("monarch-launch-or-focus")
 
--- Placement is the one thing about a screen this panel does not do, and
--- nwg-displays does it well — it ships in monarch-base.packages, speaks niri,
--- and now shares the file Monarch writes into. Offered only when it is there:
--- the package is removable like any other.
+-- nwg-displays does placement, speaks niri, and shares the file Monarch writes
+-- into. Offered only when it is there: the package is removable like any other.
 local ARRANGE = noctalia.commandExists("nwg-displays")
 
--- What Mod+Ctrl+D cycles through, and the starting point for the row of pills:
--- each is cleaned against the output's own mode before it is offered.
+-- What Mod+Ctrl+D cycles through, cleaned against the mode before it is offered.
 local SCALES = { 1, 1.25, 1.6, 2, 3, 4 }
 -- Wayland counts scale in 120ths of a pixel.
 local SCALE_UNIT = 120
 local TEXT_STEP = 5
 local TEXT_MIN = 75
 local TEXT_MAX = 175
--- Noctalia clamps to its own minimum_brightness anyway; the floor here is only
--- to keep the slider from offering a screen nobody could read to turn back up.
+-- Noctalia clamps to its own minimum anyway; this floor only keeps the slider
+-- from offering a screen too dark to turn back up.
 local BRIGHT_STEP = 5
 local BRIGHT_MIN = 5
--- Brightness is the one thing on this panel that hardware keys change behind
--- its back, so it is re-read while it is open. Two seconds: a backlight read is
--- a sysfs file, and a DDC one answers from a cache the command keeps.
+-- Hardware keys change brightness behind this panel's back, so it is re-read
+-- while open. Cheap: sysfs, or a cache the command keeps for the bus.
 local BRIGHT_POLL = 2
 
 local outputs = {}
--- What the screens are at, as read; what the sliders are showing, which leads
--- it while a drag is in flight; and the one value a busy screen still owes.
+-- As read, what the sliders show while a drag leads it, and what a busy screen
+-- still owes.
 local brightness = {}
 local liveBrightness = {}
 local sending = {}
@@ -59,16 +48,13 @@ local loaded = false
 local busy = ""
 local errorText = ""
 
--- The slider moves far faster than the command behind it can keep up with —
--- every step rewrites two files and pokes gsettings — so a drag parks its value
--- here and the tick below commits it once it settles. quattro debounces its own
--- brightness the same way, at 16ms.
+-- Every text-size step rewrites two files and pokes gsettings, far slower than
+-- the slider moves: a drag parks its value here and the tick commits it.
 local pendingPercent = nil
 local settleTicks = 0
 local SETTLE = 1
 
--- A read started before the last click must not land its stale answer on top
--- of the newer state.
+-- A read started before the last click must not land on top of newer state.
 local generation = 0
 
 local render
@@ -81,10 +67,8 @@ local function gcd(a: number, b: number): number
 end
 
 -- A scale whose 120ths divide gcd(width, height) in the same units leaves both
--- logical dimensions whole, which is what keeps text off half-pixels; anything
--- else is the compositor rounding behind your back. The next divisor at or above
--- what was asked for is the nearest scale that behaves, which is why quattro
--- offers 1.33x and 3.13x rather than the round numbers it started from.
+-- logical dimensions whole; anything else is the compositor rounding behind your
+-- back. Hence 1.33x and 3.13x rather than the round numbers asked for.
 local function cleanScale(requested: number, width: number, height: number): number?
   if requested <= 0 or width <= 0 or height <= 0 then
     return nil
@@ -138,9 +122,8 @@ local function parseOutputs(text: string)
   return rows
 end
 
--- name<TAB>percent<TAB>backend, one line per screen something can dim: a sysfs
--- backlight or a monitor that answers on the bus. A screen with neither simply
--- does not appear, which is what decides whether it gets a slider.
+-- name<TAB>percent<TAB>backend, one line per screen something can dim. A screen
+-- absent from it gets no slider.
 local function parseBrightness(text: string)
   local rows = {}
 
@@ -160,8 +143,7 @@ local function readBrightness()
       return
     end
     brightness = parseBrightness(result.stdout or "")
-    -- A screen nobody is dragging or waiting on takes whatever it actually is:
-    -- this is how a brightness key pressed with the panel open lands here.
+    -- How a brightness key pressed with the panel open lands here.
     for name in pairs(liveBrightness) do
       if not sending[name] and queuedBrightness[name] == nil then
         liveBrightness[name] = nil
@@ -173,10 +155,9 @@ end
 
 local sendBrightness
 
--- Not runAction: that one takes the panel busy, blanks the error and re-reads
--- niri, which is the right ceremony for a scale and far too much for a slider
--- being dragged. One command per screen at a time, and the last value asked for
--- while it was busy goes out behind it.
+-- Not runAction: taking the panel busy and re-reading niri is the right ceremony
+-- for a scale and far too much for a slider. One command per screen at a time,
+-- and the last value asked for while it was busy goes out behind it.
 function sendBrightness(name: string, percent: number)
   sending[name] = true
 
@@ -191,8 +172,7 @@ function sendBrightness(name: string, percent: number)
       return
     end
 
-    -- Nothing else clears it on this path, and a refusal left standing under a
-    -- slider that has since worked reads as the state of things.
+    -- Nothing else clears it on this path.
     if errorText ~= "" then
       errorText = ""
       render()
@@ -212,8 +192,7 @@ local function focusedOutput()
       return output
     end
   end
-  -- Nothing focused is possible mid-transition; the first lit screen is a
-  -- better guess than refusing to draw the scale row at all.
+  -- Nothing focused happens mid-transition; the first lit screen beats no row.
   for _, output in ipairs(outputs) do
     if output.on then
       return output
@@ -244,9 +223,8 @@ local function refresh()
   end)
 end
 
--- Every action ends the same way: clear the token, keep whatever the command
--- said on stderr, and re-read rather than guess at the new state. The refusal to
--- blank the last lit screen speaks through exactly this path.
+-- Keep whatever the command said on stderr, and re-read rather than guess at the
+-- new state. The refusal to blank the last lit screen speaks through this path.
 local function runAction(token: string, command: string, fallback: string)
   if busy ~= "" then
     return
@@ -265,14 +243,9 @@ local function runAction(token: string, command: string, fallback: string)
   end)
 end
 
--- ── Rendering ────────────────────────────────────────────────────────────────
-
--- Label left, value right, on one line: the shape quattro gives every section,
--- and the reason its panel reads as a panel rather than a form.
---
--- Keyed like everything else here. The tree diff matches by position when it
--- cannot match by key, and a row landing where a screen's card used to be comes
--- out wearing its border.
+-- Keyed, like everything else here: the tree diff matches by position when it
+-- cannot match by key, and a row landing where a card used to be comes out
+-- wearing its border.
 local function sectionHeader(key: string, text: string, value: string?): any
   return ui.row({ key = key, align = "center", gap = 8 }, {
     ui.label({ text = text, fontSize = 11, fontWeight = "medium", color = "on_surface_variant", flexGrow = 1 }),
@@ -284,9 +257,8 @@ local function brightnessOf(name: string): number?
   return liveBrightness[name] or brightness[name]
 end
 
--- Only lit screens, and only those something can actually dim. quattro puts
--- this first and acts on the focused screen alone; a slider each costs one more
--- line per screen and spares anyone with two monitors a trip through focus.
+-- A slider each rather than quattro's focused screen alone: one line more per
+-- screen, and no trip through focus to reach the other monitor.
 local function brightnessSection(): { any }
   local lit = {}
   for _, output in ipairs(outputs) do
@@ -327,8 +299,7 @@ local function brightnessSection(): { any }
           return
         end
 
-        -- Live, and not on release: brightness is the one control here you set
-        -- by looking at the screen rather than at the number.
+        -- Live, and not on release: this one is set by looking at the screen.
         liveBrightness[name] = percent
         render()
 
@@ -373,9 +344,7 @@ local function textSizeSection(): { any }
   }
 end
 
--- Pills and not a dropdown, and on the focused screen rather than inside every
--- card: the choice is short, the values are worth reading at a glance, and it is
--- the shape quattro settled on.
+-- Pills and not a dropdown: the choice is short and worth reading at a glance.
 local function scaleSection(): { any }
   local focused = focusedOutput()
   if not focused or not focused.on then
@@ -389,25 +358,22 @@ local function scaleSection(): { any }
 
   for _, preset in ipairs(SCALES) do
     local clean = cleanScale(preset, width, height)
-    -- A mode whose dimensions share little leaves few scales standing — 1366x768
-    -- keeps only 1x and 2x — so the row shrinks rather than offering values the
-    -- compositor would have to round.
+    -- 1366x768 keeps only 1x and 2x: the row shrinks rather than offer a value
+    -- the compositor would have to round.
     if clean and not seen[clean] then
       seen[clean] = true
       table.insert(choices, clean)
     end
   end
 
-  -- Whatever is in force is offered even when the cleaning would not have
-  -- produced it, or a scale set by hand could never be picked back from here.
+  -- Or a scale set by hand could never be picked back from here.
   if current and not seen[current] then
     table.insert(choices, current)
     table.sort(choices)
   end
 
-  -- One value is not a choice. A mode whose dimensions share little leaves only
-  -- 1x standing, and a lone stretched pill claiming to be a picker is worse
-  -- than saying nothing.
+  -- One value is not a choice, and a lone stretched pill claiming to be a picker
+  -- is worse than saying nothing.
   if #choices < 2 then
     return {}
   end
@@ -416,14 +382,12 @@ local function scaleSection(): { any }
   for _, value in ipairs(choices) do
     local active = current ~= nil and value == current
     table.insert(pills, ui.button({
-      -- Keyed, so the tree diff cannot confuse one button for another: adding
-      -- the arrange button below once left a scale pill wearing its glyph.
+      -- Adding the arrange button below once left a pill wearing its glyph.
       key = "scale:" .. formatScale(value),
       text = formatScale(value) .. "x",
       variant = active and "primary" or "outline",
       controlSize = "sm",
-      -- Equal widths across the row, as quattro draws them: content-sized pills
-      -- make 1x a third the width of 1.25x and the row reads as a ransom note.
+      -- Content-sized pills make 1x a third the width of 1.25x.
       flexGrow = 1,
       enabled = busy == "" and not active,
       onClick = function()
@@ -441,10 +405,8 @@ local function scaleSection(): { any }
   }
 end
 
--- A card per screen, as quattro draws them: a bordered box rather than a filled
--- one, since ui.box's `fill` takes a literal colour and not a role name — a box
--- handed a role simply does not draw, which is how the row went missing once
--- already. The focused one is marked with a check instead of a tint.
+-- A bordered row and not ui.box: its `fill` takes a literal colour, not a role
+-- name, and a box handed a role simply does not draw.
 local function litCount(): number
   local lit = 0
   for _, output in ipairs(outputs) do
@@ -480,16 +442,13 @@ local function outputRow(output): any
     }),
   }
 
-  -- Nothing to distinguish on a laptop with its lid open and nothing else
-  -- plugged in: the only screen is of course the focused one.
+  -- The only screen is of course the focused one.
   if output.focused and #outputs > 1 then
     table.insert(children, ui.glyph({ key = "focused", name = "check", size = 16, color = "primary" }))
   end
 
-  -- The last lit screen cannot be turned off — niri would have nothing to draw
-  -- on and there would be nothing on screen to turn it back with. The command
-  -- refuses it either way; a switch that only ever errors is worse than one
-  -- that says up front it will not move.
+  -- The command refuses to blank the last lit screen either way; a switch that
+  -- only ever errors is worse than one that says up front it will not move.
   local last = output.on and litCount() <= 1
 
   table.insert(children, ui.toggle({
@@ -542,8 +501,7 @@ function render()
     table.insert(body, outputRow(output))
   end
 
-  -- Placement needs a canvas this panel has no room for, and a tool that does
-  -- it properly is already installed.
+  -- Placement needs a canvas this panel has no room for.
   if ARRANGE then
     table.insert(body, ui.row({ key = "row:arrange", gap = 8, align = "center" }, {
       ui.button({
@@ -558,7 +516,6 @@ function render()
     }))
   end
 
-  -- Where the refusal to blank the last lit screen surfaces, among the rest.
   if errorText ~= "" then
     table.insert(body, ui.label({ text = errorText, fontSize = 12, color = "error", maxWidth = 380 }))
   end
@@ -581,8 +538,7 @@ function render()
   }))
 end
 
--- Every open re-reads: a monitor plugged in while this was closed is exactly
--- what the panel gets opened to deal with.
+-- Every open re-reads: a monitor plugged in meanwhile is what this is opened for.
 function onOpen(_context)
   loaded = false
   busy = ""
@@ -597,10 +553,8 @@ function onOpen(_context)
   refresh()
 end
 
--- Two jobs: commit a settled text size, and keep the brightness sliders honest
--- against the keys that change it from outside. Nothing else on this panel
--- moves on its own, and re-reading niri every second to be told the same thing
--- would be rude.
+-- Commit a settled text size, and keep the brightness sliders honest against the
+-- keys. Nothing else here moves on its own, so niri is not re-read on a tick.
 function update()
   brightTicks += 1
   if brightTicks >= BRIGHT_POLL then
@@ -640,9 +594,8 @@ function onCloseClicked()
   panel.close()
 end
 
--- Focus it rather than launch a second copy, and close: the arrangement happens
--- over there, and two windows arguing about the same file is the problem this
--- whole arrangement exists to avoid.
+-- Focus rather than launch a second copy: two windows arguing about one file is
+-- the problem this whole arrangement exists to avoid.
 function onArrangeClicked()
   noctalia.runAsync(FOCUS_CMD .. " nwg-displays")
   panel.close()

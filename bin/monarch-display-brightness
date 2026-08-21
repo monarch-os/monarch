@@ -5,10 +5,9 @@
 # monarch:args=[--list] [<output> [<percent>]]
 # monarch:examples=monarch display brightness --list | monarch display brightness eDP-1 60
 
-# Noctalia owns every brightness write — its service holds the logind handle for
-# sysfs and a worker with cooldowns for DDC — but it never prints what it holds:
-# `noctalia msg` has brightness-set, -up, -down and no get. So this reads the
-# same two sources it reads, and hands the writing back to it.
+# Noctalia owns every brightness write and never prints what it holds: its IPC
+# has brightness-set, -up, -down and no get. So this reads the two sources it
+# reads, and hands the writing back to it.
 
 set -uo pipefail
 
@@ -18,9 +17,7 @@ SYS_BACKLIGHT=${MONARCH_SYS_BACKLIGHT:-/sys/class/backlight}
 SYS_DRM=${MONARCH_SYS_DRM:-/sys/class/drm}
 CACHE=${MONARCH_BRIGHTNESS_CACHE:-${XDG_RUNTIME_DIR:-/tmp}/monarch-display-brightness}
 
-# A DDC read costs a subprocess and a bus round-trip, so the panel polling once
-# a second must not pay for one each time; a detect that finds nothing is worth
-# remembering for longer still.
+# A bus round-trip per second is what the panel would cost without these.
 DDC_TTL=10
 DDC_MISS_TTL=60
 
@@ -36,10 +33,8 @@ connected_outputs() {
   done
 }
 
-# Noctalia's own rule, in the order it applies it: an exact DRM match beats a
-# guess, a raw device beats platform beats firmware, and nvidia/acpi_video lose
-# a tie. Getting this wrong on a two-backlight laptop means driving the panel
-# that is not lit.
+# Noctalia's own rule: exact DRM match first, raw over platform over firmware,
+# nvidia and acpi_video losing ties. Wrong here drives the panel that is not lit.
 type_rank() {
   case $1 in
     raw) echo 0 ;;
@@ -57,8 +52,7 @@ name_penalty() {
   esac
 }
 
-# connector<TAB>device<TAB>max<TAB>rank — one line per backlight that resolves to
-# a connected output, best candidate last so the caller can keep the last seen.
+# connector<TAB>device<TAB>max<TAB>rank, best candidate last.
 backlight_candidates() {
   local device name max type target connector path rank
   for device in "$SYS_BACKLIGHT"/*; do
@@ -84,10 +78,8 @@ backlight_candidates() {
       fi
     done
 
-    # A backlight whose device does not lead back to a connector is still the
-    # laptop panel's, on hardware that hangs it off the GPU rather than the
-    # connector; the internal output is the only sane guess, and it loses every
-    # tie to an exact match.
+    # Hardware that hangs the backlight off the GPU rather than the connector
+    # still has one internal panel to mean. Loses every tie to an exact match.
     if [[ -z $connector ]]; then
       connector=$(connected_outputs | grep -m 1 '^eDP') || continue
       rank="1$(type_rank "$type")$(name_penalty "$name")"
@@ -114,8 +106,7 @@ ddc_remember() {
   printf '%s\n' "$1" >"$(ddc_cache_file "$2")" 2>/dev/null || true
 }
 
-# One detect for every connector at once: it is the slow call, and running it
-# per screen would multiply the only cost that matters here.
+# One detect for every connector at once: it is the slow call.
 ddc_detect() {
   local connector bus seen=""
   while read -r connector bus; do
@@ -138,8 +129,7 @@ ddc_detect() {
   done
 }
 
-# bus<TAB>percent for a connector, or nothing. The cached percentage is what
-# keeps a one-second poll off the bus; only its age decides a re-read.
+# bus<TAB>percent for a connector, or nothing. Only the cache's age re-reads.
 ddc_read() {
   local connector=$1 file bus value stamp
   command -v ddcutil >/dev/null 2>&1 || return 1
@@ -179,8 +169,7 @@ ddc_read() {
   printf '%s\t%s\n' "$bus" "$value"
 }
 
-# connector<TAB>percent<TAB>backend for every connected output something can
-# change. A screen with neither backend simply does not appear.
+# connector<TAB>percent<TAB>backend. A screen with neither backend is absent.
 list_brightness() {
   local connector device max cur ddc
   local -A backlight=()
@@ -219,8 +208,7 @@ set_brightness() {
     exit 1
   fi
 
-  # The value we just wrote beats a cached read of a bus that answers slowly,
-  # and beats re-reading one Noctalia may not have written yet.
+  # Beats a cached read of a slow bus, and one Noctalia may not have written yet.
   local file
   file=$(ddc_cache_file "$connector")
   if [[ -r $file ]]; then

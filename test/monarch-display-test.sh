@@ -373,10 +373,8 @@ assert_equals "and --current answers in the same shape" \
 
 # ── The brightness ───────────────────────────────────────────────────────────
 
-# Noctalia reads the same two sources and refuses to print what it read, so the
-# mapping from a connector to its backlight is ours to get right: a laptop with
-# two backlight devices and one lit panel is where a wrong answer drives the
-# wrong hardware.
+# The connector-to-backlight mapping is ours to get right: a laptop with two
+# backlight devices and one lit panel is where a wrong answer drives the other.
 BRIGHTNESS="$ROOT/bin/monarch-display-brightness"
 export MONARCH_SYS_DRM="$TMP/sys/drm"
 export MONARCH_SYS_BACKLIGHT="$TMP/sys/backlight"
@@ -442,8 +440,7 @@ printf '100\n' >"$TMP/sys/backlight/amdgpu_bl1/max_brightness"
 assert_equals "a disconnected output is not listed" \
   "$(backlight_only --list | grep -c 'HDMI' || true)" "0"
 
-# Noctalia prefers a raw device over firmware, and penalises acpi_video: the
-# firmware one here would answer 10%, and it is the wrong panel.
+# raw beats firmware: the firmware one here would answer 10%, on the wrong panel.
 mkdir -p "$TMP/sys/backlight/acpi_video0"
 printf '1\n' >"$TMP/sys/backlight/acpi_video0/brightness"
 printf '10\n' >"$TMP/sys/backlight/acpi_video0/max_brightness"
@@ -474,8 +471,7 @@ assert_equals "a screen with no backlight is read over the bus" \
   "$("$BRIGHTNESS" --list | grep '^DP-1')" "$(printf 'DP-1\t50\tddc')"
 assert_equals "which costs one detect" "$(grep -c detect "$DDC_CALLS")" "1"
 
-# The panel polls while it is open; a bus round-trip per second is exactly what
-# the cache is for.
+# The panel polls while open; a round-trip per second is what the cache is for.
 : >"$DDC_CALLS"
 assert_equals "a second read inside the window answers from the cache" \
   "$("$BRIGHTNESS" --list | grep '^DP-1')" "$(printf 'DP-1\t50\tddc')"
@@ -496,8 +492,8 @@ rm -rf "$TMP/cache"
 
 # ── Setting the brightness ───────────────────────────────────────────────────
 
-# Every write goes through Noctalia: it holds the logind handle for sysfs and a
-# worker with cooldowns for the bus, and a second writer would fight both.
+# Noctalia holds the logind handle and the bus cooldowns; a second writer fights
+# both.
 : >"$NOCTALIA_CALLS"
 backlight_only eDP-1 40
 assert_equals "a set is handed to noctalia" \
@@ -520,8 +516,7 @@ for value in 120 -5 abc 50.5; do
   assert_equals "and says so" "${out%%:*}" "Error"
 done
 
-# The value just written beats a cached read of a bus that answers slowly, or
-# the slider snaps back to where it was for as long as the cache lives.
+# Or the slider snaps back for as long as the cache lives.
 "$BRIGHTNESS" --list >/dev/null
 : >"$DDC_CALLS"
 "$BRIGHTNESS" DP-1 30

@@ -96,11 +96,9 @@ order = ["default"]
     "monarch/display:display",
     "battery",
   ]
-  # monarch/display:display stands in for the stock `brightness` widget, in the
-  # place quattro gives omarchy.monitor. Its panel carries the per-output scale,
-  # the on-off and the text size, none of which exists anywhere in v5 — and the
-  # brightness the stock widget did reach is a button inside it, in the control
-  # center tab that owns the sliders. The scroll-to-dim gesture is re-bound in
+  # monarch/display:display stands in for the stock `brightness` widget: its
+  # panel carries a brightness slider per screen, and the per-output scale,
+  # on-off and text size that exist nowhere in v5. Scroll-to-dim is re-bound in
   # the plugin, so the swap costs nothing.
   #
   # monarch/network:network stands in for the stock `network` widget: same pill,
