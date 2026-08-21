@@ -201,10 +201,14 @@ local function selector(records: { any }): any
   local buttons = {}
   for index, record in ipairs(records) do
     local id = tostring(record.id or index)
+    -- Outlined rather than ghosted, sharing the row evenly: the same pill shape
+    -- the network panel uses for its DNS providers.
     table.insert(buttons, ui.button({
       key = "pick-" .. id,
       text = tostring(record.name or id),
-      variant = if id == selectedId then "primary" else "ghost",
+      variant = if id == selectedId then "primary" else "outline",
+      controlSize = "sm",
+      flexGrow = 1,
       onClick = function()
         selectedId = id
         render()
