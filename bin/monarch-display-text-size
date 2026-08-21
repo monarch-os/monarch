@@ -29,6 +29,12 @@
 
 set -uo pipefail
 
+# Noctalia's PATH is /usr/local/sbin:/usr/local/bin:/usr/bin — Monarch's bin is
+# not on it, so a sibling called by name is simply not found when the shell runs
+# this. Appended and not prepended: this only adds a fallback, and never takes a
+# command away from a caller that put its own ahead of ours.
+PATH="$PATH:$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)"
+
 MIN=75
 MAX=175
 STEP=5
