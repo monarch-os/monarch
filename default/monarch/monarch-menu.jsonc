@@ -107,6 +107,7 @@
 
   // Style
   "style.font": {"icon":"","label":"Font","provider":"fonts"},
+  "style.text-size": {"icon":"󰛖","label":"Text Size","provider":"text-size"},
   "style.background": {"icon":"","label":"Background","aliases":["wallpaper"],"action":"noctalia msg panel-toggle wallpaper"},
   "style.niri": {"icon":"","label":"Niri","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\""},
   "style.screensaver": {"icon":"󱄄","label":"Screensaver"},
