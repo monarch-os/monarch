@@ -15,6 +15,7 @@ set -uo pipefail
 
 INTERNET_PROBE=${MONARCH_NETWORK_PROBE:-1.1.1.1}
 RESOLVED_CONF=${MONARCH_RESOLVED_CONF:-/etc/systemd/resolved.conf}
+SYS_NET=${MONARCH_SYS_NET:-/sys/class/net}
 
 verbose=false
 case "${1:-}" in
@@ -32,7 +33,7 @@ route_device() {
 }
 
 is_wireless() {
-  [[ -d /sys/class/net/$1/wireless ]]
+  [[ -d $SYS_NET/$1/wireless ]]
 }
 
 # type<TAB>name<TAB>signal<TAB>freq — the pill needs no more than this, and the
@@ -120,7 +121,7 @@ print_ping_samples() {
 }
 
 print_verbose() {
-  local route iface gw src prefix link
+  local route iface gw src prefix link stats
 
   route=$(ip -j route get "$INTERNET_PROBE" 2>/dev/null)
   print_dns
@@ -139,6 +140,10 @@ print_verbose() {
   printf 'prefix\t%s\n' "$prefix"
   printf 'gateway\t%s\n' "$gw"
 
+  stats=$SYS_NET/$iface/statistics
+  [[ -r $stats/rx_bytes ]] && printf 'rx_bytes\t%s\n' "$(<"$stats/rx_bytes")"
+  [[ -r $stats/tx_bytes ]] && printf 'tx_bytes\t%s\n' "$(<"$stats/tx_bytes")"
+
   if is_wireless "$iface"; then
     printf 'type\twifi\n'
     monarch-cmd-present iw || return 0
@@ -153,8 +158,8 @@ print_verbose() {
       "$(awk '/tx bitrate:/ { print $4; exit }' <<<"$link")"
   else
     printf 'type\tethernet\n'
-    [[ -r /sys/class/net/$iface/speed ]] && printf 'speed\t%s\n' "$(</sys/class/net/"$iface"/speed)"
-    [[ -r /sys/class/net/$iface/duplex ]] && printf 'duplex\t%s\n' "$(</sys/class/net/"$iface"/duplex)"
+    [[ -r $SYS_NET/$iface/speed ]] && printf 'speed\t%s\n' "$(<"$SYS_NET/$iface/speed")"
+    [[ -r $SYS_NET/$iface/duplex ]] && printf 'duplex\t%s\n' "$(<"$SYS_NET/$iface/duplex")"
   fi
 
   print_ping_samples "$gw"
