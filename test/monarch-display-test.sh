@@ -107,6 +107,21 @@ assert_equals "a disabled output is listed as off" \
 assert_equals "with no scale and no mode" \
   "$(awk -F'\t' '$1 == "DP-1" { print "[" $3 "][" $4 "]" }' <<<"$listing")" "[][]"
 
+# Noctalia's PATH is /usr/local/sbin:/usr/local/bin:/usr/bin, so a sibling called
+# by name is not found when the shell runs these: the panel got "niri is not
+# running" with a perfectly live socket sitting in its own environment.
+#
+# Asserted by reading the source rather than by running it. Exercising the
+# fallback needs a PATH where the sibling is reachable *only* through it, which
+# would mean planting the stub in the repository's own bin/ — and the whole
+# point of the line is that it resolves against wherever the script itself is.
+for command in "$LIST" "$SCALE" "$TOGGLE" "$TEXT"; do
+  grep -qF 'PATH="$PATH:$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)"' "$command" ||
+    fail "each display command can find its siblings without Monarch's bin on PATH" \
+      "Missing from: $command"
+done
+pass "each display command can find its siblings without Monarch's bin on PATH"
+
 NIRI_ABSENT=1 "$LIST" 2>"$TMP/err" && fail "no compositor is an error, not an empty list"
 assert_equals "and says so" "$(<"$TMP/err")" "Error: niri is not running."
 
