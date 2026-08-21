@@ -42,7 +42,9 @@ declare -A PROVIDER_CURRENT=(
 )
 declare -A PROVIDER_ACTION=(
   [fonts]="monarch-font-set"
-  [power-profiles]="powerprofilesctl set"
+  # Not `powerprofilesctl set`: that applies without recording, so the next
+  # time the cable moves the choice made here is silently undone.
+  [power-profiles]="monarch-powerprofiles-set autodetect"
 )
 # ── Data ─────────────────────────────────────────────────────────────────────
 
