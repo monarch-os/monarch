@@ -1,0 +1,34 @@
+# Monarch's display panel.
+#
+# The half of quattro's omarchy.monitor that Noctalia has nothing for. Its
+# brightness slider is not here on purpose: the control center's Monitor tab
+# already draws one per display, over a service that speaks both backlight and
+# DDC. What no part of v5 offers is the compositor's side — per-output scale and
+# turning a screen off — so that is what this carries, with the text size
+# quattro puts in the same panel.
+#
+# Panel only, and no bar pill: `brightness` is already in the right lane, and a
+# second display icon beside it would say nothing new. It opens from the menu,
+# under Hardware, beside the scaling cycle and the laptop-display toggle.
+
+id          = "monarch/display"
+name        = "Monarch Display"
+version     = "1.0.0"
+# 22 everywhere in Monarch; this panel needs 13 (capture_keys) at most.
+plugin_api  = 22
+author      = "monarch"
+license     = "MIT"
+description = "Per-output scale, on-off and the text size, in one panel."
+icon        = "device-desktop"
+
+[[panel]]
+id     = "panel"
+entry  = "panel.luau"
+width  = 420
+height = 480
+# Nothing on the bar opens this, so it has nowhere to drop out of.
+placement = "floating"
+position  = "center"
+keyboard_focus = "on_demand"
+capture_keys   = ["escape"]
+dismiss_on_outside_click = true

@@ -26,7 +26,7 @@ setsid --fork bash -c '
   # discover it; installation and activation are separate, and a discovered
   # plugin stays disabled until asked for. Without this the bar indicators are
   # simply absent on a fresh install. Idempotent.
-  for plugin in monarch/indicators monarch/agents monarch/menu monarch/wifi-qr monarch/network; do
+  for plugin in monarch/indicators monarch/agents monarch/menu monarch/wifi-qr monarch/network monarch/display; do
     noctalia msg plugins enable "$plugin" >/dev/null 2>&1 || true
   done
   monarch-theme-apply >/dev/null 2>&1 || true
