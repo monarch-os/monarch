@@ -1,7 +1,6 @@
 --!strict
--- The bar button, formerly BarWidget.qml: the mark of the agent in use,
--- clicking through to the panel. No percentage — the numbers live in the
--- tooltip and the panel.
+-- The bar button, formerly BarWidget.qml: one neutral glyph, clicking through
+-- to the panel. No percentage — the numbers live in the tooltip and the panel.
 --
 -- Self-hiding: a machine that has never run a coding agent has no usage record,
 -- so there is nothing to name and the button collapses out of the bar rather
@@ -41,15 +40,11 @@ local function apply()
 
   barWidget.setVisible(true)
 
-  -- The mark of the first agent that reported. An agent whose mark this plugin
-  -- does not ship still earns a button, falling back to the generic glyph.
-  local agentId = tostring(records[1].id or "")
-  local mark = agents.markPath(agentId)
-  if mark then
-    barWidget.setImage(mark)
-  else
-    barWidget.setGlyph("ai")
-  end
+  -- One neutral glyph whoever is reporting, as Quattro does. The mark of the
+  -- first record used to sit here, which named whichever agent happened to
+  -- sort first and would change shape the day a second collector lands. The
+  -- marks still identify agents where that means something — in the panel.
+  barWidget.setGlyph("robot")
 
   -- Past the threshold the mark is tinted with the error role. Below it the
   -- mark keeps its own brand colours — the bar carries no number, so this is

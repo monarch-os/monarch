@@ -8,6 +8,13 @@
 
 local agents = require("./agents.luau")
 
+local render
+
+-- Which agent the panel is showing, held by id rather than by index: records
+-- appear and vanish as collectors report, and an index would quietly start
+-- pointing at a different agent the moment the list shifts.
+local selectedId: string? = nil
+
 -- Every bar in a chart is scaled to that chart's own busiest row, so a quiet
 -- week still reads as a shape rather than seven flat lines.
 local function ratio(value: number, peak: number): number
@@ -56,6 +63,10 @@ local function dayRows(record: any): { any }
     end
   end
 
+  if peak <= 0 then
+    return {}
+  end
+
   local rows = {}
   for index, day in ipairs(days) do
     local tokens = tonumber(day.messageCount) or 0
@@ -74,13 +85,31 @@ local function dayRows(record: any): { any }
   return rows
 end
 
+-- A bucket carries the four raw counters and no total; summing them is the
+-- caller's job. Reading a `total` field failed silently — nil, then 0, and
+-- every bar in the chart rendered empty.
+local function bucketTotal(value: any): number
+  if type(value) == "number" then
+    return value
+  end
+  if type(value) ~= "table" then
+    return 0
+  end
+  return (tonumber(value.inputTokens) or 0)
+    + (tonumber(value.outputTokens) or 0)
+    + (tonumber(value.cacheReadInputTokens) or 0)
+    + (tonumber(value.cacheCreationInputTokens) or 0)
+end
+
 local function modelRows(record: any): { any }
   -- modelUsage is a map; flatten and sort heaviest first so the chart has a
   -- stable order and a meaningful peak.
   local entries = {}
   for name, value in pairs(record.modelUsage or {}) do
-    local total = if type(value) == "table" then tonumber(value.total) else tonumber(value)
-    table.insert(entries, { name = tostring(name), total = total or 0 })
+    local total = bucketTotal(value)
+    if total > 0 then
+      table.insert(entries, { name = tostring(name), total = total })
+    end
   end
   table.sort(entries, function(a, b)
     return a.total > b.total
@@ -108,9 +137,46 @@ local function section(title: string, rows: { any }): any
   })
 end
 
+-- What the all-time numbers amount to, and — while the status says they are
+-- not authoritative — how to make them so again.
+-- An agent whose collector has no local session format to scan says so, and
+-- then the counters it cannot fill are left out rather than printed as zeroes
+-- — which would read as "nothing used" instead of "not measured". Absent means
+-- true: every record written before this carries stats.
+local function measuresLocally(record: any): boolean
+  return record.hasLocalStats ~= false
+end
+
+local function footer(record: any): any
+  local status = tostring(record.usageStatusText or "")
+  local help = tostring(record.authHelpText or "")
+
+  local cells = {}
+  if measuresLocally(record) then
+    local prompts = math.floor(tonumber(record.totalPrompts) or 0)
+    local days = math.floor(tonumber(record.activeDays) or 0)
+    table.insert(cells, ui.label({
+      text = prompts .. " prompts over " .. days .. " days",
+      fontSize = 11,
+      color = "on_surface/0.6",
+      flexGrow = 1,
+    }))
+  end
+  if status ~= "" and help ~= "" then
+    table.insert(cells, ui.label({ text = help, fontSize = 11, color = "error", maxLines = 2, flexGrow = 1 }))
+  end
+  if #cells == 0 then
+    return ui.spacer({ height = 0 })
+  end
+  return ui.row({ gap = 8, align = "center" }, cells)
+end
+
 local function agentSection(record: any, index: number): any
   local name = tostring(record.name or record.id or "")
-  local plan = tostring(record.tierLabel or "")
+  -- The status wins the subtitle when there is one: "Waiting for auth" is
+  -- worth more than the plan it would otherwise be sitting next to.
+  local status = tostring(record.usageStatusText or "")
+  local subtitle = if status ~= "" then status else tostring(record.tierLabel or "")
   local mark = agents.markPath(tostring(record.id or ""))
 
   local hero = {}
@@ -121,23 +187,69 @@ local function agentSection(record: any, index: number): any
   end
   table.insert(hero, ui.column({ gap = 0, flexGrow = 1 }, {
     ui.label({ text = name, fontWeight = "bold" }),
-    if plan ~= "" then ui.label({ text = plan, fontSize = 11, color = "on_surface/0.6" }) else ui.spacer({ height = 0 }),
+    if subtitle ~= "" then ui.label({ text = subtitle, fontSize = 11, color = "on_surface/0.6" }) else ui.spacer({ height = 0 }),
   }))
+  if measuresLocally(record) then
+    table.insert(hero, ui.label({
+      text = math.floor(tonumber(record.todayPrompts) or 0)
+        .. " today · "
+        .. agents.formatTokens(tonumber(record.todayTotalTokens) or 0),
+      fontSize = 11,
+      color = "on_surface/0.6",
+    }))
+  end
 
   return ui.column({ key = "agent-" .. index, gap = 12 }, {
     ui.row({ gap = 10, align = "center" }, hero),
     section("Limits", limitRows(record)),
     section("Last 7 days", dayRows(record)),
     section("By model", modelRows(record)),
-    ui.separator({}),
+    footer(record),
   })
 end
 
-local function render()
+-- One button per reporting agent. Only drawn from the second agent onwards: a
+-- lone button offers no choice, and every machine with one collector would
+-- carry it for nothing.
+local function selector(records: { any }): any
+  local buttons = {}
+  for index, record in ipairs(records) do
+    local id = tostring(record.id or index)
+    -- Outlined rather than ghosted, sharing the row evenly: the same pill shape
+    -- the network panel uses for its DNS providers.
+    table.insert(buttons, ui.button({
+      key = "pick-" .. id,
+      text = tostring(record.name or id),
+      variant = if id == selectedId then "primary" else "outline",
+      controlSize = "sm",
+      flexGrow = 1,
+      onClick = function()
+        selectedId = id
+        render()
+      end,
+    }))
+  end
+  return ui.row({ gap = 6, align = "center" }, buttons)
+end
+
+-- The selected record, or the first one when the selection names an agent that
+-- has since stopped reporting.
+local function selected(records: { any }): any
+  for _, record in ipairs(records) do
+    if tostring(record.id or "") == selectedId then
+      return record
+    end
+  end
+  local first = records[1]
+  selectedId = tostring(first.id or "")
+  return first
+end
+
+function render()
   local records = noctalia.state.get(agents.KEY_RECORDS) or {}
 
   if #records == 0 then
-    panel.render(ui.column({ gap = 12, padding = 16 }, {
+    panel.render(ui.column({ flexGrow = 1, gap = 12, padding = 16 }, {
       ui.label({ text = "Agents", fontSize = 18, fontWeight = "bold" }),
       ui.label({
         text = "No coding agent has reported usage yet.",
@@ -147,15 +259,17 @@ local function render()
     return
   end
 
-  local sections = {}
-  for index, record in ipairs(records) do
-    table.insert(sections, agentSection(record, index))
-  end
+  local record = selected(records)
 
-  panel.render(ui.column({ gap = 12, padding = 16 }, {
-    ui.label({ text = "Agents", fontSize = 18, fontWeight = "bold" }),
-    ui.scroll({ flexGrow = 1 }, sections),
-  }))
+  local children = { ui.label({ text = "Agents", fontSize = 18, fontWeight = "bold" }) }
+  if #records > 1 then
+    table.insert(children, selector(records))
+  end
+  table.insert(children, ui.scroll({ flexGrow = 1, gap = 12 }, { agentSection(record, 1) }))
+
+  -- flexGrow on the root as well as the scroll: the viewport grows into the
+  -- panel's declared height, and without it collapses to a couple of rows.
+  panel.render(ui.column({ flexGrow = 1, gap = 12, padding = 16 }, children))
 end
 
 function onOpen()
