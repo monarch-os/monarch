@@ -36,11 +36,21 @@ set_radio() {
   esac
 }
 
+# A wired-only box has a radio state all the same — NetworkManager answers
+# "enabled" with no adapter in the machine — so callers that hide their switch
+# need to be told the hardware is missing, not that the radio is off.
+radio_present() {
+  LC_ALL=C nmcli -t -f DEVICE,TYPE device status 2>/dev/null |
+    awk -F: '$2 == "wifi" { found = 1 } END { exit !found }'
+}
+
 print_status() {
-  if radio_on; then
-    printf '{"enabled":true,"tooltip":"Wi-Fi on - click to turn the radio off"}\n'
+  if ! radio_present; then
+    printf '{"enabled":false,"present":false,"tooltip":"No Wi-Fi adapter"}\n'
+  elif radio_on; then
+    printf '{"enabled":true,"present":true,"tooltip":"Wi-Fi on - click to turn the radio off"}\n'
   else
-    printf '{"enabled":false,"tooltip":"Wi-Fi off"}\n'
+    printf '{"enabled":false,"present":true,"tooltip":"Wi-Fi off"}\n'
   fi
 }
 

@@ -51,7 +51,7 @@ case "$*" in
     printf 'GENERAL.STATE:%s\nGENERAL.CONNECTION:%s\n' "$NM_STATE" "$NM_CONN" ;;
   *"IN-USE,SIGNAL dev wifi list"*) printf '*:%s\n' "$NM_SIGNAL" ;;
   *"IN-USE,SIGNAL,SECURITY,SSID dev wifi list"*) printf '%s' "$NM_SCAN" ;;
-  *"DEVICE,TYPE device status"*) printf 'wlan0:wifi\n' ;;
+  *"DEVICE,TYPE device status"*) printf '%s\n' "${NM_DEVICES-wlan0:wifi}" ;;
   *"DEVICE,TYPE,STATE device status"*) printf 'wlan0:wifi:connected\n' ;;
   *"-g NAME connection show"*) printf '%s' "$NM_SAVED" ;;
   *"radio wifi off"*|*"radio wifi on"*) : ;;
@@ -190,6 +190,12 @@ export NM_SCAN=$':60:WPA2:Guest:5G\n'
 assert_equals "matches an SSID containing a colon" \
   "$("$LIST" | cut -f5)" "Guest:5G"
 
+# A dual-band router under one name is two BSSes, and the star sits on the one
+# the radio associated with — which is not always the strongest.
+export NM_SCAN=$':90:WPA2:Cafe\n*:40:WPA2:Cafe\n'
+assert_equals "the in-use star is found on any BSS of the name" \
+  "$("$LIST" | cut -f3)" "yes"
+
 # ── The actions ──────────────────────────────────────────────────────────────
 
 export NM_SAVED=$'Cafe\n'
@@ -256,9 +262,15 @@ assert_equals "a failed enterprise join discards its profile" \
 
 assert_equals "radio status reports enabled as JSON" \
   "$(NM_RADIO=enabled "$RADIO" status)" \
-  '{"enabled":true,"tooltip":"Wi-Fi on - click to turn the radio off"}'
+  '{"enabled":true,"present":true,"tooltip":"Wi-Fi on - click to turn the radio off"}'
 assert_equals "radio status reports disabled" \
   "$(NM_RADIO=disabled "$RADIO" status | cut -d, -f1)" '{"enabled":false'
+
+# A machine with no adapter must not read as a radio someone switched off, or
+# the panel offers a switch that can never come back on.
+assert_equals "radio status reports a missing adapter" \
+  "$(NM_DEVICES= NM_RADIO=enabled "$RADIO" status)" \
+  '{"enabled":false,"present":false,"tooltip":"No Wi-Fi adapter"}'
 
 # The read never goes through the shell: NetworkManager owns the state, asking
 # it directly cannot go stale, and `status` must answer with no shell running.

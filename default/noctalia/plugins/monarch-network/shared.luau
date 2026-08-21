@@ -31,9 +31,11 @@ function M.trim(text: string): string
   return (text:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
--- stderr if the command left any, the fallback otherwise.
+-- stderr if the command left any, the fallback otherwise. First line only: the
+-- message lands on a network row, and nmcli's multi-line failures would push
+-- the rest of the list off the panel.
 function M.errorFrom(result, fallback: string): string
-  local message = M.trim(result and result.stderr or "")
+  local message = M.trim(result and result.stderr or ""):match("^[^\n]*") or ""
   return message ~= "" and message or fallback
 end
 
@@ -86,6 +88,26 @@ function M.parseNetworks(text: string): { Network }
   end
 
   return networks
+end
+
+-- Connected, then saved, then strongest — quattro's order, which is what puts
+-- the two group headers in one pass. The name breaks ties so a re-render cannot
+-- shuffle equal-signal rows: table.sort is not stable.
+function M.sortNetworks(networks: { Network }): { Network }
+  local sorted = table.move(networks, 1, #networks, 1, {})
+
+  table.sort(sorted, function(a, b)
+    if a.connected ~= b.connected then
+      return a.connected
+    elseif a.saved ~= b.saved then
+      return a.saved
+    elseif a.signal ~= b.signal then
+      return a.signal > b.signal
+    end
+    return a.ssid < b.ssid
+  end)
+
+  return sorted
 end
 
 function M.isSecured(network: Network): boolean

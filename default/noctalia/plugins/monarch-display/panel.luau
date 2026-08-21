@@ -405,8 +405,8 @@ local function scaleSection(): { any }
   }
 end
 
--- A bordered row and not ui.box: its `fill` takes a literal colour, not a role
--- name, and a box handed a role simply does not draw.
+-- A bordered row and not ui.box: a box paints only where it has a width and a
+-- height of its own, and a card is as wide as whatever is in it.
 local function litCount(): number
   local lit = 0
   for _, output in ipairs(outputs) do
