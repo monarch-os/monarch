@@ -92,6 +92,13 @@ function M.isSecured(network: Network): boolean
   return network.security ~= "" and network.security ~= "open"
 end
 
+-- nmcli concatenates the security flags it finds, so an enterprise AP reads
+-- "WPA2 802.1X". Plain find, not a pattern: the dot would otherwise match the
+-- separator in anything shaped like it.
+function M.isEnterprise(network: Network): boolean
+  return network.security:find("802.1X", 1, true) ~= nil
+end
+
 -- Four bars' worth of resolution is all the glyph set gives, and it is all a
 -- percentage from nmcli is worth.
 function M.signalGlyph(signal: number): string
