@@ -3,8 +3,7 @@
 # monarch:summary=Watch the battery from the user session: warn when it is low, and follow the power source
 # monarch:hidden=true
 
-# Run by monarch-battery-monitor.timer every 30 seconds. Both jobs need the
-# user's session: a notification daemon to reach, and the per-source memory.
+# Both jobs need the user's session: a notification daemon, and the memory.
 
 BATTERY_THRESHOLD=10
 RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$UID}
@@ -33,11 +32,8 @@ if [[ -n $level && $level =~ ^[0-9]+$ ]]; then
   fi
 fi
 
-# udev sees the cable move instantly but runs as root, where the per-source
-# memory does not exist. This timer is already awake, so it carries the switch.
 if [[ -r $SOURCE_FLAG && $(<"$SOURCE_FLAG") != "$source" ]]; then
-  # Passed rather than autodetected: sysfs here, UPower there, and the two
-  # disagree for a moment either side of the transition being handled.
+  # sysfs here, UPower in there: the two disagree across the transition.
   monarch-powerprofiles-set "$source" >/dev/null 2>&1 || true
 fi
 printf '%s\n' "$source" >"$SOURCE_FLAG"

@@ -5,8 +5,6 @@
 # monarch:args=[--active-state]
 # monarch:examples=monarch powerprofiles list | monarch powerprofiles list --active-state
 
-# --active-state appends a tab and 1 or 0, sparing the caller a second call.
-
 if [[ ${1:-} != "" && ${1:-} != "--active-state" ]]; then
   echo "Usage: monarch-powerprofiles-list [--active-state]" >&2
   exit 2

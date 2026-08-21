@@ -5,8 +5,7 @@
 # monarch:args=[--shell]
 # monarch:examples=monarch battery status | monarch battery status --shell
 
-# LC_ALL=C is not decoration: upower localises its decimal separator, so
-# `energy-rate: 15,059 W` reaches awk as 15 and the fraction is lost silently.
+# LC_ALL=C: upower localises its separator, and 15,059 W reaches awk as 15.
 
 set -uo pipefail
 
@@ -22,8 +21,7 @@ case "${1:-}" in
     ;;
 esac
 
-# BAT* is a guess at what the firmware named the pack: CMB0 is a real name on
-# shipped hardware, and test_power registers battery_test_battery.
+# BAT* is a guess at the firmware's name; CMB0 ships on real hardware.
 device=$(LC_ALL=C upower -e 2>/dev/null | grep -m 1 '/battery_')
 [[ -n $device ]] || exit 0
 
@@ -53,8 +51,7 @@ time_remaining=$(awk '/time to (empty|full)/ {
   exit
 }' <<<"$info")
 
-# upower's energy-rate lags the kernel by tens of seconds — long enough to show
-# a draw the machine stopped pulling. sysfs is the instantaneous reading.
+# upower's energy-rate lags the kernel by tens of seconds; sysfs does not.
 rate_raw=$(awk '/energy-rate:/ { print $2; exit }' <<<"$info")
 battery_path="$POWER_SUPPLY/$native_path"
 
@@ -74,8 +71,7 @@ rate=$(awk -v value="${rate_raw:-0}" 'BEGIN {
   print rounded
 }')
 
-# sysfs is the fallback, not the source: on a Lenovo with conservation mode off
-# it reads 0 and 100 where upower has the real 75-80 the firmware holds.
+# Fallback, not source: sysfs reads 0 and 100 where upower has the real pair.
 threshold_start=$(awk '/charge-start-threshold:/ { gsub(/%/, "", $2); print int($2); exit }' <<<"$info")
 threshold_end=$(awk '/charge-end-threshold:/ { gsub(/%/, "", $2); print int($2); exit }' <<<"$info")
 [[ -n $threshold_end ]] || threshold_end=$(cat "$battery_path/charge_control_end_threshold" 2>/dev/null)
@@ -88,9 +84,8 @@ for supply in "$POWER_SUPPLY"/*; do
   [[ $(<"$supply/online") == "1" ]] && ac_online=true && break
 done
 
-# The state a charge limit produces and no interface reports: on mains, not
-# charging, not full. Read wrong it looks like a battery that refuses to charge,
-# so every branch wants the rate to have actually stopped.
+# On mains, not charging, not full: what a charge limit produces and nothing
+# reports. Read wrong it looks like a battery refusing to charge.
 charge_holding=false
 if [[ $ac_online == true && -n $threshold_end ]]; then
   idle=$(awk -v value="${rate_raw:-0}" 'BEGIN { print (value <= 0.2) ? "yes" : "no" }')
