@@ -80,6 +80,12 @@ local function formatRate(perSecond: number): string
   return formatBytes(perSecond) .. "/s"
 end
 
+-- One decimal below 10 ms and none above: the third decimal a local gateway
+-- reports is measurement noise, not precision.
+local function formatMs(ms: number): string
+  return (ms < 10 and string.format("%.1f", ms) or string.format("%.0f", ms)) .. " ms"
+end
+
 -- The counters only ever grow, until the interface changes or its driver resets
 -- them — so a negative delta is a new counter, not negative traffic.
 local function updateTransfer()
@@ -344,15 +350,15 @@ local function connectionBlock(): { any }
   -- The gateway carries its own latency: how far the router is says which side
   -- of it a bad internet ping is coming from, and it costs no extra line.
   local gateway = info.gateway or ""
-  if gateway ~= "" and info.router_ping_ms and info.router_ping_ms ~= "" then
-    gateway ..= "  ·  " .. info.router_ping_ms .. " ms"
+  local routerLatency = tonumber(info.router_ping_ms or "")
+  if gateway ~= "" and routerLatency then
+    gateway ..= "  ·  " .. formatMs(routerLatency)
   end
 
   local latency = "—"
   if #pings > 0 then
     local average = pingAverage()
-    latency = average < 0 and "Timeout"
-      or (average < 10 and string.format("%.1f ms", average) or string.format("%.0f ms", average))
+    latency = average < 0 and "Timeout" or formatMs(average)
   end
 
   local loss = packetLoss()
@@ -372,7 +378,9 @@ local function connectionBlock(): { any }
     local speed = tonumber(info.speed or "")
     linkValue = (speed and speed > 0) and (speed .. " Mb/s") or ""
     sideLabel = "Duplex"
-    sideValue = info.duplex or ""
+    -- The kernel writes "unknown" for a link that never negotiated — every
+    -- virtio NIC, for one. That is an absence, not a duplex mode.
+    sideValue = info.duplex ~= "unknown" and (info.duplex or "") or ""
   end
 
   local function shown(value: string): string
