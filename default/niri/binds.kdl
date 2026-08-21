@@ -84,6 +84,7 @@ binds {
     Mod+Ctrl+A hotkey-overlay-title="Audio controls" { spawn "monarch-launch-audio"; }
     Mod+Ctrl+B hotkey-overlay-title="Bluetooth controls" { spawn "monarch-launch-bluetooth"; }
     Mod+Ctrl+W hotkey-overlay-title="Wifi controls" { spawn "monarch-launch-wifi"; }
+    Mod+Ctrl+P hotkey-overlay-title="Power profile controls" { spawn "monarch-launch-powerprofile"; }
     Mod+Ctrl+T hotkey-overlay-title="Activity (btop)" { spawn "monarch-launch-tui" "btop"; }
 
     // --- Dictation (voxtype) ---

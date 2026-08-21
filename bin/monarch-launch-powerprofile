@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# monarch:summary=Open the Noctalia power panel (power profile controls).
+
+exec noctalia msg panel-toggle control-center power
