@@ -18,6 +18,7 @@ local LIST_CMD = shared.bin("monarch-display-list")
 local SCALE_CMD = shared.bin("monarch-display-scale")
 local TOGGLE_CMD = shared.bin("monarch-display-toggle")
 local TEXT_CMD = shared.bin("monarch-display-text-size")
+local BRIGHT_CMD = shared.bin("monarch-display-brightness")
 local FOCUS_CMD = shared.bin("monarch-launch-or-focus")
 
 -- Placement is the one thing about a screen this panel does not do, and
@@ -34,8 +35,23 @@ local SCALE_UNIT = 120
 local TEXT_STEP = 5
 local TEXT_MIN = 75
 local TEXT_MAX = 175
+-- Noctalia clamps to its own minimum_brightness anyway; the floor here is only
+-- to keep the slider from offering a screen nobody could read to turn back up.
+local BRIGHT_STEP = 5
+local BRIGHT_MIN = 5
+-- Brightness is the one thing on this panel that hardware keys change behind
+-- its back, so it is re-read while it is open. Two seconds: a backlight read is
+-- a sysfs file, and a DDC one answers from a cache the command keeps.
+local BRIGHT_POLL = 2
 
 local outputs = {}
+-- What the screens are at, as read; what the sliders are showing, which leads
+-- it while a drag is in flight; and the one value a busy screen still owes.
+local brightness = {}
+local liveBrightness = {}
+local sending = {}
+local queuedBrightness = {}
+local brightTicks = 0
 local textPercent = 100
 local loaded = false
 -- The action in flight ("" when idle). One at a time: these all reload niri's
@@ -122,6 +138,74 @@ local function parseOutputs(text: string)
   return rows
 end
 
+-- name<TAB>percent<TAB>backend, one line per screen something can dim: a sysfs
+-- backlight or a monitor that answers on the bus. A screen with neither simply
+-- does not appear, which is what decides whether it gets a slider.
+local function parseBrightness(text: string)
+  local rows = {}
+
+  for line in text:gmatch("[^\n]+") do
+    local name, percent = line:match("^([^\t]*)\t(%d+)\t")
+    if name and name ~= "" then
+      rows[name] = tonumber(percent)
+    end
+  end
+
+  return rows
+end
+
+local function readBrightness()
+  noctalia.runAsync(BRIGHT_CMD .. " --list", function(result)
+    if not result or result.exitCode ~= 0 then
+      return
+    end
+    brightness = parseBrightness(result.stdout or "")
+    -- A screen nobody is dragging or waiting on takes whatever it actually is:
+    -- this is how a brightness key pressed with the panel open lands here.
+    for name in pairs(liveBrightness) do
+      if not sending[name] and queuedBrightness[name] == nil then
+        liveBrightness[name] = nil
+      end
+    end
+    render()
+  end)
+end
+
+local sendBrightness
+
+-- Not runAction: that one takes the panel busy, blanks the error and re-reads
+-- niri, which is the right ceremony for a scale and far too much for a slider
+-- being dragged. One command per screen at a time, and the last value asked for
+-- while it was busy goes out behind it.
+function sendBrightness(name: string, percent: number)
+  sending[name] = true
+
+  noctalia.runAsync(BRIGHT_CMD .. " " .. shared.shellQuote(name) .. " " .. percent, function(result)
+    sending[name] = nil
+
+    if not result or result.exitCode ~= 0 then
+      errorText = shared.errorFrom(result, "Could not set the brightness on " .. name)
+      liveBrightness[name] = nil
+      queuedBrightness[name] = nil
+      render()
+      return
+    end
+
+    -- Nothing else clears it on this path, and a refusal left standing under a
+    -- slider that has since worked reads as the state of things.
+    if errorText ~= "" then
+      errorText = ""
+      render()
+    end
+
+    local pending = queuedBrightness[name]
+    if pending ~= nil then
+      queuedBrightness[name] = nil
+      sendBrightness(name, pending)
+    end
+  end)
+end
+
 local function focusedOutput()
   for _, output in ipairs(outputs) do
     if output.focused then
@@ -148,6 +232,8 @@ local function refresh()
     outputs = (result and result.exitCode == 0) and parseOutputs(result.stdout or "") or {}
     render()
   end)
+
+  readBrightness()
 
   noctalia.runAsync(TEXT_CMD .. " --current", function(result)
     if ticket ~= generation then return end
@@ -183,17 +269,87 @@ end
 
 -- Label left, value right, on one line: the shape quattro gives every section,
 -- and the reason its panel reads as a panel rather than a form.
-local function sectionHeader(text: string, value: string?): any
-  return ui.row({ align = "center", gap = 8 }, {
+--
+-- Keyed like everything else here. The tree diff matches by position when it
+-- cannot match by key, and a row landing where a screen's card used to be comes
+-- out wearing its border.
+local function sectionHeader(key: string, text: string, value: string?): any
+  return ui.row({ key = key, align = "center", gap = 8 }, {
     ui.label({ text = text, fontSize = 11, fontWeight = "medium", color = "on_surface_variant", flexGrow = 1 }),
     ui.label({ text = value or "", fontSize = 11, fontWeight = "medium", color = "on_surface" }),
   })
 end
 
+local function brightnessOf(name: string): number?
+  return liveBrightness[name] or brightness[name]
+end
+
+-- Only lit screens, and only those something can actually dim. quattro puts
+-- this first and acts on the focused screen alone; a slider each costs one more
+-- line per screen and spares anyone with two monitors a trip through focus.
+local function brightnessSection(): { any }
+  local lit = {}
+  for _, output in ipairs(outputs) do
+    if output.on and brightness[output.name] ~= nil then
+      table.insert(lit, output)
+    end
+  end
+
+  if #lit == 0 then
+    return {}
+  end
+
+  local single = #lit == 1
+  local nodes = {
+    sectionHeader("head:brightness", "BRIGHTNESS", single and (brightnessOf(lit[1].name) .. "%") or ""),
+  }
+
+  for _, output in ipairs(lit) do
+    local name = output.name
+    if not single then
+      table.insert(nodes, sectionHeader("head:brightness:" .. name, name, brightnessOf(name) .. "%"))
+    end
+
+    table.insert(nodes, ui.slider({
+      key = "brightness:" .. name,
+      min = BRIGHT_MIN,
+      max = 100,
+      step = BRIGHT_STEP,
+      value = brightnessOf(name),
+      onChange = function(value)
+        local percent = tonumber(value)
+        if not percent then
+          return
+        end
+
+        percent = math.max(BRIGHT_MIN, math.min(100, math.floor(percent / BRIGHT_STEP + 0.5) * BRIGHT_STEP))
+        if percent == brightnessOf(name) then
+          return
+        end
+
+        -- Live, and not on release: brightness is the one control here you set
+        -- by looking at the screen rather than at the number.
+        liveBrightness[name] = percent
+        render()
+
+        if sending[name] then
+          queuedBrightness[name] = percent
+        else
+          sendBrightness(name, percent)
+        end
+      end,
+    }))
+  end
+
+  table.insert(nodes, ui.separator({ key = "sep:brightness" }))
+  return nodes
+end
+
 local function textSizeSection(): { any }
   return {
-    sectionHeader("TEXT SIZE", (pendingPercent or textPercent) .. "%"),
+    sectionHeader("head:text", "TEXT SIZE", (pendingPercent or textPercent) .. "%"),
     ui.slider({
+      key = "slider:text",
       min = TEXT_MIN,
       max = TEXT_MAX,
       step = TEXT_STEP,
@@ -279,9 +435,9 @@ local function scaleSection(): { any }
   end
 
   return {
-    ui.separator({}),
-    sectionHeader("SCALE", focused.name),
-    ui.row({ gap = 6, align = "center" }, pills),
+    ui.separator({ key = "sep:scale" }),
+    sectionHeader("head:scale", "SCALE", focused.name),
+    ui.row({ key = "row:scale", gap = 6, align = "center" }, pills),
   }
 end
 
@@ -327,7 +483,7 @@ local function outputRow(output): any
   -- Nothing to distinguish on a laptop with its lid open and nothing else
   -- plugged in: the only screen is of course the focused one.
   if output.focused and #outputs > 1 then
-    table.insert(children, ui.glyph({ name = "check", size = 16, color = "primary" }))
+    table.insert(children, ui.glyph({ key = "focused", name = "check", size = 16, color = "primary" }))
   end
 
   -- The last lit screen cannot be turned off — niri would have nothing to draw
@@ -337,6 +493,7 @@ local function outputRow(output): any
   local last = output.on and litCount() <= 1
 
   table.insert(children, ui.toggle({
+    key = "power",
     checked = output.on,
     enabled = busy == "" and not last,
     onChange = function(checked)
@@ -347,6 +504,7 @@ local function outputRow(output): any
   }))
 
   return ui.row({
+    key = "card:" .. output.name,
     gap = 10,
     align = "center",
     radius = 10,
@@ -359,6 +517,9 @@ end
 function render()
   local body = {}
 
+  for _, node in ipairs(brightnessSection()) do
+    table.insert(body, node)
+  end
   for _, node in ipairs(textSizeSection()) do
     table.insert(body, node)
   end
@@ -366,8 +527,8 @@ function render()
     table.insert(body, node)
   end
 
-  table.insert(body, ui.separator({}))
-  table.insert(body, sectionHeader(#outputs == 1 and "DISPLAY" or "DISPLAYS", ""))
+  table.insert(body, ui.separator({ key = "sep:displays" }))
+  table.insert(body, sectionHeader("head:displays", #outputs == 1 and "DISPLAY" or "DISPLAYS", ""))
 
   if #outputs == 0 then
     table.insert(body, ui.label({
@@ -384,7 +545,7 @@ function render()
   -- Placement needs a canvas this panel has no room for, and a tool that does
   -- it properly is already installed.
   if ARRANGE then
-    table.insert(body, ui.row({ gap = 8, align = "center" }, {
+    table.insert(body, ui.row({ key = "row:arrange", gap = 8, align = "center" }, {
       ui.button({
         key = "arrange",
         text = "Arrange displays…",
@@ -413,17 +574,6 @@ function render()
         ui.label({ text = "Display", fontSize = 15, fontWeight = "bold", color = "on_surface" }),
         ui.label({ text = subtitle, fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
       }),
-      -- The brightness this panel deliberately does not carry, one click away
-      -- in the control center tab that owns the per-display sliders. The pill's
-      -- click used to land there directly.
-      ui.button({
-        key = "brightness",
-        glyph = "sun",
-        variant = "ghost",
-        controlSize = "sm",
-        tooltip = "Brightness",
-        onClick = "onBrightnessClicked",
-      }),
       ui.button({ key = "close", glyph = "close", variant = "ghost", onClick = "onCloseClicked" }),
     }),
 
@@ -438,14 +588,26 @@ function onOpen(_context)
   busy = ""
   errorText = ""
   pendingPercent = nil
+  liveBrightness = {}
+  sending = {}
+  queuedBrightness = {}
+  brightTicks = 0
   panel.setWantsSecondTicks(true)
   render()
   refresh()
 end
 
--- Only here to commit a settled slider; nothing else on this panel moves on its
--- own, and re-reading niri every second to be told the same thing would be rude.
+-- Two jobs: commit a settled text size, and keep the brightness sliders honest
+-- against the keys that change it from outside. Nothing else on this panel
+-- moves on its own, and re-reading niri every second to be told the same thing
+-- would be rude.
 function update()
+  brightTicks += 1
+  if brightTicks >= BRIGHT_POLL then
+    brightTicks = 0
+    readBrightness()
+  end
+
   if pendingPercent == nil then
     return
   end
@@ -469,6 +631,8 @@ function onClose()
   generation += 1
   panel.setWantsSecondTicks(false)
   pendingPercent = nil
+  liveBrightness = {}
+  queuedBrightness = {}
   busy = ""
 end
 
@@ -476,19 +640,11 @@ function onCloseClicked()
   panel.close()
 end
 
--- The control center is not a plugin panel, so togglePanel cannot name it and
--- the tab has to be an argument; this is the same verb the stock brightness
--- widget's own left click sends.
 -- Focus it rather than launch a second copy, and close: the arrangement happens
 -- over there, and two windows arguing about the same file is the problem this
 -- whole arrangement exists to avoid.
 function onArrangeClicked()
   noctalia.runAsync(FOCUS_CMD .. " nwg-displays")
-  panel.close()
-end
-
-function onBrightnessClicked()
-  noctalia.runAsync("noctalia msg panel-toggle control-center monitor")
   panel.close()
 end
 

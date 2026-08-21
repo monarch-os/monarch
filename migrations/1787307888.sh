@@ -1,7 +1,7 @@
 echo "Install the Monarch display panel"
 
-# Per-output scale and on-off, which no part of Noctalia offers: its control
-# center Monitor tab has the brightness slider and nothing else. Opens from the
+# Per-output scale and on-off, which no part of Noctalia offers, and the
+# brightness its control center Monitor tab keeps to itself. Opens from the
 # menu, under Hardware > Displays.
 #
 # Fresh installs get the plugin from install/config/config.sh and the enable
@@ -20,8 +20,9 @@ if [[ -d $plugin_src ]]; then
 fi
 
 # The pill takes the place of the stock `brightness` widget rather than joining
-# it, so the right lane keeps one screen glyph. Its panel carries what no part of
-# v5 has, and the brightness the stock one reached is a button inside it.
+# it, so the right lane keeps one screen glyph, and its panel carries a slider
+# per screen — everything the stock one reached, and the scale and on-off no
+# part of v5 has.
 config="$HOME/.config/noctalia/config.toml"
 if [[ -f $config ]] && grep -q '^[[:space:]]*"brightness",\?[[:space:]]*$' "$config" &&
   ! grep -q 'monarch/display:display' "$config"; then
