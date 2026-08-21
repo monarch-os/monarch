@@ -1,7 +1,4 @@
 if lspci | grep -qi 'nvidia'; then
-  # Check which kernel is installed and set appropriate headers package
-  KERNEL_HEADERS="$(pacman -Qqs '^linux(-zen|-lts|-hardened)?$' | head -1)-headers"
-
   if monarch-hw-nvidia-gsp; then
     PACKAGES=(nvidia-open-dkms nvidia-utils lib32-nvidia-utils libva-nvidia-driver)
     GPU_ARCH="turing_plus"
@@ -19,7 +16,7 @@ if lspci | grep -qi 'nvidia'; then
   # traps ERR: without this the whole install would abort on those cards. Leave
   # before the modprobe and mkinitcpio blocks — MODULES+=(nvidia ...) against an
   # absent module builds a broken initramfs.
-  if ! monarch-pkg-add "$KERNEL_HEADERS" "${PACKAGES[@]}"; then
+  if ! monarch-pkg-add $(monarch-hw-kernel-headers) "${PACKAGES[@]}"; then
     echo "NVIDIA driver unavailable. Install it later: monarch pkg add ${PACKAGES[*]}"
     exit 0
   fi
