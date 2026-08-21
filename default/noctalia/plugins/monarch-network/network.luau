@@ -40,7 +40,9 @@ local function showDisconnected()
 end
 
 local function showEthernet(device: string)
-  barWidget.setGlyph("plug")
+  -- `plug` is a wall socket: in a network widget it reads as power. `ethernet`
+  -- is an RJ45 port, which is what quattro's own wired glyph draws.
+  barWidget.setGlyph("ethernet")
   barWidget.setText("")
   barWidget.setColor("on_surface")
   barWidget.setGlyphColor("on_surface")
