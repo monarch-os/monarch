@@ -59,4 +59,4 @@ if ! out=$(niri msg output "$output" "$action" 2>&1); then
   exit 1
 fi
 
-monarch-niri-runtime output "$output" "$action" >/dev/null
+monarch-niri-output-set "$output" power "$action" >/dev/null
