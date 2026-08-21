@@ -276,6 +276,16 @@ end
 -- one, since ui.box's `fill` takes a literal colour and not a role name — a box
 -- handed a role simply does not draw, which is how the row went missing once
 -- already. The focused one is marked with a check instead of a tint.
+local function litCount(): number
+  local lit = 0
+  for _, output in ipairs(outputs) do
+    if output.on then
+      lit += 1
+    end
+  end
+  return lit
+end
+
 local function outputRow(output): any
   local children = {
     ui.glyph({
@@ -301,12 +311,21 @@ local function outputRow(output): any
     }),
   }
 
-  if output.focused then
+  -- Nothing to distinguish on a laptop with its lid open and nothing else
+  -- plugged in: the only screen is of course the focused one.
+  if output.focused and #outputs > 1 then
     table.insert(children, ui.glyph({ name = "check", size = 16, color = "primary" }))
   end
 
+  -- The last lit screen cannot be turned off — niri would have nothing to draw
+  -- on and there would be nothing on screen to turn it back with. The command
+  -- refuses it either way; a switch that only ever errors is worse than one
+  -- that says up front it will not move.
+  local last = output.on and litCount() <= 1
+
   table.insert(children, ui.toggle({
     checked = output.on,
+    enabled = busy == "" and not last,
     onChange = function(checked)
       runAction("toggle:" .. output.name,
         TOGGLE_CMD .. " " .. shared.shellQuote(output.name) .. (checked and " on" or " off"),
