@@ -15,7 +15,14 @@ if lspci | grep -qi 'nvidia'; then
     exit 0
   fi
 
-  monarch-pkg-add "$KERNEL_HEADERS" "${PACKAGES[@]}"
+  # The offline mirror no longer carries the pre-Turing driver, and install.sh
+  # traps ERR: without this the whole install would abort on those cards. Leave
+  # before the modprobe and mkinitcpio blocks — MODULES+=(nvidia ...) against an
+  # absent module builds a broken initramfs.
+  if ! monarch-pkg-add "$KERNEL_HEADERS" "${PACKAGES[@]}"; then
+    echo "NVIDIA driver unavailable. Install it later: monarch pkg add ${PACKAGES[*]}"
+    exit 0
+  fi
 
   # Configure modprobe for early KMS
   sudo tee /etc/modprobe.d/nvidia.conf <<EOF >/dev/null
