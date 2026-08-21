@@ -58,7 +58,7 @@
   "trigger.hardware": {"icon":"","label":"Hardware","aliases":["hw"]},
 
   // Trigger > Reminder
-  "trigger.reminder.set": {"icon":"󰔛","label":"Set one","aliases":["reminder-set"],"action":"monarch-reminder -i"},
+  "trigger.reminder.set": {"icon":"󰔛","label":"Set one","action":"monarch-reminder -i"},
   "trigger.reminder.show": {"icon":"󰔛","label":"Show all","action":"monarch-reminder show"},
   "trigger.reminder.clear": {"icon":"󰔛","label":"Clear all","action":"monarch-reminder clear"},
 

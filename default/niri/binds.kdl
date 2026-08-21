@@ -64,14 +64,14 @@ binds {
     // --- Captures ---
     Print hotkey-overlay-title="Screenshot (with editor)" { spawn "monarch-capture-screenshot" "smart" "edit"; }
     Mod+Shift+S hotkey-overlay-title="Screenshot to clipboard" { spawn "monarch-capture-screenshot" "smart" "copy"; }
-    Alt+Print hotkey-overlay-title="Screen recording" { spawn "monarch-menu" "screenrecord"; }
+    Alt+Print hotkey-overlay-title="Screen recording" { spawn "monarch-menu" "trigger.capture.screenrecord"; }
     Mod+Print hotkey-overlay-title="Color picker" { spawn-sh "pkill hyprpicker || hyprpicker -a"; }
     Mod+Ctrl+Print hotkey-overlay-title="OCR from screenshot" { spawn "monarch-capture-text-extraction"; }
 
     // --- Sharing / transcoding / reminders ---
     Mod+Ctrl+S hotkey-overlay-title="Share" { spawn "monarch-menu" "share"; }
     Mod+Ctrl+Semicolon hotkey-overlay-title="Transcode" { spawn "monarch-transcode"; }
-    Mod+Ctrl+R hotkey-overlay-title="Set reminder" { spawn "monarch-menu" "reminder-set"; }
+    Mod+Ctrl+R hotkey-overlay-title="Set reminder" { spawn "monarch-menu" "trigger.reminder.set"; }
     Mod+Ctrl+Alt+R hotkey-overlay-title="Show reminders" { spawn "monarch-reminder" "show"; }
     Mod+Shift+Ctrl+R hotkey-overlay-title="Clear reminders" { spawn "monarch-reminder" "clear"; }
 
