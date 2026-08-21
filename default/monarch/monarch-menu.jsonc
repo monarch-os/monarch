@@ -29,14 +29,14 @@
   //   disabled    shell condition; the row stays listed but cannot be selected
 
   // Root
-  "apps": {"icon":"󰀻","label":"Apps","action":"noctalia msg panel-toggle launcher"},
+  "apps": {"icon":"󰀻","label":"Apps","aliases":["app","applications"],"action":"noctalia msg panel-toggle launcher"},
   "learn": {"icon":"󰧑","label":"Learn"},
   "trigger": {"icon":"󱓞","label":"Trigger"},
   "style": {"icon":"","label":"Style"},
   "setup": {"icon":"","label":"Setup","aliases":["settings"]},
   "install": {"icon":"󰉉","label":"Install"},
   "remove": {"icon":"󰭌","label":"Remove","aliases":["uninstall"]},
-  "update": {"icon":"","label":"Update"},
+  "update": {"icon":"","label":"Update","aliases":["refresh"]},
   "about": {"icon":"","label":"About","action":"monarch-launch-about"},
   "system": {"icon":"","label":"System","aliases":["power-menu"]},
 
@@ -49,15 +49,16 @@
   "learn.bash": {"icon":"󱆃","label":"Bash","action":"monarch-launch-webapp 'https://devhints.io/bash'"},
 
   // Trigger
+  "trigger.emoji": {"icon":"","label":"Emoji","aliases":["emojis"],"action":"noctalia msg panel-toggle launcher /emo"},
   "trigger.reminder": {"icon":"󰔛","label":"Reminder"},
   "trigger.capture": {"icon":"","label":"Capture"},
   "trigger.transcode": {"icon":"󰧸","label":"Transcode","action":"monarch-transcode"},
   "trigger.share": {"icon":"","label":"Share"},
-  "trigger.toggle": {"icon":"󰔎","label":"Toggle"},
-  "trigger.hardware": {"icon":"","label":"Hardware"},
+  "trigger.toggle": {"icon":"󰔎","label":"Toggle","aliases":["toggles"]},
+  "trigger.hardware": {"icon":"","label":"Hardware","aliases":["hw"]},
 
   // Trigger > Reminder
-  "trigger.reminder.set": {"icon":"󰔛","label":"Set one","aliases":["reminder-set"],"action":"monarch-reminder -i"},
+  "trigger.reminder.set": {"icon":"󰔛","label":"Set one","action":"monarch-reminder -i"},
   "trigger.reminder.show": {"icon":"󰔛","label":"Show all","action":"monarch-reminder show"},
   "trigger.reminder.clear": {"icon":"󰔛","label":"Clear all","action":"monarch-reminder clear"},
 
@@ -79,8 +80,11 @@
 
   // Trigger > Share
   "trigger.share.clipboard": {"icon":"","label":"Clipboard","action":"monarch-menu-share clipboard"},
-  "trigger.share.file": {"icon":"","label":"File","action":"xdg-terminal-exec --app-id=org.monarch.terminal bash -c \"monarch-menu-share file\""},
-  "trigger.share.folder": {"icon":"","label":"Folder","action":"xdg-terminal-exec --app-id=org.monarch.terminal bash -c \"monarch-menu-share folder\""},
+  "trigger.share.file": {"icon":"","label":"File","action":"monarch-menu-share file"},
+  "trigger.share.folder": {"icon":"","label":"Folder","action":"monarch-menu-share folder"},
+  // LocalSend receives by being open, so this row only has to put it on screen
+  // — and focus the instance already there rather than ask for a second one.
+  "trigger.share.receive": {"icon":"󰥦","label":"Receive","action":"monarch-launch-or-focus localsend"},
   // Hidden rather than greyed when nothing is connected. The guard is the same
   // detection the QR command uses, so the row and the panel never disagree.
   "trigger.share.wifi": {"icon":"󰐲","label":"Wi-Fi","aliases":["wifi-qr"],"when":"monarch-wifi-device >/dev/null 2>&1","action":"noctalia msg panel-open monarch/wifi-qr:panel"},
@@ -97,6 +101,7 @@
   "trigger.hardware.displays": {"icon":"󰍺","label":"Displays","action":"noctalia msg panel-toggle monarch/display:panel"},
   "trigger.hardware.display-scaling": {"icon":"󰍹","label":"Display Scaling","action":"monarch-niri-monitor-scaling-cycle"},
   "trigger.hardware.laptop-display": {"icon":"󰛧","label":"Laptop Display","when":"monarch-hw-external-monitors","action":"monarch-niri-monitor-internal toggle"},
+  "trigger.hardware.mirror-display": {"icon":"󰍹","label":"Mirror Display","when":"monarch-hw-external-monitors","action":"monarch-niri-monitor-internal-mirror toggle"},
   "trigger.hardware.hybrid-gpu": {"icon":"","label":"Hybrid GPU","when":"monarch-hw-hybrid-gpu","action":"monarch-launch-floating-terminal-with-presentation monarch-toggle-hybrid-gpu"},
   "trigger.hardware.touchpad": {"icon":"󰟸","label":"Touchpad","when":"monarch-hw-touchpad","action":"monarch-toggle-touchpad"},
   "trigger.hardware.touchpad-haptics": {"icon":"󰌌","label":"Touchpad Haptics","when":"monarch-hw-dell-xps-haptic-touchpad && monarch-cmd-present dell-xps-touchpad-haptics"},
@@ -132,7 +137,7 @@
   "setup.power": {"icon":"󱐋","label":"Power Profile","title":"Power Profile","provider":"power-profiles"},
   "setup.sleep": {"icon":"󰒲","label":"System Sleep","title":"System Sleep"},
   "setup.niri": {"icon":"","label":"Niri","when":"[[ -f $HOME/.config/niri/user.kdl ]]","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\""},
-  "setup.defaults": {"icon":"","label":"Defaults","title":"Defaults"},
+  "setup.defaults": {"icon":"","label":"Defaults","title":"Defaults","aliases":["default"]},
   "setup.dns": {"icon":"󰱔","label":"DNS","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-dns"},
   "setup.language": {"icon":"󰗊","label":"Language","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-language"},
   "setup.security": {"icon":"","label":"Security","title":"Security"},
@@ -150,9 +155,22 @@
   "setup.security.fido2": {"icon":"","label":"Fido2","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-fido2"},
 
   // Setup > Defaults
+  "setup.defaults.agent": {"icon":"󰚩","label":"Agent","title":"Default Agent"},
   "setup.defaults.browser": {"icon":"","label":"Browser","title":"Default Browser"},
   "setup.defaults.terminal": {"icon":"","label":"Terminal","title":"Default Terminal"},
   "setup.defaults.editor": {"icon":"","label":"Editor","title":"Default Editor"},
+
+  // Every agent Monarch can set is listed, installed or not: picking one that
+  // is missing installs it — which is why these rows carry no presence guard,
+  // unlike the three lists below.
+  "setup.defaults.agent.claude": {"icon":"󰛄","label":"Claude Code","checked":"[[ $(monarch-default-agent) == claude ]]","action":"monarch-default-agent claude"},
+  "setup.defaults.agent.codex": {"icon":"󰚩","label":"Codex","checked":"[[ $(monarch-default-agent) == codex ]]","action":"monarch-default-agent codex"},
+  "setup.defaults.agent.opencode": {"icon":"󰚩","label":"OpenCode","checked":"[[ $(monarch-default-agent) == opencode ]]","action":"monarch-default-agent opencode"},
+  "setup.defaults.agent.pi": {"icon":"󰚩","label":"Pi","checked":"[[ $(monarch-default-agent) == pi ]]","action":"monarch-default-agent pi"},
+  "setup.defaults.agent.gemini": {"icon":"󰊭","label":"Gemini","checked":"[[ $(monarch-default-agent) == gemini ]]","action":"monarch-default-agent gemini"},
+  "setup.defaults.agent.copilot": {"icon":"","label":"GitHub Copilot","checked":"[[ $(monarch-default-agent) == copilot ]]","action":"monarch-default-agent copilot"},
+  "setup.defaults.agent.crush": {"icon":"󰋑","label":"Crush","checked":"[[ $(monarch-default-agent) == crush ]]","action":"monarch-default-agent crush"},
+  "setup.defaults.agent.grok": {"icon":"󰚩","label":"Grok","checked":"[[ $(monarch-default-agent) == grok ]]","action":"monarch-default-agent grok"},
 
   // A browser is offered when its desktop entry exists in any of the three
   // search paths the bash menu checked, and marked when it is the current one.
@@ -197,59 +215,59 @@
   "install.browser": {"icon":"","label":"Browser"},
   "install.ai": {"icon":"󱚤","label":"AI"},
   "install.gaming": {"icon":"","label":"Gaming"},
-  "install.windows": {"icon":"󰍲","label":"Windows","action":"monarch-launch-floating-terminal-with-presentation \"monarch-windows-vm install\""},
+  "install.windows": {"icon":"󰍲","label":"Windows","disabled":"[[ -f $HOME/.local/share/applications/windows-vm.desktop ]]","action":"monarch-launch-floating-terminal-with-presentation \"monarch-windows-vm install\""},
 
   // Install > Browser
-  "install.browser.chrome": {"icon":"","label":"Chrome","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-browser chrome\"","disabled":"monarch-desktop-present google-chrome.desktop"},
-  "install.browser.edge": {"icon":"","label":"Edge","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-browser edge\"","disabled":"monarch-desktop-present microsoft-edge.desktop"},
-  "install.browser.brave": {"icon":"","label":"Brave","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-browser brave\"","disabled":"monarch-desktop-present brave-browser.desktop"},
-  "install.browser.brave-origin": {"icon":"","label":"Brave Origin","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-browser brave-origin\"","disabled":"monarch-desktop-present brave-origin-beta.desktop"},
-  "install.browser.firefox": {"icon":"","label":"Firefox","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-browser firefox\"","disabled":"monarch-desktop-present firefox.desktop"},
-  "install.browser.zen": {"icon":"󰖟","label":"Zen","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-browser zen\"","disabled":"monarch-desktop-present zen.desktop"},
+  "install.browser.chrome": {"icon":"","label":"Chrome","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-browser chrome\"","disabled":"monarch-pkg-present google-chrome"},
+  "install.browser.edge": {"icon":"","label":"Edge","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-browser edge\"","disabled":"monarch-pkg-present microsoft-edge-stable-bin"},
+  "install.browser.brave": {"icon":"","label":"Brave","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-browser brave\"","disabled":"monarch-pkg-present brave-bin"},
+  "install.browser.brave-origin": {"icon":"","label":"Brave Origin","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-browser brave-origin\"","disabled":"monarch-pkg-present brave-origin-beta-bin"},
+  "install.browser.firefox": {"icon":"","label":"Firefox","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-browser firefox\"","disabled":"monarch-pkg-present firefox"},
+  "install.browser.zen": {"icon":"󰖟","label":"Zen","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-browser zen\"","disabled":"monarch-pkg-present zen-browser-bin"},
 
   // Install > Service
   "install.service.synology": {"icon":"󰘿","label":"Synology Drive","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Synology Driver from AUR...'; monarch-pkg-aur-add synology-drive && setsid gtk-launch synology-drive\"","disabled":"monarch-pkg-present synology-drive"},
-  "install.service.proton": {"icon":"","label":"Proton Suite [AUR]","action":"monarch-launch-floating-terminal-with-presentation monarch-install-proton"},
+  "install.service.proton": {"icon":"","label":"Proton Suite [AUR]","disabled":"monarch-pkg-present proton-vpn-gtk-app proton-pass-bin proton-mail-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-install-proton"},
   "install.service.displaylink": {"icon":"󰹑","label":"Displaylink [AUR]","action":"monarch-launch-floating-terminal-with-presentation monarch-install-displaylink","disabled":"monarch-pkg-present displaylink"},
-  "install.service.tailscale": {"icon":"","label":"Tailscale","action":"monarch-launch-floating-terminal-with-presentation monarch-install-tailscale","disabled":"monarch-cmd-present tailscale"},
-  "install.service.nordvpn": {"icon":"󱇱","label":"NordVPN [AUR]","action":"monarch-launch-floating-terminal-with-presentation monarch-install-nordvpn","disabled":"monarch-cmd-present nordvpn"},
-  "install.service.lazyvpn": {"icon":"󰖂","label":"LazyVPN","action":"monarch-launch-floating-terminal-with-presentation monarch-install-lazyvpn","disabled":"monarch-cmd-present monarch-lazyvpn"},
-  "install.service.bitwarden": {"icon":"󰟵","label":"Bitwarden","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Bitwarden...'; monarch-pkg-add bitwarden bitwarden-cli && setsid gtk-launch bitwarden\"","disabled":"monarch-pkg-present bitwarden"},
-  "install.service.creator": {"icon":"","label":"Creator Apps","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Creator Apps...'; monarch-pkg-add obs-studio pinta kdenlive\"","disabled":"monarch-pkg-present obs-studio pinta kdenlive"},
-  "install.service.chromium-account": {"icon":"","label":"Chromium Account","action":"monarch-launch-floating-terminal-with-presentation monarch-install-chromium-google-account"},
+  "install.service.tailscale": {"icon":"","label":"Tailscale","action":"monarch-launch-floating-terminal-with-presentation monarch-install-tailscale","disabled":"monarch-pkg-present tailscale"},
+  "install.service.nordvpn": {"icon":"󱇱","label":"NordVPN [AUR]","action":"monarch-launch-floating-terminal-with-presentation monarch-install-nordvpn","disabled":"monarch-pkg-present nordvpn-bin"},
+  "install.service.lazyvpn": {"icon":"󰖂","label":"LazyVPN","action":"monarch-launch-floating-terminal-with-presentation monarch-install-lazyvpn","disabled":"monarch-pkg-present monarch-lazyvpn"},
+  "install.service.bitwarden": {"icon":"󰟵","label":"Bitwarden","action":"monarch-install-and-launch Bitwarden 'bitwarden bitwarden-cli' bitwarden","disabled":"monarch-pkg-present bitwarden"},
+  "install.service.creator": {"icon":"","label":"Creator Apps","action":"monarch-install-app 'Creator Apps' 'obs-studio pinta kdenlive'","disabled":"monarch-pkg-present obs-studio pinta kdenlive"},
+  "install.service.chromium-account": {"icon":"","label":"Chromium Account","disabled":"[[ ! -f ~/.config/chromium-flags.conf ]] || grep -q oauth2-client-id ~/.config/chromium-flags.conf","action":"monarch-launch-floating-terminal-with-presentation monarch-install-chromium-google-account"},
 
   // Install > Editor
-  "install.editor.vscode": {"icon":"","label":"VSCode","action":"monarch-launch-floating-terminal-with-presentation monarch-install-vscode","disabled":"monarch-cmd-present code"},
-  "install.editor.cursor": {"icon":"","label":"Cursor","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Cursor...'; monarch-pkg-add cursor-bin && setsid gtk-launch cursor\"","disabled":"monarch-cmd-present cursor"},
-  "install.editor.zed": {"icon":"","label":"Zed","action":"monarch-launch-floating-terminal-with-presentation monarch-install-zed","disabled":"monarch-cmd-present zeditor"},
-  "install.editor.sublime": {"icon":"","label":"Sublime Text","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Sublime Text...'; monarch-pkg-add sublime-text-4 && setsid gtk-launch sublime_text\"","disabled":"monarch-cmd-present sublime_text"},
-  "install.editor.helix": {"icon":"","label":"Helix","action":"monarch-launch-floating-terminal-with-presentation monarch-install-helix","disabled":"monarch-cmd-present helix"},
-  "install.editor.vim": {"icon":"","label":"Vim","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Vim...'; monarch-pkg-add vim\"","disabled":"monarch-cmd-present vim"},
-  "install.editor.emacs": {"icon":"","label":"Emacs","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Emacs...'; monarch-pkg-add emacs-wayland && systemctl --user enable --now emacs.service\"","disabled":"monarch-cmd-present emacs"},
+  "install.editor.vscode": {"icon":"","label":"VSCode","action":"monarch-launch-floating-terminal-with-presentation monarch-install-vscode","disabled":"monarch-pkg-present visual-studio-code-bin"},
+  "install.editor.cursor": {"icon":"","label":"Cursor","action":"monarch-install-and-launch Cursor cursor-bin cursor","disabled":"monarch-pkg-present cursor-bin"},
+  "install.editor.zed": {"icon":"","label":"Zed","action":"monarch-launch-floating-terminal-with-presentation monarch-install-zed","disabled":"monarch-pkg-present zed"},
+  "install.editor.sublime": {"icon":"","label":"Sublime Text","action":"monarch-install-and-launch 'Sublime Text' sublime-text-4 sublime_text","disabled":"monarch-pkg-present sublime-text-4"},
+  "install.editor.helix": {"icon":"","label":"Helix","action":"monarch-launch-floating-terminal-with-presentation monarch-install-helix","disabled":"monarch-pkg-present helix"},
+  "install.editor.vim": {"icon":"","label":"Vim","action":"monarch-install-app Vim vim","disabled":"monarch-pkg-present vim"},
+  "install.editor.emacs": {"icon":"","label":"Emacs","action":"monarch-launch-floating-terminal-with-presentation monarch-install-emacs","disabled":"monarch-pkg-present emacs-wayland"},
 
   // Install > Terminal
-  "install.terminal.alacritty": {"icon":"","label":"Alacritty","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-terminal alacritty\"","disabled":"monarch-cmd-present alacritty"},
-  "install.terminal.foot": {"icon":"","label":"Foot","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-terminal foot\"","disabled":"monarch-cmd-present foot"},
-  "install.terminal.ghostty": {"icon":"","label":"Ghostty","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-terminal ghostty\"","disabled":"monarch-cmd-present ghostty"},
-  "install.terminal.kitty": {"icon":"","label":"Kitty","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-terminal kitty\"","disabled":"monarch-cmd-present kitty"},
+  "install.terminal.alacritty": {"icon":"","label":"Alacritty","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-terminal alacritty\"","disabled":"monarch-pkg-present alacritty"},
+  "install.terminal.foot": {"icon":"","label":"Foot","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-terminal foot\"","disabled":"monarch-pkg-present foot"},
+  "install.terminal.ghostty": {"icon":"","label":"Ghostty","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-terminal ghostty\"","disabled":"monarch-pkg-present ghostty"},
+  "install.terminal.kitty": {"icon":"","label":"Kitty","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-terminal kitty\"","disabled":"monarch-pkg-present kitty"},
 
   // Install > AI. The Ollama build follows the GPU present on the machine, which
   // is why its package name is resolved inside the action rather than declared.
-  "install.ai.dictation": {"icon":"","label":"Dictation","action":"monarch-launch-floating-terminal-with-presentation monarch-voxtype-install"},
-  "install.ai.lm-studio": {"icon":"󱚤","label":"LM Studio","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing LM Studio...'; monarch-pkg-add lmstudio-bin\"","disabled":"monarch-pkg-present lmstudio-bin"},
-  "install.ai.ollama": {"icon":"󱚤","label":"Ollama","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Ollama...'; monarch-pkg-add \\$(monarch-cmd-present nvidia-smi && echo ollama-cuda || (monarch-cmd-present rocminfo && echo ollama-rocm) || echo ollama)\"","disabled":"monarch-cmd-present ollama"},
-  "install.ai.crush": {"icon":"󱚤","label":"Crush","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Crush...'; monarch-pkg-add crush-bin\"","disabled":"monarch-cmd-present crush"},
+  "install.ai.dictation": {"icon":"","label":"Dictation","disabled":"monarch-pkg-present voxtype-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-voxtype-install"},
+  "install.ai.lm-studio": {"icon":"󱚤","label":"LM Studio","action":"monarch-install-app 'LM Studio' lmstudio-bin","disabled":"monarch-pkg-present lmstudio-bin"},
+  "install.ai.ollama": {"icon":"󱚤","label":"Ollama","action":"if monarch-cmd-present nvidia-smi; then ollama_pkg=ollama-cuda; elif monarch-cmd-present rocminfo; then ollama_pkg=ollama-rocm; else ollama_pkg=ollama; fi; monarch-install-app Ollama \"$ollama_pkg\"","disabled":"monarch-cmd-present ollama"},
+  "install.ai.crush": {"icon":"󱚤","label":"Crush","action":"monarch-install-app Crush crush-bin","disabled":"monarch-pkg-present crush-bin"},
 
   // Install > Gaming
-  "install.gaming.steam": {"icon":"","label":"Steam","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-steam","disabled":"monarch-cmd-present steam"},
-  "install.gaming.retroarch": {"icon":"","label":"RetroArch","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-retroarch","disabled":"monarch-cmd-present retroarch"},
-  "install.gaming.minecraft": {"icon":"󰍳","label":"Minecraft","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Minecraft...'; monarch-pkg-add minecraft-launcher && setsid gtk-launch minecraft-launcher\"","disabled":"monarch-pkg-present minecraft-launcher"},
-  "install.gaming.geforce-now": {"icon":"󰢹","label":"NVIDIA GeForce NOW","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-geforce-now"},
-  "install.gaming.xbox-cloud": {"icon":"","label":"Xbox Cloud Gaming","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-xbox-cloud"},
-  "install.gaming.xbox-controller": {"icon":"󰂯","label":"Xbox Controller","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-xbox-controllers"},
-  "install.gaming.moonlight": {"icon":"󰍹","label":"Moonlight (GameStream)","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-moonlight","disabled":"monarch-cmd-present moonlight"},
-  "install.gaming.lutris": {"icon":"","label":"Lutris (Battle.net)","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-lutris","disabled":"monarch-cmd-present lutris"},
-  "install.gaming.heroic": {"icon":"󱓟","label":"Heroic (Epic Games)","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-heroic","disabled":"monarch-cmd-present heroic"},
+  "install.gaming.steam": {"icon":"","label":"Steam","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-steam","disabled":"monarch-pkg-present steam"},
+  "install.gaming.retroarch": {"icon":"","label":"RetroArch","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-retroarch","disabled":"monarch-pkg-present retroarch"},
+  "install.gaming.minecraft": {"icon":"󰍳","label":"Minecraft","action":"monarch-install-and-launch Minecraft minecraft-launcher minecraft-launcher","disabled":"monarch-pkg-present minecraft-launcher"},
+  "install.gaming.geforce-now": {"icon":"󰢹","label":"NVIDIA GeForce NOW","disabled":"flatpak info com.nvidia.geforcenow","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-geforce-now"},
+  "install.gaming.xbox-cloud": {"icon":"","label":"Xbox Cloud Gaming","disabled":"[[ -f \"$HOME/.local/share/applications/Xbox Cloud Gaming.desktop\" ]]","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-xbox-cloud"},
+  "install.gaming.xbox-controller": {"icon":"󰂯","label":"Xbox Controller","disabled":"monarch-pkg-present xpadneo-dkms","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-xbox-controllers"},
+  "install.gaming.moonlight": {"icon":"󰍹","label":"Moonlight (GameStream)","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-moonlight","disabled":"monarch-pkg-present moonlight-qt"},
+  "install.gaming.lutris": {"icon":"","label":"Lutris (Battle.net)","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-lutris","disabled":"monarch-pkg-present lutris"},
+  "install.gaming.heroic": {"icon":"󱓟","label":"Heroic (Epic Games)","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-heroic","disabled":"monarch-pkg-present heroic-games-launcher-bin"},
 
   // Install > Font
   "install.font.cascadia": {"icon":"","label":"Cascadia Mono","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Cascadia Mono...'; monarch-pkg-add ttf-cascadia-mono-nerd && sleep 2 && monarch-font-set 'CaskaydiaMono Nerd Font'\"","disabled":"monarch-pkg-present ttf-cascadia-mono-nerd"},
@@ -260,31 +278,31 @@
   "install.font.iosevka": {"icon":"","label":"Iosevka","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Iosevka...'; monarch-pkg-add ttf-iosevka-nerd && sleep 2 && monarch-font-set 'Iosevka Nerd Font Mono'\"","disabled":"monarch-pkg-present ttf-iosevka-nerd"},
 
   // Install > Development
-  "install.development.rails": {"icon":"󰫏","label":"Ruby on Rails","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env ruby\"","disabled":"monarch-cmd-present ruby"},
+  "install.development.rails": {"icon":"󰫏","label":"Ruby on Rails","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env ruby\"","disabled":"[[ -d $HOME/.local/share/mise/installs/ruby ]]"},
   "install.development.docker-db": {"icon":"","label":"Docker DB","action":"monarch-launch-floating-terminal-with-presentation monarch-install-docker-dbs"},
   "install.development.javascript": {"icon":"","label":"JavaScript"},
-  "install.development.go": {"icon":"","label":"Go","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env go\"","disabled":"monarch-cmd-present go"},
+  "install.development.go": {"icon":"","label":"Go","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env go\"","disabled":"[[ -d $HOME/.local/share/mise/installs/go ]]"},
   "install.development.php": {"icon":"","label":"PHP"},
-  "install.development.python": {"icon":"","label":"Python","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env python\""},
+  "install.development.python": {"icon":"","label":"Python","disabled":"[[ -x $HOME/.local/bin/uv ]]","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env python\""},
   "install.development.elixir": {"icon":"","label":"Elixir"},
-  "install.development.zig": {"icon":"","label":"Zig","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env zig\"","disabled":"monarch-cmd-present zig"},
-  "install.development.rust": {"icon":"","label":"Rust","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env rust\"","disabled":"monarch-cmd-present cargo"},
-  "install.development.java": {"icon":"","label":"Java","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env java\"","disabled":"monarch-cmd-present java"},
-  "install.development.dotnet": {"icon":"","label":".NET","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env dotnet\"","disabled":"monarch-cmd-present dotnet"},
-  "install.development.ocaml": {"icon":"","label":"OCaml","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env ocaml\"","disabled":"monarch-cmd-present ocaml"},
-  "install.development.clojure": {"icon":"","label":"Clojure","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env clojure\"","disabled":"monarch-cmd-present clojure"},
-  "install.development.scala": {"icon":"","label":"Scala","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env scala\"","disabled":"monarch-cmd-present scala"},
+  "install.development.zig": {"icon":"","label":"Zig","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env zig\"","disabled":"[[ -d $HOME/.local/share/mise/installs/zig ]]"},
+  "install.development.rust": {"icon":"","label":"Rust","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env rust\"","disabled":"[[ -d $HOME/.rustup ]]"},
+  "install.development.java": {"icon":"","label":"Java","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env java\"","disabled":"[[ -d $HOME/.local/share/mise/installs/java ]]"},
+  "install.development.dotnet": {"icon":"","label":".NET","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env dotnet\"","disabled":"[[ -d $HOME/.local/share/mise/installs/dotnet ]]"},
+  "install.development.ocaml": {"icon":"","label":"OCaml","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env ocaml\"","disabled":"[[ -d $HOME/.opam ]]"},
+  "install.development.clojure": {"icon":"","label":"Clojure","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env clojure\"","disabled":"[[ -d $HOME/.local/share/mise/installs/clojure ]]"},
+  "install.development.scala": {"icon":"","label":"Scala","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env scala\"","disabled":"[[ -d $HOME/.local/share/mise/installs/scala ]]"},
 
-  "install.development.javascript.node": {"icon":"","label":"Node.js","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env node\"","disabled":"monarch-cmd-present node"},
-  "install.development.javascript.bun": {"icon":"","label":"Bun","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env bun\"","disabled":"monarch-cmd-present bun"},
-  "install.development.javascript.deno": {"icon":"","label":"Deno","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env deno\"","disabled":"monarch-cmd-present deno"},
+  "install.development.javascript.node": {"icon":"","label":"Node.js","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env node\"","disabled":"[[ -d $HOME/.local/share/mise/installs/node ]]"},
+  "install.development.javascript.bun": {"icon":"","label":"Bun","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env bun\"","disabled":"[[ -d $HOME/.local/share/mise/installs/bun ]]"},
+  "install.development.javascript.deno": {"icon":"","label":"Deno","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env deno\"","disabled":"[[ -d $HOME/.local/share/mise/installs/deno ]]"},
 
-  "install.development.php.php": {"icon":"","label":"PHP","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env php\"","disabled":"monarch-cmd-present php"},
-  "install.development.php.laravel": {"icon":"","label":"Laravel","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env laravel\"","disabled":"monarch-cmd-present laravel"},
-  "install.development.php.symfony": {"icon":"","label":"Symfony","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env symfony\"","disabled":"monarch-cmd-present symfony"},
+  "install.development.php.php": {"icon":"","label":"PHP","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env php\"","disabled":"monarch-pkg-present php"},
+  "install.development.php.laravel": {"icon":"","label":"Laravel","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env laravel\"","disabled":"[[ -x $HOME/.config/composer/vendor/bin/laravel ]]"},
+  "install.development.php.symfony": {"icon":"","label":"Symfony","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env symfony\"","disabled":"monarch-pkg-present symfony-cli"},
 
-  "install.development.elixir.elixir": {"icon":"","label":"Elixir","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env elixir\"","disabled":"monarch-cmd-present elixir"},
-  "install.development.elixir.phoenix": {"icon":"","label":"Phoenix","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env phoenix\""},
+  "install.development.elixir.elixir": {"icon":"","label":"Elixir","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env elixir\"","disabled":"[[ -d $HOME/.local/share/mise/installs/elixir ]]"},
+  "install.development.elixir.phoenix": {"icon":"","label":"Phoenix","disabled":"compgen -G \"$HOME/.mix/archives/phx_new*\"","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env phoenix\""},
 
   // Install > Cyber
   "install.cyber.burpsuite": {"icon":"","label":"Burpsuite","action":"monarch-launch-floating-terminal-with-presentation monarch-install-burp"},
@@ -293,69 +311,69 @@
 
   // Remove
   "remove.package": {"icon":"󰣇","label":"Package","action":"xdg-terminal-exec --app-id=org.monarch.terminal monarch-pkg-remove"},
-  "remove.webapp": {"icon":"","label":"Web App","action":"monarch-launch-floating-terminal-with-presentation monarch-webapp-remove"},
-  "remove.tui": {"icon":"","label":"TUI","action":"monarch-launch-floating-terminal-with-presentation monarch-tui-remove"},
-  "remove.development": {"icon":"󰵮","label":"Development"},
-  "remove.browser": {"icon":"","label":"Browser"},
-  "remove.dictation": {"icon":"","label":"Dictation","action":"monarch-launch-floating-terminal-with-presentation monarch-voxtype-remove"},
-  "remove.gaming": {"icon":"","label":"Gaming"},
-  "remove.lazyvpn": {"icon":"󰖂","label":"LazyVPN","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-lazyvpn"},
-  "remove.windows": {"icon":"󰍲","label":"Windows","action":"monarch-launch-floating-terminal-with-presentation \"monarch-windows-vm remove\""},
+  "remove.webapp": {"icon":"","label":"Web App","when":"grep -q '^Exec=.*monarch-launch-webapp' $HOME/.local/share/applications/*.desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-webapp-remove"},
+  "remove.tui": {"icon":"","label":"TUI","when":"grep -qE '^Exec=.*(\\$TERMINAL|xdg-terminal-exec).*-e' $HOME/.local/share/applications/*.desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-tui-remove"},
+  "remove.development": {"icon":"󰵮","label":"Development","title":"Remove"},
+  "remove.browser": {"icon":"","label":"Browser","title":"Remove"},
+  "remove.dictation": {"icon":"","label":"Dictation","when":"monarch-pkg-present voxtype-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-voxtype-remove"},
+  "remove.gaming": {"icon":"","label":"Gaming","title":"Remove"},
+  "remove.lazyvpn": {"icon":"󰖂","label":"LazyVPN","when":"monarch-pkg-present monarch-lazyvpn","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-lazyvpn"},
+  "remove.windows": {"icon":"󰍲","label":"Windows","when":"[[ -f $HOME/.local/share/applications/windows-vm.desktop ]]","action":"monarch-launch-floating-terminal-with-presentation \"monarch-windows-vm remove\""},
   "remove.displaylink": {"icon":"󰹑","label":"Displaylink","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-displaylink","when":"monarch-pkg-present displaylink"},
-  "remove.preinstalls": {"icon":"󰏓","label":"Preinstalls","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-preinstalls"},
+  "remove.preinstalls": {"icon":"󰏓","label":"Preinstalls","when":"[[ ! -f $HOME/.local/state/monarch/preinstalls-removed ]]","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-preinstalls"},
   // Remove > Language is deliberately absent: the bash menu listed the row
   // but had no case branch for it, and there is no monarch-remove-language
   // command, so selecting it only ever bounced back to the root menu.
-  "remove.security": {"icon":"","label":"Security"},
+  "remove.security": {"icon":"","label":"Security","title":"Remove"},
 
   // Remove > Security
   "remove.security.fingerprint": {"icon":"󰈷","label":"Fingerprint","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-security-fingerprint"},
   "remove.security.fido2": {"icon":"","label":"Fido2","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-security-fido2"},
 
   // Remove > Browser
-  "remove.browser.chrome": {"icon":"","label":"Chrome","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-browser chrome\"","when":"monarch-desktop-present google-chrome.desktop"},
-  "remove.browser.edge": {"icon":"","label":"Edge","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-browser edge\"","when":"monarch-desktop-present microsoft-edge.desktop"},
-  "remove.browser.brave": {"icon":"","label":"Brave","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-browser brave\"","when":"monarch-desktop-present brave-browser.desktop"},
-  "remove.browser.brave-origin": {"icon":"","label":"Brave Origin","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-browser brave-origin\"","when":"monarch-desktop-present brave-origin-beta.desktop"},
-  "remove.browser.firefox": {"icon":"","label":"Firefox","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-browser firefox\"","when":"monarch-desktop-present firefox.desktop"},
-  "remove.browser.zen": {"icon":"","label":"Zen","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-browser zen\"","when":"monarch-desktop-present zen.desktop"},
+  "remove.browser.chrome": {"icon":"","label":"Chrome","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-browser chrome\"","when":"monarch-pkg-present google-chrome"},
+  "remove.browser.edge": {"icon":"","label":"Edge","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-browser edge\"","when":"monarch-pkg-present microsoft-edge-stable-bin"},
+  "remove.browser.brave": {"icon":"","label":"Brave","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-browser brave\"","when":"monarch-pkg-present brave-bin"},
+  "remove.browser.brave-origin": {"icon":"","label":"Brave Origin","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-browser brave-origin\"","when":"monarch-pkg-present brave-origin-beta-bin"},
+  "remove.browser.firefox": {"icon":"","label":"Firefox","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-browser firefox\"","when":"monarch-pkg-present firefox"},
+  "remove.browser.zen": {"icon":"","label":"Zen","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-browser zen\"","when":"monarch-pkg-present zen-browser-bin"},
 
   // Remove > Gaming
-  "remove.gaming.steam": {"icon":"","label":"Steam","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-gaming-steam","when":"monarch-cmd-present steam"},
-  "remove.gaming.retroarch": {"icon":"","label":"RetroArch","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-gaming-retroarch","when":"monarch-cmd-present retroarch"},
+  "remove.gaming.steam": {"icon":"","label":"Steam","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-gaming-steam","when":"monarch-pkg-present steam"},
+  "remove.gaming.retroarch": {"icon":"","label":"RetroArch","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-gaming-retroarch","when":"monarch-pkg-present retroarch"},
   "remove.gaming.minecraft": {"icon":"󰍳","label":"Minecraft","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-gaming-minecraft","when":"monarch-pkg-present minecraft-launcher"},
-  "remove.gaming.geforce-now": {"icon":"󰢹","label":"NVIDIA GeForce NOW","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-gaming-geforce-now"},
-  "remove.gaming.xbox-cloud": {"icon":"","label":"Xbox Cloud Gaming","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-gaming-xbox-cloud"},
-  "remove.gaming.xbox-controller": {"icon":"󰖺","label":"Xbox Controller (󰂯)","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-gaming-xbox-controllers"},
-  "remove.gaming.moonlight": {"icon":"󰍹","label":"Moonlight (GameStream)","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-gaming-moonlight","when":"monarch-cmd-present moonlight"},
-  "remove.gaming.lutris": {"icon":"","label":"Lutris (Battle.net)","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-gaming-lutris","when":"monarch-cmd-present lutris"},
-  "remove.gaming.heroic": {"icon":"󱓟","label":"Heroic (Epic Games)","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-gaming-heroic","when":"monarch-cmd-present heroic"},
+  "remove.gaming.geforce-now": {"icon":"󰢹","label":"NVIDIA GeForce NOW","when":"flatpak info com.nvidia.geforcenow","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-gaming-geforce-now"},
+  "remove.gaming.xbox-cloud": {"icon":"","label":"Xbox Cloud Gaming","when":"[[ -f \"$HOME/.local/share/applications/Xbox Cloud Gaming.desktop\" ]]","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-gaming-xbox-cloud"},
+  "remove.gaming.xbox-controller": {"icon":"󰖺","label":"Xbox Controller (󰂯)","when":"monarch-pkg-present xpadneo-dkms","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-gaming-xbox-controllers"},
+  "remove.gaming.moonlight": {"icon":"󰍹","label":"Moonlight (GameStream)","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-gaming-moonlight","when":"monarch-pkg-present moonlight-qt"},
+  "remove.gaming.lutris": {"icon":"","label":"Lutris (Battle.net)","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-gaming-lutris","when":"monarch-pkg-present lutris"},
+  "remove.gaming.heroic": {"icon":"󱓟","label":"Heroic (Epic Games)","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-gaming-heroic","when":"monarch-pkg-present heroic-games-launcher-bin"},
 
   // Remove > Development. Most rows carry no icon here, matching the bash menu.
-  "remove.development.rails": {"icon":"󰫏","label":"Ruby on Rails","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env ruby\"","when":"monarch-cmd-present ruby"},
-  "remove.development.javascript": {"icon":"","label":"JavaScript"},
-  "remove.development.go": {"icon":"","label":"Go","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env go\"","when":"monarch-cmd-present go"},
-  "remove.development.php": {"icon":"","label":"PHP"},
-  "remove.development.python": {"icon":"","label":"Python","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env python\""},
-  "remove.development.elixir": {"icon":"","label":"Elixir"},
-  "remove.development.zig": {"icon":"","label":"Zig","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env zig\"","when":"monarch-cmd-present zig"},
-  "remove.development.rust": {"icon":"","label":"Rust","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env rust\"","when":"monarch-cmd-present cargo"},
-  "remove.development.java": {"icon":"","label":"Java","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env java\"","when":"monarch-cmd-present java"},
-  "remove.development.dotnet": {"icon":"","label":".NET","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env dotnet\"","when":"monarch-cmd-present dotnet"},
-  "remove.development.ocaml": {"icon":"","label":"OCaml","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env ocaml\"","when":"monarch-cmd-present ocaml"},
-  "remove.development.clojure": {"icon":"","label":"Clojure","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env clojure\"","when":"monarch-cmd-present clojure"},
-  "remove.development.scala": {"icon":"","label":"Scala","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env scala\"","when":"monarch-cmd-present scala"},
+  "remove.development.rails": {"icon":"󰫏","label":"Ruby on Rails","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env ruby\"","when":"[[ -d $HOME/.local/share/mise/installs/ruby ]]"},
+  "remove.development.javascript": {"icon":"","label":"JavaScript","title":"Remove"},
+  "remove.development.go": {"icon":"","label":"Go","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env go\"","when":"[[ -d $HOME/.local/share/mise/installs/go ]]"},
+  "remove.development.php": {"icon":"","label":"PHP","title":"Remove"},
+  "remove.development.python": {"icon":"","label":"Python","when":"[[ -x $HOME/.local/bin/uv ]]","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env python\""},
+  "remove.development.elixir": {"icon":"","label":"Elixir","title":"Remove"},
+  "remove.development.zig": {"icon":"","label":"Zig","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env zig\"","when":"[[ -d $HOME/.local/share/mise/installs/zig ]]"},
+  "remove.development.rust": {"icon":"","label":"Rust","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env rust\"","when":"[[ -d $HOME/.rustup ]]"},
+  "remove.development.java": {"icon":"","label":"Java","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env java\"","when":"[[ -d $HOME/.local/share/mise/installs/java ]]"},
+  "remove.development.dotnet": {"icon":"","label":".NET","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env dotnet\"","when":"[[ -d $HOME/.local/share/mise/installs/dotnet ]]"},
+  "remove.development.ocaml": {"icon":"","label":"OCaml","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env ocaml\"","when":"[[ -d $HOME/.opam ]]"},
+  "remove.development.clojure": {"icon":"","label":"Clojure","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env clojure\"","when":"[[ -d $HOME/.local/share/mise/installs/clojure ]]"},
+  "remove.development.scala": {"icon":"","label":"Scala","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env scala\"","when":"[[ -d $HOME/.local/share/mise/installs/scala ]]"},
 
-  "remove.development.javascript.node": {"icon":"","label":"Node.js","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env node\"","when":"monarch-cmd-present node"},
-  "remove.development.javascript.bun": {"icon":"","label":"Bun","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env bun\"","when":"monarch-cmd-present bun"},
-  "remove.development.javascript.deno": {"icon":"","label":"Deno","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env deno\"","when":"monarch-cmd-present deno"},
+  "remove.development.javascript.node": {"icon":"","label":"Node.js","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env node\"","when":"[[ -d $HOME/.local/share/mise/installs/node ]]"},
+  "remove.development.javascript.bun": {"icon":"","label":"Bun","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env bun\"","when":"[[ -d $HOME/.local/share/mise/installs/bun ]]"},
+  "remove.development.javascript.deno": {"icon":"","label":"Deno","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env deno\"","when":"[[ -d $HOME/.local/share/mise/installs/deno ]]"},
 
-  "remove.development.php.php": {"icon":"","label":"PHP","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env php\"","when":"monarch-cmd-present php"},
-  "remove.development.php.laravel": {"icon":"","label":"Laravel","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env laravel\"","when":"monarch-cmd-present laravel"},
-  "remove.development.php.symfony": {"icon":"","label":"Symfony","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env symfony\"","when":"monarch-cmd-present symfony"},
+  "remove.development.php.php": {"icon":"","label":"PHP","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env php\"","when":"monarch-pkg-present php"},
+  "remove.development.php.laravel": {"icon":"","label":"Laravel","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env laravel\"","when":"[[ -x $HOME/.config/composer/vendor/bin/laravel ]]"},
+  "remove.development.php.symfony": {"icon":"","label":"Symfony","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env symfony\"","when":"monarch-pkg-present symfony-cli"},
 
-  "remove.development.elixir.elixir": {"icon":"","label":"Elixir","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env elixir\"","when":"monarch-cmd-present elixir"},
-  "remove.development.elixir.phoenix": {"icon":"","label":"Phoenix","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env phoenix\""},
+  "remove.development.elixir.elixir": {"icon":"","label":"Elixir","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env elixir\"","when":"[[ -d $HOME/.local/share/mise/installs/elixir ]]"},
+  "remove.development.elixir.phoenix": {"icon":"","label":"Phoenix","when":"compgen -G \"$HOME/.mix/archives/phx_new*\"","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env phoenix\""},
 
   // Update
   "update.monarch": {"icon":"","label":"Monarch","action":"monarch-launch-floating-terminal-with-presentation monarch-update"},
@@ -368,8 +386,8 @@
   "update.timezone": {"icon":"","label":"Timezone","action":"monarch-launch-floating-terminal-with-presentation monarch-tz-select"},
   "update.time": {"icon":"","label":"Time","action":"monarch-launch-floating-terminal-with-presentation monarch-update-time"},
 
-  "update.channel.stable": {"icon":"󰕥","label":"Stable","action":"monarch-launch-floating-terminal-with-presentation \"monarch-channel-set stable\""},
-  "update.channel.dev": {"icon":"󰂓","label":"Dev","action":"monarch-launch-floating-terminal-with-presentation \"monarch-channel-set dev\""},
+  "update.channel.stable": {"icon":"󰕥","label":"Stable","checked":"[[ \"$(monarch-version-channel)\" == \"stable\" ]]","action":"monarch-launch-floating-terminal-with-presentation \"monarch-channel-set stable\""},
+  "update.channel.dev": {"icon":"󰂓","label":"Dev","checked":"[[ \"$(monarch-version-channel)\" == \"dev\" ]]","action":"monarch-launch-floating-terminal-with-presentation \"monarch-channel-set dev\""},
 
   "update.config.niri": {"icon":"","label":"Niri","action":"monarch-launch-floating-terminal-with-presentation monarch-refresh-niri"},
   "update.config.plymouth": {"icon":"󱣴","label":"Plymouth","action":"monarch-launch-floating-terminal-with-presentation monarch-refresh-plymouth"},

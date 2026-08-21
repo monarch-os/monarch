@@ -10,7 +10,16 @@ set -euo pipefail
 
 case "${1:-}" in
 image)
-  image=$(monarch-menu-file "Logo image" "$HOME" "svg png")
+  # Command substitution so the chooser's exit status survives: 1 is someone
+  # deciding not to pick, 2 is a chooser that never opened, and only the second
+  # is worth interrupting them over.
+  image=$(monarch-file-select --title "Choose a logo image" --extensions "png svg") || status=$?
+
+  if ((${status:-0} > 1)); then
+    monarch-notification-send "" "Could not set the About logo" "The file chooser did not open" -u critical
+    exit 1
+  fi
+
   if [[ -n $image ]] && monarch-transcode-ascii "$image" ~/.config/monarch/branding/about.txt --width 54 --height 26 --mode block; then
     monarch-launch-about >/dev/null 2>&1
   fi

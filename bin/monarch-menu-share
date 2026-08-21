@@ -15,36 +15,35 @@ MODE="$1"
 shift
 
 if [[ $MODE == "clipboard" ]]; then
+  # Never cleaned up: LocalSend reads the file when the transfer starts, not
+  # when it is queued here, so deleting it on the way out sends an empty file.
   TEMP_FILE=$(mktemp --suffix=.txt)
   wl-paste >"$TEMP_FILE"
-  FILES="$TEMP_FILE"
+  FILE_ARRAY=("$TEMP_FILE")
+elif (($# > 0)); then
+  FILE_ARRAY=("$@")
 else
-  if (($# > 0)); then
-    FILES="$*"
+  if [[ $MODE == "folder" ]]; then
+    select_args=(--title "Choose a folder to share" --directory)
   else
-    if [[ $MODE == "folder" ]]; then
-      # Pick a single folder from home directory
-      FILES=$(find "$HOME" -type d 2>/dev/null | fzf)
-    else
-      # Pick one or more files from home directory
-      FILES=$(find "$HOME" -type f 2>/dev/null | fzf --multi)
-    fi
-    [[ -z $FILES ]] && exit 0
+    select_args=(--title "Choose files to share" --multiple)
   fi
+
+  # Command substitution so the chooser's exit status survives: reading it
+  # through a process substitution reports success for a chooser that never
+  # opened, which is indistinguishable here from someone deciding not to share.
+  picked=$(monarch-file-select "${select_args[@]}") || status=$?
+
+  if ((${status:-0} > 1)); then
+    monarch-notification-send "" "Could not share" "The file chooser did not open" -u critical
+    exit 1
+  fi
+
+  [[ -n $picked ]] || exit 0
+  readarray -t FILE_ARRAY <<<"$picked"
 fi
 
 # Run LocalSend in its own systemd service (detached from terminal)
-# Convert newline-separated files to space-separated arguments
-if [[ $MODE != "clipboard" ]] && echo "$FILES" | grep -q $'\n'; then
-  # Multiple files selected - convert newlines to array
-  readarray -t FILE_ARRAY <<<"$FILES"
-  systemd-run --user --quiet --collect localsend --headless send "${FILE_ARRAY[@]}"
-else
-  # Single file or clipboard mode
-  systemd-run --user --quiet --collect localsend --headless send "$FILES"
-fi
-
-# Note: Temporary file will remain until system cleanup for clipboard mode
-# This ensures the file content is available for the LocalSend GUI
+systemd-run --user --quiet --collect localsend --headless send "${FILE_ARRAY[@]}"
 
 exit 0

@@ -171,7 +171,7 @@ guard_passes() { (eval "$1") >/dev/null 2>&1; }
 #
 # Parallelising instead was tried and is slower — one bash per guard costs more
 # than the execs it removes. Keep these in step with the scripts they shadow:
-# bin/monarch-{cmd,pkg,desktop}-present and bin/monarch-default-browser.
+# bin/monarch-{cmd,pkg,desktop}-present and bin/monarch-default-{browser,agent}.
 prime_guard_helpers() {
   monarch-cmd-present() {
     local cmd
@@ -219,6 +219,19 @@ prime_guard_helpers() {
         return 0
       fi
       command monarch-default-browser "$@"
+    }
+  fi
+
+  # One agent row per agent, all asking the same question. Cheaper than the
+  # browser lookup but eight times over, so resolve it once as well.
+  if [[ $MENU_JSON == *monarch-default-agent* ]]; then
+    DEFAULT_AGENT=$(command monarch-default-agent 2>/dev/null)
+    monarch-default-agent() {
+      if (($# == 0)); then
+        printf '%s\n' "$DEFAULT_AGENT"
+        return 0
+      fi
+      command monarch-default-agent "$@"
     }
   fi
 }
