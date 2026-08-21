@@ -58,6 +58,10 @@ if [[ $* == *"--json outputs"* ]]; then
   cat "$OUTPUTS_JSON"
   exit 0
 fi
+if [[ $* == *"--json focused-output"* ]]; then
+  printf '{"name": "%s"}\n' "${FOCUSED:-eDP-1}"
+  exit 0
+fi
 exit "${NIRI_STATUS:-0}"
 STUB
 
@@ -99,7 +103,14 @@ listing=$("$LIST")
 assert_equals "reports the lit output with its mode and scale" \
   "$(awk -F'\t' '$1 == "eDP-1" { print $2, $3, $4 }' <<<"$listing")" "on 1.25 1920x1200@60"
 assert_equals "and names it" \
-  "$(awk -F'\t' '$1 == "eDP-1" { print $5 }' <<<"$listing")" "Lenovo 0x41A6"
+  "$(awk -F'\t' '$1 == "eDP-1" { print $6 }' <<<"$listing")" "Lenovo 0x41A6"
+
+# niri reports focus separately from the output list, and it is what says which
+# screen a scale change lands on.
+assert_equals "marks the focused output" \
+  "$(awk -F'\t' '$5 == "focused" { print $1 }' <<<"$listing")" "eDP-1"
+assert_equals "and only that one" \
+  "$(awk -F'\t' '$5 == "focused"' <<<"$listing" | grep -c .)" "1"
 
 # A disabled output keeps its row: it is the only way to name it to turn it on.
 assert_equals "a disabled output is listed as off" \

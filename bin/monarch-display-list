@@ -4,8 +4,8 @@
 # monarch:group=display
 # monarch:examples=monarch display list
 
-# name<TAB>state<TAB>scale<TAB>mode<TAB>description — description goes last,
-# being the only field that may contain a tab.
+# name<TAB>state<TAB>scale<TAB>mode<TAB>focused<TAB>description — description goes
+# last, being the only field that may contain a tab.
 #
 # A disabled output still appears, with no scale and no mode: niri keeps
 # reporting it so it can be turned back on by name.
@@ -24,7 +24,11 @@ NIRI_SOCKET=$(monarch-hw-niri-socket) || {
 }
 export NIRI_SOCKET
 
-niri msg --json outputs 2>/dev/null | jq -r '
+# niri reports focus separately from the output list, and it is what says which
+# screen a scale change should land on.
+focused=$(niri msg --json focused-output 2>/dev/null | jq -r '.name // ""')
+
+niri msg --json outputs 2>/dev/null | jq -r --arg focused "$focused" '
   to_entries[]
   | .value as $o
   # current_mode is the index into modes, and null while the output is off —
@@ -36,6 +40,7 @@ niri msg --json outputs 2>/dev/null | jq -r '
       (if $o.current_mode == null then "off" else "on" end),
       ($o.logical.scale // "" | tostring),
       (if $m == null then "" else "\($m.width)x\($m.height)@\(($m.refresh_rate / 1000) | floor)" end),
+      (if .key == $focused then "focused" else "" end),
       ([$o.make, $o.model] | map(select(. != null and . != "")) | join(" "))
     ]
   | @tsv
