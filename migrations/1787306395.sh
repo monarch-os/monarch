@@ -1,19 +1,13 @@
 echo "Turn on external monitor brightness, and move the terminal font size where it can be changed"
 
 # Noctalia drives DDC/CI only when asked, and Monarch never asked: ddcutil has
-# been in monarch-base.packages all along, loading i2c-dev and leaving
-# /dev/i2c-* as root:i2c, while nothing set brightness.enable_ddcutil and nothing
-# put the user in the group. The brightness widget reached the laptop panel and
-# silently nothing else.
+# been in monarch-base.packages all along and nothing set
+# brightness.enable_ddcutil, so the brightness widget reached the laptop panel
+# and silently nothing else.
 config="$HOME/.config/noctalia/config.toml"
 if [[ -f $config ]] && ! grep -q '^\[brightness\]' "$config"; then
   echo "  Enabling Noctalia's DDC backend."
   printf '\n[brightness]\nenable_ddcutil = true\n' >>"$config"
-fi
-
-if ! id -nG "$USER" | tr ' ' '\n' | grep -qx i2c; then
-  echo "  Adding $USER to the i2c group (takes effect at the next login)."
-  sudo usermod -aG i2c "$USER"
 fi
 
 # monarch-display-text-size needs a file it can rewrite. alacritty loads imports
