@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# monarch:summary=Set the scale of one display, and keep it across reloads
+# monarch:group=display
+# monarch:args=<output> <scale>
+# monarch:examples=monarch display scale eDP-1 1.5 | monarch display list
+
+# niri's own scale change is explicitly temporary, so the persisted copy in
+# runtime.kdl is what survives a reload or a reboot. Live first and persisted
+# second on purpose: a scale niri refuses must not be written into a file that
+# would re-offer it at every start.
+
+set -uo pipefail
+
+# Noctalia's PATH is /usr/local/sbin:/usr/local/bin:/usr/bin — Monarch's bin is
+# not on it, so a sibling called by name is simply not found when the shell runs
+# this. Appended and not prepended: this only adds a fallback, and never takes a
+# command away from a caller that put its own ahead of ours.
+PATH="$PATH:$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)"
+
+output=${1:-}
+scale=${2:-}
+
+if [[ -z $output || -z $scale ]]; then
+  echo "Usage: monarch-display-scale <output> <scale>" >&2
+  echo "       monarch display list shows the names" >&2
+  exit 2
+fi
+
+if ! [[ $scale =~ ^[0-9]+(\.[0-9]+)?$ ]] ||
+  ! awk -v s="$scale" 'BEGIN { exit !(s >= 0.5 && s <= 4) }'; then
+  echo "Error: scale must be a number between 0.5 and 4: $scale" >&2
+  exit 1
+fi
+
+NIRI_SOCKET=$(monarch-hw-niri-socket) || {
+  echo "Error: niri is not running." >&2
+  exit 1
+}
+export NIRI_SOCKET
+
+if ! monarch-display-list | cut -f1 | grep -qxF "$output"; then
+  echo "Error: no display named $output." >&2
+  exit 1
+fi
+
+if ! out=$(niri msg output "$output" scale "$scale" 2>&1); then
+  printf '%s\n' "${out:-Could not set the scale on $output}" >&2
+  exit 1
+fi
+
+monarch-niri-output-set "$output" scale "$scale"

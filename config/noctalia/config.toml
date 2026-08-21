@@ -161,6 +161,14 @@ show_label = false
 # permanent "Nothing playing".
 hide_when_no_media = true
 
+# Noctalia talks to external monitors over DDC/CI, but only when asked: the
+# default is off, so the brightness widget and the control center's Monitor tab
+# reached the laptop panel and silently nothing else. Access needs nothing from
+# us — ddcutil is in monarch-base.packages and its own 60-ddcutil-i2c.rules
+# hands the active session an ACL on every i2c bus behind a display controller.
+[brightness]
+enable_ddcutil = true
+
 [control_center]
 # The stock shortcut row is wifi / bluetooth / caffeine / nightlight /
 # notification / power_profile. The three that Monarch owns as toggles —
