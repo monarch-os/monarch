@@ -1,0 +1,238 @@
+#!/bin/bash
+
+# monarch:summary=Show or set the brightness of a display, backlight or DDC/CI
+# monarch:group=display
+# monarch:args=[--list] [<output> [<percent>]]
+# monarch:examples=monarch display brightness --list | monarch display brightness eDP-1 60
+
+# Noctalia owns every brightness write and never prints what it holds: its IPC
+# has brightness-set, -up, -down and no get. So this reads the two sources it
+# reads, and hands the writing back to it.
+
+set -uo pipefail
+
+PATH="$PATH:$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)"
+
+SYS_BACKLIGHT=${MONARCH_SYS_BACKLIGHT:-/sys/class/backlight}
+SYS_DRM=${MONARCH_SYS_DRM:-/sys/class/drm}
+CACHE=${MONARCH_BRIGHTNESS_CACHE:-${XDG_RUNTIME_DIR:-/tmp}/monarch-display-brightness}
+
+# A bus round-trip per second is what the panel would cost without these.
+DDC_TTL=10
+DDC_MISS_TTL=60
+
+now() { printf '%s\n' "$EPOCHSECONDS"; }
+
+connected_outputs() {
+  local path name
+  for path in "$SYS_DRM"/card*-*; do
+    [[ -e $path/status ]] || continue
+    [[ $(<"$path/status") == connected ]] || continue
+    name=${path##*/}
+    printf '%s\n' "${name#card*-}"
+  done
+}
+
+# Noctalia's own rule: exact DRM match first, raw over platform over firmware,
+# nvidia and acpi_video losing ties. Wrong here drives the panel that is not lit.
+type_rank() {
+  case $1 in
+    raw) echo 0 ;;
+    platform) echo 1 ;;
+    firmware) echo 2 ;;
+    *) echo 3 ;;
+  esac
+}
+
+name_penalty() {
+  case $1 in
+    nvidia*) echo 2 ;;
+    acpi_video*) echo 1 ;;
+    *) echo 0 ;;
+  esac
+}
+
+# connector<TAB>device<TAB>max<TAB>rank, best candidate last.
+backlight_candidates() {
+  local device name max type target connector path rank
+  for device in "$SYS_BACKLIGHT"/*; do
+    [[ -r $device/max_brightness && -r $device/brightness ]] || continue
+    name=${device##*/}
+    max=$(<"$device/max_brightness")
+    [[ $max =~ ^[0-9]+$ ]] && ((max > 0)) || continue
+
+    target=$(realpath -e "$device/device" 2>/dev/null) || continue
+    type=""
+    [[ -r $device/type ]] && type=$(<"$device/type")
+
+    connector=""
+    for path in "$SYS_DRM"/card*-*; do
+      [[ -e $path/status ]] || continue
+      local resolved
+      resolved=$(realpath -e "$path" 2>/dev/null) || continue
+      if [[ $target == "$resolved" || $target == "$resolved"/* ]]; then
+        connector=${path##*/}
+        connector=${connector#card*-}
+        rank="0$(type_rank "$type")$(name_penalty "$name")"
+        break
+      fi
+    done
+
+    # Hardware that hangs the backlight off the GPU rather than the connector
+    # still has one internal panel to mean. Loses every tie to an exact match.
+    if [[ -z $connector ]]; then
+      connector=$(connected_outputs | grep -m 1 '^eDP') || continue
+      rank="1$(type_rank "$type")$(name_penalty "$name")"
+    fi
+
+    printf '%s\t%s\t%s\t%s\n' "$connector" "$device" "$max" "$rank"
+  done | sort -k1,1 -k4,4r
+}
+
+backlight_device() {
+  backlight_candidates | awk -F'\t' -v want="$1" '$1 == want { device = $2; max = $3 } END { if (device != "") print device "\t" max }'
+}
+
+percent_of() {
+  awk -v cur="$1" -v max="$2" 'BEGIN { if (max <= 0) exit 1; printf "%d\n", (cur * 100 + max / 2) / max }'
+}
+
+ddc_cache_file() {
+  printf '%s/%s.bus\n' "$CACHE" "${1//[^[:alnum:]_.-]/_}"
+}
+
+ddc_remember() {
+  mkdir -p "$CACHE" 2>/dev/null || return 0
+  printf '%s\n' "$1" >"$(ddc_cache_file "$2")" 2>/dev/null || true
+}
+
+# One detect for every connector at once: it is the slow call.
+ddc_detect() {
+  local connector bus seen=""
+  while read -r connector bus; do
+    [[ -n $bus ]] || continue
+    ddc_remember "$bus" "$connector"
+    seen+=" $connector"
+  done < <(ddcutil --skip-ddc-checks detect --brief 2>/dev/null | awk '
+    /I2C bus:/ { bus = $NF; sub(/^.*\/i2c-/, "", bus) }
+    /DRM connector:/ {
+      connector = $NF
+      sub(/^card[0-9]+-/, "", connector)
+      if (bus != "") print connector, bus
+      bus = ""
+    }
+  ')
+
+  for connector in $(connected_outputs); do
+    [[ " $seen " == *" $connector "* ]] && continue
+    ddc_remember "unavailable $(now)" "$connector"
+  done
+}
+
+# bus<TAB>percent for a connector, or nothing. Only the cache's age re-reads.
+ddc_read() {
+  local connector=$1 file bus value stamp
+  command -v ddcutil >/dev/null 2>&1 || return 1
+
+  file=$(ddc_cache_file "$connector")
+  bus=""; value=""; stamp=""
+  [[ -r $file ]] && read -r bus value stamp <"$file"
+
+  if [[ $bus == unavailable ]]; then
+    [[ $value =~ ^[0-9]+$ ]] && (($(now) - value < DDC_MISS_TTL)) && return 1
+    bus=""
+  fi
+
+  if [[ ! $bus =~ ^[0-9]+$ ]]; then
+    ddc_detect
+    bus=""; value=""; stamp=""
+    [[ -r $file ]] && read -r bus value stamp <"$file"
+    [[ $bus =~ ^[0-9]+$ ]] || return 1
+  fi
+
+  if [[ $value =~ ^[0-9]+$ && $stamp =~ ^[0-9]+$ ]] && (($(now) - stamp < DDC_TTL)); then
+    printf '%s\t%s\n' "$bus" "$value"
+    return 0
+  fi
+
+  local raw max
+  read -r raw max < <(ddcutil --bus "$bus" --skip-ddc-checks getvcp 10 --brief 2>/dev/null | awk '
+    $1 == "VCP" && toupper($2) == "10" && $4 ~ /^[0-9]+$/ && $5 ~ /^[0-9]+$/ && $5 > 0 { print $4, $5; exit }
+  ')
+  if [[ -z ${raw:-} || -z ${max:-} ]]; then
+    ddc_remember "unavailable $(now)" "$connector"
+    return 1
+  fi
+
+  value=$(percent_of "$raw" "$max") || return 1
+  ddc_remember "$bus $value $(now)" "$connector"
+  printf '%s\t%s\n' "$bus" "$value"
+}
+
+# connector<TAB>percent<TAB>backend. A screen with neither backend is absent.
+list_brightness() {
+  local connector device max cur ddc
+  local -A backlight=()
+
+  while IFS=$'\t' read -r connector device max _; do
+    [[ -n $connector ]] && backlight[$connector]="$device	$max"
+  done < <(backlight_candidates)
+
+  for connector in $(connected_outputs); do
+    if [[ -n ${backlight[$connector]:-} ]]; then
+      IFS=$'\t' read -r device max <<<"${backlight[$connector]}"
+      cur=$(<"$device/brightness")
+      printf '%s\t%s\tbacklight\n' "$connector" "$(percent_of "$cur" "$max")"
+      continue
+    fi
+    if ddc=$(ddc_read "$connector"); then
+      printf '%s\t%s\tddc\n' "$connector" "${ddc#*	}"
+    fi
+  done
+}
+
+brightness_of() {
+  list_brightness | awk -F'\t' -v want="$1" '$1 == want { print $2; found = 1 } END { exit !found }'
+}
+
+set_brightness() {
+  local connector=$1 percent=$2 out
+
+  if ! [[ $percent =~ ^[0-9]+$ ]] || ((percent > 100)); then
+    echo "Error: brightness must be a whole percentage between 0 and 100: $percent" >&2
+    exit 1
+  fi
+
+  if ! out=$(noctalia msg brightness-set "$connector" "$percent" 2>&1); then
+    printf '%s\n' "${out:-Could not set the brightness on $connector}" >&2
+    exit 1
+  fi
+
+  # Beats a cached read of a slow bus, and one Noctalia may not have written yet.
+  local file
+  file=$(ddc_cache_file "$connector")
+  if [[ -r $file ]]; then
+    local bus _rest
+    read -r bus _rest <"$file"
+    [[ $bus =~ ^[0-9]+$ ]] && ddc_remember "$bus $percent $(now)" "$connector"
+  fi
+}
+
+case ${1:-} in
+  --list)
+    list_brightness
+    ;;
+  "" | -h | --help)
+    echo "Usage: monarch-display-brightness --list" >&2
+    echo "       monarch-display-brightness <output> [<percent>]" >&2
+    exit 2
+    ;;
+  *)
+    if [[ -n ${2:-} ]]; then
+      set_brightness "$1" "$2"
+    elif ! brightness_of "$1"; then
+      echo "Error: no brightness control for $1." >&2
+      exit 1
+    fi
+    ;;
+esac

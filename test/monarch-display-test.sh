@@ -371,6 +371,159 @@ assert_equals "and --current answers in the same shape" \
   "$("$TEXT" --current)" "175%"
 "$TEXT" reset >/dev/null
 
+# ── The brightness ───────────────────────────────────────────────────────────
+
+# The connector-to-backlight mapping is ours to get right: a laptop with two
+# backlight devices and one lit panel is where a wrong answer drives the other.
+BRIGHTNESS="$ROOT/bin/monarch-display-brightness"
+export MONARCH_SYS_DRM="$TMP/sys/drm"
+export MONARCH_SYS_BACKLIGHT="$TMP/sys/backlight"
+export MONARCH_BRIGHTNESS_CACHE="$TMP/cache"
+export NOCTALIA_CALLS="$TMP/noctalia" DDC_CALLS="$TMP/ddc"
+
+mkdir -p "$TMP/sys/drm/card1-eDP-1" "$TMP/sys/drm/card1-DP-1" "$TMP/sys/drm/card0-HDMI-A-1"
+echo connected >"$TMP/sys/drm/card1-eDP-1/status"
+echo connected >"$TMP/sys/drm/card1-DP-1/status"
+echo disconnected >"$TMP/sys/drm/card0-HDMI-A-1/status"
+
+mkdir -p "$TMP/sys/backlight/amdgpu_bl1"
+printf '60\n' >"$TMP/sys/backlight/amdgpu_bl1/brightness"
+printf '100\n' >"$TMP/sys/backlight/amdgpu_bl1/max_brightness"
+printf 'raw\n' >"$TMP/sys/backlight/amdgpu_bl1/type"
+ln -sfn "$TMP/sys/drm/card1-eDP-1" "$TMP/sys/backlight/amdgpu_bl1/device"
+
+cat >"$TMP/bin/noctalia" <<'STUB'
+#!/bin/bash
+printf '%s\n' "$*" >>"$NOCTALIA_CALLS"
+[[ -n ${NOCTALIA_FAILS:-} ]] && { echo "error: brightness control unavailable"; exit 1; }
+echo ok
+STUB
+
+cat >"$TMP/bin/ddcutil" <<'STUB'
+#!/bin/bash
+printf '%s\n' "$*" >>"$DDC_CALLS"
+[[ -n ${DDC_ABSENT:-} ]] && exit 1
+if [[ $* == *detect* ]]; then
+  printf 'Display 1\n   I2C bus:  /dev/i2c-7\n   DRM connector:  card1-DP-1\n'
+  exit 0
+fi
+if [[ $* == *getvcp* ]]; then
+  [[ -n ${DDC_MUTE:-} ]] && exit 1
+  printf 'VCP 10 C %s 255\n' "${DDC_RAW:-128}"
+  exit 0
+fi
+exit 0
+STUB
+chmod +x "$TMP/bin/noctalia" "$TMP/bin/ddcutil"
+: >"$NOCTALIA_CALLS"
+: >"$DDC_CALLS"
+
+# No bus in this half: a temporary assignment on assert_equals would not reach
+# the command substitutions in its own arguments, which are expanded first.
+backlight_only() { DDC_ABSENT=1 "$BRIGHTNESS" "$@"; }
+
+assert_equals "a backlight is read straight from sysfs" \
+  "$(backlight_only --list | grep '^eDP-1')" "$(printf 'eDP-1\t60\tbacklight')"
+assert_equals "and answers for one output on its own" \
+  "$(backlight_only eDP-1)" "60"
+
+# A raw scale is rarely a round hundredth: 7 of 8 steps is 88%, and truncating
+# it shows 87% for a panel that is one step below full.
+printf '7\n' >"$TMP/sys/backlight/amdgpu_bl1/brightness"
+printf '8\n' >"$TMP/sys/backlight/amdgpu_bl1/max_brightness"
+assert_equals "the percentage is rounded, not truncated" \
+  "$(backlight_only eDP-1)" "88"
+printf '60\n' >"$TMP/sys/backlight/amdgpu_bl1/brightness"
+printf '100\n' >"$TMP/sys/backlight/amdgpu_bl1/max_brightness"
+
+# A disconnected connector has nothing to light and must not be offered.
+assert_equals "a disconnected output is not listed" \
+  "$(backlight_only --list | grep -c 'HDMI' || true)" "0"
+
+# raw beats firmware: the firmware one here would answer 10%, on the wrong panel.
+mkdir -p "$TMP/sys/backlight/acpi_video0"
+printf '1\n' >"$TMP/sys/backlight/acpi_video0/brightness"
+printf '10\n' >"$TMP/sys/backlight/acpi_video0/max_brightness"
+printf 'firmware\n' >"$TMP/sys/backlight/acpi_video0/type"
+ln -sfn "$TMP/sys/drm/card1-eDP-1" "$TMP/sys/backlight/acpi_video0/device"
+assert_equals "the raw backlight wins over the firmware one" \
+  "$(backlight_only eDP-1)" "60"
+rm -rf "$TMP/sys/backlight/acpi_video0"
+
+# Hardware that hangs the backlight off the GPU rather than the connector still
+# has exactly one internal panel to mean.
+mkdir -p "$TMP/sys/backlight/odd_bl" "$TMP/sys/elsewhere"
+printf '20\n' >"$TMP/sys/backlight/odd_bl/brightness"
+printf '100\n' >"$TMP/sys/backlight/odd_bl/max_brightness"
+printf 'raw\n' >"$TMP/sys/backlight/odd_bl/type"
+ln -sfn "$TMP/sys/elsewhere" "$TMP/sys/backlight/odd_bl/device"
+assert_equals "an unmatched backlight falls back to the internal panel" \
+  "$(backlight_only --list | grep -c '^eDP-1')" "1"
+assert_equals "and loses the tie to the one that matched exactly" \
+  "$(backlight_only eDP-1)" "60"
+rm -rf "$TMP/sys/backlight/odd_bl"
+
+# ── The brightness over DDC/CI ───────────────────────────────────────────────
+
+rm -rf "$TMP/cache"
+: >"$DDC_CALLS"
+assert_equals "a screen with no backlight is read over the bus" \
+  "$("$BRIGHTNESS" --list | grep '^DP-1')" "$(printf 'DP-1\t50\tddc')"
+assert_equals "which costs one detect" "$(grep -c detect "$DDC_CALLS")" "1"
+
+# The panel polls while open; a round-trip per second is what the cache is for.
+: >"$DDC_CALLS"
+assert_equals "a second read inside the window answers from the cache" \
+  "$("$BRIGHTNESS" --list | grep '^DP-1')" "$(printf 'DP-1\t50\tddc')"
+assert_equals "without touching the bus" "$(wc -l <"$DDC_CALLS")" "0"
+
+# A monitor that does not answer must not be asked again every second either.
+rm -rf "$TMP/cache"
+: >"$DDC_CALLS"
+assert_equals "a bus that answers nothing drops the screen from the list" \
+  "$(DDC_MUTE=1 "$BRIGHTNESS" --list | grep -c '^DP-1' || true)" "0"
+before=$(wc -l <"$DDC_CALLS")
+assert_equals "and is not retried on the next read" \
+  "$(DDC_MUTE=1 "$BRIGHTNESS" --list | grep -c '^DP-1' || true)" "0"
+assert_equals "which is the point of remembering the failure" \
+  "$(wc -l <"$DDC_CALLS")" "$before"
+
+rm -rf "$TMP/cache"
+
+# ── Setting the brightness ───────────────────────────────────────────────────
+
+# Noctalia holds the logind handle and the bus cooldowns; a second writer fights
+# both.
+: >"$NOCTALIA_CALLS"
+backlight_only eDP-1 40
+assert_equals "a set is handed to noctalia" \
+  "$(<"$NOCTALIA_CALLS")" "msg brightness-set eDP-1 40"
+
+set +e
+out=$(NOCTALIA_FAILS=1 backlight_only eDP-1 40 2>&1)
+status=$?
+set -e
+assert_equals "a refusal from noctalia is a failure here too" "$status" "1"
+assert_equals "and it is noctalia's own words that surface" \
+  "$out" "error: brightness control unavailable"
+
+for value in 120 -5 abc 50.5; do
+  set +e
+  out=$(backlight_only eDP-1 "$value" 2>&1)
+  status=$?
+  set -e
+  assert_equals "$value is not a percentage" "$status" "1"
+  assert_equals "and says so" "${out%%:*}" "Error"
+done
+
+# Or the slider snaps back for as long as the cache lives.
+"$BRIGHTNESS" --list >/dev/null
+: >"$DDC_CALLS"
+"$BRIGHTNESS" DP-1 30
+assert_equals "setting over the bus refreshes what the cache holds" \
+  "$("$BRIGHTNESS" --list | grep '^DP-1')" "$(printf 'DP-1\t30\tddc')"
+assert_equals "without a round-trip to ask" "$(wc -l <"$DDC_CALLS")" "0"
+
 # ── The migration ────────────────────────────────────────────────────────────
 
 # The riskiest thing in this change is the sed that moves an existing size out
