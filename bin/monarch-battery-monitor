@@ -1,25 +1,39 @@
 #!/bin/bash
 
-# monarch:summary=Designed to be run by systemd timer every 30 seconds and alerts if battery is low
+# monarch:summary=Watch the battery from the user session: warn when it is low, and follow the power source
 # monarch:hidden=true
 
+# Both jobs need the user's session: a notification daemon, and the memory.
+
 BATTERY_THRESHOLD=10
-NOTIFICATION_FLAG="/run/user/$UID/monarch_battery_notified"
-BATTERY_LEVEL=$(monarch-battery-remaining)
-BATTERY_STATE=$(upower -i $(upower -e | grep 'BAT') | grep -E "state" | awk '{print $2}')
+RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$UID}
+NOTIFICATION_FLAG="$RUNTIME_DIR/monarch_battery_notified"
+# Runtime, not state: where the cable was at shutdown means nothing at boot.
+SOURCE_FLAG="$RUNTIME_DIR/monarch_power_source"
 
-send_notification() {
-  notify-send -u critical "󱐋 Time to recharge!" "Battery is down to ${1}%" -i battery-caution -t 30000
-  monarch-hook battery-low "$1"
-}
+status=$(monarch-battery-status --shell)
+[[ -n $status ]] || exit 0
 
-if [[ -n $BATTERY_LEVEL && $BATTERY_LEVEL =~ ^[0-9]+$ ]]; then
-  if [[ $BATTERY_STATE == "discharging" ]] && (( BATTERY_LEVEL <= BATTERY_THRESHOLD )); then
+field() { awk -F'\t' -v key="$1" '$1 == key { print $2; exit }' <<<"$status"; }
+
+level=$(field percentage)
+state=$(field state)
+[[ $(field ac) == true ]] && source=ac || source=battery
+
+if [[ -n $level && $level =~ ^[0-9]+$ ]]; then
+  if [[ $state == "discharging" ]] && ((level <= BATTERY_THRESHOLD)); then
     if [[ ! -f $NOTIFICATION_FLAG ]]; then
-      send_notification $BATTERY_LEVEL
-      touch $NOTIFICATION_FLAG
+      notify-send -u critical "󱐋 Time to recharge!" "Battery is down to ${level}%" -i battery-caution -t 30000
+      monarch-hook battery-low "$level"
+      touch "$NOTIFICATION_FLAG"
     fi
   else
-    rm -f $NOTIFICATION_FLAG
+    rm -f "$NOTIFICATION_FLAG"
   fi
 fi
+
+if [[ -r $SOURCE_FLAG && $(<"$SOURCE_FLAG") != "$source" ]]; then
+  # sysfs here, UPower in there: the two disagree across the transition.
+  monarch-powerprofiles-set "$source" >/dev/null 2>&1 || true
+fi
+printf '%s\n' "$source" >"$SOURCE_FLAG"

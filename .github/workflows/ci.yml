@@ -30,6 +30,9 @@ jobs:
       - name: Run display test suite
         run: bash test/monarch-display-test.sh
 
+      - name: Run power test suite
+        run: bash test/monarch-power-test.sh
+
       - name: Run kernel headers test suite
         run: bash test/monarch-kernel-headers-test.sh
 
