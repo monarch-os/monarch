@@ -24,7 +24,7 @@ source=${1:-autodetect}
 requested=${2:-}
 
 if [[ $source == autodetect ]]; then
-  # The signal the widget reads, so every entry point saves under the same key.
+  # The signal Noctalia reads too, so every entry point saves under one key.
   if [[ $(busctl get-property org.freedesktop.UPower /org/freedesktop/UPower \
       org.freedesktop.UPower OnBattery 2>/dev/null) == "b true" ]]; then
     source=battery
@@ -58,7 +58,6 @@ elif [[ -r $state_file ]]; then
   profile=$(<"$state_file")
 fi
 
-# Nothing remembered, or a profile this machine stopped offering.
 if [[ -z $profile ]] || ! available "$profile"; then
   if [[ $source == ac ]] && available performance; then
     profile=performance

@@ -5,9 +5,6 @@
 # monarch:args=[--shell]
 # monarch:examples=monarch battery status | monarch battery status --shell
 
-# Bare is the notification line; --shell is key<TAB>value, with the cycles and
-# charge limit the line has no room for.
-#
 # LC_ALL=C is not decoration: upower localises its decimal separator, so
 # `energy-rate: 15,059 W` reaches awk as 15 and the fraction is lost silently.
 
