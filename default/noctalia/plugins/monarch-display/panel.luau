@@ -19,8 +19,11 @@ local SCALE_CMD = shared.bin("monarch-display-scale")
 local TOGGLE_CMD = shared.bin("monarch-display-toggle")
 local TEXT_CMD = shared.bin("monarch-display-text-size")
 
--- The same set Mod+Ctrl+D cycles through, so the two ways in agree.
-local SCALES = { "1", "1.25", "1.6", "2", "3", "4" }
+-- What Mod+Ctrl+D cycles through, and the starting point for the row of pills:
+-- each is cleaned against the output's own mode before it is offered.
+local SCALES = { 1, 1.25, 1.6, 2, 3, 4 }
+-- Wayland counts scale in 120ths of a pixel.
+local SCALE_UNIT = 120
 local TEXT_STEP = 5
 local TEXT_MIN = 75
 local TEXT_MAX = 175
@@ -46,6 +49,49 @@ local SETTLE = 1
 local generation = 0
 
 local render
+
+local function gcd(a: number, b: number): number
+  while b ~= 0 do
+    a, b = b, a % b
+  end
+  return a
+end
+
+-- A scale whose 120ths divide gcd(width, height) in the same units leaves both
+-- logical dimensions whole, which is what keeps text off half-pixels; anything
+-- else is the compositor rounding behind your back. The next divisor at or above
+-- what was asked for is the nearest scale that behaves, which is why quattro
+-- offers 1.33x and 3.13x rather than the round numbers it started from.
+local function cleanScale(requested: number, width: number, height: number): number?
+  if requested <= 0 or width <= 0 or height <= 0 then
+    return nil
+  end
+
+  local divisor = gcd(width * SCALE_UNIT, height * SCALE_UNIT)
+  local units = math.max(1, math.floor(requested * SCALE_UNIT + 0.5))
+  if units > divisor then
+    units = divisor
+  end
+  while divisor % units ~= 0 do
+    units += 1
+  end
+
+  return units / SCALE_UNIT
+end
+
+local function formatScale(value: number): string
+  local rounded = math.floor(value * 100 + 0.5) / 100
+  if rounded == math.floor(rounded) then
+    return tostring(math.floor(rounded))
+  end
+  return (string.format("%.2f", rounded):gsub("0$", ""))
+end
+
+-- "1515x884@60" — the pixel mode, which is what the cleaning is against.
+local function modePixels(mode: string): (number, number)
+  local width, height = mode:match("^(%d+)x(%d+)")
+  return tonumber(width) or 0, tonumber(height) or 0
+end
 
 local function parseOutputs(text: string)
   local rows = {}
@@ -165,41 +211,55 @@ local function textSizeSection(): { any }
 end
 
 -- Pills and not a dropdown, and on the focused screen rather than inside every
--- card: the choice is short, the values are worth reading at a glance, and it
--- is the shape quattro settled on.
+-- card: the choice is short, the values are worth reading at a glance, and it is
+-- the shape quattro settled on.
 local function scaleSection(): { any }
   local focused = focusedOutput()
   if not focused or not focused.on then
     return {}
   end
 
+  local width, height = modePixels(focused.mode)
   local current = tonumber(focused.scale)
-  local choices = table.clone(SCALES)
+  local choices = {}
+  local seen = {}
 
-  -- niri prints 1.0 where the preset list says 1, so a scale is matched on its
-  -- number and never on its text. One that is genuinely not a preset is added,
-  -- or it could never be picked back from here.
-  local known = false
-  for _, value in ipairs(choices) do
-    known = known or (current ~= nil and tonumber(value) == current)
+  for _, preset in ipairs(SCALES) do
+    local clean = cleanScale(preset, width, height)
+    -- A mode whose dimensions share little leaves few scales standing — 1366x768
+    -- keeps only 1x and 2x — so the row shrinks rather than offering values the
+    -- compositor would have to round.
+    if clean and not seen[clean] then
+      seen[clean] = true
+      table.insert(choices, clean)
+    end
   end
-  if current and not known then
-    table.insert(choices, focused.scale)
-    table.sort(choices, function(a, b)
-      return (tonumber(a) or 0) < (tonumber(b) or 0)
-    end)
+
+  -- Whatever is in force is offered even when the cleaning would not have
+  -- produced it, or a scale set by hand could never be picked back from here.
+  if current and not seen[current] then
+    table.insert(choices, current)
+    table.sort(choices)
+  end
+
+  if #choices == 0 then
+    return {}
   end
 
   local pills = {}
   for _, value in ipairs(choices) do
-    local active = current ~= nil and tonumber(value) == current
+    local active = current ~= nil and value == current
     table.insert(pills, ui.button({
-      text = value .. "x",
+      text = formatScale(value) .. "x",
       variant = active and "primary" or "outline",
       controlSize = "sm",
+      -- Equal widths across the row, as quattro draws them: content-sized pills
+      -- make 1x a third the width of 1.25x and the row reads as a ransom note.
+      flexGrow = 1,
       enabled = busy == "" and not active,
       onClick = function()
-        runAction("scale", SCALE_CMD .. " " .. shared.shellQuote(focused.name) .. " " .. shared.shellQuote(value),
+        runAction("scale",
+          SCALE_CMD .. " " .. shared.shellQuote(focused.name) .. " " .. shared.shellQuote(formatScale(value)),
           "Could not scale " .. focused.name)
       end,
     }))
@@ -212,45 +272,56 @@ local function scaleSection(): { any }
   }
 end
 
+-- A card per screen, as quattro draws them: a bordered box rather than a filled
+-- one, since ui.box's `fill` takes a literal colour and not a role name — a box
+-- handed a role simply does not draw, which is how the row went missing once
+-- already. The focused one is marked with a check instead of a tint.
 local function outputRow(output): any
-  local label = output.name
+  local children = {
+    ui.glyph({
+      name = output.on and "device-desktop" or "device-desktop-off",
+      size = 18,
+      color = output.on and "on_surface" or "on_surface_variant",
+    }),
+    ui.column({ gap = 2, flexGrow = 1 }, {
+      ui.label({
+        text = output.name,
+        fontSize = 13,
+        fontWeight = output.focused and "medium" or "regular",
+        color = output.on and "on_surface" or "on_surface_variant",
+        maxLines = 1,
+      }),
+      ui.label({
+        text = output.on and (output.mode .. "  ·  " .. output.description)
+          or (output.description ~= "" and output.description or "Off"),
+        fontSize = 11,
+        color = "on_surface_variant",
+        maxLines = 1,
+      }),
+    }),
+  }
+
   if output.focused then
-    label ..= "  ·  focused"
+    table.insert(children, ui.glyph({ name = "check", size = 16, color = "primary" }))
   end
 
-  -- A plain row and not ui.box: its `fill` takes a literal colour, not a role
-  -- name, and a box given one simply does not draw. Focus is said in the label
-  -- instead, which is what it is for.
-  return ui.row({ gap = 10, align = "center" }, {
-      ui.glyph({
-        name = output.on and "device-desktop" or "device-desktop-off",
-        size = 18,
-        color = output.on and "on_surface" or "on_surface_variant",
-      }),
-      ui.column({ gap = 2, flexGrow = 1 }, {
-        ui.label({
-          text = label,
-          fontSize = 13,
-          color = output.on and "on_surface" or "on_surface_variant",
-          maxLines = 1,
-        }),
-        ui.label({
-          text = output.on and (output.mode .. "  ·  " .. output.description)
-            or (output.description ~= "" and output.description or "Off"),
-          fontSize = 11,
-          color = "on_surface_variant",
-          maxLines = 1,
-        }),
-      }),
-      ui.toggle({
-        checked = output.on,
-        onChange = function(checked)
-          runAction("toggle:" .. output.name,
-            TOGGLE_CMD .. " " .. shared.shellQuote(output.name) .. (checked and " on" or " off"),
-            "Could not turn " .. output.name .. (checked and " on" or " off"))
-        end,
-      }),
-  })
+  table.insert(children, ui.toggle({
+    checked = output.on,
+    onChange = function(checked)
+      runAction("toggle:" .. output.name,
+        TOGGLE_CMD .. " " .. shared.shellQuote(output.name) .. (checked and " on" or " off"),
+        "Could not turn " .. output.name .. (checked and " on" or " off"))
+    end,
+  }))
+
+  return ui.row({
+    gap = 10,
+    align = "center",
+    radius = 10,
+    padding = 10,
+    border = "outline",
+    borderWidth = 1,
+  }, children)
 end
 
 function render()
