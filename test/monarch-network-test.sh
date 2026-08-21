@@ -57,6 +57,9 @@ case "$*" in
   *"radio wifi off"*|*"radio wifi on"*) : ;;
   *"radio wifi"*) printf '%s\n' "${NM_RADIO:-enabled}" ;;
   *"device wifi connect"*) exit "${NM_JOIN_STATUS:-0}" ;;
+  *"connection add type wifi"*) exit "${NM_ADD_STATUS:-0}" ;;
+  *"connection edit uuid"*) cat >>"$NM_EDIT_INPUT"; exit "${NM_EDIT_STATUS:-0}" ;;
+  *"connection up uuid"*) exit "${NM_UP_STATUS:-0}" ;;
   *"connection delete"*) exit "${NM_DELETE_STATUS:-0}" ;;
 esac
 STUB
@@ -68,6 +71,10 @@ printf 'Connected to 00:11 (on wlan0)\n\tSSID: %s\n\tfreq: %s\n\tsignal: -42 dBm
 STUB
 
 printf '#!/bin/bash\nexit 0\n' >"$TMP/bin/ping"
+cat >"$TMP/bin/uuidgen" <<'STUB'
+#!/bin/bash
+echo fixed-uuid
+STUB
 
 # NOCTALIA_UP decides whether the shell answers, which is what picks the branch.
 cat >"$TMP/bin/noctalia" <<'STUB'
@@ -77,13 +84,21 @@ printf '%s\n' "$*" >>"$NOCTALIA_CALLS"
 STUB
 chmod +x "$TMP"/bin/*
 export PATH="$TMP/bin:$ROOT/bin:$PATH"
-export NM_CALLS="$TMP/calls" NOCTALIA_CALLS="$TMP/ipc"
+export NM_CALLS="$TMP/calls" NOCTALIA_CALLS="$TMP/ipc" NM_EDIT_INPUT="$TMP/edit"
 : >"$NM_CALLS"
 : >"$NOCTALIA_CALLS"
+: >"$NM_EDIT_INPUT"
 
-# monarch-network-status reads /sys to tell wireless from wired; point it at a
-# tree the test owns by running from a fake root is not possible, so the wired
-# case is driven by a device name with no wireless directory under the real /sys.
+# monarch-network-status tells wireless from wired, and reads its byte counters,
+# out of /sys/class/net. MONARCH_SYS_NET moves that root onto the tree above, so
+# both branches and both counters are exercised without a card.
+export MONARCH_SYS_NET="$TMP/sys"
+printf '11\n' >"$TMP/sys/eth0/speed"
+printf 'full\n' >"$TMP/sys/eth0/duplex"
+mkdir -p "$TMP/sys/eth0/statistics" "$TMP/sys/wlan0/statistics"
+printf '4096\n' >"$TMP/sys/eth0/statistics/rx_bytes"
+printf '2048\n' >"$TMP/sys/eth0/statistics/tx_bytes"
+
 export IP_DEV="" NM_STATE="100 (connected)" NM_CONN="Cafe" NM_SIGNAL="72"
 export IW_SSID="Cafe" IW_FREQ="5745.0"
 
@@ -106,6 +121,22 @@ assert_equals "reports the address" \
   "$(awk '$1=="ip" {print $2}' <<<"$verbose")" "192.168.1.50"
 assert_equals "reports the prefix" \
   "$(awk '$1=="prefix" {print $2}' <<<"$verbose")" "24"
+assert_equals "reports the gateway" \
+  "$(awk '$1=="gateway" {print $2}' <<<"$verbose")" "192.168.1.1"
+assert_equals "reports the received byte counter" \
+  "$(awk '$1=="rx_bytes" {print $2}' <<<"$verbose")" "4096"
+assert_equals "reports the sent byte counter" \
+  "$(awk '$1=="tx_bytes" {print $2}' <<<"$verbose")" "2048"
+assert_equals "a device with no wireless directory reads as ethernet" \
+  "$(awk '$1=="type" {print $2}' <<<"$verbose")" "ethernet"
+assert_equals "reports the negotiated ethernet speed" \
+  "$(awk '$1=="speed" {print $2}' <<<"$verbose")" "11"
+
+wireless=$(IP_ROUTE_JSON='[{"dev":"wlan0","gateway":"10.0.0.1","prefsrc":"10.0.0.5"}]' "$STATUS" --verbose)
+assert_equals "a device with one takes the wireless branch" \
+  "$(awk '$1=="type" {print $2}' <<<"$wireless")" "wifi"
+assert_equals "the wireless branch reports the signal in dBm" \
+  "$(awk '$1=="signal_dbm" {print $2}' <<<"$wireless")" "-42"
 
 printf '[Resolve]\nDNSOverTLS=no\n' >"$MONARCH_RESOLVED_CONF"
 assert_equals "a file with no DNS= is DHCP" \
@@ -185,6 +216,41 @@ assert_equals "forgetting an unsaved network says so" \
 "$FORGET" "Cafe"
 assert_equals "forget deletes the profile by name" \
   "$(grep -c 'connection delete id Cafe' "$NM_CALLS")" "1"
+
+# ── Enterprise (802.1X) ──────────────────────────────────────────────────────
+
+JOIN_EAP="$ROOT/bin/monarch-wifi-enterprise"
+
+if "$JOIN_EAP" "eduroam" 2>"$TMP/err"; then
+  fail "an enterprise join without an identity is refused"
+fi
+pass "an enterprise join without an identity is refused"
+
+: >"$NM_CALLS"
+: >"$NM_EDIT_INPUT"
+"$JOIN_EAP" "eduroam" "you@univ.fr" "hunter2"
+assert_equals "the profile is keyed wpa-eap" \
+  "$(grep -c 'wifi-sec.key-mgmt wpa-eap' "$NM_CALLS")" "1"
+assert_equals "it asks for PEAP under the identity given" \
+  "$(grep -c '802-1x.eap peap .*802-1x.identity you@univ.fr' "$NM_CALLS")" "1"
+assert_equals "it is brought up by uuid, not by name" \
+  "$(grep -c 'connection up uuid fixed-uuid' "$NM_CALLS")" "1"
+
+# The whole reason for `connection edit`: nmcli takes no secret on `add`, and an
+# argument would leave the passphrase in a world-readable /proc/<pid>/cmdline.
+assert_equals "the passphrase reaches nmcli on stdin" \
+  "$(awk '/^set 802-1x.password/ { print $3 }' "$NM_EDIT_INPUT")" "hunter2"
+assert_equals "and never through its argv" \
+  "$(grep -c hunter2 "$NM_CALLS" || true)" "0"
+
+# A profile that never came up shadows the SSID in the saved list, so the next
+# attempt would reuse the identity that just failed instead of asking again.
+: >"$NM_CALLS"
+NM_UP_STATUS=1 "$JOIN_EAP" "eduroam" "you@univ.fr" "hunter2" 2>"$TMP/err" &&
+  fail "a failed enterprise join exits non-zero"
+pass "a failed enterprise join exits non-zero"
+assert_equals "a failed enterprise join discards its profile" \
+  "$(grep -c 'connection delete uuid fixed-uuid' "$NM_CALLS")" "1"
 
 # ── The radio ────────────────────────────────────────────────────────────────
 

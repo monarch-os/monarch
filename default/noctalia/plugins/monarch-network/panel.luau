@@ -1,6 +1,7 @@
 --!nonstrict
 -- The network panel. Port of quattro's omarchy.network panel: what you are
--- connected to, the Wi-Fi band, the DNS provider, and the networks in range.
+-- connected to, how well, the Wi-Fi band, the DNS provider, and the networks in
+-- range. Enterprise networks join from here too, which the stock widget cannot.
 --
 -- Everything it knows comes from Monarch commands printing key<TAB>value, so
 -- the logic that talks to NetworkManager stays in bash where it can be tested
@@ -15,6 +16,7 @@ local STATUS_CMD = shared.bin("monarch-network-status")
 local BAND_CMD = shared.bin("monarch-wifi-band")
 local LIST_CMD = shared.bin("monarch-wifi-list")
 local JOIN_CMD = shared.bin("monarch-wifi-join")
+local JOIN_EAP_CMD = shared.bin("monarch-wifi-enterprise")
 local FORGET_CMD = shared.bin("monarch-wifi-forget")
 local DISCONNECT_CMD = shared.bin("monarch-wifi-disconnect")
 local RADIO_CMD = shared.bin("monarch-toggle-wifi")
@@ -27,6 +29,8 @@ local PACKAGED_DNS = "/usr/bin/monarch-dns"
 
 local TEXT_WIDTH = 360
 local DNS_PROVIDERS = { "Cloudflare", "Google", "DHCP", "Custom" }
+-- Roughly the last half-minute of probes, at one per tick.
+local PING_WINDOW = 24
 
 local info = {}
 local band = { band = "", selected = "auto", available = {} }
@@ -35,14 +39,25 @@ local radioOn = true
 local scanning = false
 local loaded = false
 
--- The row opened for its actions, the text typed into its passphrase field, and
--- the action currently in flight ("" when idle). One at a time on purpose:
+-- The row opened for its actions, what was typed into its credential fields,
+-- and the action currently in flight ("" when idle). One at a time on purpose:
 -- joining two networks at once is not a thing, and a single token keeps every
 -- button's disabled state derivable from one value.
 local expanded = ""
 local password = ""
+local identity = ""
 local busy = ""
 local errorText = ""
+
+-- Throughput is a delta between two samples and packet loss is a window of
+-- them, so neither exists until the panel has polled twice. Both are cleared on
+-- close, or a panel reopened an hour later divides an hour of traffic by a tick.
+local sample = { iface = "", rx = 0, tx = 0, at = 0 }
+local rxRate, txRate = 0, 0
+local pings = {}
+local pingIface = ""
+local statusInFlight = false
+local ticks = 0
 
 -- Reads and writes both take a ticket: a refresh started before the last click
 -- must not land its stale answer on top of the newer state.
@@ -50,21 +65,117 @@ local generation = 0
 
 local render
 
-local function refresh(rescan: boolean)
-  generation += 1
-  local ticket = generation
-
-  if rescan then
-    scanning = true
-    render()
+local function formatBytes(count: number): string
+  if count < 1024 then
+    return string.format("%d B", math.floor(count))
+  elseif count < 1024 * 1024 then
+    return string.format("%.1f KB", count / 1024)
+  elseif count < 1024 * 1024 * 1024 then
+    return string.format("%.1f MB", count / (1024 * 1024))
   end
+  return string.format("%.2f GB", count / (1024 * 1024 * 1024))
+end
+
+local function formatRate(perSecond: number): string
+  return formatBytes(perSecond) .. "/s"
+end
+
+-- One decimal below 10 ms and none above: the third decimal a local gateway
+-- reports is measurement noise, not precision.
+local function formatMs(ms: number): string
+  return (ms < 10 and string.format("%.1f", ms) or string.format("%.0f", ms)) .. " ms"
+end
+
+-- The counters only ever grow, until the interface changes or its driver resets
+-- them — so a negative delta is a new counter, not negative traffic.
+local function updateTransfer()
+  local iface = info.iface or ""
+  local rx = tonumber(info.rx_bytes) or 0
+  local tx = tonumber(info.tx_bytes) or 0
+  local now = noctalia.nowMs()
+
+  if iface ~= sample.iface or sample.at == 0 then
+    rxRate, txRate = 0, 0
+  else
+    local seconds = (now - sample.at) / 1000
+    if seconds > 0 then
+      rxRate = math.max(0, (rx - sample.rx) / seconds)
+      txRate = math.max(0, (tx - sample.tx) / seconds)
+    end
+  end
+
+  sample = { iface = iface, rx = rx, tx = tx, at = now }
+end
+
+-- One ping per poll, and a timed-out one prints an empty value rather than
+-- vanishing. Keeping those misses in the window is the only way to report
+-- packet loss at all: the probe has no -c count to derive it from, so the loss
+-- is counted over time instead.
+local function updatePings()
+  local iface = info.iface or ""
+  if iface ~= pingIface then
+    pings = {}
+    pingIface = iface
+  end
+  if info.internet_ping_ms == nil then
+    return
+  end
+
+  local latency = tonumber(info.internet_ping_ms)
+  table.insert(pings, (latency and latency >= 0) and latency or false)
+  while #pings > PING_WINDOW do
+    table.remove(pings, 1)
+  end
+end
+
+local function pingAverage(): number
+  local total, count = 0, 0
+  for _, latency in ipairs(pings) do
+    if latency then
+      total += latency
+      count += 1
+    end
+  end
+  return count > 0 and total / count or -1
+end
+
+local function packetLoss(): number
+  if #pings == 0 then
+    return 0
+  end
+
+  local lost = 0
+  for _, latency in ipairs(pings) do
+    if not latency then
+      lost += 1
+    end
+  end
+  return math.floor(lost / #pings * 100 + 0.5)
+end
+
+-- Guarded rather than queued: a probe on a dead route waits out its ping
+-- timeout, and a second tick behind it would only pile up.
+local function pollStatus()
+  if statusInFlight then
+    return
+  end
+
+  statusInFlight = true
+  local ticket = generation
 
   noctalia.runAsync(STATUS_CMD .. " --verbose", function(result)
     if ticket ~= generation then return end
+    statusInFlight = false
     loaded = true
     info = (result and result.exitCode == 0) and shared.parseKeyValue(result.stdout or "") or {}
+    updatePings()
+    updateTransfer()
     render()
   end)
+end
+
+local function pollBand()
+  local ticket = generation
 
   noctalia.runAsync(BAND_CMD, function(result)
     if ticket ~= generation then return end
@@ -80,6 +191,22 @@ local function refresh(rescan: boolean)
     end
     render()
   end)
+end
+
+local function refresh(rescan: boolean)
+  generation += 1
+  local ticket = generation
+
+  if rescan then
+    scanning = true
+    render()
+  end
+
+  -- Whatever was in flight is already disowned by the bump above, so the guard
+  -- it set must not keep this read from starting.
+  statusInFlight = false
+  pollStatus()
+  pollBand()
 
   noctalia.runAsync(RADIO_CMD .. " status", function(result)
     if ticket ~= generation then return end
@@ -116,6 +243,7 @@ local function runAction(token: string, command: string, fallback: string)
     else
       expanded = ""
       password = ""
+      identity = ""
     end
     refresh(false)
   end)
@@ -148,13 +276,34 @@ local function setDns(provider: string)
 end
 
 local function join(network)
+  local token = "join:" .. network.ssid
+  local fallback = "Could not join " .. network.ssid
+
+  -- A saved profile already carries its credentials; nmcli reuses them when
+  -- nothing follows the SSID, which is what makes a bare rejoin work — and it
+  -- is the only way back onto an enterprise network, whose profile is built
+  -- once and never rebuilt from here.
+  if not network.saved and shared.isEnterprise(network) then
+    if identity == "" then
+      errorText = "Enter an identity for " .. network.ssid
+      render()
+      return
+    end
+
+    local command = JOIN_EAP_CMD .. " " .. shared.shellQuote(network.ssid)
+      .. " " .. shared.shellQuote(identity)
+    if password ~= "" then
+      command ..= " " .. shared.shellQuote(password)
+    end
+    runAction(token, command, fallback)
+    return
+  end
+
   local command = JOIN_CMD .. " " .. shared.shellQuote(network.ssid)
-  -- A saved profile already carries its secret; nmcli reuses it when no
-  -- password follows, which is what makes a bare rejoin work.
   if not network.saved and shared.isSecured(network) and password ~= "" then
     command ..= " " .. shared.shellQuote(password)
   end
-  runAction("join:" .. network.ssid, command, "Could not join " .. network.ssid)
+  runAction(token, command, fallback)
 end
 
 -- ── Rendering ────────────────────────────────────────────────────────────────
@@ -169,49 +318,97 @@ local function sectionHeader(text: string, trailing)
   return ui.row({ align = "center", gap = 8 }, row)
 end
 
-local function detailRow(label: string, value: string)
-  return ui.row({ gap = 8, align = "center" }, {
+local function stat(label: string, value: string, color: string?): any
+  return ui.row({ gap = 6, align = "center", flexGrow = 1 }, {
     ui.label({ text = label, fontSize = 12, color = "on_surface_variant", flexGrow = 1 }),
-    ui.label({ text = value, fontSize = 12, color = "on_surface" }),
+    ui.label({ text = value, fontSize = 12, color = color or "on_surface", maxLines = 1 }),
   })
 end
 
-local function connectionBlock(): { any }
-  local rows = {}
+-- Two pairs to a line, as quattro's grid does: ten figures stacked one per line
+-- would push the network list, which is what the panel is for, off the bottom.
+local function statRow(left, right): any
+  return ui.row({ gap = 16 }, { left, right })
+end
 
-  if info.ip and info.ip ~= "" then
-    local address = info.ip
-    if info.prefix and info.prefix ~= "" then
-      address ..= "/" .. info.prefix
-    end
-    table.insert(rows, detailRow(info.iface or "Interface", address))
+local function connectionBlock(): { any }
+  if not info.iface or info.iface == "" then
+    return {
+      ui.label({
+        text = loaded and "Not connected" or "Reading the route…",
+        fontSize = 12,
+        color = "on_surface_variant",
+      }),
+    }
   end
 
+  local address = info.ip or ""
+  if address ~= "" and info.prefix and info.prefix ~= "" then
+    address ..= "/" .. info.prefix
+  end
+
+  -- The gateway carries its own latency: how far the router is says which side
+  -- of it a bad internet ping is coming from, and it costs no extra line.
+  local gateway = info.gateway or ""
+  local routerLatency = tonumber(info.router_ping_ms or "")
+  if gateway ~= "" and routerLatency then
+    gateway ..= "  ·  " .. formatMs(routerLatency)
+  end
+
+  local latency = "—"
+  if #pings > 0 then
+    local average = pingAverage()
+    latency = average < 0 and "Timeout" or formatMs(average)
+  end
+
+  local loss = packetLoss()
+  -- Both halves of the pair go red, or a loss figure alone reads as a rendering
+  -- quirk rather than as the reason the latency beside it is untrustworthy.
+  local lossColor = loss > 0 and "error" or nil
+  local counted = info.rx_bytes ~= nil
+
+  local linkValue, sideLabel, sideValue = "", "Signal", ""
   if info.type == "wifi" then
-    if info.bitrate and shared.trim(info.bitrate) ~= "" then
-      table.insert(rows, detailRow("Link", shared.trim(info.bitrate)))
+    linkValue = shared.trim(info.bitrate or "")
+    if info.signal_dbm and info.signal_dbm ~= "" then
+      sideValue = info.signal_dbm .. " dBm"
     end
-  elseif info.type == "ethernet" then
+  else
     -- A virtual or unplugged NIC reports -1, which is "unknown", not a speed.
     local speed = tonumber(info.speed or "")
-    if speed and speed > 0 then
-      table.insert(rows, detailRow("Link", speed .. " Mb/s"))
-    end
+    linkValue = (speed and speed > 0) and (speed .. " Mb/s") or ""
+    sideLabel = "Duplex"
+    -- The kernel writes "unknown" for a link that never negotiated — every
+    -- virtio NIC, for one. That is an absence, not a duplex mode.
+    sideValue = info.duplex ~= "unknown" and (info.duplex or "") or ""
   end
 
-  if info.internet_ping_ms and info.internet_ping_ms ~= "" then
-    local latency = info.internet_ping_ms .. " ms"
-    if info.router_ping_ms and info.router_ping_ms ~= "" then
-      latency = info.router_ping_ms .. " / " .. latency
-    end
-    table.insert(rows, detailRow("Ping (router / internet)", latency))
+  local function shown(value: string): string
+    return value ~= "" and value or "—"
   end
 
-  if #rows == 0 then
-    table.insert(rows, ui.label({ text = "Not connected", fontSize = 12, color = "on_surface_variant" }))
-  end
-
-  return rows
+  return {
+    statRow(
+      stat("Ping", latency, lossColor),
+      stat("Packet loss", #pings > 0 and (loss .. "%") or "—", lossColor)
+    ),
+    statRow(
+      stat("Receiving", counted and formatRate(rxRate) or "—"),
+      stat("Sending", counted and formatRate(txRate) or "—")
+    ),
+    statRow(
+      stat("Downloaded", counted and formatBytes(tonumber(info.rx_bytes) or 0) or "—"),
+      stat("Uploaded", counted and formatBytes(tonumber(info.tx_bytes) or 0) or "—")
+    ),
+    statRow(
+      stat(info.iface, shown(address)),
+      stat("Gateway", shown(gateway))
+    ),
+    statRow(
+      stat("Link", shown(linkValue)),
+      stat(sideLabel, shown(sideValue))
+    ),
+  }
 end
 
 local function bandSection(): { any }
@@ -307,15 +504,29 @@ local function networkActions(network): any
   end
 
   local row = {}
+  local credentials = {}
+  local enterprise = shared.isEnterprise(network)
 
   -- A saved network needs no field: NetworkManager still holds its secret, and
   -- asking again would invite the user to overwrite a working one by mistake.
   if not network.saved and shared.isSecured(network) then
-    table.insert(row, ui.input({
+    if enterprise then
+      table.insert(credentials, ui.input({
+        key = "id:" .. network.ssid,
+        placeholder = "Identity (user@domain)",
+        focus = true,
+        flexGrow = 1,
+        onChange = function(value)
+          identity = value
+        end,
+      }))
+    end
+
+    table.insert(credentials, ui.input({
       key = "pw:" .. network.ssid,
       placeholder = "Password",
       password = true,
-      focus = true,
+      focus = not enterprise,
       flexGrow = 1,
       onChange = function(value)
         password = value
@@ -350,7 +561,24 @@ local function networkActions(network): any
     }))
   end
 
-  return ui.row({ gap = 8, align = "center" }, row)
+  -- PEAP asks two questions, and two fields beside a button do not fit this
+  -- width; a pre-shared key keeps its single line.
+  if #credentials > 1 then
+    return ui.column({ gap = 6 }, {
+      ui.column({ gap = 6 }, credentials),
+      ui.row({ gap = 8, align = "center" }, row),
+    })
+  end
+
+  local line = {}
+  for _, node in ipairs(credentials) do
+    table.insert(line, node)
+  end
+  for _, node in ipairs(row) do
+    table.insert(line, node)
+  end
+
+  return ui.row({ gap = 8, align = "center" }, line)
 end
 
 local function networkRow(network): any
@@ -384,6 +612,7 @@ local function networkRow(network): any
       end
       expanded = expanded == network.ssid and "" or network.ssid
       password = ""
+      identity = ""
       errorText = ""
       render()
     end,
@@ -507,15 +736,38 @@ function onOpen(_context)
   loaded = false
   expanded = ""
   password = ""
+  identity = ""
   busy = ""
   errorText = ""
+  ticks = 0
+  sample = { iface = "", rx = 0, tx = 0, at = 0 }
+  rxRate, txRate = 0, 0
+  pings = {}
+  pingIface = ""
+  panel.setWantsSecondTicks(true)
   render()
   refresh(false)
 end
 
+-- The tick is what makes the throughput and the loss window exist at all; the
+-- rest of the panel would be happy with a single read on open.
+function update()
+  ticks += 1
+  pollStatus()
+
+  -- Band availability only moves when a scan turns up a new BSSID, and reading
+  -- it costs several nmcli calls, so it does not ride every tick.
+  if ticks % 4 == 0 then
+    pollBand()
+  end
+end
+
 function onClose()
   generation += 1
+  panel.setWantsSecondTicks(false)
+  statusInFlight = false
   password = ""
+  identity = ""
   busy = ""
 end
 

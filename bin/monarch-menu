@@ -35,16 +35,19 @@ USER_MENU="$HOME/.config/monarch/extensions/monarch-menu.jsonc"
 declare -A PROVIDER_LIST=(
   [fonts]="monarch-font-list"
   [power-profiles]="monarch-powerprofiles-list"
+  [text-size]="monarch-display-text-size --list"
 )
 declare -A PROVIDER_CURRENT=(
   [fonts]="monarch-font-current"
   [power-profiles]="powerprofilesctl get"
+  [text-size]="monarch-display-text-size --current"
 )
 declare -A PROVIDER_ACTION=(
   [fonts]="monarch-font-set"
   # Not `powerprofilesctl set`: that applies without recording, so the next
   # time the cable moves the choice made here is silently undone.
   [power-profiles]="monarch-powerprofiles-set autodetect"
+  [text-size]="monarch-display-text-size"
 )
 # ── Data ─────────────────────────────────────────────────────────────────────
 

@@ -92,17 +92,21 @@ function M.isSecured(network: Network): boolean
   return network.security ~= "" and network.security ~= "open"
 end
 
--- Four bars' worth of resolution is all the glyph set gives, and it is all a
--- percentage from nmcli is worth.
+-- nmcli concatenates the security flags it finds, so an enterprise AP reads
+-- "WPA2 802.1X". Plain find, not a pattern: the dot would otherwise match the
+-- separator in anything shaped like it.
+function M.isEnterprise(network: Network): boolean
+  return network.security:find("802.1X", 1, true) ~= nil
+end
+
+-- Tabler's Wi-Fi ramp is five filled arcs, not four: `wifi-3` sits between
+-- `wifi-2` and the full `wifi`, and skipping it made the middle of the scale
+-- jump. Five steps in twenties is also exactly what quattro draws, over the
+-- five Nerd Font glyphs its own shell has.
+local SIGNAL = { "wifi-0", "wifi-1", "wifi-2", "wifi-3", "wifi" }
+
 function M.signalGlyph(signal: number): string
-  if signal >= 75 then
-    return "wifi"
-  elseif signal >= 50 then
-    return "wifi-2"
-  elseif signal >= 25 then
-    return "wifi-1"
-  end
-  return "wifi-0"
+  return SIGNAL[math.max(1, math.min(#SIGNAL, math.ceil(signal / 20)))]
 end
 
 return M

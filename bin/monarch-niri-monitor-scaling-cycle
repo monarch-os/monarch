@@ -32,11 +32,9 @@ else
 fi
 new=${SCALES[$new_idx]}
 
-# Apply live for instant feedback, then persist via the runtime override owner
-# (writes output { scale } into runtime.kdl, which niri reloads). niri's IPC
-# scale change is explicitly NOT saved, so the persisted copy is what survives a
-# reload or reboot.
-niri msg output "$focused" scale "$new" >/dev/null 2>&1
-monarch-niri-runtime output-scale "$focused" "$new"
+# Applying and persisting both live in monarch-display-scale, which this is now
+# only the keyboard's way into: two copies of "set it live, then write it where
+# a reload will find it" is one too many.
+monarch-display-scale "$focused" "$new" >/dev/null || exit 1
 
 notify-send -u low "󰍹    Display scaling set to ${new}x"
