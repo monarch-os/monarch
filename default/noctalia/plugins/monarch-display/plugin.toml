@@ -7,9 +7,11 @@
 # turning a screen off — so that is what this carries, with the text size
 # quattro puts in the same panel.
 #
-# Panel only, and no bar pill: `brightness` is already in the right lane, and a
-# second display icon beside it would say nothing new. It opens from the menu,
-# under Hardware, beside the scaling cycle and the laptop-display toggle.
+# The pill stands where quattro puts omarchy.monitor and where Monarch had the
+# stock `brightness` widget — replacing it rather than joining it, so the right
+# lane keeps one screen glyph. The scroll-to-dim gesture is re-bound in
+# display.luau and the brightness sliders are a button away inside the panel, so
+# the swap costs nothing. It also opens from the menu, under Hardware.
 
 id          = "monarch/display"
 name        = "Monarch Display"
@@ -21,14 +23,19 @@ license     = "MIT"
 description = "Per-output scale, on-off and the text size, in one panel."
 icon        = "device-desktop"
 
+[[widget]]
+id    = "display"
+entry = "display.luau"
+
 [[panel]]
 id     = "panel"
 entry  = "panel.luau"
 width  = 420
 height = 480
-# Nothing on the bar opens this, so it has nowhere to drop out of.
-placement = "floating"
-position  = "center"
+# Drops out of the pill that opens it, the way monarch/network's panel does.
+placement = "attached"
+position  = "auto"
+open_near_click = true
 keyboard_focus = "on_demand"
 capture_keys   = ["escape"]
 dismiss_on_outside_click = true

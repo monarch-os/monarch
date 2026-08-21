@@ -93,9 +93,16 @@ order = ["default"]
     "monarch/network:network",
     "bluetooth",
     "volume",
-    "brightness",
+    "monarch/display:display",
     "battery",
   ]
+  # monarch/display:display stands in for the stock `brightness` widget, in the
+  # place quattro gives omarchy.monitor. Its panel carries the per-output scale,
+  # the on-off and the text size, none of which exists anywhere in v5 — and the
+  # brightness the stock widget did reach is a button inside it, in the control
+  # center tab that owns the sliders. The scroll-to-dim gesture is re-bound in
+  # the plugin, so the swap costs nothing.
+  #
   # monarch/network:network stands in for the stock `network` widget: same pill,
   # plus the Wi-Fi band, and its panel carries the band, the DNS provider and
   # the network list where the stock one has only the list. Noctalia's own
@@ -150,9 +157,6 @@ show_label = false
 [widget.volume]
 show_label = false
 
-[widget.brightness]
-show_label = false
-
 [widget.battery]
 show_label = false
 
@@ -162,7 +166,7 @@ show_label = false
 hide_when_no_media = true
 
 # Noctalia talks to external monitors over DDC/CI, but only when asked: the
-# default is off, so the brightness widget and the control center's Monitor tab
+# default is off, so the brightness pill and the control center's Monitor tab
 # reached the laptop panel and silently nothing else. ddcutil is in
 # monarch-base.packages and ships the udev rule and the i2c-dev autoload;
 # install/config/i2c-group.sh puts the user in the group that rule needs.

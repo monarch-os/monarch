@@ -19,6 +19,22 @@ if [[ -d $plugin_src ]]; then
   cp -rf "$plugin_src"/. "$plugin_dst/"
 fi
 
+# The pill takes the place of the stock `brightness` widget rather than joining
+# it, so the right lane keeps one screen glyph. Its panel carries what no part of
+# v5 has, and the brightness the stock one reached is a button inside it.
+config="$HOME/.config/noctalia/config.toml"
+if [[ -f $config ]] && grep -q '^[[:space:]]*"brightness",\?[[:space:]]*$' "$config" &&
+  ! grep -q 'monarch/display:display' "$config"; then
+  echo "  Replacing the stock brightness widget with Monarch's display pill."
+  sed -i 's|^\([[:space:]]*\)"brightness"\(,\?\)[[:space:]]*$|\1"monarch/display:display"\2|' "$config"
+fi
+
+# A [widget.brightness] left behind names a widget no lane holds, which v5 warns
+# about on every load.
+if [[ -f $config ]] && ! grep -q '"brightness"' "$config"; then
+  sed -i '/^\[widget\.brightness\]$/,/^$/d' "$config"
+fi
+
 if noctalia msg status >/dev/null 2>&1; then
   noctalia msg plugins enable monarch/display >/dev/null 2>&1 || true
 else

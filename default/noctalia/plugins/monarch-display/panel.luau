@@ -268,6 +268,15 @@ function render()
   panel.render(ui.column({ flexGrow = 1, gap = 12 }, {
     ui.row({ align = "center", gap = 8 }, {
       ui.label({ text = "Displays", fontSize = 15, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+      -- The brightness this panel deliberately does not carry, one click away
+      -- in the tab that owns it. The pill's click used to land there directly.
+      ui.button({
+        text = "Brightness",
+        glyph = "sun",
+        variant = "outline",
+        controlSize = "sm",
+        onClick = "onBrightnessClicked",
+      }),
       ui.button({ glyph = "close", onClick = "onCloseClicked" }),
     }),
 
@@ -291,6 +300,14 @@ function onClose()
 end
 
 function onCloseClicked()
+  panel.close()
+end
+
+-- The control center is not a plugin panel, so togglePanel cannot name it and
+-- the tab has to be an argument; this is the same verb the stock widget's own
+-- left click sends.
+function onBrightnessClicked()
+  noctalia.runAsync("noctalia msg panel-toggle control-center monitor")
   panel.close()
 end
 
