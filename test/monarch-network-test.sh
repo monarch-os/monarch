@@ -12,6 +12,8 @@ LIST="$ROOT/bin/monarch-wifi-list"
 JOIN="$ROOT/bin/monarch-wifi-join"
 FORGET="$ROOT/bin/monarch-wifi-forget"
 RADIO="$ROOT/bin/monarch-toggle-wifi"
+CHOOSER="$ROOT/bin/monarch-setup-dns"
+PANEL="$ROOT/default/noctalia/plugins/monarch-network/panel.luau"
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -154,6 +156,39 @@ assert_equals "anything else is Custom" \
 grep -q 'if \[\[ -x /usr/bin/monarch-dns \]\]' "$STATUS" ||
   fail "status defers to the packaged monarch-dns when it is installed"
 pass "status defers to the packaged monarch-dns when it is installed"
+
+# ── The DNS chooser ──────────────────────────────────────────────────────────
+
+# Same reason as above: these are read off the source, because what they pin is
+# which path gets elevated, and a test may not plant a binary in /usr/bin to
+# find out. The sudoers grant naming that path lives with the package, in
+# monarch-pkgs, and so does the test for the rule's shape.
+
+grep -Fxq 'PACKAGED_DNS=/usr/bin/monarch-dns' "$CHOOSER" ||
+  fail "the chooser hands over to the path the grant names"
+pass "the chooser hands over to the path the grant names"
+
+# The guard that matters: writing DNS lived here too until the package took it,
+# and two implementations of it drifted apart before they were noticed.
+if grep -qE 'resolved\.conf|systemd/network|nmcli connection modify' "$CHOOSER"; then
+  fail "the chooser writes no DNS configuration of its own"
+fi
+pass "the chooser writes no DNS configuration of its own"
+
+grep -q 'monarch-pkg-add monarch-dns' "$CHOOSER" ||
+  fail "the chooser installs the package the panel sends it here for"
+pass "the chooser installs the package the panel sends it here for"
+
+grep -Fq 'local PACKAGED_DNS = "/usr/bin/monarch-dns"' "$PANEL" ||
+  fail "the panel elevates the same path and no other"
+pass "the panel elevates the same path and no other"
+
+# Custom takes servers from the caller, which is why the grant leaves it out.
+# A panel routing it down the granted path would hand user input to the one
+# command line that never stops to ask.
+grep -q 'provider ~= "Custom"' "$PANEL" ||
+  fail "the panel keeps Custom off the passwordless path"
+pass "the panel keeps Custom off the passwordless path"
 
 # ── The network list ─────────────────────────────────────────────────────────
 
