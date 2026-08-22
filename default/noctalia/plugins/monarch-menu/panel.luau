@@ -49,9 +49,11 @@ end
 -- leaving the selection somewhere off screen.
 --
 -- Sizes measured in the 560px panel: a level's one-line rows are ~39px, a search
--- result's two lines ~52px. One short of what fits, because the row after the
--- window is drawn too — clipped by the viewport, out of the cursor's reach, and
--- there to say the list continues now that the scrollbar cannot.
+-- result's two lines ~52px. Deliberately one short of what fits, so the slice
+-- never overflows the viewport: ui.scroll has no prop to hide its scrollbar or
+-- to refuse the wheel, and an overflowing slice would show a bar reporting the
+-- slice rather than the list — contradicting the count in the header, and
+-- letting the wheel shift the view out from under the window.
 local WINDOW_ROWS = 11
 local WINDOW_ROWS_SEARCHING = 8
 
@@ -252,7 +254,7 @@ function render()
     table.insert(children, ui.label({ text = "Nothing here", color = "on_surface_variant" }))
   else
     revealCursor()
-    for index = windowStart, math.min(#rows, windowStart + windowRows()) do
+    for index = windowStart, math.min(#rows, windowStart + windowRows() - 1) do
       table.insert(children, rowFor(rows[index], index))
     end
   end
