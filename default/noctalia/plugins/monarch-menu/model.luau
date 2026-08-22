@@ -229,9 +229,27 @@ local function isDescendant(menu: Menu, id: string, ancestor: string): boolean
   return false
 end
 
-function M.search(menu: Menu, query: string, guards: { [string]: boolean }, active: string?): { string }
+-- Hits carry which side of the fold they came from: rows of the open level
+-- first, then everything deeper. The panel rules between the two; the launcher
+-- has no level to be at and just reads the ids in order.
+export type Hit = { id: string, deeper: boolean }
+
+-- One array and one sort, and the hit tables are the ones returned — a second
+-- pass to reshape them is the sort of work that put this over the callback
+-- budget the first time this feature was attempted.
+local function byGroupThenScore(a, b): boolean
+  if a.deeper ~= b.deeper then
+    return not a.deeper
+  end
+  if a.score == b.score then
+    return a.id < b.id
+  end
+  return a.score > b.score
+end
+
+function M.search(menu: Menu, query: string, guards: { [string]: boolean }, active: string?): { Hit }
   local from = active or "root"
-  local matches = {}
+  local hits = {}
 
   for _, id in menu.order do
     local entry = menu.entries[id]
@@ -242,9 +260,10 @@ function M.search(menu: Menu, query: string, guards: { [string]: boolean }, acti
       and M.isVisible(menu, id, guards)
     then
       -- An empty query lists everything in declaration order: that is what the
-      -- launcher shows before a single character is typed.
+      -- launcher shows before a single character is typed, and it wants one flat
+      -- list rather than two groups.
       if query == "" then
-        table.insert(matches, { id = id, score = 0 })
+        table.insert(hits, { id = id, score = 0, deeper = false })
       else
         local haystack = menu.haystacks[id]
         if not haystack then
@@ -253,35 +272,20 @@ function M.search(menu: Menu, query: string, guards: { [string]: boolean }, acti
         end
         local score = noctalia.fuzzyScore(query, haystack)
         if score then
-          table.insert(matches, { id = id, score = score })
+          table.insert(hits, { id = id, score = score, deeper = M.parentOf(menu, id) ~= from })
         end
       end
     end
   end
 
-  if query == "" then
-    local ordered = {}
-    for _, match in matches do
-      table.insert(ordered, match.id)
-    end
-    return ordered
+  if query ~= "" then
+    table.sort(hits, byGroupThenScore)
   end
 
-  table.sort(matches, function(a, b)
-    if a.score == b.score then
-      return a.id < b.id
-    end
-    return a.score > b.score
-  end)
-
-  local out = {}
-  for _, match in matches do
-    table.insert(out, match.id)
-    if #out >= SEARCH_LIMIT then
-      break
-    end
+  for index = #hits, SEARCH_LIMIT + 1, -1 do
+    hits[index] = nil
   end
-  return out
+  return hits
 end
 
 -- The path shown in the header, e.g. "Trigger › Capture". Memoised on the menu:

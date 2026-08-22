@@ -51,7 +51,8 @@ local function publish(query: string)
   end
 
   local results = {}
-  for _, id in model.search(menu, query, guards) do
+  for _, hit in model.search(menu, query, guards) do
+    local id = hit.id
     local entry = menu.entries[id]
     -- A disabled row is already-installed software: listed in the panel so the
     -- catalog stays complete, but there is nothing to run, so it is not offered
