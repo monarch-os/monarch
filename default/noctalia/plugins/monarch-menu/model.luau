@@ -29,6 +29,10 @@ export type Menu = {
   children: { [string]: { string } },
   parents: { [string]: string },
   crumbs: { [string]: string },
+  -- What a row is matched against, built once and kept: the string never changes
+  -- while the tree is loaded, and rebuilding it per entry per keystroke was most
+  -- of what a search cost.
+  haystacks: { [string]: string },
 }
 
 -- The panel never parses the JSONC itself. `monarch-menu --state` already loads
@@ -75,7 +79,14 @@ function M.fromArray(rows: any): Menu?
     return nil
   end
 
-  return { entries = entries, order = order, children = children, parents = parents, crumbs = {} }
+  return {
+    entries = entries,
+    order = order,
+    children = children,
+    parents = parents,
+    crumbs = {},
+    haystacks = {},
+  }
 end
 
 function M.parentOf(menu: Menu, id: string): string
@@ -186,27 +197,60 @@ function M.visibleChildren(menu: Menu, parent: string, guards: { [string]: boole
   return out
 end
 
--- Search spans the whole tree, not just the open level: rows are matched on
--- their label, their last id segment and their breadcrumb, so "bash" finds
--- Learn > Bash from the root.
+-- Search is bounded by the open level, as quattro's is: from Trigger it only
+-- looks inside Trigger. Every hit is then something reachable from where the
+-- user already is, and the path each row prints stays short enough to read.
+-- A row is matched on its own name — its label and its last id segment — and
+-- never on its ancestry. Under a level the ancestry is the same for every row,
+-- so folding it in only adds false hits: inside Install > Development, "p"
+-- answered for Go, Zig and Java, on the "p" of "development".
 --
 -- Results are capped because this runs on every keystroke, inside a callback the
 -- host kills when it takes too long: a loose query matches most of the tree, and
 -- rendering 200 rows nobody scrolls to is what busted the budget.
 local SEARCH_LIMIT = 40
 
-function M.search(menu: Menu, query: string, guards: { [string]: boolean }): { string }
+-- The shipped tree is four levels deep; the bound only stops a malformed parent
+-- chain from spinning.
+local function isDescendant(menu: Menu, id: string, ancestor: string): boolean
+  if ancestor == "root" then
+    return true
+  end
+  local cursor = M.parentOf(menu, id)
+  for _ = 1, 32 do
+    if cursor == ancestor then
+      return true
+    end
+    if cursor == "root" then
+      return false
+    end
+    cursor = M.parentOf(menu, cursor)
+  end
+  return false
+end
+
+function M.search(menu: Menu, query: string, guards: { [string]: boolean }, active: string?): { string }
+  local from = active or "root"
   local matches = {}
 
   for _, id in menu.order do
     local entry = menu.entries[id]
-    if entry and (entry.action or entry.provider) and M.isVisible(menu, id, guards) then
+    if
+      entry
+      and (entry.action or entry.provider)
+      and isDescendant(menu, id, from)
+      and M.isVisible(menu, id, guards)
+    then
       -- An empty query lists everything in declaration order: that is what the
       -- launcher shows before a single character is typed.
       if query == "" then
         table.insert(matches, { id = id, score = 0 })
       else
-        local haystack = M.labelOf(menu, id) .. " " .. id:gsub("%.", " ")
+        local haystack = menu.haystacks[id]
+        if not haystack then
+          haystack = M.labelOf(menu, id) .. " " .. M.lastSegment(id)
+          menu.haystacks[id] = haystack
+        end
         local score = noctalia.fuzzyScore(query, haystack)
         if score then
           table.insert(matches, { id = id, score = score })

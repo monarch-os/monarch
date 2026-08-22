@@ -87,7 +87,7 @@ end
 
 local function refreshRows()
   if query ~= "" then
-    rows = entryRows(model.search(menu, query, guards))
+    rows = entryRows(model.search(menu, query, guards, currentLevel()))
   elseif providerFor == currentLevel() then
     rows = providerRows
   else
@@ -234,7 +234,11 @@ end
 -- The window hides the scrollbar's meaning, so the header carries the position
 -- instead: without it, nine results out of forty look like all of them.
 local function headerText(): string
-  local where = if query ~= "" then "Search" else model.breadcrumb(menu, currentLevel())
+  local level = currentLevel()
+  local where = if query == "" then
+      model.breadcrumb(menu, level)
+    elseif level == "root" then "Search"
+    else "Search in " .. model.breadcrumb(menu, level)
   if #rows > windowRows() then
     return where .. "  ·  " .. tostring(cursor) .. "/" .. tostring(#rows)
   end
