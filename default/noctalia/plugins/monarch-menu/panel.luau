@@ -145,26 +145,31 @@ local function rowFor(row, index: number)
     or (entry.checked and entry.checked ~= "" and guards[id .. ":c"] == true)
 
   local label = model.labelOf(menu, id)
+  local tint = isDisabled and "on_surface_variant" or "on_surface"
+
   -- While searching, rows come from the whole tree, so each one says where it
-  -- lives — otherwise three rows called "PHP" are indistinguishable.
+  -- lives — otherwise three rows called "PHP" are indistinguishable. The path
+  -- goes under the name, smaller and faded: run together on one line the two
+  -- read as a single string and neither reads as a name.
+  local naming = ui.label({ text = label, flexGrow = 1, color = tint })
   if query ~= "" then
     local parent = model.parentOf(menu, id)
     if parent ~= "root" then
-      label = label .. "  ·  " .. model.breadcrumb(menu, parent)
+      naming = ui.column({ flexGrow = 1, gap = 1 }, {
+        ui.label({ text = label, color = tint }),
+        ui.label({
+          text = model.breadcrumb(menu, parent),
+          fontSize = 11,
+          color = "on_surface/0.55",
+          maxLines = 1,
+        }),
+      })
     end
   end
 
   local children = {
-    ui.label({
-      text = entry.icon or "",
-      width = 22,
-      color = isDisabled and "on_surface_variant" or "on_surface",
-    }),
-    ui.label({
-      text = label,
-      flexGrow = 1,
-      color = isDisabled and "on_surface_variant" or "on_surface",
-    }),
+    ui.label({ text = entry.icon or "", width = 22, color = tint }),
+    naming,
   }
 
   if isChecked then
