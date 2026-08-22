@@ -42,6 +42,36 @@ local function currentLevel(): string
   return stack[#stack]
 end
 
+-- Noctalia's ui.scroll is a scroll container, not a list view: it can be pinned
+-- to the bottom and it reports its offset, but nothing scrolls it to a child.
+-- So the panel draws only the slice of rows the viewport holds and moves that
+-- slice with the cursor — arrowing past the fold shifts the window instead of
+-- leaving the selection somewhere off screen.
+--
+-- Sizes measured in the 560px panel: a level's one-line rows are ~39px, a search
+-- result's two lines ~52px. One short of what fits, because the row after the
+-- window is drawn too — clipped by the viewport, out of the cursor's reach, and
+-- there to say the list continues now that the scrollbar cannot.
+local WINDOW_ROWS = 11
+local WINDOW_ROWS_SEARCHING = 8
+
+local windowStart = 1
+
+local function windowRows(): number
+  return if query ~= "" then WINDOW_ROWS_SEARCHING else WINDOW_ROWS
+end
+
+local function revealCursor()
+  local size = windowRows()
+  if cursor < windowStart then
+    windowStart = cursor
+  elseif cursor > windowStart + size - 1 then
+    windowStart = cursor - size + 1
+  end
+  windowStart = math.min(windowStart, math.max(1, #rows - size + 1))
+  windowStart = math.max(windowStart, 1)
+end
+
 -- Rows are uniform whichever level they come from: an entry row carries an id,
 -- a provider row carries the value the provider will be handed back. Cursor,
 -- rendering and activation only ever see this shape.
@@ -68,6 +98,7 @@ local function refreshRows()
   if cursor < 1 then
     cursor = 1
   end
+  windowStart = 1
 end
 
 local render
@@ -198,6 +229,16 @@ local function rowFor(row, index: number)
   }, children)
 end
 
+-- The window hides the scrollbar's meaning, so the header carries the position
+-- instead: without it, nine results out of forty look like all of them.
+local function headerText(): string
+  local where = if query ~= "" then "Search" else model.breadcrumb(menu, currentLevel())
+  if #rows > windowRows() then
+    return where .. "  ·  " .. tostring(cursor) .. "/" .. tostring(#rows)
+  end
+  return where
+end
+
 function render()
   if not menu then
     panel.render(ui.column({ flexGrow = 1, gap = 12 }, {
@@ -210,15 +251,16 @@ function render()
   if #rows == 0 then
     table.insert(children, ui.label({ text = "Nothing here", color = "on_surface_variant" }))
   else
-    for index, row in rows do
-      table.insert(children, rowFor(row, index))
+    revealCursor()
+    for index = windowStart, math.min(#rows, windowStart + windowRows()) do
+      table.insert(children, rowFor(rows[index], index))
     end
   end
 
   panel.render(ui.column({ flexGrow = 1, gap = 10 }, {
     ui.row({ align = "center", gap = 8 }, {
       ui.label({
-        text = query ~= "" and "Search" or model.breadcrumb(menu, currentLevel()),
+        text = headerText(),
         fontSize = 15,
         fontWeight = "bold",
         color = "on_surface",
