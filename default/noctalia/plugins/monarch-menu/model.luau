@@ -274,7 +274,8 @@ function M.search(menu: Menu, query: string, guards: { [string]: boolean }, acti
       and M.isVisible(menu, id, guards)
     then
       -- An empty query lists everything in declaration order: that is what the
-      -- launcher shows before a single character is typed.
+      -- launcher shows before a single character is typed, and it wants one flat
+      -- list rather than two groups.
       if query == "" then
         table.insert(matches, { id = id, score = 0, group = searchGroup(menu, id, from) })
       else
