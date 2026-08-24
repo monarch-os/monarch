@@ -101,6 +101,13 @@ assert_contains "documentation contains About" "$output" "About"
 output=$("$MENU" --rows install | cut -f2 | tr '\n' ' ')
 assert_contains "software links to the removal catalog" "$output" "Remove software"
 
+output=$("$MENU" --state | jq '[.tree[] | select(.id | test("^trigger\\.toggle\\.[^.]+$")) | select(.checked)] | length')
+assert_equals "every toggle exposes its active state" "$output" "7"
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.toggle.notifications") | .checked')
+assert_equals "notifications check represents active DND" "$output" \
+  "monarch-toggle-notification-silencing status | jq -e '.enabled'"
+
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 assert_equals "empty route opens the root menu" "$("$MENU" --resolve '')" "root"

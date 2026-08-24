@@ -97,13 +97,13 @@
   "trigger.share.wifi": {"icon":"󰐲","label":"Wi-Fi","aliases":["wifi-qr"],"when":"monarch-wifi-device >/dev/null 2>&1","action":"noctalia msg panel-open monarch/wifi-qr:panel"},
 
   // Trigger > Toggle
-  "trigger.toggle.screensaver": {"icon":"󱄄","label":"Screensaver","action":"monarch-toggle-screensaver"},
-  "trigger.toggle.nightlight": {"icon":"󰔎","label":"Nightlight","action":"monarch-toggle-nightlight"},
-  "trigger.toggle.idle-lock": {"icon":"󱫖","label":"Idle Lock","action":"monarch-toggle-idle"},
-  "trigger.toggle.notifications": {"icon":"󰂛","label":"Notifications","action":"monarch-toggle-notification-silencing"},
+  "trigger.toggle.screensaver": {"icon":"󱄄","label":"Screensaver","checked":"! monarch-toggle-enabled screensaver-off","action":"monarch-toggle-screensaver"},
+  "trigger.toggle.nightlight": {"icon":"󰔎","label":"Nightlight","checked":"monarch-toggle-nightlight status | jq -e '.enabled'","action":"monarch-toggle-nightlight"},
+  "trigger.toggle.idle-lock": {"icon":"󱫖","label":"Idle Lock","checked":"monarch-toggle-idle status | jq -e '.enabled == false'","action":"monarch-toggle-idle"},
+  "trigger.toggle.notifications": {"icon":"󰂛","label":"Notifications","checked":"monarch-toggle-notification-silencing status | jq -e '.enabled'","action":"monarch-toggle-notification-silencing"},
   "trigger.toggle.crash-capture": {"icon":"󱚡","label":"Crash Capture","checked":"! monarch-toggle-enabled crash-capture-off","action":"monarch-toggle-crash-capture"},
-  "trigger.toggle.direct-boot": {"icon":"","label":"Direct Boot","action":"monarch-launch-floating-terminal-with-presentation monarch-config-direct-boot"},
-  "trigger.toggle.passwordless-sudo": {"icon":"󰟵","label":"Passwordless Sudo","action":"monarch-launch-floating-terminal-with-presentation monarch-sudo-passwordless"},
+  "trigger.toggle.direct-boot": {"icon":"","label":"Direct Boot","checked":"efibootmgr 2>/dev/null | grep -Eq '^Boot[0-9A-Fa-f]+[*]? Monarch([[:space:]]|$)'","action":"monarch-launch-floating-terminal-with-presentation monarch-config-direct-boot"},
+  "trigger.toggle.passwordless-sudo": {"icon":"󰟵","label":"Passwordless Sudo","checked":"sudo -n test -f /etc/sudoers.d/99-monarch-nopasswd-$USER && systemctl is-active --quiet monarch-nopasswd-expire-$USER.timer","action":"monarch-launch-floating-terminal-with-presentation monarch-sudo-passwordless"},
 
   // Trigger > Hardware
   "trigger.hardware.displays": {"icon":"󰍺","label":"Displays","description":"Arrange and configure connected monitors","keywords":["monitor","screen","resolution"],"action":"noctalia msg panel-toggle monarch/display:panel"},
