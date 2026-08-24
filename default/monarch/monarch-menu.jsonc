@@ -62,6 +62,7 @@
   "trigger.share": {"icon":"","label":"Share"},
   "trigger.toggle": {"icon":"󰔎","label":"Toggle","aliases":["toggles"]},
   "trigger.hardware": {"icon":"","label":"Hardware","aliases":["hw"]},
+  "trigger.tests": {"icon":"󰓅","label":"Speed Test","aliases":["speedtest","benchmark"]},
 
   // Trigger > Reminder
   "trigger.reminder.set": {"icon":"󰔛","label":"Set one","action":"monarch-reminder -i"},
@@ -112,6 +113,10 @@
   "trigger.hardware.touchpad": {"icon":"󰟸","label":"Touchpad","when":"monarch-hw-touchpad","action":"monarch-toggle-touchpad"},
   "trigger.hardware.touchpad-haptics": {"icon":"󰌌","label":"Touchpad Haptics","when":"monarch-hw-dell-xps-haptic-touchpad && monarch-cmd-present dell-xps-touchpad-haptics"},
   "trigger.hardware.touchscreen": {"icon":"󰆽","label":"Touchscreen","when":"monarch-hw-touchscreen","action":"monarch-toggle-touchscreen"},
+
+  // Actions > Speed Test
+  "trigger.tests.network": {"icon":"󰓅","label":"Network","action":"noctalia msg panel-open monarch/network:speedtest"},
+  "trigger.tests.disk": {"icon":"󰋊","label":"Disk","action":"noctalia msg panel-open monarch/network:disk-speedtest"},
 
   "trigger.hardware.touchpad-haptics.low": {"icon":"󰌌","label":"low","checked":"[[ $(dell-xps-touchpad-haptics get) == low ]]","action":"dell-xps-touchpad-haptics set low"},
   "trigger.hardware.touchpad-haptics.mid": {"icon":"󰌌","label":"mid","checked":"[[ $(dell-xps-touchpad-haptics get) == mid ]]","action":"dell-xps-touchpad-haptics set mid"},

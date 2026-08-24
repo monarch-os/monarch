@@ -3,8 +3,8 @@
 # Port of quattro's omarchy.network, which is one bar-widget plugin whose panel
 # carries the connection, the Wi-Fi band, the DNS provider and the network list,
 # and which summons its QR and speed-test panels rather than embedding them.
-# Same shape here — monarch/wifi-qr is the QR panel, and the speed test is the
-# second entry below.
+# Same shape here — monarch/wifi-qr is the QR panel, with network and disk tests
+# as additional entries below.
 #
 # It stands in for Noctalia's stock `network` widget, which has the list and the
 # radio but none of the band, DNS, QR or speed test.
@@ -16,7 +16,7 @@ version     = "1.0.0"
 plugin_api  = 22
 author      = "monarch"
 license     = "MIT"
-description = "Connection state, Wi-Fi band, DNS and the network list in one panel."
+description = "Connection state, Wi-Fi band, DNS, network list and speed tests."
 icon        = "wifi"
 
 [[widget]]
@@ -45,6 +45,17 @@ id     = "speedtest"
 entry  = "speedtest.luau"
 width  = 380
 height = 280
+placement = "floating"
+position  = "center"
+keyboard_focus = "on_demand"
+capture_keys   = ["escape"]
+dismiss_on_outside_click = true
+
+[[panel]]
+id     = "disk-speedtest"
+entry  = "disk-speedtest.luau"
+width  = 420
+height = 320
 placement = "floating"
 position  = "center"
 keyboard_focus = "on_demand"
