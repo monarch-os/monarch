@@ -2,6 +2,10 @@
 mkdir -p ~/.config
 cp -R "$MONARCH_PATH"/config/* ~/.config/
 
+# Monarch already owns the initial palette, wallpaper and telemetry choice.
+mkdir -p ~/.local/state/noctalia
+touch ~/.local/state/noctalia/.setup-complete
+
 # Noctalia v5 discovers local plugins under ~/.local/share/noctalia/plugins/,
 # not ~/.config/, so the bar indicators are seeded separately from config/.
 mkdir -p ~/.local/share/noctalia/plugins
