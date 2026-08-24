@@ -85,9 +85,20 @@ local function entryRows(ids: { string })
   return out
 end
 
+-- Search hits arrive grouped. `deeper` rides along only so render can rule off
+-- where the open level's own hits end; the rule is drawn between rows and never
+-- becomes one, so the cursor cannot land on it.
+local function hitRows(hits)
+  local out = {}
+  for _, hit in hits do
+    table.insert(out, { kind = "entry", id = hit.id, deeper = hit.deeper })
+  end
+  return out
+end
+
 local function refreshRows()
   if query ~= "" then
-    rows = entryRows(model.search(menu, query, guards, currentLevel()))
+    rows = hitRows(model.search(menu, query, guards, currentLevel()))
   elseif providerFor == currentLevel() then
     rows = providerRows
   else
@@ -259,7 +270,18 @@ function render()
   else
     revealCursor()
     for index = windowStart, math.min(#rows, windowStart + windowRows() - 1) do
-      table.insert(children, rowFor(rows[index], index))
+      local row = rows[index]
+      -- One rule where the open level's own hits give way to deeper ones. A
+      -- filled row rather than ui.separator, which lays out to nothing inside
+      -- ui.scroll — this is the mechanism that paints the cursor highlight.
+      if row.deeper and index > windowStart and not rows[index - 1].deeper then
+        table.insert(children, ui.row({
+          key = "deeper-rule",
+          padding = 0,
+          fill = "on_surface/0.35",
+        }, { ui.spacer({ height = 1 }) }))
+      end
+      table.insert(children, rowFor(row, index))
     end
   end
 
