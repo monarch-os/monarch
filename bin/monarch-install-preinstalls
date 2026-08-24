@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# monarch:summary=Restore the preinstalled Monarch applications (web apps, TUIs, and selected packages).
+# monarch:requires-sudo=true
+
+# Keep this package list in step with monarch-remove-preinstalls. The Niri user
+# override is deliberately not restored because it may have changed since removal.
+
+set -e
+
+if gum confirm "Are you sure you want to restore all preinstalled web apps, TUI wrappers, and desktop applications?"; then
+  echo -e "Restoring preinstalled Monarch applications...\n"
+
+  monarch-refresh-applications
+
+  monarch-pkg-add \
+    bettercap \
+    binwalk \
+    caido-desktop \
+    claude-code \
+    deezer \
+    fabric-ai-bin \
+    ffuf-bin \
+    fq \
+    fx \
+    gitleaks \
+    gau \
+    hashcat \
+    lazydocker \
+    lazygit \
+    ligolo-ng \
+    massdns \
+    nmap \
+    obsidian \
+    opencode \
+    posting \
+    signal-desktop \
+    socat \
+    sshm-bin \
+    termshark \
+    traceroute \
+    waybackurls \
+    websocat \
+    wifite \
+    xournalpp
+
+  monarch-restart-noctalia
+  monarch-state clear preinstalls-removed
+fi
