@@ -49,12 +49,19 @@ PATH="$TMP/bin:$ROOT/bin:/usr/bin" HOME="$TMP/home" \
 flag="$TMP/home/.local/state/monarch/toggles/crash-capture-off"
 [[ -f $flag ]]
 grep -Fqx -- '--user stop monarch-crash-watch.service' "$SYSTEMCTL_LOG"
+HOME="$TMP/home" PATH="$TMP/bin:$ROOT/bin:/usr/bin" \
+  "$ROOT/bin/monarch-menu" --state |
+  jq -e '.guards["trigger.toggle.crash-capture:c"] == false' >/dev/null
 
 : >"$SYSTEMCTL_LOG"
 PATH="$TMP/bin:$ROOT/bin:/usr/bin" HOME="$TMP/home" \
   "$ROOT/bin/monarch-toggle-crash-capture"
 [[ ! -f $flag ]]
 grep -Fqx -- '--user start monarch-crash-watch.service' "$SYSTEMCTL_LOG"
+
+HOME="$TMP/home" PATH="$TMP/bin:$ROOT/bin:/usr/bin" \
+  "$ROOT/bin/monarch-menu" --state |
+  jq -e '.guards["trigger.toggle.crash-capture:c"] == true' >/dev/null
 
 PATH="$TMP/bin:$ROOT/bin:/usr/bin" HOME="$TMP/home" MONARCH_PATH="$ROOT" \
   "$ROOT/bin/monarch-crash-watch"
