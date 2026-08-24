@@ -83,6 +83,13 @@ window-rule {
     default-window-height { fixed 600; }
 }
 
+window-rule {
+    match app-id="org.monarch.about"
+    open-floating true
+    default-column-width { fixed 1100; }
+    default-window-height { fixed 580; }
+}
+
 // Pentest env manager (monarch-menu-pentestenv/exegol/rfswift). Its own app-id
 // so it gets a fitted dialog size instead of the tall, mostly-empty float that
 // the shared org.monarch.terminal would give — the fzf picker, footer actions
@@ -181,4 +188,3 @@ window-rule {
         inactive-color "#7d0d2d"
     }
 }
-

@@ -2,4 +2,33 @@
 
 # monarch:summary=Launch the fastfetch TUI that gives information about the current system.
 
-exec monarch-launch-or-focus-tui "bash -c 'fastfetch; read -n 1 -s'"
+about_layout() {
+  local columns=${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}
+  local lines=${LINES:-$(tput lines 2>/dev/null || echo 24)}
+
+  if (( columns >= 104 && lines >= 30 )); then
+    echo full
+  else
+    echo compact
+  fi
+}
+
+if [[ ${1:-} == "--layout" ]]; then
+  about_layout
+  exit
+fi
+
+if [[ ${1:-} == "--render" ]]; then
+  monarch_path=${MONARCH_PATH:-$HOME/.local/share/monarch}
+  if [[ $(about_layout) == "full" ]]; then
+    fastfetch
+  else
+    fastfetch --config "$monarch_path/config/fastfetch/compact.jsonc"
+  fi
+  read -n 1 -s
+  exit
+fi
+
+exec monarch-launch-or-focus \
+  "org.monarch.about" \
+  "monarch-launch-tui --app-id=org.monarch.about monarch-launch-about --render"

@@ -622,7 +622,7 @@ Independent of the port, applied to the current bash menu:
 
 ---
 
-### 8. Improve `monarch-about` rendering
+### 8. Improve `monarch-about` rendering — *done, verified in the VM*
 
 The current terminal presentation breaks at the VM's 1900×1005 resolution:
 the ASCII logo and its labels are clipped, the left-side metadata collides with
@@ -630,6 +630,12 @@ the artwork, and the right-side boxes leave large uneven gaps. Make the layout
 derive from the available terminal rows and columns, keep every label inside its
 section, and provide a compact fallback when the full composition does not fit.
 Validate it at the VM resolution as well as a conventional 1920×1080 display.
+
+`monarch-launch-about` now opens under its own `org.monarch.about` app id in a
+fitted 1100×580 window. It selects the full branded composition when at least
+104×30 terminal cells are available and a 14-row, logo-free compact composition
+otherwise. Both paths were verified at 1900×1005, with the compact path forced
+through an 800×400 window.
 
 ## v5 facts worth not rediscovering
 
