@@ -38,6 +38,17 @@ capture_keys   = ["up", "down", "left", "right", "return", "escape", "ctrl+j", "
 dismiss_on_outside_click = true
 
 [[panel]]
+id     = "select"
+entry  = "panel.luau"
+width  = 520
+height = 320
+placement = "floating"
+position  = "center"
+keyboard_focus = "on_demand"
+capture_keys   = ["up", "down", "return", "escape", "ctrl+j", "ctrl+k"]
+dismiss_on_outside_click = true
+
+[[panel]]
 id     = "input"
 entry  = "panel.luau"
 width  = 520

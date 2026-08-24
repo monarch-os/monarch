@@ -50,7 +50,7 @@ payload=$(jq -nc \
   --arg doneFile "$done_file" \
   '{mode: $mode, prompt: $prompt, options: $options, selectionFile: $selectionFile, doneFile: $doneFile}')
 
-noctalia msg panel-open monarch/menu:panel "$payload" >/dev/null
+noctalia msg panel-open monarch/menu:select "$payload" >/dev/null
 
 while [[ ! -e $done_file ]]; do
   sleep 0.05

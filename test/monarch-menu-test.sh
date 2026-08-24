@@ -331,6 +331,11 @@ export PATH="$FAKE_BIN:$PATH"
 assert_equals "native select returns the chosen option" \
   "$(NOCTALIA_TEST_SELECTION=medium "$ROOT/bin/monarch-menu-select" Resolution high medium low)" "medium"
 
+if ! grep -q 'panel-open monarch/menu:select' "$ROOT/bin/monarch-menu-select"; then
+  fail "native select uses the compact panel"
+fi
+pass "native select uses the compact panel"
+
 assert_equals "native input returns the submitted text" \
   "$(NOCTALIA_TEST_SELECTION='Ship it' "$ROOT/bin/monarch-menu-input" Reminder)" "Ship it"
 
