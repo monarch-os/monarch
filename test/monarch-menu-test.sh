@@ -262,6 +262,12 @@ if ! grep -q 'labelLower == queryLower' "$ROOT/default/noctalia/plugins/monarch-
 fi
 pass "search ranks exact labels before fuzzy matches"
 
+if ! grep -q 'groupLeaders' "$ROOT/default/noctalia/plugins/monarch-menu/model.luau" ||
+  ! grep -q 'a.group ~= b.group' "$ROOT/default/noctalia/plugins/monarch-menu/model.luau"; then
+  fail "search keeps result groups contiguous"
+fi
+pass "search keeps result groups contiguous"
+
 # Guards are keyed `<id>:<w|c|d>` so the consumer decodes them natively.
 output=$("$MENU" --state | jq -r '.guards | keys | map(split(":")[1]) | unique | join(" ")')
 assert_equals "--state reports all three guard kinds" "$output" "c d w"

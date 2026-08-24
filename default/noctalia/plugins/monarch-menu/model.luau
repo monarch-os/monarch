@@ -307,7 +307,7 @@ function M.search(menu: Menu, query: string, guards: { [string]: boolean }, acti
     return matches
   end
 
-  table.sort(matches, function(a, b)
+  local function ranksBefore(a, b): boolean
     if a.matchRank ~= b.matchRank then
       return a.matchRank > b.matchRank
     end
@@ -315,6 +315,21 @@ function M.search(menu: Menu, query: string, guards: { [string]: boolean }, acti
       return a.score > b.score
     end
     return a.order < b.order
+  end
+
+  local groupLeaders = {}
+  for _, match in matches do
+    local leader = groupLeaders[match.group]
+    if not leader or ranksBefore(match, leader) then
+      groupLeaders[match.group] = match
+    end
+  end
+
+  table.sort(matches, function(a, b)
+    if a.group ~= b.group then
+      return ranksBefore(groupLeaders[a.group], groupLeaders[b.group])
+    end
+    return ranksBefore(a, b)
   end)
 
   for index = #matches, SEARCH_LIMIT + 1, -1 do
