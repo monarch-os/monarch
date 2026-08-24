@@ -7,14 +7,9 @@ this migration is forced rather than opportunistic. The package is `extra/noctal
 in the Arch official repos, so there is no packaging work — the binary is
 `noctalia`, the daemon is `noctalia -d`, and IPC is `noctalia msg <verb>`.
 
-Branch status: 20 commits, 86 files, +4706 / −3736 vs `dev`, pushed, and taking
-merges through PRs rather than direct commits. Tests 58/58 (CLI) and 39/39
-(menu), `bin/monarch commands --check` OK on 258 commands, `monarch-menu --check`
-OK on 266 entries.
-
-What is left is items 1, 2, 5 and 6 below. **Item 1 is now the one to write**: it
-was deliberately deferred until the branch was feature-complete, and with the
-menu finished (item 7) nothing else blocks it.
+The blocking migration, wallpaper integration, status indicators, menu and
+responsive About screen are done. Remaining work is tracked under **Next
+chantiers** below. Firefox/pywalfox remains deliberately deferred.
 
 ---
 
@@ -636,6 +631,28 @@ fitted 1100×580 window. It selects the full branded composition when at least
 104×30 terminal cells are available and a 14-row, logo-free compact composition
 otherwise. Both paths were verified at 1900×1005, with the compact path forced
 through an 800×400 window.
+
+## Next chantiers
+
+In intended order:
+
+1. **Preinstall restore — done, verified in the VM.** Restore the application
+   launchers and the same 29 packages removed by `monarch-remove-preinstalls`,
+   without overwriting a Niri user override that may have changed since removal.
+2. **Network and disk speed tests.** Expose the existing
+   `monarch-network-speedtest` from the menu, then implement the disk equivalent.
+3. **SSHD setup.** Install and enable OpenSSH, authorize a pasted key or keys
+   from a GitHub username, and make the firewall exposure explicit.
+4. **Network diagnostics.** Keep Noctalia's native picker and add band, signal,
+   bitrate, addressing and latency information to Monarch's network panel.
+5. **Extensible application theming.** Prefer an upstream local-template source;
+   otherwise scope a Monarch-owned installer and renderer. SDDM still needs to
+   follow palette changes.
+6. **Crash capture.** Decide what is captured, retained and shared before adding
+   a watcher service or menu toggle.
+
+Noctalia plugin management remains blocked on reliable plugin reload after an
+enable or disable operation.
 
 ## v5 facts worth not rediscovering
 

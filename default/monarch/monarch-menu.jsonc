@@ -231,6 +231,7 @@
   "install.ai": {"icon":"󱚤","label":"AI"},
   "install.gaming": {"icon":"","label":"Gaming"},
   "install.windows": {"icon":"󰍲","label":"Windows","disabled":"[[ -f $HOME/.local/share/applications/windows-vm.desktop ]]","action":"monarch-launch-floating-terminal-with-presentation \"monarch-windows-vm install\""},
+  "install.preinstalls": {"icon":"󰏓","label":"Preinstalls","disabled":"[[ ! -f $HOME/.local/state/monarch/preinstalls-removed ]]","action":"monarch-launch-floating-terminal-with-presentation monarch-install-preinstalls"},
 
   // Install > Browser
   "install.browser.chrome": {"icon":"","label":"Chrome","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-browser chrome\"","disabled":"monarch-pkg-present google-chrome"},
