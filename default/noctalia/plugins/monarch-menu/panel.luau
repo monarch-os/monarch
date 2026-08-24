@@ -17,6 +17,7 @@ local guards = {}
 local stack = { "root" }
 local rows = {}
 local cursor = 1
+local cursors = {}
 local query = ""
 local searchRevision = 0
 local status = "Loading the menu…"
@@ -55,7 +56,7 @@ end
 -- slice rather than the list — contradicting the count in the header, and
 -- letting the wheel shift the view out from under the window.
 local WINDOW_ROWS = 11
-local WINDOW_ROWS_SEARCHING = 8
+local WINDOW_ROWS_SEARCHING = 6
 
 local windowStart = 1
 
@@ -85,9 +86,24 @@ local function entryRows(ids: { string })
   return out
 end
 
+local function hitRows(hits)
+  local out = {}
+  local previousGroup = nil
+  for _, hit in hits do
+    table.insert(out, {
+      kind = "entry",
+      id = hit.id,
+      group = hit.group,
+      groupStart = hit.group ~= previousGroup,
+    })
+    previousGroup = hit.group
+  end
+  return out
+end
+
 local function refreshRows()
   if query ~= "" then
-    rows = entryRows(model.search(menu, query, guards, currentLevel()))
+    rows = hitRows(model.search(menu, query, guards, currentLevel()))
   elseif providerFor == currentLevel() then
     rows = providerRows
   else
@@ -239,6 +255,10 @@ local function headerText(): string
       model.breadcrumb(menu, level)
     elseif level == "root" then "Search"
     else "Search in " .. model.breadcrumb(menu, level)
+  if query ~= "" then
+    local noun = if #rows == 1 then "result" else "results"
+    return where .. "  ·  " .. tostring(#rows) .. " " .. noun
+  end
   if #rows > windowRows() then
     return where .. "  ·  " .. tostring(cursor) .. "/" .. tostring(#rows)
   end
@@ -259,7 +279,17 @@ function render()
   else
     revealCursor()
     for index = windowStart, math.min(#rows, windowStart + windowRows() - 1) do
-      table.insert(children, rowFor(rows[index], index))
+      local row = rows[index]
+      if query ~= "" and (row.groupStart or index == windowStart) then
+        table.insert(children, ui.label({
+          text = model.titleOf(menu, row.group),
+          fontSize = 11,
+          fontWeight = "bold",
+          color = "primary",
+          padding = 4,
+        }))
+      end
+      table.insert(children, rowFor(row, index))
     end
   end
 
@@ -284,6 +314,12 @@ function render()
     }),
 
     ui.scroll({ flexGrow = 1, gap = 2, align = "stretch" }, children),
+
+    ui.row({ align = "center", gap = 14 }, {
+      ui.label({ text = "↑↓ Navigate", fontSize = 11, color = "on_surface/0.55" }),
+      ui.label({ text = "↵ Open", fontSize = 11, color = "on_surface/0.55" }),
+      ui.label({ text = "← Back", fontSize = 11, color = "on_surface/0.55" }),
+    }),
   }))
 end
 
@@ -337,7 +373,7 @@ local function enter(id: string)
   for _, segment in segments do
     table.insert(stack, segment)
   end
-  cursor = 1
+  cursor = cursors[id] or 1
 
   local entry = menu.entries[id]
   if entry and entry.provider then
@@ -392,6 +428,7 @@ function activate()
   -- opens is wherever it actually lives.
   query = ""
   searchRevision += 1
+  cursors[currentLevel()] = cursor
   enter(destination)
   refreshRows()
   render()
@@ -413,7 +450,7 @@ local function back(): boolean
   end
 
   table.remove(stack)
-  cursor = 1
+  cursor = cursors[currentLevel()] or 1
   refreshRows()
   render()
   return true

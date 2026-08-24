@@ -229,9 +229,28 @@ local function isDescendant(menu: Menu, id: string, ancestor: string): boolean
   return false
 end
 
-function M.search(menu: Menu, query: string, guards: { [string]: boolean }, active: string?): { string }
+export type Hit = { id: string, group: string }
+
+local function searchGroup(menu: Menu, id: string, ancestor: string): string
+  local group = id
+  local parent = M.parentOf(menu, group)
+  for _ = 1, 32 do
+    if parent == ancestor or parent == "root" then
+      return group
+    end
+    group = parent
+    parent = M.parentOf(menu, group)
+  end
+  return id
+end
+
+function M.search(menu: Menu, query: string, guards: { [string]: boolean }, active: string?): { Hit }
   local from = active or "root"
   local matches = {}
+  local groupRanks = {}
+  for index, id in M.childrenOf(menu, from) do
+    groupRanks[id] = index
+  end
 
   for _, id in menu.order do
     local entry = menu.entries[id]
@@ -244,7 +263,7 @@ function M.search(menu: Menu, query: string, guards: { [string]: boolean }, acti
       -- An empty query lists everything in declaration order: that is what the
       -- launcher shows before a single character is typed.
       if query == "" then
-        table.insert(matches, { id = id, score = 0 })
+        table.insert(matches, { id = id, score = 0, group = searchGroup(menu, id, from) })
       else
         local haystack = menu.haystacks[id]
         if not haystack then
@@ -253,35 +272,32 @@ function M.search(menu: Menu, query: string, guards: { [string]: boolean }, acti
         end
         local score = noctalia.fuzzyScore(query, haystack)
         if score then
-          table.insert(matches, { id = id, score = score })
+          table.insert(matches, { id = id, score = score, group = searchGroup(menu, id, from) })
         end
       end
     end
   end
 
   if query == "" then
-    local ordered = {}
-    for _, match in matches do
-      table.insert(ordered, match.id)
-    end
-    return ordered
+    return matches
   end
 
   table.sort(matches, function(a, b)
+    local aRank = groupRanks[a.group] or 9999
+    local bRank = groupRanks[b.group] or 9999
+    if aRank ~= bRank then
+      return aRank < bRank
+    end
     if a.score == b.score then
       return a.id < b.id
     end
     return a.score > b.score
   end)
 
-  local out = {}
-  for _, match in matches do
-    table.insert(out, match.id)
-    if #out >= SEARCH_LIMIT then
-      break
-    end
+  for index = #matches, SEARCH_LIMIT + 1, -1 do
+    matches[index] = nil
   end
-  return out
+  return matches
 end
 
 -- The path shown in the header, e.g. "Trigger › Capture". Memoised on the menu:
