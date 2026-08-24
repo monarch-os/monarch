@@ -101,6 +101,7 @@
   "trigger.toggle.nightlight": {"icon":"󰔎","label":"Nightlight","action":"monarch-toggle-nightlight"},
   "trigger.toggle.idle-lock": {"icon":"󱫖","label":"Idle Lock","action":"monarch-toggle-idle"},
   "trigger.toggle.notifications": {"icon":"󰂛","label":"Notifications","action":"monarch-toggle-notification-silencing"},
+  "trigger.toggle.crash-capture": {"icon":"󱚡","label":"Crash Capture","action":"monarch-toggle-crash-capture"},
   "trigger.toggle.direct-boot": {"icon":"","label":"Direct Boot","action":"monarch-launch-floating-terminal-with-presentation monarch-config-direct-boot"},
   "trigger.toggle.passwordless-sudo": {"icon":"󰟵","label":"Passwordless Sudo","action":"monarch-launch-floating-terminal-with-presentation monarch-sudo-passwordless"},
 
