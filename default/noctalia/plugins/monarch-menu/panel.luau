@@ -237,7 +237,7 @@ local function rowFor(row, index: number)
 
   if isChecked then
     table.insert(children, ui.label({ text = "✓", color = "primary" }))
-  elseif not entry.action and not entry.target then
+  elseif not entry.action then
     table.insert(children, ui.label({ text = "›", color = "on_surface_variant" }))
   end
 
@@ -395,6 +395,16 @@ local function enter(id: string)
   end
 end
 
+local function descend(id: string)
+  table.insert(stack, id)
+  cursor = cursors[id] or 1
+
+  local entry = menu.entries[id]
+  if entry and entry.provider then
+    fetchProvider(id)
+  end
+end
+
 local function runEntry(id: string)
   local entry = menu.entries[id]
   if not entry or not entry.action then
@@ -438,12 +448,17 @@ function activate()
   end
 
   local destination = entry.target or id
+  local fromSearch = query ~= ""
   -- Leaving search mode: the row was found across the tree, so the level it
   -- opens is wherever it actually lives.
   query = ""
   searchRevision += 1
   cursors[currentLevel()] = cursor
-  enter(destination)
+  if fromSearch then
+    enter(destination)
+  else
+    descend(destination)
+  end
   refreshRows()
   render()
 end
