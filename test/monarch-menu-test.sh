@@ -245,6 +245,17 @@ assert_contains "--state carries search keywords" "$output" "snip"
 output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.wifi") | .searchText')
 assert_contains "--state prepares search text outside the plugin" "$output" "wireless"
 
+if ! grep -q 'query ~= "" and isCategory' "$ROOT/default/noctalia/plugins/monarch-menu/model.luau"; then
+  fail "search includes matching categories"
+fi
+pass "search includes matching categories"
+
+if ! grep -q 'labelLower == queryLower' "$ROOT/default/noctalia/plugins/monarch-menu/model.luau" ||
+  ! grep -q 'a.matchRank > b.matchRank' "$ROOT/default/noctalia/plugins/monarch-menu/model.luau"; then
+  fail "search ranks exact labels before fuzzy matches"
+fi
+pass "search ranks exact labels before fuzzy matches"
+
 # Guards are keyed `<id>:<w|c|d>` so the consumer decodes them natively.
 output=$("$MENU" --state | jq -r '.guards | keys | map(split(":")[1]) | unique | join(" ")')
 assert_equals "--state reports all three guard kinds" "$output" "c d w"

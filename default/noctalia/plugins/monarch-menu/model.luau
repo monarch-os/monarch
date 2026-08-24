@@ -261,16 +261,15 @@ end
 function M.search(menu: Menu, query: string, guards: { [string]: boolean }, active: string?): { Hit }
   local from = active or "root"
   local matches = {}
-  local groupRanks = {}
-  for index, id in M.childrenOf(menu, from) do
-    groupRanks[id] = index
-  end
+  local queryLower = query:lower()
 
-  for _, id in menu.order do
+  for order, id in menu.order do
     local entry = menu.entries[id]
+    local isCategory = entry
+      and (entry.target ~= nil or #M.childrenOf(menu, id) > 0)
     if
       entry
-      and (entry.action or entry.provider)
+      and (entry.action or entry.provider or (query ~= "" and isCategory))
       and isDescendant(menu, id, from)
       and M.isVisible(menu, id, guards)
     then
@@ -286,9 +285,16 @@ function M.search(menu: Menu, query: string, guards: { [string]: boolean }, acti
         end
         local score = noctalia.fuzzyScore(query, haystack)
         if score then
+          local labelLower = M.labelOf(menu, id):lower()
+          local matchRank = if labelLower == queryLower
+            then 3
+            elseif labelLower:sub(1, #queryLower) == queryLower then 2
+            else 1
           table.insert(matches, {
             id = id,
             score = score,
+            matchRank = matchRank,
+            order = order,
             group = searchGroup(menu, id, from),
           })
         end
@@ -301,15 +307,13 @@ function M.search(menu: Menu, query: string, guards: { [string]: boolean }, acti
   end
 
   table.sort(matches, function(a, b)
-    local aRank = groupRanks[a.group] or 9999
-    local bRank = groupRanks[b.group] or 9999
-    if aRank ~= bRank then
-      return aRank < bRank
+    if a.matchRank ~= b.matchRank then
+      return a.matchRank > b.matchRank
     end
-    if a.score == b.score then
-      return a.id < b.id
+    if a.score ~= b.score then
+      return a.score > b.score
     end
-    return a.score > b.score
+    return a.order < b.order
   end)
 
   for index = #matches, SEARCH_LIMIT + 1, -1 do
