@@ -227,6 +227,13 @@ assert_equals "--state emits the tree in declaration order" "$output" "apps syst
 output=$("$MENU" --state | jq -r '.tree[] | select(.id == "learn.bash") | .action')
 assert_contains "--state carries the fields the panel renders" "$output" "devhints.io/bash"
 
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.capture.screenshot") | [.description, (.keywords | join(" "))] | join(" ")')
+assert_contains "--state carries search descriptions" "$output" "Capture the screen"
+assert_contains "--state carries search keywords" "$output" "snip"
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.wifi") | .searchText')
+assert_contains "--state prepares search text outside the plugin" "$output" "wireless"
+
 # Guards are keyed `<id>:<w|c|d>` so the consumer decodes them natively.
 output=$("$MENU" --state | jq -r '.guards | keys | map(split(":")[1]) | unique | join(" ")')
 assert_equals "--state reports all three guard kinds" "$output" "c d w"

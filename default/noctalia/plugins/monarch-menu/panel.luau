@@ -203,17 +203,31 @@ local function rowFor(row, index: number)
   local naming = ui.label({ text = label, flexGrow = 1, color = tint })
   if query ~= "" then
     local parent = model.parentOf(menu, id)
-    if parent ~= "root" then
+    local detail = entry.description
+    if not detail or detail == "" then
+      detail = if parent ~= "root" then model.breadcrumb(menu, parent) else nil
+    end
+    if detail then
       naming = ui.column({ flexGrow = 1, gap = 1 }, {
         ui.label({ text = label, color = tint }),
         ui.label({
-          text = model.breadcrumb(menu, parent),
+          text = detail,
           fontSize = 11,
           color = "on_surface/0.55",
           maxLines = 1,
         }),
       })
     end
+  elseif isDisabled then
+    naming = ui.column({ flexGrow = 1, gap = 1 }, {
+      ui.label({ text = label, color = tint }),
+      ui.label({
+        text = entry.disabledLabel or "Installed",
+        fontSize = 11,
+        color = "on_surface/0.55",
+        maxLines = 1,
+      }),
+    })
   end
 
   local children = {

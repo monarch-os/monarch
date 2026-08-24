@@ -14,9 +14,13 @@ export type Entry = {
   target: string?,
   provider: string?,
   aliases: { string }?,
+  description: string?,
+  keywords: { string }?,
   when: string?,
   checked: string?,
   disabled: string?,
+  disabledLabel: string?,
+  searchText: string?,
 }
 
 export type Menu = {
@@ -267,12 +271,16 @@ function M.search(menu: Menu, query: string, guards: { [string]: boolean }, acti
       else
         local haystack = menu.haystacks[id]
         if not haystack then
-          haystack = M.labelOf(menu, id) .. " " .. M.lastSegment(id)
+          haystack = entry.searchText or (M.labelOf(menu, id) .. " " .. M.lastSegment(id))
           menu.haystacks[id] = haystack
         end
         local score = noctalia.fuzzyScore(query, haystack)
         if score then
-          table.insert(matches, { id = id, score = score, group = searchGroup(menu, id, from) })
+          table.insert(matches, {
+            id = id,
+            score = score,
+            group = searchGroup(menu, id, from),
+          })
         end
       end
     end

@@ -309,7 +309,16 @@ case "${1:-}" in
       | join("\u001f")' <<<"$MENU_JSON")
   )
   jq -nc \
-    --argjson tree "$(jq -c 'to_entries | map({id: .key} + .value)' <<<"$MENU_JSON")" \
+    --argjson tree "$(jq -c '
+      to_entries
+      | map(.key as $id | {
+          id: $id,
+          searchText: ([
+            (.value.label // ($id | split(".") | last)),
+            ($id | split(".") | last),
+            (.value.description // "")
+          ] + (.value.aliases // []) + (.value.keywords // []) | join(" "))
+        } + .value)' <<<"$MENU_JSON")" \
     --argjson guards "$(printf '%s' "$guard_pairs" | jq -R -s 'split("\n") | map(select(length > 0) | split("\t")) | map({key: .[0], value: (.[1] == "true")}) | from_entries')" \
     '{tree: $tree, guards: $guards}'
   exit 0
