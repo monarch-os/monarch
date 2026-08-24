@@ -76,14 +76,22 @@ output=$("$MENU" --check)
 assert_contains "shipped menu data passes its own check" "$output" "Menu data check passed"
 
 output=$("$MENU" --rows "" | cut -f1 | tr '\n' ' ')
-assert_equals "root holds the ten top-level entries in declaration order" \
-  "${output% }" "apps learn trigger style setup install remove update about system"
+assert_equals "root holds the six top-level families in declaration order" \
+  "${output% }" "apps trigger setup style install system"
 
 # A guard-free level, deliberately: trigger.share hides its Wi-Fi row on a
 # machine with no wireless connection, which would make this assertion depend on
 # the host it runs on.
 output=$("$MENU" --rows style.screensaver | cut -f2 | tr '\n' ' ')
 assert_equals "a level renders its own children only" "${output% }" "Edit Text Set From Image Restore Default"
+
+output=$("$MENU" --rows system | cut -f2 | tr '\n' ' ')
+assert_contains "system links to hidden Learn" "$output" "Learn"
+assert_contains "system links to hidden Update" "$output" "Update"
+assert_contains "system links to hidden About" "$output" "About"
+
+output=$("$MENU" --rows install | cut -f2 | tr '\n' ' ')
+assert_contains "software links to the removal catalog" "$output" "Remove software"
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 
@@ -92,6 +100,7 @@ assert_equals "go is a synonym for the root menu" "$("$MENU" --resolve go)" "roo
 assert_equals "an exact id resolves to itself" "$("$MENU" --resolve trigger.capture)" "trigger.capture"
 assert_equals "a last segment resolves to its full id" "$("$MENU" --resolve screenrecord)" "trigger.capture.screenrecord"
 assert_equals "a declared alias resolves" "$("$MENU" --resolve wifi-qr)" "trigger.share.wifi"
+assert_equals "a hidden legacy category remains routable" "$("$MENU" --resolve remove)" "remove"
 assert_equals "routes are case insensitive" "$("$MENU" --resolve SETTINGS)" "setup"
 assert_equals "underscores normalise to dashes" "$("$MENU" --resolve power_menu)" "system"
 assert_equals "an unknown route falls through literally" "$("$MENU" --resolve nope)" "nope"
@@ -124,7 +133,7 @@ assert_equals "an overridden entry keeps its position" "${output% }" \
 output=$("$MENU" --rows '' | cut -f1 | tr '\n' ' ')
 assert_contains "a new top-level id appends to the root menu" "$output" "personal"
 assert_equals "new ids append after the shipped ones" "${output% }" \
-  "apps learn trigger style setup install remove update about system personal"
+  "apps trigger setup style install system personal"
 
 output=$("$MENU" --rows personal | cut -f2)
 assert_equals "a new submenu renders its children" "$output" "Notes"
@@ -164,7 +173,7 @@ cat >"$USER_MENU" <<'EOF'
 EOF
 output=$("$MENU" --rows '' 2>/dev/null | cut -f1 | tr '\n' ' ')
 assert_equals "an unparseable user file drops every user entry, not the menu" \
-  "${output% }" "apps learn trigger style setup install remove update about system"
+  "${output% }" "apps trigger setup style install system"
 refute_contains "an unparseable user file contributes nothing" "$output" "broken"
 rm -f "$USER_MENU"
 

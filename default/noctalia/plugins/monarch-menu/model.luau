@@ -21,6 +21,8 @@ export type Entry = {
   disabled: string?,
   disabledLabel: string?,
   searchText: string?,
+  hiddenAtRoot: boolean?,
+  rootGroup: string?,
 }
 
 export type Menu = {
@@ -178,6 +180,10 @@ function M.isVisible(menu: Menu, id: string, guards: { [string]: boolean }): boo
     return false
   end
 
+  if entry.hiddenAtRoot and M.parentOf(menu, id) == "root" then
+    return false
+  end
+
   if entry.action or entry.target or entry.provider then
     return true
   end
@@ -240,6 +246,10 @@ local function searchGroup(menu: Menu, id: string, ancestor: string): string
   local parent = M.parentOf(menu, group)
   for _ = 1, 32 do
     if parent == ancestor or parent == "root" then
+      local entry = menu.entries[group]
+      if ancestor == "root" and entry and entry.rootGroup then
+        return entry.rootGroup
+      end
       return group
     end
     group = parent

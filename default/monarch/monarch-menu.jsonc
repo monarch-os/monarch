@@ -30,18 +30,20 @@
   //   checked     shell condition; appends a check mark when it succeeds
   //   disabled    shell condition; the row stays listed but cannot be selected
   //   disabledLabel explanation shown under a disabled row; defaults to Installed
+  //   hiddenAtRoot keep a legacy category routable without listing it at root
+  //   rootGroup   visible root category which groups its global search results
 
   // Root
   "apps": {"icon":"󰀻","label":"Apps","aliases":["app","applications"],"description":"Open the application launcher","action":"noctalia msg panel-toggle launcher"},
-  "learn": {"icon":"󰧑","label":"Learn"},
-  "trigger": {"icon":"󱓞","label":"Trigger"},
-  "style": {"icon":"","label":"Style"},
-  "setup": {"icon":"","label":"Setup","aliases":["settings"]},
-  "install": {"icon":"󰉉","label":"Install"},
-  "remove": {"icon":"󰭌","label":"Remove","aliases":["uninstall"]},
-  "update": {"icon":"","label":"Update","aliases":["refresh"]},
-  "about": {"icon":"","label":"About","action":"monarch-launch-about"},
+  "trigger": {"icon":"󱓞","label":"Actions","title":"Actions"},
+  "setup": {"icon":"","label":"Settings","title":"Settings","aliases":["settings"]},
+  "style": {"icon":"","label":"Personalization","title":"Personalization"},
+  "install": {"icon":"󰉉","label":"Software","title":"Software"},
   "system": {"icon":"","label":"System","aliases":["power-menu"]},
+  "learn": {"icon":"󰧑","label":"Learn","hiddenAtRoot":true,"rootGroup":"system"},
+  "remove": {"icon":"󰭌","label":"Remove","aliases":["uninstall"],"hiddenAtRoot":true,"rootGroup":"install"},
+  "update": {"icon":"","label":"Update","aliases":["refresh"],"hiddenAtRoot":true,"rootGroup":"system"},
+  "about": {"icon":"","label":"About","action":"monarch-launch-about","hiddenAtRoot":true,"rootGroup":"system"},
 
   // Learn
   "learn.keybindings": {"icon":"","label":"Keybindings","action":"monarch-menu-keybindings"},
@@ -311,6 +313,7 @@
   "install.cyber.burpsuite": {"icon":"","label":"Burpsuite","action":"monarch-launch-floating-terminal-with-presentation monarch-install-burp"},
   "install.cyber.rfswift": {"icon":"","label":"RFSwift","action":"monarch-launch-floating-terminal-with-presentation monarch-install-rfswift"},
   "install.cyber.wordlists": {"icon":"󱉟","label":"Wordlists","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Seclists from AUR...'; monarch-pkg-aur-add seclists\""},
+  "install.remove": {"icon":"󰭌","label":"Remove software","target":"remove"},
 
   // Remove
   "remove.package": {"icon":"󰣇","label":"Package","action":"xdg-terminal-exec --app-id=org.monarch.terminal monarch-pkg-remove"},
@@ -407,6 +410,9 @@
   "update.password.user": {"icon":"","label":"User","action":"monarch-launch-floating-terminal-with-presentation passwd"},
 
   // System
+  "system.learn": {"icon":"󰧑","label":"Learn","target":"learn"},
+  "system.update": {"icon":"","label":"Update","target":"update"},
+  "system.about": {"icon":"","label":"About","action":"monarch-launch-about"},
   "system.screensaver": {"icon":"󱄄","label":"Screensaver","action":"monarch-launch-screensaver force"},
   "system.lock": {"icon":"","label":"Lock","keywords":["secure","session"],"action":"monarch-system-lock"},
   "system.suspend": {"icon":"󰒲","label":"Suspend","when":"! monarch-toggle-enabled suspend-off","action":"systemctl suspend"},

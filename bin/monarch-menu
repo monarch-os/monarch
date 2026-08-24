@@ -105,7 +105,7 @@ level_rows() {
     to_entries
     | map(select(
         if $parent == "root"
-        then (.key | contains(".") | not)
+        then ((.key | contains(".") | not) and ((.value.hiddenAtRoot // false) | not))
         else (.key | startswith($parent + ".")) and
              ((.key | ltrimstr($parent + ".") | contains(".")) | not)
         end))
