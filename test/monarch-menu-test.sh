@@ -85,6 +85,12 @@ assert_equals "root holds the eight top-level families in declaration order" \
 output=$("$MENU" --rows style.screensaver | cut -f2 | tr '\n' ' ')
 assert_equals "a level renders its own children only" "${output% }" "Edit Text Set From Image Restore Default"
 
+output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^setup\\.dns\\.[^.]+$")) | .label' | tr '\n' ' ')
+assert_equals "DNS exposes each provider directly" "${output% }" "DHCP Cloudflare Google Custom"
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^setup\\.dns\\.[^.]+$")) | .action' | tr '\n' ' ')
+assert_contains "DNS provider rows bypass the old chooser" "$output" "/usr/bin/monarch-dns Cloudflare"
+
 output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^system\\.[^.]+$")) | .label' | tr '\n' ' ')
 assert_equals "system contains only session and power actions" "${output% }" \
   "Lock Screensaver Suspend Hibernate Logout Restart Shutdown"
@@ -309,10 +315,34 @@ FAKE_BIN="$TMPDIR/bin"
 mkdir -p "$FAKE_BIN"
 cat >"$FAKE_BIN/noctalia" <<'EOF'
 #!/bin/bash
+if [[ ${1:-} == msg && ${2:-} == panel-open && ${3:-} == monarch/menu:* ]]; then
+  payload=${4:-}
+  selection_file=$(jq -r '.selectionFile' <<<"$payload")
+  done_file=$(jq -r '.doneFile' <<<"$payload")
+  printf '%s\n' "${NOCTALIA_TEST_SELECTION:-}" >"$selection_file"
+  : >"$done_file"
+  exit 0
+fi
 echo "$*"
 EOF
 chmod +x "$FAKE_BIN/noctalia"
 export PATH="$FAKE_BIN:$PATH"
+
+assert_equals "native select returns the chosen option" \
+  "$(NOCTALIA_TEST_SELECTION=medium "$ROOT/bin/monarch-menu-select" Resolution high medium low)" "medium"
+
+assert_equals "native input returns the submitted text" \
+  "$(NOCTALIA_TEST_SELECTION='Ship it' "$ROOT/bin/monarch-menu-input" Reminder)" "Ship it"
+
+if ! grep -q 'panel-open monarch/menu:input' "$ROOT/bin/monarch-menu-input"; then
+  fail "native input uses the compact panel"
+fi
+pass "native input uses the compact panel"
+
+if ! grep -q 'mode == "menu" and not menu' "$ROOT/default/noctalia/plugins/monarch-menu/panel.luau"; then
+  fail "native input handles keys without loading the menu tree"
+fi
+pass "native input handles keys without loading the menu tree"
 
 assert_equals "a bare call toggles the panel at the root" \
   "$("$MENU")" "msg panel-toggle monarch/menu:panel root"

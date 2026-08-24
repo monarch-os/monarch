@@ -630,6 +630,15 @@ Independent of the port, applied to the current bash menu:
 
 ---
 
+### 8. Improve `monarch-about` rendering
+
+The current terminal presentation breaks at the VM's 1900×1005 resolution:
+the ASCII logo and its labels are clipped, the left-side metadata collides with
+the artwork, and the right-side boxes leave large uneven gaps. Make the layout
+derive from the available terminal rows and columns, keep every label inside its
+section, and provide a compact fallback when the full composition does not fit.
+Validate it at the VM resolution as well as a conventional 1920×1080 display.
+
 ## v5 facts worth not rediscovering
 
 Hard-won during the port; all verified against a running v5.0.0-beta.8.

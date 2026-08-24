@@ -1,16 +1,35 @@
 #!/bin/bash
 
-# monarch:summary=Prompt for text input with fuzzel
+# monarch:summary=Prompt for text input from the Monarch menu
 # monarch:group=menu
 # monarch:name=input
-# monarch:args=prompt [fuzzel args...]
-# monarch:examples=monarch menu input Reminder|monarch-menu-input "Reminder in minutes" --width 400
+# monarch:args=[prompt]
+# monarch:examples=monarch menu input Reminder|monarch-menu-input "Reminder in minutes"
 
 set -euo pipefail
 
 prompt="${1:-Input}"
-if (( $# > 0 )); then
-  shift
-fi
 
-fuzzel --dmenu --lines 0 -p "$prompt… " "$@" 2>/dev/null
+selection_file=$(mktemp)
+done_file=$(mktemp)
+rm -f "$done_file"
+trap 'rm -f "$selection_file" "$done_file"' EXIT
+
+payload=$(jq -nc \
+  --arg mode input \
+  --arg prompt "$prompt" \
+  --arg selectionFile "$selection_file" \
+  --arg doneFile "$done_file" \
+  '{mode: $mode, prompt: $prompt, selectionFile: $selectionFile, doneFile: $doneFile}')
+
+noctalia msg panel-open monarch/menu:input "$payload" >/dev/null
+
+while [[ ! -e $done_file ]]; do
+  sleep 0.05
+done
+
+if [[ -s $selection_file ]]; then
+  cat "$selection_file"
+else
+  exit 1
+fi

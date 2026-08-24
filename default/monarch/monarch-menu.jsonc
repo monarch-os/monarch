@@ -144,7 +144,7 @@
   "setup.sleep": {"icon":"󰒲","label":"System Sleep","title":"System Sleep"},
   "setup.niri": {"icon":"","label":"Niri","when":"[[ -f $HOME/.config/niri/user.kdl ]]","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\""},
   "setup.defaults": {"icon":"","label":"Defaults","title":"Defaults","aliases":["default"]},
-  "setup.dns": {"icon":"󰱔","label":"DNS","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-dns"},
+  "setup.dns": {"icon":"󰱔","label":"DNS"},
   "setup.language": {"icon":"󰗊","label":"Language","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-language"},
   "setup.security": {"icon":"","label":"Security","title":"Security"},
   "setup.config": {"icon":"","label":"Config","title":"Config"},
@@ -159,6 +159,10 @@
   // Setup > Security
   "setup.security.fingerprint": {"icon":"󰈷","label":"Fingerprint","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-fingerprint"},
   "setup.security.fido2": {"icon":"","label":"Fido2","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-fido2"},
+  "setup.dns.dhcp": {"icon":"󰩟","label":"DHCP","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"DHCP\" ]]","action":"/usr/bin/monarch-dns DHCP"},
+  "setup.dns.cloudflare": {"icon":"󰅟","label":"Cloudflare","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Cloudflare\" ]]","action":"/usr/bin/monarch-dns Cloudflare"},
+  "setup.dns.google": {"icon":"󰊭","label":"Google","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Google\" ]]","action":"/usr/bin/monarch-dns Google"},
+  "setup.dns.custom": {"icon":"","label":"Custom","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Custom\" ]]","action":"monarch-launch-floating-terminal-with-presentation \"monarch-setup-dns Custom\""},
 
   // Setup > Defaults
   "setup.defaults.agent": {"icon":"󰚩","label":"Agent","title":"Default Agent"},

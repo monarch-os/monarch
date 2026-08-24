@@ -28,6 +28,12 @@ local interacted = false
 -- Provider rows are fetched per level and cached until another level is opened.
 local providerRows = {}
 local providerFor = nil
+local mode = "menu"
+local requestActive = false
+local requestPrompt = ""
+local selectionFile = ""
+local doneFile = ""
+local choices = {}
 
 local function shellQuote(text: string): string
   return "'" .. text:gsub("'", "'\\''") .. "'"
@@ -101,8 +107,47 @@ local function hitRows(hits)
   return out
 end
 
+local function choiceRows(options)
+  local out = {}
+  for index, option in options do
+    local parts = option:split("\t")
+    local glyph = ""
+    local label = parts[1] or ""
+    local detail = ""
+    local value = label
+    if #parts >= 2 then
+      glyph = parts[1]
+      label = parts[2]
+      value = label
+    end
+    if #parts >= 3 then
+      detail = parts[3]
+      value = label .. "\t" .. detail
+    end
+    table.insert(out, {
+      kind = "choice",
+      id = "choice-" .. tostring(index),
+      glyph = glyph,
+      label = label,
+      detail = detail,
+      value = value,
+      searchText = label .. " " .. detail,
+    })
+  end
+  return out
+end
+
 local function refreshRows()
-  if query ~= "" then
+  if mode == "input" then
+    rows = {}
+  elseif mode == "select" then
+    rows = {}
+    for _, choice in choices do
+      if query == "" or noctalia.fuzzyScore(query, choice.searchText) then
+        table.insert(rows, choice)
+      end
+    end
+  elseif query ~= "" then
     rows = hitRows(model.search(menu, query, guards, currentLevel()))
   elseif providerFor == currentLevel() then
     rows = providerRows
@@ -182,6 +227,31 @@ local function providerRowFor(row, index: number)
 end
 
 local function rowFor(row, index: number)
+  if row.kind == "choice" then
+    local naming = ui.label({ text = row.label, flexGrow = 1, color = "on_surface" })
+    if row.detail ~= "" then
+      naming = ui.column({ flexGrow = 1, gap = 1 }, {
+        ui.label({ text = row.label, color = "on_surface" }),
+        ui.label({ text = row.detail, fontSize = 11, color = "on_surface/0.55", maxLines = 1 }),
+      })
+    end
+    return ui.row({
+      key = row.id,
+      gap = 10,
+      align = "center",
+      padding = 8,
+      radius = 8,
+      fill = index == cursor and "primary/0.12" or "primary/0",
+      onClick = function()
+        cursor = index
+        activate()
+      end,
+    }, {
+      ui.label({ text = row.glyph, width = 22, color = "on_surface" }),
+      naming,
+    })
+  end
+
   if row.kind == "value" then
     return providerRowFor(row, index)
   end
@@ -264,6 +334,14 @@ end
 -- The window hides the scrollbar's meaning, so the header carries the position
 -- instead: without it, nine results out of forty look like all of them.
 local function headerText(): string
+  if mode ~= "menu" then
+    if mode == "select" and query ~= "" then
+      local noun = if #rows == 1 then "result" else "results"
+      return requestPrompt .. "  ·  " .. tostring(#rows) .. " " .. noun
+    end
+    return requestPrompt
+  end
+
   local level = currentLevel()
   local where = if query == "" then
       model.breadcrumb(menu, level)
@@ -280,7 +358,7 @@ local function headerText(): string
 end
 
 function render()
-  if not menu then
+  if mode == "menu" and not menu then
     panel.render(ui.column({ flexGrow = 1, gap = 12 }, {
       ui.label({ text = status, color = "on_surface_variant" }),
     }))
@@ -288,13 +366,13 @@ function render()
   end
 
   local children = {}
-  if #rows == 0 then
+  if #rows == 0 and mode ~= "input" then
     table.insert(children, ui.label({ text = "Nothing here", color = "on_surface_variant" }))
   else
     revealCursor()
     for index = windowStart, math.min(#rows, windowStart + windowRows() - 1) do
       local row = rows[index]
-      if query ~= "" and (row.groupStart or index == windowStart) then
+      if mode == "menu" and query ~= "" and (row.groupStart or index == windowStart) then
         table.insert(children, ui.label({
           text = model.titleOf(menu, row.group),
           fontSize = 11,
@@ -321,7 +399,7 @@ function render()
 
     ui.input({
       key = "search-" .. searchRevision,
-      placeholder = "Search the menu…",
+      placeholder = if mode == "menu" then "Search the menu…" else requestPrompt .. "…",
       focus = true,
       onChange = "onQueryChanged",
       onSubmit = "onQuerySubmitted",
@@ -330,9 +408,15 @@ function render()
     ui.scroll({ flexGrow = 1, gap = 2, align = "stretch" }, children),
 
     ui.row({ align = "center", gap = 14 }, {
-      ui.label({ text = "↑↓ Navigate", fontSize = 11, color = "on_surface/0.55" }),
-      ui.label({ text = "↵ Open", fontSize = 11, color = "on_surface/0.55" }),
-      ui.label({ text = "← Back", fontSize = 11, color = "on_surface/0.55" }),
+      ui.label({
+        text = if mode == "input" then "↵ Confirm" else "↑↓ Navigate",
+        fontSize = 11,
+        color = "on_surface/0.55",
+      }),
+      mode ~= "input" and ui.label({ text = "↵ Open", fontSize = 11, color = "on_surface/0.55" })
+        or ui.label({ text = "Esc Cancel", fontSize = 11, color = "on_surface/0.55" }),
+      mode == "menu" and ui.label({ text = "← Back", fontSize = 11, color = "on_surface/0.55" })
+        or ui.label({ text = "" }),
     }),
   }))
 end
@@ -414,11 +498,39 @@ local function runEntry(id: string)
   panel.close()
 end
 
+local function finishRequest(value: string?)
+  if not requestActive then
+    panel.close()
+    return
+  end
+
+  local activeSelection = selectionFile
+  local activeDone = doneFile
+  requestActive = false
+  selectionFile = ""
+  doneFile = ""
+  if value ~= nil then
+    noctalia.writeFile(activeSelection, value .. "\n")
+  end
+  noctalia.writeFile(activeDone, "")
+  panel.close()
+end
+
 function activate()
   interacted = true
 
+  if mode == "input" then
+    finishRequest(query)
+    return
+  end
+
   local row = rows[cursor]
   if not row then
+    return
+  end
+
+  if row.kind == "choice" then
+    finishRequest(row.value)
     return
   end
 
@@ -503,6 +615,7 @@ end
 -- ── Host callbacks ───────────────────────────────────────────────────────────
 
 local function openAt(context: string?)
+  mode = "menu"
   local route = model.resolveRoute(menu, context)
 
   if route ~= "root" and not menu.entries[route] then
@@ -529,6 +642,32 @@ local function openAt(context: string?)
   render()
 end
 
+local function openRequest(payload)
+  mode = payload.mode == "input" and "input" or "select"
+  requestPrompt = tostring(payload.prompt or (mode == "input" and "Input" or "Select"))
+  selectionFile = tostring(payload.selectionFile or "")
+  doneFile = tostring(payload.doneFile or "")
+  requestActive = doneFile ~= ""
+  choices = choiceRows(type(payload.options) == "table" and payload.options or {})
+  query = ""
+  cursor = 1
+  searchRevision += 1
+  interacted = false
+  refreshRows()
+  render()
+end
+
+local function requestPayload(context)
+  if type(context) ~= "string" or context == "" then
+    return nil
+  end
+  local payload = noctalia.json.decode(context)
+  if type(payload) == "table" and (payload.mode == "select" or payload.mode == "input") then
+    return payload
+  end
+  return nil
+end
+
 local pendingContext = nil
 
 -- Whether last open's tree is safe to draw this route from, before the fresh
@@ -552,6 +691,12 @@ local function canPaintFromRetained(context): boolean
 end
 
 function onOpen(context)
+  local payload = requestPayload(context)
+  if payload then
+    openRequest(payload)
+    return
+  end
+
   pendingContext = context
   interacted = false
   -- Provider rows belong to the previous open, whichever path draws this one.
@@ -594,7 +739,7 @@ function onQuerySubmitted(_value)
 end
 
 function onKey(chord, pressed)
-  if not pressed or not menu then
+  if not pressed or (mode == "menu" and not menu) then
     return
   end
 
@@ -607,10 +752,24 @@ function onKey(chord, pressed)
   elseif chord == "left" then
     back()
   elseif chord == "escape" then
-    if not back() then
+    if mode ~= "menu" then
+      panel.close()
+    elseif not back() then
       panel.close()
     end
   end
+end
+
+function onClose()
+  if requestActive then
+    local activeDone = doneFile
+    requestActive = false
+    selectionFile = ""
+    doneFile = ""
+    noctalia.writeFile(activeDone, "")
+  end
+  mode = "menu"
+  choices = {}
 end
 
 function onCloseClicked()
@@ -621,6 +780,11 @@ end
 -- open, so a second keybind press re-routes instead of doing nothing.
 function onIpc(event, payload)
   if event == "open" then
-    openAt(payload)
+    local request = requestPayload(payload)
+    if request then
+      openRequest(request)
+    else
+      openAt(payload)
+    end
   end
 end
