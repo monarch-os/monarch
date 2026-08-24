@@ -257,6 +257,9 @@ if [[ $output -lt 40 ]]; then
 fi
 pass "install rows carry a presence guard"
 
+output=$("$MENU" --state | jq -r '[.tree[] | select(.id | startswith("install.cyber.")) | select(.disabled)] | length')
+assert_equals "every Cyber install row carries a presence guard" "$output" "3"
+
 output=$("$MENU" --state | jq -r '[.tree[] | select(.id | startswith("install.")) | select(.when)] | length')
 assert_equals "install rows never hide with when" "$output" "0"
 

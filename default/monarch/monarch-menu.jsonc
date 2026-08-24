@@ -311,9 +311,9 @@
   "install.development.elixir.phoenix": {"icon":"","label":"Phoenix","disabled":"compgen -G \"$HOME/.mix/archives/phx_new*\"","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env phoenix\""},
 
   // Install > Cyber
-  "install.cyber.burpsuite": {"icon":"","label":"Burpsuite","action":"monarch-launch-floating-terminal-with-presentation monarch-install-burp"},
-  "install.cyber.rfswift": {"icon":"","label":"RFSwift","action":"monarch-launch-floating-terminal-with-presentation monarch-install-rfswift"},
-  "install.cyber.wordlists": {"icon":"󱉟","label":"Wordlists","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Seclists from AUR...'; monarch-pkg-aur-add seclists\""},
+  "install.cyber.burpsuite": {"icon":"","label":"Burpsuite","action":"monarch-launch-floating-terminal-with-presentation monarch-install-burp","disabled":"[[ -d /opt/BurpSuiteCommunity || -d /opt/BurpSuitePro ]]"},
+  "install.cyber.rfswift": {"icon":"","label":"RFSwift","action":"monarch-launch-floating-terminal-with-presentation monarch-install-rfswift","disabled":"monarch-cmd-present rfswift"},
+  "install.cyber.wordlists": {"icon":"󱉟","label":"Wordlists","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Seclists from AUR...'; monarch-pkg-aur-add seclists\"","disabled":"monarch-pkg-present seclists"},
   "install.remove": {"icon":"󰭌","label":"Remove software","target":"remove"},
 
   // Remove
