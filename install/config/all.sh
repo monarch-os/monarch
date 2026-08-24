@@ -7,6 +7,7 @@ run_logged $MONARCH_INSTALL/config/git.sh
 run_logged $MONARCH_INSTALL/config/gpg.sh
 run_logged $MONARCH_INSTALL/config/timezones.sh
 run_logged $MONARCH_INSTALL/config/increase-sudo-tries.sh
+run_logged $MONARCH_INSTALL/config/passwordless-sudo.sh
 run_logged $MONARCH_INSTALL/config/increase-lockout-limit.sh
 run_logged $MONARCH_INSTALL/config/ssh-flakiness.sh
 run_logged $MONARCH_INSTALL/config/ssh-agent.sh
