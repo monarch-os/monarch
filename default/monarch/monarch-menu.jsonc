@@ -39,11 +39,11 @@
   "setup": {"icon":"","label":"Settings","title":"Settings","aliases":["settings"]},
   "style": {"icon":"","label":"Personalization","title":"Personalization"},
   "install": {"icon":"󰉉","label":"Software","title":"Software"},
+  "update": {"icon":"","label":"Maintenance","title":"Maintenance","aliases":["refresh"]},
   "system": {"icon":"","label":"System","aliases":["power-menu"]},
-  "learn": {"icon":"󰧑","label":"Learn","hiddenAtRoot":true,"rootGroup":"system"},
+  "learn": {"icon":"󰧑","label":"Documentation","title":"Documentation"},
   "remove": {"icon":"󰭌","label":"Remove","aliases":["uninstall"],"hiddenAtRoot":true,"rootGroup":"install"},
-  "update": {"icon":"","label":"Update","aliases":["refresh"],"hiddenAtRoot":true,"rootGroup":"system"},
-  "about": {"icon":"","label":"About","action":"monarch-launch-about","hiddenAtRoot":true,"rootGroup":"system"},
+  "about": {"icon":"","label":"About","action":"monarch-launch-about","hiddenAtRoot":true,"rootGroup":"learn"},
 
   // Learn
   "learn.keybindings": {"icon":"","label":"Keybindings","action":"monarch-menu-keybindings"},
@@ -52,6 +52,7 @@
   "learn.arch": {"icon":"󰣇","label":"Arch","action":"monarch-launch-webapp 'https://wiki.archlinux.org/title/Main_page'"},
   "learn.neovim": {"icon":"","label":"Neovim","action":"monarch-launch-webapp 'https://www.lazyvim.org/keymaps'"},
   "learn.bash": {"icon":"󱆃","label":"Bash","action":"monarch-launch-webapp 'https://devhints.io/bash'"},
+  "learn.about": {"icon":"","label":"About","action":"monarch-launch-about"},
 
   // Trigger
   "trigger.emoji": {"icon":"","label":"Emoji","aliases":["emojis"],"action":"noctalia msg panel-toggle launcher /emo"},
@@ -410,11 +411,8 @@
   "update.password.user": {"icon":"","label":"User","action":"monarch-launch-floating-terminal-with-presentation passwd"},
 
   // System
-  "system.learn": {"icon":"󰧑","label":"Learn","target":"learn"},
-  "system.update": {"icon":"","label":"Update","target":"update"},
-  "system.about": {"icon":"","label":"About","action":"monarch-launch-about"},
-  "system.screensaver": {"icon":"󱄄","label":"Screensaver","action":"monarch-launch-screensaver force"},
   "system.lock": {"icon":"","label":"Lock","keywords":["secure","session"],"action":"monarch-system-lock"},
+  "system.screensaver": {"icon":"󱄄","label":"Screensaver","action":"monarch-launch-screensaver force"},
   "system.suspend": {"icon":"󰒲","label":"Suspend","when":"! monarch-toggle-enabled suspend-off","action":"systemctl suspend"},
   "system.hibernate": {"icon":"󰤁","label":"Hibernate","when":"monarch-hibernation-available","action":"systemctl hibernate"},
   "system.logout": {"icon":"󰍃","label":"Logout","action":"monarch-system-logout"},

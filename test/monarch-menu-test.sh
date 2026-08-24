@@ -76,8 +76,8 @@ output=$("$MENU" --check)
 assert_contains "shipped menu data passes its own check" "$output" "Menu data check passed"
 
 output=$("$MENU" --rows "" | cut -f1 | tr '\n' ' ')
-assert_equals "root holds the six top-level families in declaration order" \
-  "${output% }" "apps trigger setup style install system"
+assert_equals "root holds the eight top-level families in declaration order" \
+  "${output% }" "apps trigger setup style install update system learn"
 
 # A guard-free level, deliberately: trigger.share hides its Wi-Fi row on a
 # machine with no wireless connection, which would make this assertion depend on
@@ -85,10 +85,12 @@ assert_equals "root holds the six top-level families in declaration order" \
 output=$("$MENU" --rows style.screensaver | cut -f2 | tr '\n' ' ')
 assert_equals "a level renders its own children only" "${output% }" "Edit Text Set From Image Restore Default"
 
-output=$("$MENU" --rows system | cut -f2 | tr '\n' ' ')
-assert_contains "system links to hidden Learn" "$output" "Learn"
-assert_contains "system links to hidden Update" "$output" "Update"
-assert_contains "system links to hidden About" "$output" "About"
+output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^system\\.[^.]+$")) | .label' | tr '\n' ' ')
+assert_equals "system contains only session and power actions" "${output% }" \
+  "Lock Screensaver Suspend Hibernate Logout Restart Shutdown"
+
+output=$("$MENU" --rows learn | cut -f2 | tr '\n' ' ')
+assert_contains "documentation contains About" "$output" "About"
 
 output=$("$MENU" --rows install | cut -f2 | tr '\n' ' ')
 assert_contains "software links to the removal catalog" "$output" "Remove software"
@@ -128,12 +130,12 @@ EOF
 output=$("$MENU" --rows learn | cut -f2 | tr '\n' ' ')
 assert_contains "an overridden label is used" "$output" "Shell"
 assert_equals "an overridden entry keeps its position" "${output% }" \
-  "Keybindings Monarch Niri Arch Neovim Shell"
+  "Keybindings Monarch Niri Arch Neovim Shell About"
 
 output=$("$MENU" --rows '' | cut -f1 | tr '\n' ' ')
 assert_contains "a new top-level id appends to the root menu" "$output" "personal"
 assert_equals "new ids append after the shipped ones" "${output% }" \
-  "apps trigger setup style install system personal"
+  "apps trigger setup style install update system learn personal"
 
 output=$("$MENU" --rows personal | cut -f2)
 assert_equals "a new submenu renders its children" "$output" "Notes"
@@ -173,7 +175,7 @@ cat >"$USER_MENU" <<'EOF'
 EOF
 output=$("$MENU" --rows '' 2>/dev/null | cut -f1 | tr '\n' ' ')
 assert_equals "an unparseable user file drops every user entry, not the menu" \
-  "${output% }" "apps trigger setup style install system"
+  "${output% }" "apps trigger setup style install update system learn"
 refute_contains "an unparseable user file contributes nothing" "$output" "broken"
 rm -f "$USER_MENU"
 
