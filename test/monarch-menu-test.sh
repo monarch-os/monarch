@@ -108,6 +108,10 @@ output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.toggle.notifi
 assert_equals "notifications check represents active DND" "$output" \
   "monarch-toggle-notification-silencing status | jq -e '.enabled'"
 
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.toggle.idle-lock") | .checked')
+assert_equals "idle lock check represents active caffeine" "$output" \
+  "monarch-toggle-idle status | jq -e '.enabled'"
+
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 assert_equals "empty route opens the root menu" "$("$MENU" --resolve '')" "root"

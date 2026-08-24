@@ -99,7 +99,7 @@
   // Trigger > Toggle
   "trigger.toggle.screensaver": {"icon":"󱄄","label":"Screensaver","checked":"! monarch-toggle-enabled screensaver-off","action":"monarch-toggle-screensaver"},
   "trigger.toggle.nightlight": {"icon":"󰔎","label":"Nightlight","checked":"monarch-toggle-nightlight status | jq -e '.enabled'","action":"monarch-toggle-nightlight"},
-  "trigger.toggle.idle-lock": {"icon":"󱫖","label":"Idle Lock","checked":"monarch-toggle-idle status | jq -e '.enabled == false'","action":"monarch-toggle-idle"},
+  "trigger.toggle.idle-lock": {"icon":"󱫖","label":"Idle Lock","checked":"monarch-toggle-idle status | jq -e '.enabled'","action":"monarch-toggle-idle"},
   "trigger.toggle.notifications": {"icon":"󰂛","label":"Notifications","checked":"monarch-toggle-notification-silencing status | jq -e '.enabled'","action":"monarch-toggle-notification-silencing"},
   "trigger.toggle.crash-capture": {"icon":"󱚡","label":"Crash Capture","checked":"! monarch-toggle-enabled crash-capture-off","action":"monarch-toggle-crash-capture"},
   "trigger.toggle.direct-boot": {"icon":"","label":"Direct Boot","checked":"efibootmgr 2>/dev/null | grep -Eq '^Boot[0-9A-Fa-f]+[*]? Monarch([[:space:]]|$)'","action":"monarch-launch-floating-terminal-with-presentation monarch-config-direct-boot"},
