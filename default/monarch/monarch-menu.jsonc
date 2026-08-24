@@ -24,21 +24,26 @@
   //               declare a new one
   //   aliases     extra `monarch menu <name>` routes. Routes already match an
   //               ID's last segment, so only add one where that is not enough
+  //   description short explanation shown under matching search results
+  //   keywords    extra search terms which do not alter routes or labels
   //   when        shell condition; the row is hidden when it fails
   //   checked     shell condition; appends a check mark when it succeeds
   //   disabled    shell condition; the row stays listed but cannot be selected
+  //   disabledLabel explanation shown under a disabled row; defaults to Installed
+  //   hiddenAtRoot keep a legacy category routable without listing it at root
+  //   rootGroup   visible root category which groups its global search results
 
   // Root
-  "apps": {"icon":"󰀻","label":"Apps","aliases":["app","applications"],"action":"noctalia msg panel-toggle launcher"},
-  "learn": {"icon":"󰧑","label":"Learn"},
-  "trigger": {"icon":"󱓞","label":"Trigger"},
-  "style": {"icon":"","label":"Style"},
-  "setup": {"icon":"","label":"Setup","aliases":["settings"]},
-  "install": {"icon":"󰉉","label":"Install"},
-  "remove": {"icon":"󰭌","label":"Remove","aliases":["uninstall"]},
-  "update": {"icon":"","label":"Update","aliases":["refresh"]},
-  "about": {"icon":"","label":"About","action":"monarch-launch-about"},
+  "apps": {"icon":"󰀻","label":"Apps","aliases":["app","applications"],"description":"Open the application launcher","action":"noctalia msg panel-toggle launcher"},
+  "trigger": {"icon":"󱓞","label":"Actions","title":"Actions"},
+  "setup": {"icon":"","label":"Settings","title":"Settings","aliases":["settings"]},
+  "style": {"icon":"","label":"Personalization","title":"Personalization"},
+  "install": {"icon":"󰉉","label":"Software","title":"Software"},
+  "update": {"icon":"","label":"Maintenance","title":"Maintenance","aliases":["refresh"]},
   "system": {"icon":"","label":"System","aliases":["power-menu"]},
+  "learn": {"icon":"󰧑","label":"Documentation","title":"Documentation"},
+  "remove": {"icon":"󰭌","label":"Remove","aliases":["uninstall"],"hiddenAtRoot":true,"rootGroup":"install"},
+  "about": {"icon":"","label":"About","action":"monarch-launch-about","hiddenAtRoot":true,"rootGroup":"learn"},
 
   // Learn
   "learn.keybindings": {"icon":"","label":"Keybindings","action":"monarch-menu-keybindings"},
@@ -47,6 +52,7 @@
   "learn.arch": {"icon":"󰣇","label":"Arch","action":"monarch-launch-webapp 'https://wiki.archlinux.org/title/Main_page'"},
   "learn.neovim": {"icon":"","label":"Neovim","action":"monarch-launch-webapp 'https://www.lazyvim.org/keymaps'"},
   "learn.bash": {"icon":"󱆃","label":"Bash","action":"monarch-launch-webapp 'https://devhints.io/bash'"},
+  "learn.about": {"icon":"","label":"About","action":"monarch-launch-about"},
 
   // Trigger
   "trigger.emoji": {"icon":"","label":"Emoji","aliases":["emojis"],"action":"noctalia msg panel-toggle launcher /emo"},
@@ -63,8 +69,8 @@
   "trigger.reminder.clear": {"icon":"󰔛","label":"Clear all","action":"monarch-reminder clear"},
 
   // Trigger > Capture
-  "trigger.capture.screenshot": {"icon":"","label":"Screenshot","action":"monarch-capture-screenshot"},
-  "trigger.capture.screenrecord": {"icon":"","label":"Screenrecord"},
+  "trigger.capture.screenshot": {"icon":"","label":"Screenshot","description":"Capture the screen, a window or a region","keywords":["screen","image","snip"],"action":"monarch-capture-screenshot"},
+  "trigger.capture.screenrecord": {"icon":"","label":"Screenrecord","description":"Record the screen as a video","keywords":["record","video","screen"]},
   "trigger.capture.text": {"icon":"󰴑","label":"Text Extraction","action":"monarch-capture-text-extraction"},
   "trigger.capture.qr": {"icon":"󰐲","label":"QR Code","action":"monarch-capture-qr"},
   "trigger.capture.color": {"icon":"󰃉","label":"Color","action":"pkill hyprpicker || hyprpicker -a"},
@@ -98,7 +104,7 @@
   "trigger.toggle.passwordless-sudo": {"icon":"󰟵","label":"Passwordless Sudo","action":"monarch-launch-floating-terminal-with-presentation monarch-sudo-passwordless"},
 
   // Trigger > Hardware
-  "trigger.hardware.displays": {"icon":"󰍺","label":"Displays","action":"noctalia msg panel-toggle monarch/display:panel"},
+  "trigger.hardware.displays": {"icon":"󰍺","label":"Displays","description":"Arrange and configure connected monitors","keywords":["monitor","screen","resolution"],"action":"noctalia msg panel-toggle monarch/display:panel"},
   "trigger.hardware.display-scaling": {"icon":"󰍹","label":"Display Scaling","action":"monarch-niri-monitor-scaling-cycle"},
   "trigger.hardware.laptop-display": {"icon":"󰛧","label":"Laptop Display","when":"monarch-hw-external-monitors","action":"monarch-niri-monitor-internal toggle"},
   "trigger.hardware.mirror-display": {"icon":"󰍹","label":"Mirror Display","when":"monarch-hw-external-monitors","action":"monarch-niri-monitor-internal-mirror toggle"},
@@ -114,7 +120,7 @@
   // Style
   "style.font": {"icon":"","label":"Font","provider":"fonts"},
   "style.text-size": {"icon":"󰛖","label":"Text Size","provider":"text-size"},
-  "style.background": {"icon":"","label":"Background","aliases":["wallpaper"],"action":"noctalia msg panel-toggle wallpaper"},
+  "style.background": {"icon":"","label":"Background","aliases":["wallpaper"],"description":"Choose the desktop wallpaper","keywords":["desktop","image"],"action":"noctalia msg panel-toggle wallpaper"},
   "style.niri": {"icon":"","label":"Niri","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\""},
   "style.screensaver": {"icon":"󱄄","label":"Screensaver"},
   "style.about": {"icon":"","label":"About"},
@@ -129,16 +135,16 @@
 
   // Setup
   "setup.audio": {"icon":"","label":"Audio","action":"monarch-launch-audio"},
-  "setup.wifi": {"icon":"󱚾","label":"Wifi","action":"monarch-launch-wifi"},
+  "setup.wifi": {"icon":"󱚾","label":"Wifi","description":"Connect to a wireless network","keywords":["network","internet","wireless"],"action":"monarch-launch-wifi"},
   // Monarch's own network panel: connection, Wi-Fi band, DNS and the list. The
   // stock Noctalia page stays reachable from the widget's right click.
   "setup.network": {"icon":"󰌘","label":"Network","aliases":["net","band","dns"],"action":"noctalia msg panel-open monarch/network:panel"},
-  "setup.bluetooth": {"icon":"󰂯","label":"Bluetooth","action":"monarch-launch-bluetooth"},
+  "setup.bluetooth": {"icon":"󰂯","label":"Bluetooth","description":"Connect and manage Bluetooth devices","keywords":["device","headphones","wireless"],"action":"monarch-launch-bluetooth"},
   "setup.power": {"icon":"󱐋","label":"Power Profile","title":"Power Profile","provider":"power-profiles"},
   "setup.sleep": {"icon":"󰒲","label":"System Sleep","title":"System Sleep"},
   "setup.niri": {"icon":"","label":"Niri","when":"[[ -f $HOME/.config/niri/user.kdl ]]","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\""},
   "setup.defaults": {"icon":"","label":"Defaults","title":"Defaults","aliases":["default"]},
-  "setup.dns": {"icon":"󰱔","label":"DNS","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-dns"},
+  "setup.dns": {"icon":"󰱔","label":"DNS"},
   "setup.language": {"icon":"󰗊","label":"Language","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-language"},
   "setup.security": {"icon":"","label":"Security","title":"Security"},
   "setup.config": {"icon":"","label":"Config","title":"Config"},
@@ -153,6 +159,10 @@
   // Setup > Security
   "setup.security.fingerprint": {"icon":"󰈷","label":"Fingerprint","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-fingerprint"},
   "setup.security.fido2": {"icon":"","label":"Fido2","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-fido2"},
+  "setup.dns.dhcp": {"icon":"󰩟","label":"DHCP","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"DHCP\" ]]","action":"/usr/bin/monarch-dns DHCP"},
+  "setup.dns.cloudflare": {"icon":"󰅟","label":"Cloudflare","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Cloudflare\" ]]","action":"/usr/bin/monarch-dns Cloudflare"},
+  "setup.dns.google": {"icon":"󰊭","label":"Google","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Google\" ]]","action":"/usr/bin/monarch-dns Google"},
+  "setup.dns.custom": {"icon":"","label":"Custom","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Custom\" ]]","action":"monarch-launch-floating-terminal-with-presentation \"monarch-setup-dns Custom\""},
 
   // Setup > Defaults
   "setup.defaults.agent": {"icon":"󰚩","label":"Agent","title":"Default Agent"},
@@ -305,9 +315,10 @@
   "install.development.elixir.phoenix": {"icon":"","label":"Phoenix","disabled":"compgen -G \"$HOME/.mix/archives/phx_new*\"","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env phoenix\""},
 
   // Install > Cyber
-  "install.cyber.burpsuite": {"icon":"","label":"Burpsuite","action":"monarch-launch-floating-terminal-with-presentation monarch-install-burp"},
-  "install.cyber.rfswift": {"icon":"","label":"RFSwift","action":"monarch-launch-floating-terminal-with-presentation monarch-install-rfswift"},
-  "install.cyber.wordlists": {"icon":"󱉟","label":"Wordlists","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Seclists from AUR...'; monarch-pkg-aur-add seclists\""},
+  "install.cyber.burpsuite": {"icon":"","label":"Burpsuite","action":"monarch-launch-floating-terminal-with-presentation monarch-install-burp","disabled":"[[ -d /opt/BurpSuiteCommunity || -d /opt/BurpSuitePro ]]"},
+  "install.cyber.rfswift": {"icon":"","label":"RFSwift","action":"monarch-launch-floating-terminal-with-presentation monarch-install-rfswift","disabled":"monarch-cmd-present rfswift"},
+  "install.cyber.wordlists": {"icon":"󱉟","label":"Wordlists","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Seclists from AUR...'; monarch-pkg-aur-add seclists\"","disabled":"monarch-pkg-present seclists"},
+  "install.remove": {"icon":"󰭌","label":"Remove software","target":"remove"},
 
   // Remove
   "remove.package": {"icon":"󰣇","label":"Package","action":"xdg-terminal-exec --app-id=org.monarch.terminal monarch-pkg-remove"},
@@ -376,7 +387,7 @@
   "remove.development.elixir.phoenix": {"icon":"","label":"Phoenix","when":"compgen -G \"$HOME/.mix/archives/phx_new*\"","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env phoenix\""},
 
   // Update
-  "update.monarch": {"icon":"","label":"Monarch","action":"monarch-launch-floating-terminal-with-presentation monarch-update"},
+  "update.monarch": {"icon":"","label":"Monarch","description":"Update Monarch and installed packages","keywords":["upgrade","system","packages"],"action":"monarch-launch-floating-terminal-with-presentation monarch-update"},
   "update.channel": {"icon":"󰔫","label":"Channel","title":"Update channel"},
   "update.config": {"icon":"","label":"Config","title":"Use default config"},
   "update.process": {"icon":"","label":"Process","title":"Restart"},
@@ -404,11 +415,11 @@
   "update.password.user": {"icon":"","label":"User","action":"monarch-launch-floating-terminal-with-presentation passwd"},
 
   // System
+  "system.lock": {"icon":"","label":"Lock","keywords":["secure","session"],"action":"monarch-system-lock"},
   "system.screensaver": {"icon":"󱄄","label":"Screensaver","action":"monarch-launch-screensaver force"},
-  "system.lock": {"icon":"","label":"Lock","action":"monarch-system-lock"},
   "system.suspend": {"icon":"󰒲","label":"Suspend","when":"! monarch-toggle-enabled suspend-off","action":"systemctl suspend"},
   "system.hibernate": {"icon":"󰤁","label":"Hibernate","when":"monarch-hibernation-available","action":"systemctl hibernate"},
   "system.logout": {"icon":"󰍃","label":"Logout","action":"monarch-system-logout"},
-  "system.restart": {"icon":"󰜉","label":"Restart","action":"monarch-system-reboot"},
-  "system.shutdown": {"icon":"󰐥","label":"Shutdown","action":"monarch-system-shutdown"},
+  "system.restart": {"icon":"󰜉","label":"Restart","keywords":["reboot","power"],"action":"monarch-system-reboot"},
+  "system.shutdown": {"icon":"󰐥","label":"Shutdown","keywords":["poweroff","turn off","power"],"action":"monarch-system-shutdown"},
 }

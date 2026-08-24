@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# monarch:summary=Pick one option with fuzzel
+# monarch:summary=Pick one option from the Monarch menu
 # monarch:group=menu
 # monarch:name=select
-# monarch:args=prompt option... [-- fuzzel args...]
-# monarch:examples=monarch menu select Format jpg png|monarch-menu-select Resolution 4k 1080p 720p -- --width 400
+# monarch:args=prompt [option...]
+# monarch:examples=monarch menu select Format jpg png|monarch-menu-select Resolution 4k 1080p 720p
 
 set -euo pipefail
 
-if (( $# < 2 )); then
-  echo "Usage: monarch-menu-select <prompt> <option>... [-- fuzzel args...]" >&2
+if (( $# < 1 )); then
+  echo "Usage: monarch-menu-select <prompt> [option...]" >&2
   exit 1
 fi
 
@@ -17,12 +17,9 @@ prompt="$1"
 shift
 
 options=()
-walker_args=()
 
 while (( $# > 0 )); do
   if [[ $1 == "--" ]]; then
-    shift
-    walker_args=("$@")
     break
   fi
 
@@ -30,9 +27,37 @@ while (( $# > 0 )); do
   shift
 done
 
+if (( ${#options[@]} == 0 )) && [[ ! -t 0 ]]; then
+  mapfile -t options
+fi
+
 if (( ${#options[@]} == 0 )); then
-  echo "Usage: monarch-menu-select <prompt> <option>... [-- fuzzel args...]" >&2
+  echo "Usage: monarch-menu-select <prompt> [option...]" >&2
   exit 1
 fi
 
-printf '%s\n' "${options[@]}" | fuzzel --dmenu --lines 8 -p "$prompt… " "${walker_args[@]}" 2>/dev/null
+selection_file=$(mktemp)
+done_file=$(mktemp)
+rm -f "$done_file"
+trap 'rm -f "$selection_file" "$done_file"' EXIT
+
+options_json=$(jq -nc '$ARGS.positional' --args -- "${options[@]}")
+payload=$(jq -nc \
+  --arg mode select \
+  --arg prompt "$prompt" \
+  --argjson options "$options_json" \
+  --arg selectionFile "$selection_file" \
+  --arg doneFile "$done_file" \
+  '{mode: $mode, prompt: $prompt, options: $options, selectionFile: $selectionFile, doneFile: $doneFile}')
+
+noctalia msg panel-open monarch/menu:select "$payload" >/dev/null
+
+while [[ ! -e $done_file ]]; do
+  sleep 0.05
+done
+
+if [[ -s $selection_file ]]; then
+  cat "$selection_file"
+else
+  exit 1
+fi

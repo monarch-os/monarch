@@ -14,9 +14,15 @@ export type Entry = {
   target: string?,
   provider: string?,
   aliases: { string }?,
+  description: string?,
+  keywords: { string }?,
   when: string?,
   checked: string?,
   disabled: string?,
+  disabledLabel: string?,
+  searchText: string?,
+  hiddenAtRoot: boolean?,
+  rootGroup: string?,
 }
 
 export type Menu = {
@@ -174,6 +180,10 @@ function M.isVisible(menu: Menu, id: string, guards: { [string]: boolean }): boo
     return false
   end
 
+  if entry.hiddenAtRoot and M.parentOf(menu, id) == "root" then
+    return false
+  end
+
   if entry.action or entry.target or entry.provider then
     return true
   end
@@ -229,33 +239,37 @@ local function isDescendant(menu: Menu, id: string, ancestor: string): boolean
   return false
 end
 
--- Hits carry which side of the fold they came from: rows of the open level
--- first, then everything deeper. The panel rules between the two; the launcher
--- has no level to be at and just reads the ids in order.
-export type Hit = { id: string, deeper: boolean }
+export type Hit = { id: string, group: string }
 
--- One array and one sort, and the hit tables are the ones returned — a second
--- pass to reshape them is the sort of work that put this over the callback
--- budget the first time this feature was attempted.
-local function byGroupThenScore(a, b): boolean
-  if a.deeper ~= b.deeper then
-    return not a.deeper
+local function searchGroup(menu: Menu, id: string, ancestor: string): string
+  local group = id
+  local parent = M.parentOf(menu, group)
+  for _ = 1, 32 do
+    if parent == ancestor or parent == "root" then
+      local entry = menu.entries[group]
+      if ancestor == "root" and entry and entry.rootGroup then
+        return entry.rootGroup
+      end
+      return group
+    end
+    group = parent
+    parent = M.parentOf(menu, group)
   end
-  if a.score == b.score then
-    return a.id < b.id
-  end
-  return a.score > b.score
+  return id
 end
 
 function M.search(menu: Menu, query: string, guards: { [string]: boolean }, active: string?): { Hit }
   local from = active or "root"
-  local hits = {}
+  local matches = {}
+  local queryLower = query:lower()
 
-  for _, id in menu.order do
+  for order, id in menu.order do
     local entry = menu.entries[id]
+    local isCategory = entry
+      and (entry.target ~= nil or #M.childrenOf(menu, id) > 0)
     if
       entry
-      and (entry.action or entry.provider)
+      and (entry.action or entry.provider or (query ~= "" and isCategory))
       and isDescendant(menu, id, from)
       and M.isVisible(menu, id, guards)
     then
@@ -263,29 +277,65 @@ function M.search(menu: Menu, query: string, guards: { [string]: boolean }, acti
       -- launcher shows before a single character is typed, and it wants one flat
       -- list rather than two groups.
       if query == "" then
-        table.insert(hits, { id = id, score = 0, deeper = false })
+        table.insert(matches, { id = id, score = 0, group = searchGroup(menu, id, from) })
       else
         local haystack = menu.haystacks[id]
         if not haystack then
-          haystack = M.labelOf(menu, id) .. " " .. M.lastSegment(id)
+          haystack = entry.searchText or (M.labelOf(menu, id) .. " " .. M.lastSegment(id))
           menu.haystacks[id] = haystack
         end
         local score = noctalia.fuzzyScore(query, haystack)
         if score then
-          table.insert(hits, { id = id, score = score, deeper = M.parentOf(menu, id) ~= from })
+          local labelLower = M.labelOf(menu, id):lower()
+          local matchRank = if labelLower == queryLower
+            then 3
+            elseif labelLower:sub(1, #queryLower) == queryLower then 2
+            else 1
+          table.insert(matches, {
+            id = id,
+            score = score,
+            matchRank = matchRank,
+            order = order,
+            group = searchGroup(menu, id, from),
+          })
         end
       end
     end
   end
 
-  if query ~= "" then
-    table.sort(hits, byGroupThenScore)
+  if query == "" then
+    return matches
   end
 
-  for index = #hits, SEARCH_LIMIT + 1, -1 do
-    hits[index] = nil
+  local function ranksBefore(a, b): boolean
+    if a.matchRank ~= b.matchRank then
+      return a.matchRank > b.matchRank
+    end
+    if a.score ~= b.score then
+      return a.score > b.score
+    end
+    return a.order < b.order
   end
-  return hits
+
+  local groupLeaders = {}
+  for _, match in matches do
+    local leader = groupLeaders[match.group]
+    if not leader or ranksBefore(match, leader) then
+      groupLeaders[match.group] = match
+    end
+  end
+
+  table.sort(matches, function(a, b)
+    if a.group ~= b.group then
+      return ranksBefore(groupLeaders[a.group], groupLeaders[b.group])
+    end
+    return ranksBefore(a, b)
+  end)
+
+  for index = #matches, SEARCH_LIMIT + 1, -1 do
+    matches[index] = nil
+  end
+  return matches
 end
 
 -- The path shown in the header, e.g. "Trigger › Capture". Memoised on the menu:

@@ -76,14 +76,30 @@ output=$("$MENU" --check)
 assert_contains "shipped menu data passes its own check" "$output" "Menu data check passed"
 
 output=$("$MENU" --rows "" | cut -f1 | tr '\n' ' ')
-assert_equals "root holds the ten top-level entries in declaration order" \
-  "${output% }" "apps learn trigger style setup install remove update about system"
+assert_equals "root holds the eight top-level families in declaration order" \
+  "${output% }" "apps trigger setup style install update system learn"
 
 # A guard-free level, deliberately: trigger.share hides its Wi-Fi row on a
 # machine with no wireless connection, which would make this assertion depend on
 # the host it runs on.
 output=$("$MENU" --rows style.screensaver | cut -f2 | tr '\n' ' ')
 assert_equals "a level renders its own children only" "${output% }" "Edit Text Set From Image Restore Default"
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^setup\\.dns\\.[^.]+$")) | .label' | tr '\n' ' ')
+assert_equals "DNS exposes each provider directly" "${output% }" "DHCP Cloudflare Google Custom"
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^setup\\.dns\\.[^.]+$")) | .action' | tr '\n' ' ')
+assert_contains "DNS provider rows bypass the old chooser" "$output" "/usr/bin/monarch-dns Cloudflare"
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^system\\.[^.]+$")) | .label' | tr '\n' ' ')
+assert_equals "system contains only session and power actions" "${output% }" \
+  "Lock Screensaver Suspend Hibernate Logout Restart Shutdown"
+
+output=$("$MENU" --rows learn | cut -f2 | tr '\n' ' ')
+assert_contains "documentation contains About" "$output" "About"
+
+output=$("$MENU" --rows install | cut -f2 | tr '\n' ' ')
+assert_contains "software links to the removal catalog" "$output" "Remove software"
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 
@@ -92,6 +108,7 @@ assert_equals "go is a synonym for the root menu" "$("$MENU" --resolve go)" "roo
 assert_equals "an exact id resolves to itself" "$("$MENU" --resolve trigger.capture)" "trigger.capture"
 assert_equals "a last segment resolves to its full id" "$("$MENU" --resolve screenrecord)" "trigger.capture.screenrecord"
 assert_equals "a declared alias resolves" "$("$MENU" --resolve wifi-qr)" "trigger.share.wifi"
+assert_equals "a hidden legacy category remains routable" "$("$MENU" --resolve remove)" "remove"
 assert_equals "routes are case insensitive" "$("$MENU" --resolve SETTINGS)" "setup"
 assert_equals "underscores normalise to dashes" "$("$MENU" --resolve power_menu)" "system"
 assert_equals "an unknown route falls through literally" "$("$MENU" --resolve nope)" "nope"
@@ -119,12 +136,12 @@ EOF
 output=$("$MENU" --rows learn | cut -f2 | tr '\n' ' ')
 assert_contains "an overridden label is used" "$output" "Shell"
 assert_equals "an overridden entry keeps its position" "${output% }" \
-  "Keybindings Monarch Niri Arch Neovim Shell"
+  "Keybindings Monarch Niri Arch Neovim Shell About"
 
 output=$("$MENU" --rows '' | cut -f1 | tr '\n' ' ')
 assert_contains "a new top-level id appends to the root menu" "$output" "personal"
 assert_equals "new ids append after the shipped ones" "${output% }" \
-  "apps learn trigger style setup install remove update about system personal"
+  "apps trigger setup style install update system learn personal"
 
 output=$("$MENU" --rows personal | cut -f2)
 assert_equals "a new submenu renders its children" "$output" "Notes"
@@ -164,7 +181,7 @@ cat >"$USER_MENU" <<'EOF'
 EOF
 output=$("$MENU" --rows '' 2>/dev/null | cut -f1 | tr '\n' ' ')
 assert_equals "an unparseable user file drops every user entry, not the menu" \
-  "${output% }" "apps learn trigger style setup install remove update about system"
+  "${output% }" "apps trigger setup style install update system learn"
 refute_contains "an unparseable user file contributes nothing" "$output" "broken"
 rm -f "$USER_MENU"
 
@@ -227,6 +244,30 @@ assert_equals "--state emits the tree in declaration order" "$output" "apps syst
 output=$("$MENU" --state | jq -r '.tree[] | select(.id == "learn.bash") | .action')
 assert_contains "--state carries the fields the panel renders" "$output" "devhints.io/bash"
 
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.capture.screenshot") | [.description, (.keywords | join(" "))] | join(" ")')
+assert_contains "--state carries search descriptions" "$output" "Capture the screen"
+assert_contains "--state carries search keywords" "$output" "snip"
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.wifi") | .searchText')
+assert_contains "--state prepares search text outside the plugin" "$output" "wireless"
+
+if ! grep -q 'query ~= "" and isCategory' "$ROOT/default/noctalia/plugins/monarch-menu/model.luau"; then
+  fail "search includes matching categories"
+fi
+pass "search includes matching categories"
+
+if ! grep -q 'labelLower == queryLower' "$ROOT/default/noctalia/plugins/monarch-menu/model.luau" ||
+  ! grep -q 'a.matchRank > b.matchRank' "$ROOT/default/noctalia/plugins/monarch-menu/model.luau"; then
+  fail "search ranks exact labels before fuzzy matches"
+fi
+pass "search ranks exact labels before fuzzy matches"
+
+if ! grep -q 'groupLeaders' "$ROOT/default/noctalia/plugins/monarch-menu/model.luau" ||
+  ! grep -q 'a.group ~= b.group' "$ROOT/default/noctalia/plugins/monarch-menu/model.luau"; then
+  fail "search keeps result groups contiguous"
+fi
+pass "search keeps result groups contiguous"
+
 # Guards are keyed `<id>:<w|c|d>` so the consumer decodes them natively.
 output=$("$MENU" --state | jq -r '.guards | keys | map(split(":")[1]) | unique | join(" ")')
 assert_equals "--state reports all three guard kinds" "$output" "c d w"
@@ -238,6 +279,9 @@ if [[ $output -lt 40 ]]; then
   fail "install rows carry a presence guard"
 fi
 pass "install rows carry a presence guard"
+
+output=$("$MENU" --state | jq -r '[.tree[] | select(.id | startswith("install.cyber.")) | select(.disabled)] | length')
+assert_equals "every Cyber install row carries a presence guard" "$output" "3"
 
 output=$("$MENU" --state | jq -r '[.tree[] | select(.id | startswith("install.")) | select(.when)] | length')
 assert_equals "install rows never hide with when" "$output" "0"
@@ -277,10 +321,39 @@ FAKE_BIN="$TMPDIR/bin"
 mkdir -p "$FAKE_BIN"
 cat >"$FAKE_BIN/noctalia" <<'EOF'
 #!/bin/bash
+if [[ ${1:-} == msg && ${2:-} == panel-open && ${3:-} == monarch/menu:* ]]; then
+  payload=${4:-}
+  selection_file=$(jq -r '.selectionFile' <<<"$payload")
+  done_file=$(jq -r '.doneFile' <<<"$payload")
+  printf '%s\n' "${NOCTALIA_TEST_SELECTION:-}" >"$selection_file"
+  : >"$done_file"
+  exit 0
+fi
 echo "$*"
 EOF
 chmod +x "$FAKE_BIN/noctalia"
 export PATH="$FAKE_BIN:$PATH"
+
+assert_equals "native select returns the chosen option" \
+  "$(NOCTALIA_TEST_SELECTION=medium "$ROOT/bin/monarch-menu-select" Resolution high medium low)" "medium"
+
+if ! grep -q 'panel-open monarch/menu:select' "$ROOT/bin/monarch-menu-select"; then
+  fail "native select uses the compact panel"
+fi
+pass "native select uses the compact panel"
+
+assert_equals "native input returns the submitted text" \
+  "$(NOCTALIA_TEST_SELECTION='Ship it' "$ROOT/bin/monarch-menu-input" Reminder)" "Ship it"
+
+if ! grep -q 'panel-open monarch/menu:input' "$ROOT/bin/monarch-menu-input"; then
+  fail "native input uses the compact panel"
+fi
+pass "native input uses the compact panel"
+
+if ! grep -q 'mode == "menu" and not menu' "$ROOT/default/noctalia/plugins/monarch-menu/panel.luau"; then
+  fail "native input handles keys without loading the menu tree"
+fi
+pass "native input handles keys without loading the menu tree"
 
 assert_equals "a bare call toggles the panel at the root" \
   "$("$MENU")" "msg panel-toggle monarch/menu:panel root"

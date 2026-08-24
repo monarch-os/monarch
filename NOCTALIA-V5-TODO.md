@@ -477,8 +477,8 @@ what the shell renders per app, not about what a plugin may draw.
   flipped do-not-disturb. Quattro's `disabled` convention came with it: 55
   Install rows now dim and tick what is already installed, 28 Remove rows hide
   what is not there. A `[[launcher_provider]]` entry puts the whole menu behind
-  `/mm` in Mod+Space. **fuzzel still ships** — `monarch-menu-select`, `-input`,
-  `-file` and `-keybindings` all still use it.
+  `/mm` in Mod+Space. `monarch-menu-select` and `-input` now use compact native
+  panels. **fuzzel still ships** for `monarch-menu-file` and `-keybindings`.
 
   Not ported, deliberately: quattro's `apps` provider lists desktop entries
   inside the menu and offers right-click uninstall. Monarch's Apps row opens the
@@ -557,23 +557,15 @@ stops being a QML curiosity and becomes the reference to port.
 `width`/`height`/`placement`/`position`), `dunarand/bookmarks` (keyboard-driven
 searchable list), `noctalia/kaomoji` (launcher provider with category filters).
 
-**Only then can fuzzel leave `install/monarch-base.packages`.** It currently has
-five consumers — `monarch-menu`, `monarch-menu-select`, `monarch-menu-input`,
-`monarch-menu-file`, `monarch-menu-keybindings` — and one theming dependency:
-`fuzzel` is in `community_ids` in `config/noctalia/config.toml`, so dropping the
-package means dropping that template id too. Removing the package before all six
-are handled breaks the menu outright.
+**Only then can fuzzel leave `install/monarch-base.packages`.** Its remaining
+consumers are `monarch-menu-file` and `monarch-menu-keybindings`, and it remains
+in `community_ids` in `config/noctalia/config.toml`. Dropping the package means
+replacing both consumers and removing that template id.
 
-**There is a cheaper intermediate step, and it does not need the panel.**
-`noctalia dmenu [-p prompt]` reads newline-separated items on stdin, presents
-them in the launcher and prints the selection on stdout — the same contract as
-`fuzzel --dmenu`, already flagged as "not yet adopted" in `AGENTS.md`. It is
-absent from `noctalia --help` but present in the shipped binary (v5.0.0). Left
-to verify before swapping: whether it accepts empty stdin and returns typed text
-(what `monarch-menu-input` needs), and what replaces `--lines` / `--width` /
-`--select`, which it does not take. If it holds up, fuzzel can be dropped in a
-first pass, and the panel port then becomes purely about the menu's *shape*
-rather than its renderer.
+`noctalia dmenu` was evaluated as the intermediate replacement. It preserves
+the stdin/stdout selection contract but opens the full-height launcher and does
+not support free text input, so native compact panels replaced
+`monarch-menu-select` and `monarch-menu-input` instead.
 
 #### Menu: applications as menu rows — *built, then rolled back*
 
@@ -629,6 +621,15 @@ Independent of the port, applied to the current bash menu:
   `show_setup_default_menu` read as a function defined inside another one.
 
 ---
+
+### 8. Improve `monarch-about` rendering
+
+The current terminal presentation breaks at the VM's 1900×1005 resolution:
+the ASCII logo and its labels are clipped, the left-side metadata collides with
+the artwork, and the right-side boxes leave large uneven gaps. Make the layout
+derive from the available terminal rows and columns, keep every label inside its
+section, and provide a compact fallback when the full composition does not fit.
+Validate it at the VM resolution as well as a conventional 1920×1080 display.
 
 ## v5 facts worth not rediscovering
 
