@@ -131,6 +131,10 @@ assert_equals "AI removal mirrors the install catalog" "${output% }" \
 output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^remove\\.service\\.[^.]+$")) | .label' | tr '\n' ' ')
 assert_equals "specialized service removals are grouped" "${output% }" "Tailscale LazyVPN Displaylink"
 
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "install.service.signal") | [.label, .disabled, .action] | join("|")')
+assert_equals "Signal is available in the service catalog" "$output" \
+  "Signal|monarch-pkg-present signal-desktop|monarch-launch-floating-terminal-with-presentation monarch-install-service-signal"
+
 output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.config.input") | .action')
 assert_contains "input settings edit the user-owned Niri override" "$output" ".config/niri/user.kdl"
 assert_contains "input settings validate and reload Niri" "$output" "monarch-refresh-niri"

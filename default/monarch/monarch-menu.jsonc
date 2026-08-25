@@ -257,6 +257,7 @@
   "install.browser.zen": {"icon":"󰖟","label":"Zen","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-browser zen\"","disabled":"monarch-pkg-present zen-browser-bin"},
 
   // Install > Service
+  "install.service.signal": {"icon":"󰭹","label":"Signal","disabled":"monarch-pkg-present signal-desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-install-service-signal"},
   "install.service.synology": {"icon":"󰘿","label":"Synology Drive","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Synology Driver from AUR...'; monarch-pkg-aur-add synology-drive && setsid gtk-launch synology-drive\"","disabled":"monarch-pkg-present synology-drive"},
   "install.service.proton": {"icon":"","label":"Proton Suite [AUR]","disabled":"monarch-pkg-present proton-vpn-gtk-app proton-pass-bin proton-mail-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-install-proton"},
   "install.service.displaylink": {"icon":"󰹑","label":"Displaylink [AUR]","action":"monarch-launch-floating-terminal-with-presentation monarch-install-displaylink","disabled":"monarch-pkg-present displaylink"},
