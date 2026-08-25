@@ -15,9 +15,11 @@ if gum confirm "Are you sure you want to remove all preinstalled web apps, TUI w
   cp "$MONARCH_PATH/config/niri/user.kdl" ~/.config/niri/user.kdl
   monarch-refresh-niri
 
-  # Remove npx stubs
-  rm -f ~/.local/bin/codex ~/.local/bin/gemini ~/.local/bin/copilot \
-       ~/.local/bin/opencode ~/.local/bin/playwright-cli ~/.local/bin/pi
+  rm -f ~/.local/bin/agy ~/.local/bin/claude ~/.local/bin/codex \
+    ~/.local/bin/copilot ~/.local/bin/crush ~/.local/bin/gemini \
+    ~/.local/bin/ghui ~/.local/bin/grok ~/.local/bin/omp \
+    ~/.local/bin/opencode ~/.local/bin/ori ~/.local/bin/pi \
+    ~/.local/bin/playwright-cli
 
   monarch-pkg-drop \
     bettercap \
