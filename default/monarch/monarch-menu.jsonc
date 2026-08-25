@@ -234,15 +234,15 @@
   "install.aur": {"icon":"󰣇","label":"AUR","action":"xdg-terminal-exec --app-id=org.monarch.terminal monarch-pkg-aur-install"},
   "install.webapp": {"icon":"","label":"Web App","action":"monarch-launch-floating-terminal-with-presentation monarch-webapp-install"},
   "install.tui": {"icon":"","label":"TUI","action":"monarch-launch-floating-terminal-with-presentation monarch-tui-install"},
-  "install.service": {"icon":"","label":"Service"},
-  "install.font": {"icon":"","label":"Font"},
-  "install.development": {"icon":"󰵮","label":"Development"},
-  "install.cyber": {"icon":"󰨈","label":"Cyber"},
+  "install.browser": {"icon":"","label":"Browser"},
   "install.editor": {"icon":"","label":"Editor"},
   "install.terminal": {"icon":"","label":"Terminal"},
-  "install.browser": {"icon":"","label":"Browser"},
+  "install.development": {"icon":"󰵮","label":"Development"},
   "install.ai": {"icon":"󱚤","label":"AI"},
+  "install.cyber": {"icon":"󰨈","label":"Cyber"},
   "install.gaming": {"icon":"","label":"Gaming"},
+  "install.service": {"icon":"","label":"Services"},
+  "install.font": {"icon":"","label":"Fonts"},
   "install.windows": {"icon":"󰍲","label":"Windows","disabled":"[[ -f $HOME/.local/share/applications/windows-vm.desktop ]]","action":"monarch-launch-floating-terminal-with-presentation \"monarch-windows-vm install\""},
   "install.preinstalls": {"icon":"󰏓","label":"Preinstalls","disabled":"[[ ! -f $HOME/.local/state/monarch/preinstalls-removed ]]","action":"monarch-launch-floating-terminal-with-presentation monarch-install-preinstalls"},
 
@@ -343,18 +343,26 @@
   "remove.package": {"icon":"󰣇","label":"Package","action":"xdg-terminal-exec --app-id=org.monarch.terminal monarch-pkg-remove"},
   "remove.webapp": {"icon":"","label":"Web App","when":"grep -q '^Exec=.*monarch-launch-webapp' $HOME/.local/share/applications/*.desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-webapp-remove"},
   "remove.tui": {"icon":"","label":"TUI","when":"grep -qE '^Exec=.*(\\$TERMINAL|xdg-terminal-exec).*-e' $HOME/.local/share/applications/*.desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-tui-remove"},
+  "remove.ai": {"icon":"󱚤","label":"AI","title":"Remove"},
+  "remove.service": {"icon":"","label":"Services","title":"Remove"},
   "remove.development": {"icon":"󰵮","label":"Development","title":"Remove"},
   "remove.browser": {"icon":"","label":"Browser","title":"Remove"},
-  "remove.dictation": {"icon":"","label":"Dictation","when":"monarch-pkg-present voxtype-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-voxtype-remove"},
   "remove.gaming": {"icon":"","label":"Gaming","title":"Remove"},
-  "remove.lazyvpn": {"icon":"󰖂","label":"LazyVPN","when":"monarch-pkg-present monarch-lazyvpn","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-lazyvpn"},
   "remove.windows": {"icon":"󰍲","label":"Windows","when":"[[ -f $HOME/.local/share/applications/windows-vm.desktop ]]","action":"monarch-launch-floating-terminal-with-presentation \"monarch-windows-vm remove\""},
-  "remove.displaylink": {"icon":"󰹑","label":"Displaylink","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-displaylink","when":"monarch-pkg-present displaylink"},
   "remove.preinstalls": {"icon":"󰏓","label":"Preinstalls","when":"[[ ! -f $HOME/.local/state/monarch/preinstalls-removed ]]","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-preinstalls"},
   // Remove > Language is deliberately absent: the bash menu listed the row
   // but had no case branch for it, and there is no monarch-remove-language
   // command, so selecting it only ever bounced back to the root menu.
   "remove.security": {"icon":"","label":"Security","title":"Remove"},
+
+  "remove.ai.dictation": {"icon":"","label":"Dictation","when":"monarch-pkg-present voxtype-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-voxtype-remove"},
+  "remove.ai.lm-studio": {"icon":"󱚤","label":"LM Studio","when":"monarch-pkg-present lmstudio-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-lm-studio"},
+  "remove.ai.ollama": {"icon":"󱚤","label":"Ollama","when":"monarch-cmd-present ollama","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-ollama"},
+  "remove.ai.crush": {"icon":"󱚤","label":"Crush","when":"monarch-pkg-present crush-bin","action":"monarch-launch-floating-terminal-with-presentation \"monarch-pkg-drop crush-bin\""},
+
+  "remove.service.tailscale": {"icon":"","label":"Tailscale","when":"monarch-pkg-present tailscale","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-service-tailscale"},
+  "remove.service.lazyvpn": {"icon":"󰖂","label":"LazyVPN","when":"monarch-pkg-present monarch-lazyvpn","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-lazyvpn"},
+  "remove.service.displaylink": {"icon":"󰹑","label":"Displaylink","when":"monarch-pkg-present displaylink","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-displaylink"},
 
   // Remove > Security
   "remove.security.fingerprint": {"icon":"󰈷","label":"Fingerprint","when":"[[ -f $HOME/.local/state/monarch/fingerprint-enabled ]]","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-security-fingerprint"},

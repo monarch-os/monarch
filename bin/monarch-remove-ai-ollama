@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# monarch:summary=Remove Ollama and downloaded models
+# monarch:requires-sudo=true
+
+set -e
+
+sudo systemctl disable --now ollama.service 2>/dev/null || true
+monarch-pkg-drop ollama ollama-cuda ollama-rocm ollama-vulkan
+sudo rm -rf /var/lib/ollama
+rm -rf "$HOME/.ollama"
+
+echo "Ollama and its models have been removed."

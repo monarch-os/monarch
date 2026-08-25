@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# monarch:summary=Remove LM Studio, its configuration, and downloaded models
+# monarch:requires-sudo=true
+
+set -e
+
+lmstudio_home=""
+if [[ -f $HOME/.lmstudio-home-pointer ]]; then
+  read -r lmstudio_home <"$HOME/.lmstudio-home-pointer" || true
+fi
+
+monarch-pkg-drop lmstudio-bin
+rm -rf "$HOME/.config/LM Studio" "$HOME/.config/LM-Studio" "$HOME/.lmstudio" "$HOME/.lmstudio-home-pointer"
+
+if [[ -n $lmstudio_home && $lmstudio_home == /* && -d $lmstudio_home ]] &&
+  [[ $lmstudio_home != "/" && $lmstudio_home != "$HOME" ]]; then
+  rm -rf "$lmstudio_home"
+fi
+
+echo "LM Studio and its models have been removed."

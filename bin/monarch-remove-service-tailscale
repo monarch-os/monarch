@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# monarch:summary=Disconnect and remove Tailscale and its web app
+# monarch:requires-sudo=true
+
+set -e
+
+sudo tailscale down 2>/dev/null || true
+sudo systemctl disable --now tailscaled.service 2>/dev/null || true
+monarch-webapp-remove "Tailscale" 2>/dev/null || true
+monarch-pkg-drop tailscale
+
+echo "Tailscale has been removed."
