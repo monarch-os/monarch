@@ -85,7 +85,7 @@
   "trigger.capture.screenrecord.no-audio": {"icon":"","label":"With no audio","action":"monarch-capture-screenrecording"},
   "trigger.capture.screenrecord.desktop-audio": {"icon":"","label":"With desktop audio","action":"monarch-capture-screenrecording --with-desktop-audio"},
   "trigger.capture.screenrecord.microphone": {"icon":"","label":"With desktop + microphone audio","action":"monarch-capture-screenrecording --with-desktop-audio --with-microphone-audio"},
-  "trigger.capture.screenrecord.webcam": {"icon":"","label":"With desktop + microphone audio + webcam","action":"monarch-capture-screenrecording-with-webcam"},
+  "trigger.capture.screenrecord.webcam": {"icon":"","label":"With desktop + microphone audio + webcam","when":"monarch-hw-webcam","action":"monarch-capture-screenrecording-with-webcam"},
 
   // Trigger > Share
   "trigger.share.clipboard": {"icon":"","label":"Clipboard","action":"monarch-menu-share clipboard"},
@@ -115,9 +115,9 @@
   "trigger.hardware.laptop-display": {"icon":"󰛧","label":"Laptop Display","when":"monarch-hw-external-monitors","action":"monarch-niri-monitor-internal toggle"},
   "trigger.hardware.mirror-display": {"icon":"󰍹","label":"Mirror Display","when":"monarch-hw-external-monitors","action":"monarch-niri-monitor-internal-mirror toggle"},
   "trigger.hardware.hybrid-gpu": {"icon":"","label":"Hybrid GPU","when":"monarch-hw-hybrid-gpu","action":"monarch-launch-floating-terminal-with-presentation monarch-toggle-hybrid-gpu"},
-  "trigger.hardware.touchpad": {"icon":"󰟸","label":"Touchpad","when":"monarch-hw-touchpad","action":"monarch-toggle-touchpad"},
+  "trigger.hardware.touchpad": {"icon":"󰟸","label":"Touchpad","when":"monarch-hw-touchpad","checked":"monarch-toggle-touchpad status | jq -e '.enabled'","action":"monarch-toggle-touchpad"},
   "trigger.hardware.touchpad-haptics": {"icon":"󰌌","label":"Touchpad Haptics","when":"monarch-hw-dell-xps-haptic-touchpad && monarch-cmd-present dell-xps-touchpad-haptics"},
-  "trigger.hardware.touchscreen": {"icon":"󰆽","label":"Touchscreen","when":"monarch-hw-touchscreen","action":"monarch-toggle-touchscreen"},
+  "trigger.hardware.touchscreen": {"icon":"󰆽","label":"Touchscreen","when":"monarch-hw-touchscreen","checked":"monarch-toggle-touchscreen status | jq -e '.enabled'","action":"monarch-toggle-touchscreen"},
 
   // Actions > Speed Test
   "trigger.tests.network": {"icon":"󰓅","label":"Network","action":"noctalia msg panel-open monarch/network:speedtest"},
@@ -171,7 +171,7 @@
   "setup.sleep.disable-hibernate": {"icon":"󰤁","label":"Disable Hibernate","when":"monarch-hibernation-available","action":"monarch-launch-floating-terminal-with-presentation monarch-hibernation-remove"},
 
   // Setup > Security
-  "setup.security.fingerprint": {"icon":"󰈷","label":"Fingerprint","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-fingerprint"},
+  "setup.security.fingerprint": {"icon":"󰈷","label":"Fingerprint","when":"monarch-hw-fingerprint","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-fingerprint"},
   "setup.security.fido2": {"icon":"","label":"Fido2","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-fido2"},
   "setup.dns.dhcp": {"icon":"󰩟","label":"DHCP","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"DHCP\" ]]","action":"/usr/bin/monarch-dns DHCP"},
   "setup.dns.cloudflare": {"icon":"󰅟","label":"Cloudflare","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Cloudflare\" ]]","action":"/usr/bin/monarch-dns Cloudflare"},
@@ -353,7 +353,7 @@
   "remove.security": {"icon":"","label":"Security","title":"Remove"},
 
   // Remove > Security
-  "remove.security.fingerprint": {"icon":"󰈷","label":"Fingerprint","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-security-fingerprint"},
+  "remove.security.fingerprint": {"icon":"󰈷","label":"Fingerprint","when":"monarch-pkg-present fprintd","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-security-fingerprint"},
   "remove.security.fido2": {"icon":"","label":"Fido2","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-security-fido2"},
 
   // Remove > Browser
