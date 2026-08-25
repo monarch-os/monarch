@@ -49,9 +49,11 @@
   "learn.keybindings": {"icon":"","label":"Keybindings","action":"monarch-menu-keybindings"},
   "learn.monarch": {"icon":"󰆥","label":"Monarch","action":"monarch-launch-webapp 'https://docs.monarchlinux.com/'"},
   "learn.niri": {"icon":"","label":"Niri","action":"monarch-launch-webapp 'https://yalter.github.io/niri/'"},
+  "learn.noctalia": {"icon":"󰕮","label":"Noctalia","action":"monarch-launch-webapp 'https://docs.noctalia.dev/noctalia/'"},
   "learn.arch": {"icon":"󰣇","label":"Arch","action":"monarch-launch-webapp 'https://wiki.archlinux.org/title/Main_page'"},
   "learn.neovim": {"icon":"","label":"Neovim","action":"monarch-launch-webapp 'https://www.lazyvim.org/keymaps'"},
   "learn.bash": {"icon":"󱆃","label":"Bash","action":"monarch-launch-webapp 'https://devhints.io/bash'"},
+  "learn.herdr-keybindings": {"icon":"","label":"Herdr","action":"monarch-menu-herdr-keybindings"},
   "learn.about": {"icon":"","label":"About","action":"monarch-launch-about"},
 
   // Trigger
@@ -102,6 +104,8 @@
   "trigger.toggle.idle-lock": {"icon":"󱫖","label":"Idle Lock","checked":"monarch-toggle-idle status | jq -e '.enabled'","action":"monarch-toggle-idle"},
   "trigger.toggle.notifications": {"icon":"󰂛","label":"Notifications","checked":"monarch-toggle-notification-silencing status | jq -e '.enabled'","action":"monarch-toggle-notification-silencing"},
   "trigger.toggle.crash-capture": {"icon":"󱚡","label":"Crash Capture","checked":"! monarch-toggle-enabled crash-capture-off","action":"monarch-toggle-crash-capture"},
+  "trigger.toggle.top-bar": {"icon":"󰍜","label":"Menu Bar","checked":"monarch-toggle-bar status | jq -e '.enabled'","action":"monarch-toggle-bar"},
+  "trigger.toggle.battery-percentage": {"icon":"󰁹","label":"Battery Percentage","when":"monarch-hw-laptop","checked":"monarch-toggle-battery-percentage status | jq -e '.enabled'","action":"monarch-toggle-battery-percentage"},
   "trigger.toggle.direct-boot": {"icon":"","label":"Direct Boot","checked":"efibootmgr 2>/dev/null | grep -Eq '^Boot[0-9A-Fa-f]+[*]? Monarch([[:space:]]|$)'","action":"monarch-launch-floating-terminal-with-presentation monarch-config-direct-boot"},
   "trigger.toggle.passwordless-sudo": {"icon":"󰟵","label":"Passwordless Sudo","checked":"sudo -n test -f /etc/sudoers.d/99-monarch-nopasswd-$USER && systemctl is-active --quiet monarch-nopasswd-expire-$USER.timer","action":"monarch-launch-floating-terminal-with-presentation monarch-sudo-passwordless"},
 
@@ -124,12 +128,17 @@
   "trigger.hardware.touchpad-haptics.high": {"icon":"󰌌","label":"high","checked":"[[ $(dell-xps-touchpad-haptics get) == high ]]","action":"dell-xps-touchpad-haptics set high"},
 
   // Style
+  "style.dark-mode": {"icon":"󰟥","label":"Dark Mode","checked":"[[ $(noctalia msg theme-mode-get) == dark ]]","action":"noctalia msg theme-mode-toggle"},
   "style.font": {"icon":"","label":"Font","provider":"fonts"},
   "style.text-size": {"icon":"󰛖","label":"Text Size","provider":"text-size"},
   "style.background": {"icon":"","label":"Background","aliases":["wallpaper"],"description":"Choose the desktop wallpaper","keywords":["desktop","image"],"action":"noctalia msg panel-toggle wallpaper"},
   "style.niri": {"icon":"","label":"Niri","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\""},
+  "style.unlock": {"icon":"󰟵","label":"Unlock"},
   "style.screensaver": {"icon":"󱄄","label":"Screensaver"},
   "style.about": {"icon":"","label":"About"},
+
+  "style.unlock.apply": {"icon":"󱣴","label":"Match Current Theme","action":"monarch-launch-floating-terminal-with-presentation monarch-plymouth-apply"},
+  "style.unlock.default": {"icon":"󱣴","label":"Restore Default","action":"monarch-launch-floating-terminal-with-presentation monarch-plymouth-reset"},
 
   "style.screensaver.text": {"icon":"","label":"Edit Text","action":"monarch-branding-screensaver text"},
   "style.screensaver.image": {"icon":"","label":"Set From Image","action":"monarch-branding-screensaver image"},
@@ -148,7 +157,6 @@
   "setup.bluetooth": {"icon":"󰂯","label":"Bluetooth","description":"Connect and manage Bluetooth devices","keywords":["device","headphones","wireless"],"action":"monarch-launch-bluetooth"},
   "setup.power": {"icon":"󱐋","label":"Power Profile","title":"Power Profile","provider":"power-profiles"},
   "setup.sleep": {"icon":"󰒲","label":"System Sleep","title":"System Sleep"},
-  "setup.niri": {"icon":"","label":"Niri","when":"[[ -f $HOME/.config/niri/user.kdl ]]","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\""},
   "setup.defaults": {"icon":"","label":"Defaults","title":"Defaults","aliases":["default"]},
   "setup.dns": {"icon":"󰱔","label":"DNS"},
   "setup.language": {"icon":"󰗊","label":"Language","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-language"},

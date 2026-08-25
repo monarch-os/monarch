@@ -1,0 +1,76 @@
+#!/bin/bash
+
+# monarch:summary=Toggle Noctalia bar visibility
+# monarch:args=[toggle|on|off|status|apply]
+# monarch:examples=monarch toggle bar | monarch toggle bar status
+
+set -uo pipefail
+
+STATE_FILE="$HOME/.local/state/monarch/toggles/bar-off"
+
+bar_enabled() {
+  [[ ! -f $STATE_FILE ]]
+}
+
+set_bar() {
+  local state=$1
+
+  if [[ $state == "on" ]]; then
+    noctalia msg bar-show >/dev/null 2>&1 || return 1
+    rm -f "$STATE_FILE"
+  else
+    noctalia msg bar-hide >/dev/null 2>&1 || return 1
+    mkdir -p "$(dirname "$STATE_FILE")"
+    touch "$STATE_FILE"
+  fi
+}
+
+wait_for_noctalia() {
+  local attempt
+
+  for ((attempt = 0; attempt < 50; attempt++)); do
+    noctalia msg status >/dev/null 2>&1 && return 0
+    sleep 0.1
+  done
+
+  return 1
+}
+
+print_status() {
+  if bar_enabled; then
+    printf '{"enabled":true,"tooltip":"Menu bar visible - hide it"}\n'
+  else
+    printf '{"enabled":false,"tooltip":"Menu bar hidden - show it"}\n'
+  fi
+}
+
+case "${1:-toggle}" in
+  toggle)
+    if bar_enabled; then
+      set_bar off
+    else
+      set_bar on
+    fi
+    ;;
+  on)
+    set_bar on
+    ;;
+  off)
+    set_bar off
+    ;;
+  apply)
+    wait_for_noctalia || exit 1
+    if bar_enabled; then
+      set_bar on
+    else
+      set_bar off
+    fi
+    ;;
+  status | --status)
+    print_status
+    ;;
+  *)
+    echo "Usage: $0 [toggle|on|off|status|apply]" >&2
+    exit 1
+    ;;
+esac

@@ -39,9 +39,9 @@ mkdir -p "$HOME/.config/noctalia/templates"
 cp -rf "$MONARCH_PATH"/config/noctalia/templates/. "$HOME/.config/noctalia/templates/"
 
 # user-templates.toml is not merely inert — v5 merges every *.toml in this
-# directory and rejects its [templates.*] sections as unknown. colors.json is
-# deliberately absent from this list: monarch-sddm-theme and
-# monarch-plymouth-apply still read it.
+# directory and rejects its [templates.*] sections as unknown. colors.json is a
+# v4 leftover nothing writes any more; `monarch theme colors` resolves the active
+# palette instead, so removing it here costs nothing.
 echo "  Removing v4 state"
 rm -f "$HOME"/.config/noctalia/settings.json "$HOME"/.config/noctalia/settings.json.bak.*
 rm -f "$HOME"/.config/noctalia/user-templates.toml "$HOME"/.config/noctalia/user-templates.toml.bak.*

@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# monarch:summary=Toggle the battery percentage in the Noctalia bar
+# monarch:args=[toggle|on|off|status]
+# monarch:examples=monarch toggle battery-percentage | monarch toggle battery-percentage status
+
+set -uo pipefail
+
+OVERRIDE="$HOME/.config/noctalia/monarch-battery-percentage.toml"
+
+percentage_enabled() {
+  [[ -f $OVERRIDE ]]
+}
+
+set_percentage() {
+  local state=$1
+
+  if [[ $state == "on" ]]; then
+    mkdir -p "$(dirname "$OVERRIDE")"
+    printf '[widget.battery]\nshow_label = true\n' >"$OVERRIDE.tmp"
+    mv "$OVERRIDE.tmp" "$OVERRIDE"
+  else
+    rm -f "$OVERRIDE" "$OVERRIDE.tmp"
+  fi
+
+  noctalia msg config-reload >/dev/null 2>&1
+}
+
+print_status() {
+  if percentage_enabled; then
+    printf '{"enabled":true,"tooltip":"Battery percentage visible - hide it"}\n'
+  else
+    printf '{"enabled":false,"tooltip":"Battery percentage hidden - show it"}\n'
+  fi
+}
+
+case "${1:-toggle}" in
+  toggle)
+    if percentage_enabled; then
+      set_percentage off
+    else
+      set_percentage on
+    fi
+    ;;
+  on)
+    set_percentage on
+    ;;
+  off)
+    set_percentage off
+    ;;
+  status | --status)
+    print_status
+    ;;
+  *)
+    echo "Usage: $0 [toggle|on|off|status]" >&2
+    exit 1
+    ;;
+esac

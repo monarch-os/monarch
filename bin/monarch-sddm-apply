@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# monarch:summary=Recolor the SDDM login screen from the active Noctalia color scheme
+# monarch:hidden=true
+
+# Hidden until it earns its name: today it recolors the logo and nothing else,
+# because theme.conf is still shipped static. See monarch-refresh-sddm.
+
+# The login screen's colors come from theme.conf (read as config.* in Main.qml),
+# but the logo is a fixed PNG — a monochrome crown that otherwise stays
+# brand-violet on every scheme. SDDM/Qt can't recolor an image at runtime without
+# extra Qt deps, and editing the login QML is risky (a bad import breaks the
+# greeter), so we recolor the PNG here instead: magick-tint the shipped master
+# crown to the active accent (mPrimary) into the world-writable theme dir. SDDM
+# picks it up next login.
+
+MASTER="${MONARCH_PATH:-$HOME/.local/share/monarch}/default/sddm/monarch/logo.png"
+DEST="/usr/share/sddm/themes/monarch/logo.png"
+
+command -v magick >/dev/null 2>&1 || exit 0
+command -v jq >/dev/null 2>&1 || exit 0
+# DEST must exist and be writable by us (monarch-refresh-sddm makes it 666); if not,
+# no-op rather than fail — never leave a half-tinted login screen behind.
+[[ -f $MASTER && -w $DEST ]] || exit 0
+
+# A scheme with no palette file on disk (builtin, wallpaper) is a no-op here, not
+# an error: the logo simply keeps the color it already has.
+accent=$(monarch-theme-colors 2>/dev/null | jq -r '.mPrimary // empty') || exit 0
+accent=${accent#\#}
+[[ $accent =~ ^[0-9a-fA-F]{6}$ ]] || exit 0
+
+# +level-colors with a single color turns the crown into a solid silhouette of
+# that color, preserving alpha. Tinting from the pristine master each time is
+# idempotent (no compounding across scheme changes).
+magick "$MASTER" -channel RGB +level-colors "#$accent","#$accent" "$DEST" 2>/dev/null || true

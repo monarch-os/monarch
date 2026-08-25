@@ -9,13 +9,11 @@
 # (the old reactive `monarch-plymouth-set` model) was slow and unreliable, which
 # is why it was removed. This command does it deliberately, on demand.
 #
-# Scope is the BOOT SPLASH only. The SDDM login screen follows the scheme on its
-# own via Noctalia's user-template system (templates.sddm → theme.conf), with no
-# rebuild — see config/noctalia/templates/sddm.conf and monarch-refresh-sddm.
+# Scope is the BOOT SPLASH only; the SDDM login screen is monarch-refresh-sddm's.
 #
-# Colors come from ~/.config/noctalia/colors.json — Noctalia's RESOLVED colors for
-# the active scheme. That works for every scheme (built-ins like Nord included),
-# unlike reading the per-scheme Monarch JSON which only the "Monarch" scheme ships.
+# Colors come from `monarch theme colors`, which resolves the active scheme. It
+# refuses builtin and wallpaper schemes, which have no palette file, and that
+# refusal is passed straight through rather than guessed around.
 #   mSurface  -> background gradient
 #   mOnSurface-> foreground assets (unlock prompt: lock/entry/bullet)
 #   mPrimary  -> logo + progress bar
@@ -24,23 +22,22 @@
 
 set -uo pipefail
 
-COLORS="$HOME/.config/noctalia/colors.json"
 MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
 PLYMOUTH_SRC="$MONARCH_ROOT/default/plymouth"
 PLYMOUTH_DEST="/usr/share/plymouth/themes/monarch"
 
 command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
 command -v magick >/dev/null 2>&1 || { echo "imagemagick (magick) is required" >&2; exit 1; }
-[[ -f $COLORS ]] || { echo "Noctalia resolved colors not found ($COLORS) — open Noctalia once to generate them." >&2; exit 1; }
 
-# Resolved colors for the active scheme (any scheme, built-ins included).
-bg_hex=$(jq -r '.mSurface // empty' "$COLORS")
-fg_hex=$(jq -r '.mOnSurface // .mPrimary // empty' "$COLORS")
-accent_hex=$(jq -r '.mPrimary // empty' "$COLORS")
+colors=$(monarch-theme-colors) || exit 1
+
+bg_hex=$(jq -r '.mSurface // empty' <<<"$colors")
+fg_hex=$(jq -r '.mOnSurface // .mPrimary // empty' <<<"$colors")
+accent_hex=$(jq -r '.mPrimary // empty' <<<"$colors")
 
 bg_hex=${bg_hex#\#}; fg_hex=${fg_hex#\#}; accent_hex=${accent_hex#\#}
 for c in "$bg_hex" "$fg_hex" "$accent_hex"; do
-  [[ $c =~ ^[0-9a-fA-F]{6}$ ]] || { echo "Invalid or missing color in $COLORS" >&2; exit 1; }
+  [[ $c =~ ^[0-9a-fA-F]{6}$ ]] || { echo "Invalid or missing color in the active palette" >&2; exit 1; }
 done
 
 # Plymouth's gradient wants 0..1 floats (bash hex -> awk float, as the old script did).
