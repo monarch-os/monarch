@@ -113,6 +113,22 @@ assert_equals "the Input route resolves inside Config" "$("$MENU" --resolve inpu
 output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.security.sshd") | .checked')
 assert_equals "SSH server exposes its enabled state" "$output" "systemctl is-enabled --quiet sshd"
 
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.security.fingerprint") | .checked')
+assert_equals "fingerprint setup reflects successful enrollment" "$output" \
+  '[[ -f $HOME/.local/state/monarch/fingerprint-enabled ]]'
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "remove.security.fingerprint") | .when')
+assert_equals "fingerprint removal requires configured authentication" "$output" \
+  '[[ -f $HOME/.local/state/monarch/fingerprint-enabled ]]'
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.security.fido2") | .checked')
+assert_equals "FIDO2 setup reflects its auth file and PAM stack" "$output" \
+  '[[ -s /etc/fido2/fido2 ]] && grep -q pam_u2f.so /etc/pam.d/sudo'
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "remove.security.fido2") | .when')
+assert_equals "FIDO2 removal requires configured authentication" "$output" \
+  '[[ -s /etc/fido2/fido2 ]] && grep -q pam_u2f.so /etc/pam.d/sudo'
+
 output=$("$MENU" --state | jq '[.tree[] | select(.id | test("^trigger\\.toggle\\.[^.]+$")) | select(.checked)] | length')
 assert_equals "every toggle exposes its active state" "$output" "9"
 
