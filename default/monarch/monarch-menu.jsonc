@@ -173,6 +173,7 @@
   // Setup > Security
   "setup.security.fingerprint": {"icon":"󰈷","label":"Fingerprint","when":"monarch-hw-fingerprint","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-fingerprint"},
   "setup.security.fido2": {"icon":"","label":"Fido2","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-fido2"},
+  "setup.security.sshd": {"icon":"󰣀","label":"SSHD","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-sshd"},
   "setup.dns.dhcp": {"icon":"󰩟","label":"DHCP","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"DHCP\" ]]","action":"/usr/bin/monarch-dns DHCP"},
   "setup.dns.cloudflare": {"icon":"󰅟","label":"Cloudflare","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Cloudflare\" ]]","action":"/usr/bin/monarch-dns Cloudflare"},
   "setup.dns.google": {"icon":"󰊭","label":"Google","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Google\" ]]","action":"/usr/bin/monarch-dns Google"},
@@ -355,6 +356,7 @@
   // Remove > Security
   "remove.security.fingerprint": {"icon":"󰈷","label":"Fingerprint","when":"monarch-pkg-present fprintd","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-security-fingerprint"},
   "remove.security.fido2": {"icon":"","label":"Fido2","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-security-fido2"},
+  "remove.security.sshd": {"icon":"󰣀","label":"SSHD","when":"systemctl is-enabled --quiet sshd","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-security-sshd"},
 
   // Remove > Browser
   "remove.browser.chrome": {"icon":"","label":"Chrome","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-browser chrome\"","when":"monarch-pkg-present google-chrome"},
