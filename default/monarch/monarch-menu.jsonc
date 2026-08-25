@@ -132,6 +132,7 @@
   "style.font": {"icon":"","label":"Font","provider":"fonts"},
   "style.text-size": {"icon":"󰛖","label":"Text Size","provider":"text-size"},
   "style.background": {"icon":"","label":"Background","aliases":["wallpaper"],"description":"Choose the desktop wallpaper","keywords":["desktop","image"],"action":"noctalia msg panel-toggle wallpaper"},
+  "style.bar": {"icon":"󰍜","label":"Menu Bar"},
   "style.niri": {"icon":"","label":"Niri","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\""},
   "style.unlock": {"icon":"󰟵","label":"Unlock"},
   "style.screensaver": {"icon":"󱄄","label":"Screensaver"},
@@ -147,6 +148,12 @@
   "style.about.text": {"icon":"","label":"Edit Text","action":"monarch-branding-about text"},
   "style.about.image": {"icon":"","label":"Set From Image","action":"monarch-branding-about image"},
   "style.about.default": {"icon":"","label":"Restore Default","action":"monarch-branding-about reset"},
+
+  "style.bar.position": {"icon":"","label":"Position"},
+  "style.bar.position.top": {"icon":"󰁝","label":"Top","checked":"[[ $(monarch-bar-position) == top ]]","action":"monarch-bar-position top"},
+  "style.bar.position.bottom": {"icon":"󰁅","label":"Bottom","checked":"[[ $(monarch-bar-position) == bottom ]]","action":"monarch-bar-position bottom"},
+  "style.bar.position.left": {"icon":"󰁍","label":"Left","checked":"[[ $(monarch-bar-position) == left ]]","action":"monarch-bar-position left"},
+  "style.bar.position.right": {"icon":"󰁔","label":"Right","checked":"[[ $(monarch-bar-position) == right ]]","action":"monarch-bar-position right"},
 
   // Setup
   "setup.audio": {"icon":"","label":"Audio","action":"monarch-launch-audio"},

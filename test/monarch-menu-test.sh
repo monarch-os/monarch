@@ -85,6 +85,10 @@ assert_equals "root holds the eight top-level families in declaration order" \
 output=$("$MENU" --rows style.screensaver | cut -f2 | tr '\n' ' ')
 assert_equals "a level renders its own children only" "${output% }" "Edit Text Set From Image Restore Default"
 
+output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^style\\.bar\\.position\\.[^.]+$")) | [.label, .checked, .action] | join("|")')
+assert_equals "bar position exposes four stateful choices" "$output" \
+  $'Top|[[ $(monarch-bar-position) == top ]]|monarch-bar-position top\nBottom|[[ $(monarch-bar-position) == bottom ]]|monarch-bar-position bottom\nLeft|[[ $(monarch-bar-position) == left ]]|monarch-bar-position left\nRight|[[ $(monarch-bar-position) == right ]]|monarch-bar-position right'
+
 output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^setup\\.network\\.dns\\.[^.]+$")) | .label' | tr '\n' ' ')
 assert_equals "DNS exposes each provider directly" "${output% }" "DHCP Cloudflare Google Custom"
 
