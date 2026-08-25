@@ -75,6 +75,9 @@ order = ["default"]
   radius_top_right = 0
   radius_bottom_left = 0
   radius_bottom_right = 0
+  thickness = 26
+  padding = 6
+  widget_spacing = 2
   start = ["control-center", "workspaces", "media"]
   center = [
     "clock",
@@ -120,8 +123,7 @@ order = ["default"]
   # always visible and accept no settings at all — `noctalia config validate`
   # rejects every hide_when_* key on them. See the plugin's plugin.toml.
   #
-  # v4's bar.density = "compact" has no v5 equivalent either; thickness and
-  # widget_spacing are the dimensional knobs now, left at their defaults.
+  # v5 has no density preset; these dimensions reproduce v4's compact bar.
 
 # Per-widget settings live in top-level [widget.<id>] sections, NOT inline in
 # the lane arrays and not under [bar.<name>] — the lanes only ever hold plain
@@ -137,10 +139,15 @@ glyph = "crown"
 # renders all twelve workspaces whether or not they hold windows.
 hide_when_empty = true
 labels_only_when_occupied = true
+pill_scale = 0.75
+active_pill_size = 1.8
+inactive_pill_size = 1.0
+capsule_radius = 3
 
 [widget.clock]
 # v4: Clock { formatHorizontal = "ddd dd MMM  HH:mm" }, restated as strftime.
 format = "%a %d %b  %H:%M"
+vertical_format = "{:%H\n%M}"
 
 # Icon-only status widgets: drop the text label next to the glyph, so the
 # network widget shows the connection icon rather than "enp0s3" and the rest
