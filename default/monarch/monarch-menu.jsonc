@@ -150,18 +150,19 @@
 
   // Setup
   "setup.audio": {"icon":"","label":"Audio","action":"monarch-launch-audio"},
-  "setup.wifi": {"icon":"󱚾","label":"Wifi","description":"Connect to a wireless network","keywords":["network","internet","wireless"],"action":"monarch-launch-wifi"},
-  // Monarch's own network panel: connection, Wi-Fi band, DNS and the list. The
-  // stock Noctalia page stays reachable from the widget's right click.
-  "setup.network": {"icon":"󰌘","label":"Network","aliases":["net","band","dns"],"action":"noctalia msg panel-open monarch/network:panel"},
+  "setup.network": {"icon":"󰌘","label":"Network","aliases":["net"],"title":"Network"},
   "setup.bluetooth": {"icon":"󰂯","label":"Bluetooth","description":"Connect and manage Bluetooth devices","keywords":["device","headphones","wireless"],"action":"monarch-launch-bluetooth"},
   "setup.power": {"icon":"󱐋","label":"Power Profile","title":"Power Profile","provider":"power-profiles"},
   "setup.sleep": {"icon":"󰒲","label":"System Sleep","title":"System Sleep"},
   "setup.defaults": {"icon":"","label":"Defaults","title":"Defaults","aliases":["default"]},
-  "setup.dns": {"icon":"󰱔","label":"DNS"},
   "setup.language": {"icon":"󰗊","label":"Language","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-language"},
   "setup.security": {"icon":"","label":"Security","title":"Security"},
   "setup.config": {"icon":"","label":"Config","title":"Config"},
+
+  // Setup > Network
+  "setup.network.overview": {"icon":"󰌘","label":"Overview","aliases":["band"],"description":"Connection status, Wi-Fi band and traffic","action":"noctalia msg panel-open monarch/network:panel"},
+  "setup.network.wifi": {"icon":"󱚾","label":"Wi-Fi","aliases":["wifi"],"description":"Connect to a wireless network","keywords":["network","internet","wireless"],"action":"monarch-launch-wifi"},
+  "setup.network.dns": {"icon":"󰱔","label":"DNS","aliases":["dns"],"title":"DNS"},
 
   // Setup > System Sleep. Each row states the transition, so both are declared
   // and the current state hides the one that would be a no-op.
@@ -173,11 +174,11 @@
   // Setup > Security
   "setup.security.fingerprint": {"icon":"󰈷","label":"Fingerprint","when":"monarch-hw-fingerprint","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-fingerprint"},
   "setup.security.fido2": {"icon":"","label":"Fido2","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-fido2"},
-  "setup.security.sshd": {"icon":"󰣀","label":"SSHD","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-sshd"},
-  "setup.dns.dhcp": {"icon":"󰩟","label":"DHCP","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"DHCP\" ]]","action":"/usr/bin/monarch-dns DHCP"},
-  "setup.dns.cloudflare": {"icon":"󰅟","label":"Cloudflare","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Cloudflare\" ]]","action":"/usr/bin/monarch-dns Cloudflare"},
-  "setup.dns.google": {"icon":"󰊭","label":"Google","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Google\" ]]","action":"/usr/bin/monarch-dns Google"},
-  "setup.dns.custom": {"icon":"","label":"Custom","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Custom\" ]]","action":"monarch-launch-floating-terminal-with-presentation \"monarch-setup-dns Custom\""},
+  "setup.security.sshd": {"icon":"󰣀","label":"SSH Server","description":"Enable SSH access or authorize another key","checked":"systemctl is-enabled --quiet sshd","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-sshd"},
+  "setup.network.dns.dhcp": {"icon":"󰩟","label":"DHCP","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"DHCP\" ]]","action":"/usr/bin/monarch-dns DHCP"},
+  "setup.network.dns.cloudflare": {"icon":"󰅟","label":"Cloudflare","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Cloudflare\" ]]","action":"/usr/bin/monarch-dns Cloudflare"},
+  "setup.network.dns.google": {"icon":"󰊭","label":"Google","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Google\" ]]","action":"/usr/bin/monarch-dns Google"},
+  "setup.network.dns.custom": {"icon":"","label":"Custom","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Custom\" ]]","action":"monarch-launch-floating-terminal-with-presentation \"monarch-setup-dns Custom\""},
 
   // Setup > Defaults
   "setup.defaults.agent": {"icon":"󰚩","label":"Agent","title":"Default Agent"},
@@ -222,6 +223,7 @@
   "setup.defaults.editor.emacs": {"icon":"","label":"Emacs","when":"monarch-cmd-present emacs","checked":"[[ $(monarch-default-editor) == emacs ]]","action":"monarch-default-editor emacs"},
 
   // Setup > Config
+  "setup.config.input": {"icon":"","label":"Input","description":"Configure keyboard, mouse and touchpad behavior","keywords":["keyboard","mouse","touchpad","layout"],"action":"notify-send -u low 'Editing input settings' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\" && monarch-refresh-niri"},
   "setup.config.niri": {"icon":"","label":"Niri","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\" && monarch-refresh-niri"},
   "setup.config.noctalia": {"icon":"󰕮","label":"Noctalia","action":"notify-send -u low 'Editing config file' \"$HOME/.config/noctalia/config.toml\"; monarch-launch-editor \"$HOME/.config/noctalia/config.toml\" && noctalia msg config-reload"},
   "setup.config.xcompose": {"icon":"󰞅","label":"XCompose","action":"notify-send -u low 'Editing config file' \"$HOME/.XCompose\"; monarch-launch-editor \"$HOME/.XCompose\" && monarch-restart-xcompose"},
