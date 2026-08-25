@@ -29,6 +29,7 @@ declare -A GROUP_DESCRIPTIONS
 GROUP_DESCRIPTIONS[ac]="AC power detection"
 GROUP_DESCRIPTIONS[agent]="Coding agent launcher and usage"
 GROUP_DESCRIPTIONS[battery]="Battery status helpers"
+GROUP_DESCRIPTIONS[bar]="Bar layout and position"
 GROUP_DESCRIPTIONS[branch]="Monarch git branch management"
 GROUP_DESCRIPTIONS[branding]="About and screensaver branding"
 GROUP_DESCRIPTIONS[brightness]="Display and keyboard brightness"
