@@ -190,14 +190,16 @@
   // Every agent Monarch can set is listed, installed or not: picking one that
   // is missing installs it — which is why these rows carry no presence guard,
   // unlike the three lists below.
-  "setup.defaults.agent.claude": {"icon":"󰛄","label":"Claude Code","checked":"[[ $(monarch-default-agent) == claude ]]","action":"monarch-default-agent claude"},
+  "setup.defaults.agent.agy": {"icon":"󰫢","label":"Antigravity","checked":"[[ $(monarch-default-agent) == agy ]]","action":"monarch-default-agent agy"},
+  "setup.defaults.agent.claude": {"icon":"󰛄","label":"Claude","checked":"[[ $(monarch-default-agent) == claude ]]","action":"monarch-default-agent claude"},
   "setup.defaults.agent.codex": {"icon":"󰚩","label":"Codex","checked":"[[ $(monarch-default-agent) == codex ]]","action":"monarch-default-agent codex"},
-  "setup.defaults.agent.opencode": {"icon":"󰚩","label":"OpenCode","checked":"[[ $(monarch-default-agent) == opencode ]]","action":"monarch-default-agent opencode"},
-  "setup.defaults.agent.pi": {"icon":"󰚩","label":"Pi","checked":"[[ $(monarch-default-agent) == pi ]]","action":"monarch-default-agent pi"},
-  "setup.defaults.agent.gemini": {"icon":"󰊭","label":"Gemini","checked":"[[ $(monarch-default-agent) == gemini ]]","action":"monarch-default-agent gemini"},
-  "setup.defaults.agent.copilot": {"icon":"","label":"GitHub Copilot","checked":"[[ $(monarch-default-agent) == copilot ]]","action":"monarch-default-agent copilot"},
+  "setup.defaults.agent.copilot": {"icon":"","label":"Copilot","checked":"[[ $(monarch-default-agent) == copilot ]]","action":"monarch-default-agent copilot"},
   "setup.defaults.agent.crush": {"icon":"󰋑","label":"Crush","checked":"[[ $(monarch-default-agent) == crush ]]","action":"monarch-default-agent crush"},
   "setup.defaults.agent.grok": {"icon":"󰚩","label":"Grok","checked":"[[ $(monarch-default-agent) == grok ]]","action":"monarch-default-agent grok"},
+  "setup.defaults.agent.omp": {"icon":"󰚩","label":"omp","checked":"[[ $(monarch-default-agent) == omp ]]","action":"monarch-default-agent omp"},
+  "setup.defaults.agent.opencode": {"icon":"󰚩","label":"OpenCode","checked":"[[ $(monarch-default-agent) == opencode ]]","action":"monarch-default-agent opencode"},
+  "setup.defaults.agent.ori": {"icon":"󰚩","label":"Ori","checked":"[[ $(monarch-default-agent) == ori ]]","action":"monarch-default-agent ori"},
+  "setup.defaults.agent.pi": {"icon":"󰚩","label":"Pi","checked":"[[ $(monarch-default-agent) == pi ]]","action":"monarch-default-agent pi"},
 
   // A browser is offered when its desktop entry exists in any of the three
   // search paths the bash menu checked, and marked when it is the current one.

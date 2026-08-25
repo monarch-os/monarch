@@ -1,14 +1,8 @@
 #!/bin/bash
 
 # monarch:summary=Set and launch the default coding agent
-# monarch:args=[claude|codex|opencode|pi|gemini|copilot|crush|grok]
+# monarch:args=[pi|omp|opencode|ori|claude|codex|grok|agy|copilot|crush]
 # monarch:examples=monarch default agent | monarch default agent claude | monarch default agent codex
-
-# Monarch already ships most agents: claude-code is a pacman package and the
-# npm-based agents get npx wrappers in ~/.local/bin from install/packaging/npx.sh.
-# So unlike upstream — which installs everything through `mise use -g` on demand
-# — this only has to install the ones that are missing, and each one knows which
-# of the two mechanisms it belongs to.
 
 agent_file="$HOME/.config/monarch/defaults/agent"
 
@@ -29,44 +23,36 @@ if [[ $1 == "--install" ]]; then
   shift
 fi
 
-# pkg: a pacman package. npx: an npm package wrapped by monarch-npx-install.
 case "$1" in
-claude | claude-code) agent="claude"; name="Claude Code"; source="pkg"; package="claude-code" ;;
-codex) agent="codex"; name="Codex"; source="npx"; package="@openai/codex" ;;
-opencode | open-code) agent="opencode"; name="OpenCode"; source="npx"; package="opencode-ai" ;;
-pi) agent="pi"; name="Pi"; source="npx"; package="@earendil-works/pi-coding-agent" ;;
-gemini | gemini-cli) agent="gemini"; name="Gemini"; source="npx"; package="@google/gemini-cli" ;;
-copilot | github-copilot) agent="copilot"; name="GitHub Copilot"; source="npx"; package="@github/copilot" ;;
-crush) agent="crush"; name="Crush"; source="npx"; package="@charmland/crush" ;;
-grok) agent="grok"; name="Grok"; source="npx"; package="@xai-official/grok" ;;
+pi) agent="pi"; name="Pi" ;;
+omp | oh-my-pi) agent="omp"; name="Oh My Pi"; agent_package="github:can1357/oh-my-pi" ;;
+opencode | open-code) agent="opencode"; name="OpenCode" ;;
+ori | openrouter) agent="ori"; name="Ori"; agent_package="github:OpenRouterLabs/ori-releases" ;;
+claude | claude-code) agent="claude"; name="Claude Code" ;;
+codex) agent="codex"; name="Codex" ;;
+grok) agent="grok"; name="Grok"; agent_package="npm:@xai-official/grok" ;;
+agy | antigravity | antigravity-cli | gemini | gemini-cli) agent="agy"; name="Antigravity"; agent_package="antigravity-cli" ;;
+copilot | github-copilot) agent="copilot"; name="GitHub Copilot" ;;
+crush) agent="crush"; name="Crush" ;;
 *)
-  echo "Usage: monarch-default-agent <claude|codex|opencode|pi|gemini|copilot|crush|grok>" >&2
+  echo "Usage: monarch-default-agent <pi|omp|opencode|ori|claude|codex|grok|agy|copilot|crush>" >&2
   exit 1
   ;;
 esac
 
-# The install runs in a floating terminal so the user sees pacman/npx work,
-# then re-enters here with --install to finish and hand over to the agent.
-if [[ $installing == "false" ]] && monarch-cmd-missing "$agent"; then
-  exec monarch-launch-floating-terminal-with-presentation "monarch-default-agent --install $agent"
+agent_package=${agent_package:-$agent}
+
+if [[ $installing == "false" ]] && ! mise where "$agent_package" &>/dev/null; then
+  exec monarch-launch-floating-terminal-with-presentation monarch-default-agent --install "$agent"
 fi
 
-if monarch-cmd-missing "$agent"; then
-  case "$source" in
-  pkg)
-    monarch-pkg-add "$package" || {
-      echo "Could not install $name" >&2
-      exit 1
-    }
-    ;;
-  npx)
-    monarch-npx-install "$package" "$agent" || {
-      echo "Could not install $name" >&2
-      exit 1
-    }
-    ;;
-  esac
-  hash -r
+if ! mise use -g "$agent_package"; then
+  if [[ $installing == "true" ]]; then
+    echo "Could not install $name with mise" >&2
+  else
+    echo "Could not set $name as the default coding agent" >&2
+  fi
+  exit 1
 fi
 
 mkdir -p "$(dirname "$agent_file")"
