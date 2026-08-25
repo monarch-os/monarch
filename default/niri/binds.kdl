@@ -55,7 +55,6 @@ binds {
     Mod+Ctrl+Comma hotkey-overlay-title="Toggle Do Not Disturb" { spawn "monarch-toggle-notification-silencing"; }
     Mod+Ctrl+I hotkey-overlay-title="Toggle idle lock" { spawn "monarch-toggle-idle"; }
     Mod+Ctrl+N hotkey-overlay-title="Toggle nightlight" { spawn "monarch-toggle-nightlight"; }
-    Mod+Shift+Space hotkey-overlay-title="Toggle top bar" { spawn "monarch-toggle-bar"; }
     // Toggle the focused window's opacity rule (semitransparent <-> opaque). Ports the old
     // SUPER+BACKSPACE monarch-hyprland-window-transparency-toggle; niri does it natively so no
     // script is needed. Only has an effect on windows whose opacity rule is < 1.0 (see windows.kdl:
