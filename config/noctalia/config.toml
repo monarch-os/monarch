@@ -79,6 +79,7 @@ order = ["default"]
   center = [
     "clock",
     "monarch/indicators:screen-recording",
+    "privacy",
     "monarch/indicators:monarch-update",
     "monarch/indicators:voxtype",
     "monarch/indicators:dnd",
@@ -162,6 +163,9 @@ show_label = false
 # Collapse the pill when no MPRIS player is active, instead of leaving a
 # permanent "Nothing playing".
 hide_when_no_media = true
+
+[widget.privacy]
+hide_inactive = true
 
 # Noctalia talks to external monitors over DDC/CI, but only when asked: the
 # default is off, so the brightness pill and the control center's Monitor tab
