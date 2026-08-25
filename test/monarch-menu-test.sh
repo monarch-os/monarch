@@ -102,7 +102,7 @@ output=$("$MENU" --rows install | cut -f2 | tr '\n' ' ')
 assert_contains "software links to the removal catalog" "$output" "Remove software"
 
 output=$("$MENU" --state | jq '[.tree[] | select(.id | test("^trigger\\.toggle\\.[^.]+$")) | select(.checked)] | length')
-assert_equals "every toggle exposes its active state" "$output" "7"
+assert_equals "every toggle exposes its active state" "$output" "8"
 
 output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.toggle.notifications") | .checked')
 assert_equals "notifications check represents active DND" "$output" \
@@ -147,7 +147,7 @@ EOF
 output=$("$MENU" --rows learn | cut -f2 | tr '\n' ' ')
 assert_contains "an overridden label is used" "$output" "Shell"
 assert_equals "an overridden entry keeps its position" "${output% }" \
-  "Keybindings Monarch Niri Arch Neovim Shell About"
+  "Keybindings Monarch Niri Noctalia Arch Neovim Shell Herdr About"
 
 output=$("$MENU" --rows '' | cut -f1 | tr '\n' ' ')
 assert_contains "a new top-level id appends to the root menu" "$output" "personal"

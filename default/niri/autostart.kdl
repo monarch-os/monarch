@@ -10,6 +10,7 @@
 // take the session and leave Noctalia's registration failing. It is switched on
 // with shell.polkit_agent in config/noctalia/config.toml.
 spawn-at-startup "uwsm-app" "--" "noctalia" "-d"
+spawn-at-startup "monarch-toggle-bar" "apply"
 
 spawn-at-startup "uwsm-app" "--" "fcitx5" "--disable" "notificationitem"
 
