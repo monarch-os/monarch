@@ -6,9 +6,8 @@
 sudo rm -rf /usr/share/sddm/themes/monarch
 sudo cp -r $MONARCH_PATH/default/sddm/monarch /usr/share/sddm/themes/monarch
 
-# monarch-sddm-apply writes logo.png in place, as the user, so both files stay
-# world-writable. theme.conf is copied verbatim above and does NOT yet follow the
-# scheme — v5 dropped the user-template that used to render it.
+# The colors_changed hook runs as the user, so its two generated outputs must be
+# writable without sudo.
 sudo chmod 666 /usr/share/sddm/themes/monarch/theme.conf \
   /usr/share/sddm/themes/monarch/logo.png
 

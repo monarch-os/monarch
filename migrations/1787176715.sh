@@ -33,11 +33,6 @@ echo "  Seeding the Monarch v5 Noctalia config"
 monarch-refresh-config noctalia/config.toml
 monarch-refresh-config noctalia/palettes/Monarch.json
 
-# templates/ survives the version change: it still holds the sddm and herdr
-# inputs monarch-theme-apply renders.
-mkdir -p "$HOME/.config/noctalia/templates"
-cp -rf "$MONARCH_PATH"/config/noctalia/templates/. "$HOME/.config/noctalia/templates/"
-
 # user-templates.toml is not merely inert — v5 merges every *.toml in this
 # directory and rejects its [templates.*] sections as unknown. colors.json is a
 # v4 leftover nothing writes any more; `monarch theme colors` resolves the active
@@ -50,12 +45,8 @@ rm -rf "$HOME/.config/noctalia/colorschemes" "$HOME/.config/noctalia/plugins"
 rm -f "$HOME/.cache/noctalia/shell-state.json" "$HOME/.cache/noctalia/wallpapers.json"
 rm -rf "$HOME/.cache/noctalia-qs"
 
-# Whatever user-templates.toml registered is unreachable now, so the only inputs
-# worth keeping are the ones Monarch still ships.
-for template in "$HOME"/.config/noctalia/templates/*; do
-  [[ -e $template ]] || continue
-  [[ -e "$MONARCH_PATH/config/noctalia/templates/$(basename "$template")" ]] || rm -f "$template"
-done
+rm -f "$HOME/.config/noctalia/templates/sddm.conf"
+rmdir "$HOME/.config/noctalia/templates" 2>/dev/null || true
 
 # v5 discovers plugins under ~/.local/share/noctalia/plugins/, not ~/.config/.
 echo "  Seeding the Monarch plugins"
