@@ -94,6 +94,10 @@ assert_contains "DNS provider rows bypass the old chooser" "$output" "/usr/bin/m
 output=$("$MENU" --rows setup.network | cut -f2 | tr '\n' ' ')
 assert_equals "network groups overview, Wi-Fi and DNS" "${output% }" "Overview Wi-Fi DNS"
 
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.plugins") | .action')
+assert_equals "plugin setup opens Noctalia's native plugin manager" "$output" \
+  "noctalia msg settings-open plugins"
+
 output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^system\\.[^.]+$")) | .label' | tr '\n' ' ')
 assert_equals "system contains only session and power actions" "${output% }" \
   "Lock Screensaver Suspend Hibernate Logout Restart Shutdown"
