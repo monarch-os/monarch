@@ -85,11 +85,14 @@ assert_equals "root holds the eight top-level families in declaration order" \
 output=$("$MENU" --rows style.screensaver | cut -f2 | tr '\n' ' ')
 assert_equals "a level renders its own children only" "${output% }" "Edit Text Set From Image Restore Default"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^setup\\.dns\\.[^.]+$")) | .label' | tr '\n' ' ')
+output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^setup\\.network\\.dns\\.[^.]+$")) | .label' | tr '\n' ' ')
 assert_equals "DNS exposes each provider directly" "${output% }" "DHCP Cloudflare Google Custom"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^setup\\.dns\\.[^.]+$")) | .action' | tr '\n' ' ')
+output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^setup\\.network\\.dns\\.[^.]+$")) | .action' | tr '\n' ' ')
 assert_contains "DNS provider rows bypass the old chooser" "$output" "/usr/bin/monarch-dns Cloudflare"
+
+output=$("$MENU" --rows setup.network | cut -f2 | tr '\n' ' ')
+assert_equals "network groups overview, Wi-Fi and DNS" "${output% }" "Overview Wi-Fi DNS"
 
 output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^system\\.[^.]+$")) | .label' | tr '\n' ' ')
 assert_equals "system contains only session and power actions" "${output% }" \
@@ -100,6 +103,15 @@ assert_contains "documentation contains About" "$output" "About"
 
 output=$("$MENU" --rows install | cut -f2 | tr '\n' ' ')
 assert_contains "software links to the removal catalog" "$output" "Remove software"
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.config.input") | .action')
+assert_contains "input settings edit the user-owned Niri override" "$output" ".config/niri/user.kdl"
+assert_contains "input settings validate and reload Niri" "$output" "monarch-refresh-niri"
+
+assert_equals "the Input route resolves inside Config" "$("$MENU" --resolve input)" "setup.config.input"
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.security.sshd") | .checked')
+assert_equals "SSH server exposes its enabled state" "$output" "systemctl is-enabled --quiet sshd"
 
 output=$("$MENU" --state | jq '[.tree[] | select(.id | test("^trigger\\.toggle\\.[^.]+$")) | select(.checked)] | length')
 assert_equals "every toggle exposes its active state" "$output" "9"
@@ -131,6 +143,8 @@ assert_equals "go is a synonym for the root menu" "$("$MENU" --resolve go)" "roo
 assert_equals "an exact id resolves to itself" "$("$MENU" --resolve trigger.capture)" "trigger.capture"
 assert_equals "a last segment resolves to its full id" "$("$MENU" --resolve screenrecord)" "trigger.capture.screenrecord"
 assert_equals "a declared alias resolves" "$("$MENU" --resolve wifi-qr)" "trigger.share.wifi"
+assert_equals "the Wi-Fi route resolves inside Network" "$("$MENU" --resolve wifi)" "setup.network.wifi"
+assert_equals "the DNS route resolves inside Network" "$("$MENU" --resolve dns)" "setup.network.dns"
 assert_equals "a hidden legacy category remains routable" "$("$MENU" --resolve remove)" "remove"
 assert_equals "routes are case insensitive" "$("$MENU" --resolve SETTINGS)" "setup"
 assert_equals "underscores normalise to dashes" "$("$MENU" --resolve power_menu)" "system"
@@ -271,7 +285,7 @@ output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.capture.scree
 assert_contains "--state carries search descriptions" "$output" "Capture the screen"
 assert_contains "--state carries search keywords" "$output" "snip"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.wifi") | .searchText')
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.network.wifi") | .searchText')
 assert_contains "--state prepares search text outside the plugin" "$output" "wireless"
 
 if ! grep -q 'query ~= "" and isCategory' "$ROOT/default/noctalia/plugins/monarch-menu/model.luau"; then
