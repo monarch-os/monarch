@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for newly registered Obsidian vaults
+
+[Path]
+PathChanged=%h/.config/obsidian/obsidian.json
+Unit=monarch-obsidian-theme.service
+
+[Install]
+WantedBy=default.target

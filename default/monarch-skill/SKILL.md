@@ -146,8 +146,7 @@ Run `monarch --help` for the full list. The most common groups:
 ```
 ~/.config/noctalia/
 ├── config.toml                # Theme, bar lanes, [widget.*] settings, hooks, idle
-├── palettes/Monarch.json      # The Monarch color scheme (dark + light + terminal blocks)
-└── templates/                 # Leftover sddm input; nothing renders it under v5
+└── palettes/                  # Monarch and Quattro schemes (dark + light + terminal blocks)
 
 ~/.config/herdr/config.toml        # ANSI slot names; follows the terminal, never re-rendered
 
@@ -163,7 +162,7 @@ widget ids, or inline tables.
 **Key behaviors:**
 - The settings panel (Mod+Shift+Comma or `noctalia msg settings-toggle`) is the canonical way to tweak Noctalia, including the color scheme picker and the dark/light toggle. Edits to `config.toml` are picked up by `noctalia msg config-reload`, or on shell restart (`monarch restart noctalia`).
 - `monarch refresh noctalia` overwrites `config.toml` and the Monarch palette with Monarch defaults, then restarts the shell.
-- Noctalia owns all theming: colors, dark/light, app templates, and wallpaper. Monarch ships a single scheme `Monarch` (`palettes/Monarch.json`); Noctalia's built-in schemes (Catppuccin, Gruvbox, Nord, …) also appear in the picker. Switch with the picker or `noctalia msg color-scheme-set <builtin|community|custom|wallpaper> <Name>` — the source keyword is required.
+- Noctalia owns all theming: colors, dark/light, app templates, and wallpaper. Monarch ships its own palette plus the Quattro palette set under `palettes/`; Noctalia's built-in schemes also appear in the picker. Switch with the picker or `noctalia msg color-scheme-set <builtin|community|custom|wallpaper> <Name>` — the source keyword is required.
 - Dark/light is Noctalia's global toggle. Switch via the control center or `noctalia msg theme-mode-toggle`; read it back with `theme-mode-get`.
 - Bar widgets are configured in top-level `[widget.<id>]` sections of `config.toml`, never inline in the `start`/`center`/`end` lanes — the lanes hold plain strings, and an inline table there is silently dropped at load time. `show_label = false` gives an icon-only widget (network, bluetooth, volume, brightness, battery only).
 - Useful commands (`noctalia msg …`):
