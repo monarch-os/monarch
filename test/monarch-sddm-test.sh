@@ -55,5 +55,8 @@ after=$(sha256sum "$MONARCH_SDDM_THEME_DIR/theme.conf")
 [[ $before == "$after" ]] || fail "rejects an invalid palette before writing"
 pass "rejects an invalid palette before writing"
 
-grep -qx 'monarch-sddm-apply' "$ROOT/bin/monarch-theme-apply" || fail "theme hook applies SDDM"
-pass "theme hook applies SDDM"
+if grep -qx 'monarch-sddm-apply' "$ROOT/bin/monarch-theme-apply"; then
+  fail "desktop theme hook must not change SDDM"
+fi
+grep -q 'monarch-sddm-apply' "$ROOT/bin/monarch-plymouth-apply" || fail "unlock command applies SDDM"
+pass "unlock selection owns SDDM"

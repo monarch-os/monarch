@@ -5,7 +5,7 @@ Rectangle {
   id: root
   width: 640
   height: 480
-  // monarch-sddm-apply writes the active Noctalia surface to theme.conf, which
+  // monarch-sddm-apply writes the selected unlock surface to theme.conf, which
   // SDDM exposes as config.*. Keep a fallback for the pristine shipped theme.
   color: config.mSurface || "#1a1b26"
 

@@ -129,17 +129,15 @@
 
   // Style
   "style.dark-mode": {"icon":"󰟥","label":"Dark Mode","checked":"[[ $(noctalia msg theme-mode-get) == dark ]]","action":"noctalia msg theme-mode-toggle"},
+  "style.theme": {"icon":"󰏘","label":"Theme","description":"Preview and apply a complete color theme","action":"noctalia msg panel-toggle monarch/theme:theme"},
   "style.font": {"icon":"","label":"Font","provider":"fonts"},
   "style.text-size": {"icon":"󰛖","label":"Text Size","provider":"text-size"},
   "style.background": {"icon":"","label":"Background","aliases":["wallpaper"],"description":"Choose the desktop wallpaper","keywords":["desktop","image"],"action":"noctalia msg panel-toggle wallpaper"},
   "style.bar": {"icon":"󰍜","label":"Menu Bar"},
   "style.niri": {"icon":"","label":"Niri","action":"notify-send -u low 'Editing config file' \"$HOME/.config/niri/user.kdl\"; monarch-launch-editor \"$HOME/.config/niri/user.kdl\""},
-  "style.unlock": {"icon":"󰟵","label":"Unlock"},
+  "style.unlock": {"icon":"󰟵","label":"Unlock","description":"Preview the login and boot appearance","action":"noctalia msg panel-toggle monarch/theme:unlock"},
   "style.screensaver": {"icon":"󱄄","label":"Screensaver"},
   "style.about": {"icon":"","label":"About"},
-
-  "style.unlock.apply": {"icon":"󱣴","label":"Match Current Theme","action":"monarch-launch-floating-terminal-with-presentation monarch-plymouth-apply"},
-  "style.unlock.default": {"icon":"󱣴","label":"Restore Default","action":"monarch-launch-floating-terminal-with-presentation monarch-plymouth-reset"},
 
   "style.screensaver.text": {"icon":"","label":"Edit Text","action":"monarch-branding-screensaver text"},
   "style.screensaver.image": {"icon":"","label":"Set From Image","action":"monarch-branding-screensaver image"},

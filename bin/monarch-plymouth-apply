@@ -1,19 +1,13 @@
 #!/bin/bash
 
-# monarch:summary=Recolor the Plymouth boot splash from the active Noctalia color scheme, then rebuild the initramfs
+# monarch:summary=Apply a Monarch theme to the Plymouth and SDDM unlock screens
+# monarch:args=[name]
 # monarch:requires-sudo=true
 
-# Per-scheme boot-splash theming, MANUAL only — never wired to Noctalia's
-# colorGeneration hook. The splash assets live inside the initramfs, so any
-# recolor forces ONE `mkinitcpio` rebuild; doing that on every dark/light toggle
-# (the old reactive `monarch-plymouth-set` model) was slow and unreliable, which
-# is why it was removed. This command does it deliberately, on demand.
+# Unlock theming is manual: the Plymouth assets live inside the initramfs, so a
+# change forces one rebuild. The same selection colors SDDM after that rebuild.
 #
-# Scope is the BOOT SPLASH only; the SDDM login screen is monarch-refresh-sddm's.
-#
-# Colors come from `monarch theme colors`, which resolves the active scheme. It
-# refuses builtin and wallpaper schemes, which have no palette file, and that
-# refusal is passed straight through rather than guessed around.
+# Colors come from `monarch theme colors`, resolving the selected custom theme.
 #   mSurface  -> background gradient
 #   mOnSurface-> foreground assets (unlock prompt: lock/entry/bullet)
 #   mPrimary  -> logo + progress bar
@@ -29,7 +23,8 @@ PLYMOUTH_DEST="/usr/share/plymouth/themes/monarch"
 command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
 command -v magick >/dev/null 2>&1 || { echo "imagemagick (magick) is required" >&2; exit 1; }
 
-colors=$(monarch-theme-colors) || exit 1
+theme=${1:-}
+colors=$(monarch-theme-colors "$theme") || exit 1
 
 bg_hex=$(jq -r '.mSurface // empty' <<<"$colors")
 fg_hex=$(jq -r '.mOnSurface // .mPrimary // empty' <<<"$colors")
@@ -66,15 +61,21 @@ done
 [[ -f $stage/progress_bar.png ]] && tint "$stage/progress_bar.png" "$accent_hex"
 
 # --- Commit (sudo) -----------------------------------------------------------
-sudo mkdir -p "$PLYMOUTH_DEST"
-sudo cp -a "$stage/." "$PLYMOUTH_DEST/"
-sudo plymouth-set-default-theme monarch
+sudo mkdir -p "$PLYMOUTH_DEST" || exit 1
+sudo cp -a "$stage/." "$PLYMOUTH_DEST/" || exit 1
+sudo plymouth-set-default-theme monarch || exit 1
 
 # The splash lives in the initramfs — this rebuild is the one unavoidable cost.
 if command -v limine-mkinitcpio >/dev/null 2>&1; then
-  sudo limine-mkinitcpio
+  sudo limine-mkinitcpio || exit 1
 else
-  sudo mkinitcpio -P
+  sudo mkinitcpio -P || exit 1
 fi
 
-echo "Recolored the boot splash from the active Noctalia colors (surface #$bg_hex)."
+monarch-sddm-apply "$theme" || exit 1
+
+state="$HOME/.local/state/monarch/unlock-theme"
+mkdir -p "${state%/*}"
+printf '%s\n' "${theme:-active}" >"$state"
+
+echo "Applied ${theme:-the active theme} to Plymouth and SDDM."

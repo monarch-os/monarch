@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# monarch:summary=List visual themes available for Plymouth and SDDM
+# monarch:hidden=true
+
+set -uo pipefail
+
+MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+state_file="$HOME/.local/state/monarch/unlock-theme"
+current=""
+[[ -f $state_file ]] && read -r current <"$state_file"
+if [[ -z $current ]] && cmp -s "$MONARCH_ROOT/default/plymouth/logo.png" /usr/share/plymouth/themes/monarch/logo.png 2>/dev/null; then
+  current=default
+fi
+
+printf '%s\t%s\t%s\t%s\n' "$([[ $current == default ]] && echo true || echo false)" "Monarch Default" default "$MONARCH_ROOT/default/plymouth/preview-unlock.png"
+
+declare -A palette_names=()
+for palette in "$HOME/.config/noctalia/palettes"/*.json; do
+  [[ -f $palette ]] || continue
+  name=${palette##*/}
+  name=${name%.json}
+  normalized=${name,,}
+  normalized=${normalized// /-}
+  palette_names[$normalized]=$name
+done
+
+for preview in "$MONARCH_ROOT"/themes/*/preview-unlock.png; do
+  [[ -f $preview ]] || continue
+  slug=${preview%/preview-unlock.png}
+  slug=${slug##*/}
+  name=${palette_names[$slug]:-}
+  [[ -n $name ]] || continue
+  selected=false
+  [[ $current == "$name" ]] && selected=true
+  printf '%s\t%s\t%s\t%s\n' "$selected" "$name" "$slug" "$preview"
+done | sort -t $'\t' -k2,2f
