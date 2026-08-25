@@ -155,6 +155,7 @@
   "setup.power": {"icon":"󱐋","label":"Power Profile","title":"Power Profile","provider":"power-profiles"},
   "setup.sleep": {"icon":"󰒲","label":"System Sleep","title":"System Sleep"},
   "setup.defaults": {"icon":"","label":"Defaults","title":"Defaults","aliases":["default"]},
+  "setup.plugins": {"icon":"󰆧","label":"Plugins","action":"noctalia msg settings-open plugins"},
   "setup.language": {"icon":"󰗊","label":"Language","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-language"},
   "setup.security": {"icon":"","label":"Security","title":"Security"},
   "setup.config": {"icon":"","label":"Config","title":"Config"},
