@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Re-apply the residual system theming layer for the current Noctalia color scheme (wallpaper, keyboard RGB, Chromium)
+# monarch:summary=Re-apply the residual system theming layer for the current Noctalia color scheme
 # monarch:examples=monarch theme apply
 
 # Thin residual layer that lives alongside Noctalia. It is wired to Noctalia's
@@ -25,15 +25,15 @@
 #                               apply one.
 #   - keyboard RGB             : ASUS ROG (asusctl) + Framework 16 (qmk_hid).
 #   - Chromium policy color    : managed BrowserThemeColor.
+#   - SDDM                     : theme.conf and the logo follow the palette.
 #
 # NOTE: per-scheme Plymouth (boot-screen) theming is intentionally NOT wired here.
 # The splash lives in the initramfs, so a recolor forces an mkinitcpio rebuild —
 # far too costly to run on every color hook (that reactive model was why it was
 # removed). It is a separate MANUAL command instead: `monarch plymouth apply`
 # (recolor the boot splash from the active scheme) / `monarch plymouth reset`
-# (restore default). The static Monarch splash still ships by default. The SDDM
-# login screen, by contrast, follows the scheme on its own via Noctalia's
-# user-template system (templates.sddm → theme.conf), so it needs nothing here.
+# (restore default). The static Monarch splash still ships by default. SDDM does
+# not live in Noctalia's template catalog, so monarch-sddm-apply handles it here.
 #
 # Colors are read from the palette JSON shipped under
 # ~/.config/noctalia/palettes/<Scheme>.json (mPrimary = accent, mSurface =
@@ -305,3 +305,4 @@ sync_chromium() {
 sync_wallpaper
 sync_keyboard
 sync_chromium
+monarch-sddm-apply
