@@ -102,7 +102,7 @@ output=$("$MENU" --rows install | cut -f2 | tr '\n' ' ')
 assert_contains "software links to the removal catalog" "$output" "Remove software"
 
 output=$("$MENU" --state | jq '[.tree[] | select(.id | test("^trigger\\.toggle\\.[^.]+$")) | select(.checked)] | length')
-assert_equals "every toggle exposes its active state" "$output" "8"
+assert_equals "every toggle exposes its active state" "$output" "9"
 
 output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.toggle.notifications") | .checked')
 assert_equals "notifications check represents active DND" "$output" \

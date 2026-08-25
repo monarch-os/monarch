@@ -105,6 +105,7 @@
   "trigger.toggle.notifications": {"icon":"󰂛","label":"Notifications","checked":"monarch-toggle-notification-silencing status | jq -e '.enabled'","action":"monarch-toggle-notification-silencing"},
   "trigger.toggle.crash-capture": {"icon":"󱚡","label":"Crash Capture","checked":"! monarch-toggle-enabled crash-capture-off","action":"monarch-toggle-crash-capture"},
   "trigger.toggle.top-bar": {"icon":"󰍜","label":"Menu Bar","checked":"monarch-toggle-bar status | jq -e '.enabled'","action":"monarch-toggle-bar"},
+  "trigger.toggle.battery-percentage": {"icon":"󰁹","label":"Battery Percentage","when":"monarch-hw-laptop","checked":"monarch-toggle-battery-percentage status | jq -e '.enabled'","action":"monarch-toggle-battery-percentage"},
   "trigger.toggle.direct-boot": {"icon":"","label":"Direct Boot","checked":"efibootmgr 2>/dev/null | grep -Eq '^Boot[0-9A-Fa-f]+[*]? Monarch([[:space:]]|$)'","action":"monarch-launch-floating-terminal-with-presentation monarch-config-direct-boot"},
   "trigger.toggle.passwordless-sudo": {"icon":"󰟵","label":"Passwordless Sudo","checked":"sudo -n test -f /etc/sudoers.d/99-monarch-nopasswd-$USER && systemctl is-active --quiet monarch-nopasswd-expire-$USER.timer","action":"monarch-launch-floating-terminal-with-presentation monarch-sudo-passwordless"},
 
