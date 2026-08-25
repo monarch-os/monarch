@@ -5,13 +5,16 @@
 
 theme_dir="/usr/share/plymouth/themes/monarch"
 
-sudo find ~/.local/share/monarch/default/plymouth -maxdepth 1 -type f -exec cp -t "$theme_dir/" {} +
-sudo plymouth-set-default-theme monarch
+sudo find ~/.local/share/monarch/default/plymouth -maxdepth 1 -type f -exec cp -t "$theme_dir/" {} + || exit 1
+sudo plymouth-set-default-theme monarch || exit 1
 
 if monarch-cmd-present limine-mkinitcpio; then
-  sudo limine-mkinitcpio
+  sudo limine-mkinitcpio || exit 1
 else
-  sudo mkinitcpio -P
+  sudo mkinitcpio -P || exit 1
 fi
 
-monarch-refresh-sddm
+monarch-refresh-sddm || exit 1
+
+mkdir -p "$HOME/.local/state/monarch"
+printf '%s\n' default >"$HOME/.local/state/monarch/unlock-theme"

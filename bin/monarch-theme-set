@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# monarch:summary=Apply a Monarch theme through Noctalia
+# monarch:args=<name>
+# monarch:examples=monarch theme set Lumon
+
+set -uo pipefail
+
+name=${1:-}
+[[ -n $name ]] || { echo "Usage: monarch theme set <name>" >&2; exit 1; }
+
+palette="$HOME/.config/noctalia/palettes/$name.json"
+[[ -f $palette ]] || { echo "Unknown Monarch theme: $name" >&2; exit 1; }
+command -v noctalia >/dev/null 2>&1 || { echo "Noctalia is not installed" >&2; exit 1; }
+
+noctalia msg color-scheme-set custom "$name" >/dev/null || exit 1
+monarch-theme-apply

@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# monarch:summary=Print the resolved Noctalia colors for the active scheme as JSON
+# monarch:summary=Print the resolved Noctalia colors for the active or named Monarch scheme as JSON
+# monarch:args=[name]
 # monarch:examples=monarch theme colors|monarch theme colors | jq -r .mPrimary
 
 # v4 left the resolved colors in ~/.config/noctalia/colors.json; v5 never writes
@@ -18,8 +19,13 @@ set -uo pipefail
 command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
 command -v noctalia >/dev/null 2>&1 || { echo "noctalia is not installed" >&2; exit 1; }
 
-scheme=$(noctalia msg color-scheme-get 2>&1) ||
-  { echo "Cannot read the active color scheme — is Noctalia running? ($scheme)" >&2; exit 1; }
+requested=${1:-}
+if [[ -n $requested ]]; then
+  scheme="custom $requested"
+else
+  scheme=$(noctalia msg color-scheme-get 2>&1) ||
+    { echo "Cannot read the active color scheme — is Noctalia running? ($scheme)" >&2; exit 1; }
+fi
 
 mode=$(noctalia msg theme-mode-get 2>/dev/null)
 [[ $mode == dark || $mode == light ]] ||

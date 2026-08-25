@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# monarch:summary=List the Monarch themes available to the visual selector
+# monarch:hidden=true
+
+set -uo pipefail
+
+MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+PALETTES_DIR="$HOME/.config/noctalia/palettes"
+
+current=""
+if command -v noctalia >/dev/null 2>&1; then
+  scheme=$(noctalia msg color-scheme-get 2>/dev/null || true)
+  [[ $scheme == custom\ * ]] && current=${scheme#custom }
+fi
+
+for palette in "$PALETTES_DIR"/*.json; do
+  [[ -f $palette ]] || continue
+  name=${palette##*/}
+  name=${name%.json}
+  slug=${name,,}
+  slug=${slug// /-}
+  theme_dir="$MONARCH_ROOT/themes/$slug"
+  [[ -d $theme_dir ]] || continue
+
+  preview="$theme_dir/preview.png"
+  if [[ ! -f $preview ]]; then
+    preview=$(find "$theme_dir" -maxdepth 1 -type f \
+      \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) \
+      ! -name 'preview-unlock.png' -print -quit 2>/dev/null)
+  fi
+  [[ -n $preview ]] || continue
+
+  selected=false
+  [[ $name == "$current" ]] && selected=true
+  printf '%s\t%s\t%s\t%s\n' "$selected" "$name" "$slug" "$preview"
+done | sort -t $'\t' -k2,2f

@@ -3,12 +3,12 @@
 # monarch:summary=Refresh the SDDM theme from default
 # monarch:requires-sudo=true
 
-sudo rm -rf /usr/share/sddm/themes/monarch
-sudo cp -r $MONARCH_PATH/default/sddm/monarch /usr/share/sddm/themes/monarch
+MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
 
-# The colors_changed hook runs as the user, so its two generated outputs must be
-# writable without sudo.
+sudo rm -rf /usr/share/sddm/themes/monarch || exit 1
+sudo cp -r "$MONARCH_ROOT/default/sddm/monarch" /usr/share/sddm/themes/monarch || exit 1
+
+# Unlock themes are applied interactively as the user, so their two generated
+# outputs must remain writable without sudo.
 sudo chmod 666 /usr/share/sddm/themes/monarch/theme.conf \
-  /usr/share/sddm/themes/monarch/logo.png
-
-monarch-sddm-apply
+  /usr/share/sddm/themes/monarch/logo.png || exit 1
