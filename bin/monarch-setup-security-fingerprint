@@ -122,14 +122,12 @@ setup_pam_config
 # Arm the reader on the Noctalia lock screen
 setup_noctalia_lockscreen
 
-# Record that fingerprint auth is enabled for downstream Monarch tooling
-add_fingerprint_marker
-
 # Enroll first fingerprint
 echo -e "\e[32m\nLet's setup your right index finger as the first fingerprint.\e[0m"
 echo -e "Keep moving the finger around on sensor until the process completes.\n"
 
 if sudo fprintd-enroll "$USER"; then
+  add_fingerprint_marker
   echo -e "\e[32m\nFingerprint enrolled successfully!\e[0m"
 
   # Verify
