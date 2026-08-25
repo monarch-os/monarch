@@ -282,10 +282,11 @@
 
   // Install > AI. The Ollama build follows the GPU present on the machine, which
   // is why its package name is resolved inside the action rather than declared.
+  "install.ai.chatgpt": {"icon":"󰭹","label":"ChatGPT Desktop","disabled":"monarch-pkg-present openai-codex-desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-install-ai-chatgpt"},
   "install.ai.dictation": {"icon":"","label":"Dictation","disabled":"monarch-pkg-present voxtype-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-voxtype-install"},
   "install.ai.lm-studio": {"icon":"󱚤","label":"LM Studio","action":"monarch-install-app 'LM Studio' lmstudio-bin","disabled":"monarch-pkg-present lmstudio-bin"},
   "install.ai.ollama": {"icon":"󱚤","label":"Ollama","action":"if monarch-cmd-present nvidia-smi; then ollama_pkg=ollama-cuda; elif monarch-cmd-present rocminfo; then ollama_pkg=ollama-rocm; else ollama_pkg=ollama; fi; monarch-install-app Ollama \"$ollama_pkg\"","disabled":"monarch-cmd-present ollama"},
-  "install.ai.crush": {"icon":"󱚤","label":"Crush","action":"monarch-install-app Crush crush-bin","disabled":"monarch-pkg-present crush-bin"},
+  "install.ai.t3-code": {"icon":"󰚩","label":"T3 Code","disabled":"monarch-pkg-present t3code-bin","action":"monarch-install-and-launch 'T3 Code' t3code-bin t3code"},
 
   // Install > Gaming
   "install.gaming.steam": {"icon":"","label":"Steam","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-steam","disabled":"monarch-pkg-present steam"},
@@ -355,10 +356,11 @@
   // command, so selecting it only ever bounced back to the root menu.
   "remove.security": {"icon":"","label":"Security","title":"Remove"},
 
+  "remove.ai.chatgpt": {"icon":"󰭹","label":"ChatGPT Desktop","when":"monarch-pkg-present openai-codex-desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-chatgpt"},
   "remove.ai.dictation": {"icon":"","label":"Dictation","when":"monarch-pkg-present voxtype-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-voxtype-remove"},
   "remove.ai.lm-studio": {"icon":"󱚤","label":"LM Studio","when":"monarch-pkg-present lmstudio-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-lm-studio"},
   "remove.ai.ollama": {"icon":"󱚤","label":"Ollama","when":"monarch-cmd-present ollama","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-ollama"},
-  "remove.ai.crush": {"icon":"󱚤","label":"Crush","when":"monarch-pkg-present crush-bin","action":"monarch-launch-floating-terminal-with-presentation \"monarch-pkg-drop crush-bin\""},
+  "remove.ai.t3-code": {"icon":"󰚩","label":"T3 Code","when":"monarch-pkg-present t3code-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-t3-code"},
 
   "remove.service.tailscale": {"icon":"","label":"Tailscale","when":"monarch-pkg-present tailscale","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-service-tailscale"},
   "remove.service.lazyvpn": {"icon":"󰖂","label":"LazyVPN","when":"monarch-pkg-present monarch-lazyvpn","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-lazyvpn"},

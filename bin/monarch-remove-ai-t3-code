@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# monarch:summary=Remove T3 Code and its local data
+# monarch:requires-sudo=true
+
+set -e
+
+monarch-pkg-drop t3code-bin
+
+rm -rf \
+  "$HOME/.config/t3code" \
+  "$HOME/.t3"
+rm -f "$HOME/.config/t3code-flags.conf"
+
+echo ""
+echo "T3 Code has been removed."
