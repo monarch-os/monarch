@@ -13,7 +13,7 @@ if pgrep -x "1password" >/dev/null; then
 fi
 
 # Avoid running screensaver when locked
-pkill -f org.monarch.screensaver
+pkill -f '[o]rg.monarch.screensaver'
 
 if [[ ${MONARCH_LOCK_ONLY:-false} != "true" ]]; then
   (

@@ -235,10 +235,15 @@ directory = "~/.config/monarch/backgrounds/current"
 transition_duration = 1500
 
 [idle]
-# v4's flat idle.{lockTimeout,screenOffTimeout,…} became named behaviours with
-# their own timeouts, ordered by behavior_order. v4's idle.customCommands (the
-# screensaver at 150s) has no equivalent here and is not ported.
-behavior_order = ["lock", "screen-off"]
+# Named behaviours run in this order as the idle duration crosses each timeout.
+behavior_order = ["screensaver", "lock", "screen-off"]
+
+  [idle.behavior.screensaver]
+  action = "command"
+  enabled = true
+  timeout = 150.0
+  command = "monarch-launch-screensaver"
+  resume_command = "pkill -f '[o]rg.monarch.screensaver'"
 
   [idle.behavior.lock]
   action = "lock"
