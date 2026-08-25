@@ -110,13 +110,19 @@ assert_contains "software links to the removal catalog" "$output" "Remove softwa
 assert_equals "software follows the install workflow" "${output% }" \
   "Package AUR Web App TUI Browser Editor Terminal Development AI Cyber Gaming Services Fonts Windows Preinstalls Remove software"
 
+output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^install\\.ai\\.[^.]+$")) | .label' | tr '\n' ' ')
+assert_equals "AI follows the selected Quattro catalog" "${output% }" \
+  "ChatGPT Desktop Dictation LM Studio Ollama T3 Code"
+refute_contains "AI no longer lists Crush as a desktop app" "$output" "Crush"
+
 if ! grep -q '^local WINDOW_ROWS = 10$' "$ROOT/default/noctalia/plugins/monarch-menu/panel.luau"; then
   fail "menu viewport keeps its last row above the footer"
 fi
 pass "menu viewport keeps its last row above the footer"
 
 output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^remove\\.ai\\.[^.]+$")) | .label' | tr '\n' ' ')
-assert_equals "AI removal mirrors the install catalog" "${output% }" "Dictation LM Studio Ollama Crush"
+assert_equals "AI removal mirrors the install catalog" "${output% }" \
+  "ChatGPT Desktop Dictation LM Studio Ollama T3 Code"
 
 output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^remove\\.service\\.[^.]+$")) | .label' | tr '\n' ' ')
 assert_equals "specialized service removals are grouped" "${output% }" "Tailscale LazyVPN Displaylink"
