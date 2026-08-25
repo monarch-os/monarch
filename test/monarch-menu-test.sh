@@ -112,6 +112,18 @@ output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.toggle.idle-l
 assert_equals "idle lock check represents active caffeine" "$output" \
   "monarch-toggle-idle status | jq -e '.enabled'"
 
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.capture.screenrecord.webcam") | .when')
+assert_equals "webcam recording is hardware guarded" "$output" "monarch-hw-webcam"
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.security.fingerprint") | .when')
+assert_equals "fingerprint setup is hardware guarded" "$output" "monarch-hw-fingerprint"
+
+for device in touchpad touchscreen; do
+  output=$("$MENU" --state | jq -r --arg id "trigger.hardware.$device" '.tree[] | select(.id == $id) | .checked')
+  assert_equals "$device exposes its active state" "$output" \
+    "monarch-toggle-$device status | jq -e '.enabled'"
+done
+
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 assert_equals "empty route opens the root menu" "$("$MENU" --resolve '')" "root"
