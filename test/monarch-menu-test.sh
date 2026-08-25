@@ -103,6 +103,19 @@ assert_contains "documentation contains About" "$output" "About"
 
 output=$("$MENU" --rows install | cut -f2 | tr '\n' ' ')
 assert_contains "software links to the removal catalog" "$output" "Remove software"
+assert_equals "software follows the install workflow" "${output% }" \
+  "Package AUR Web App TUI Browser Editor Terminal Development AI Cyber Gaming Services Fonts Windows Preinstalls Remove software"
+
+if ! grep -q '^local WINDOW_ROWS = 10$' "$ROOT/default/noctalia/plugins/monarch-menu/panel.luau"; then
+  fail "menu viewport keeps its last row above the footer"
+fi
+pass "menu viewport keeps its last row above the footer"
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^remove\\.ai\\.[^.]+$")) | .label' | tr '\n' ' ')
+assert_equals "AI removal mirrors the install catalog" "${output% }" "Dictation LM Studio Ollama Crush"
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^remove\\.service\\.[^.]+$")) | .label' | tr '\n' ' ')
+assert_equals "specialized service removals are grouped" "${output% }" "Tailscale LazyVPN Displaylink"
 
 output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.config.input") | .action')
 assert_contains "input settings edit the user-owned Niri override" "$output" ".config/niri/user.kdl"

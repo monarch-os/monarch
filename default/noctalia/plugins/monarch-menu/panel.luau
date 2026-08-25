@@ -61,7 +61,7 @@ end
 -- to refuse the wheel, and an overflowing slice would show a bar reporting the
 -- slice rather than the list — contradicting the count in the header, and
 -- letting the wheel shift the view out from under the window.
-local WINDOW_ROWS = 11
+local WINDOW_ROWS = 10
 local WINDOW_ROWS_SEARCHING = 6
 
 local windowStart = 1
