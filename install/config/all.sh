@@ -11,6 +11,7 @@ run_logged $MONARCH_INSTALL/config/passwordless-sudo.sh
 run_logged $MONARCH_INSTALL/config/increase-lockout-limit.sh
 run_logged $MONARCH_INSTALL/config/ssh-flakiness.sh
 run_logged $MONARCH_INSTALL/config/ssh-agent.sh
+run_logged $MONARCH_INSTALL/config/ssh-command-path.sh
 run_logged $MONARCH_INSTALL/config/increase-file-watchers.sh
 run_logged $MONARCH_INSTALL/config/increase-fd-limit.sh
 run_logged $MONARCH_INSTALL/config/detect-keyboard-layout.sh
