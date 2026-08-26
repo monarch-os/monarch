@@ -9,8 +9,17 @@ set -euo pipefail
 
 farm="$HOME/.config/monarch/backgrounds/current"
 cache="$HOME/.cache/monarch/background-thumbnails"
+monarch_root="${MONARCH_PATH:-$HOME/.local/share/monarch}"
 current=$(noctalia msg wallpaper-get 2>/dev/null || true)
 current=$(readlink -f "$current" 2>/dev/null || true)
+scheme=$(noctalia msg color-scheme-get 2>/dev/null | cut -d' ' -f2-)
+folder=${scheme,,}
+folder=${folder// /-}
+case $folder in
+rosé-pine | rosepine) folder="rose-pine" ;;
+esac
+user_dir=$(readlink -f "$HOME/.config/monarch/backgrounds/$folder" 2>/dev/null || true)
+shipped_dir="$monarch_root/themes/$folder"
 
 [[ -d $farm ]] || exit 0
 mkdir -p "$cache"
@@ -56,7 +65,9 @@ for index in "${!links[@]}"; do
   [[ -f $path ]] || continue
   active=false
   [[ -n $current && $path == "$current" ]] && active=true
+  removable=false
+  [[ -n $user_dir && ${path%/*} == "$user_dir" && ! -f $shipped_dir/${path##*/} ]] && removable=true
   thumbnail=${thumbnails[index]}
   [[ -f $thumbnail ]] || thumbnail=$path
-  printf '%s\t%s\t%s\t%s\n' "$active" "${link##*/}" "$path" "$thumbnail"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$active" "${link##*/}" "$path" "$thumbnail" "$removable"
 done

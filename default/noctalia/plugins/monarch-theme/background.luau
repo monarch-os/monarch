@@ -11,6 +11,9 @@ local windowStart = 1
 local query = ""
 local loading = true
 local applying = false
+local importing = false
+local removing = false
+local removeArmed = ""
 local status = ""
 local render
 local WINDOW_ROWS = 3
@@ -44,9 +47,9 @@ end
 local function parse(text)
   local parsed = {}
   for line in text:gmatch("[^\n]+") do
-    local current, name, path, thumbnail = line:match("^([^\t]*)\t([^\t]*)\t([^\t]*)\t(.*)$")
+    local current, name, path, thumbnail, removable = line:match("^([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t(.*)$")
     if name and path ~= "" and thumbnail ~= "" then
-      table.insert(parsed, { current = current == "true", name = name, path = path, thumbnail = thumbnail })
+      table.insert(parsed, { current = current == "true", name = name, path = path, thumbnail = thumbnail, removable = removable == "true" })
     end
   end
   return parsed
@@ -74,6 +77,7 @@ end
 
 local function choose(index)
   selected = index
+  removeArmed = ""
   reveal()
   status = ""
   render()
@@ -81,7 +85,7 @@ end
 
 local function apply()
   local background = rows[selected]
-  if applying or not background then return end
+  if applying or importing or removing or not background then return end
   applying = true
   status = "Applying " .. background.name .. "…"
   render()
@@ -95,6 +99,46 @@ local function apply()
     for _, item in ipairs(backgrounds) do item.current = item.path == background.path end
     status = background.name .. " applied"
     render()
+  end)
+end
+
+local function importBackground()
+  if importing or applying or removing then return end
+  importing = true
+  panel.close()
+  noctalia.runAsync(BIN .. "/monarch-theme-background-import", function(result)
+    importing = false
+    if not result or result.exitCode ~= 0 then
+      status = "Could not import background"
+    elseif not (result.stdout or ""):match("([^\n]+)") then
+      status = ""
+    end
+    noctalia.runAsync("/usr/bin/noctalia msg panel-open monarch/theme:background")
+  end)
+end
+
+local function removeBackground()
+  local background = rows[selected]
+  if removing or applying or importing or not background or not background.removable then return end
+  if removeArmed ~= background.path then
+    removeArmed = background.path
+    status = "Press Remove again to delete " .. background.name
+    render()
+    return
+  end
+  removing = true
+  status = "Removing " .. background.name .. "…"
+  render()
+  noctalia.runAsync(BIN .. "/monarch-theme-background-remove " .. quote(background.path), function(result)
+    removing = false
+    removeArmed = ""
+    if not result or result.exitCode ~= 0 then
+      status = "Could not remove " .. background.name
+      render()
+      return
+    end
+    status = background.name .. " removed"
+    load()
   end)
 end
 
@@ -156,7 +200,8 @@ local function content()
           ui.label({ text = background.name, fontSize = 18, fontWeight = "bold" }),
           ui.label({ text = background.current and "Current background" or "Preview from the active theme", fontSize = 11, color = "on_surface_variant" }),
         }),
-        ui.button({ text = applying and "Applying…" or "Use background", variant = "primary", enabled = not applying and not background.current, onClick = apply }),
+        background.removable and ui.button({ text = removeArmed == background.path and "Confirm remove" or "Remove", variant = "secondary", enabled = not applying and not importing and not removing, onClick = "onRemoveClicked" }) or ui.spacer({ width = 0 }),
+        ui.button({ text = applying and "Applying…" or "Use background", variant = "primary", enabled = not applying and not importing and not removing and not background.current, onClick = apply }),
       }),
     }),
   })
@@ -169,11 +214,12 @@ function render()
         ui.label({ text = "Choose a background", fontSize = 18, fontWeight = "bold" }),
         ui.label({ text = #rows .. " images from the active theme", fontSize = 11, color = "on_surface_variant" }),
       }),
+      ui.button({ text = importing and "Importing…" or "Import", glyph = "file-import", enabled = not importing and not applying and not removing, onClick = "onImportClicked" }),
       ui.button({ glyph = "close", onClick = "onCloseClicked" }),
     }),
     ui.input({ key = "background-search", placeholder = "Search backgrounds…", focus = true, onChange = "onQueryChanged", onSubmit = "onQuerySubmitted" }),
     content(),
-    ui.label({ text = status ~= "" and status or "↑↓ Select · Enter Apply", fontSize = 11, color = status:match("Could not") and "error" or "on_surface_variant" }),
+    ui.label({ text = status ~= "" and status or "↑↓ Select · Enter Apply · Ctrl+I Import · Delete Remove", fontSize = 11, color = status:match("Could not") and "error" or "on_surface_variant" }),
   }))
 end
 
@@ -184,6 +230,8 @@ function onOpen()
 end
 
 function onCloseClicked() panel.close() end
+function onImportClicked() importBackground() end
+function onRemoveClicked() removeBackground() end
 
 function onQueryChanged(value)
   query = value or ""
@@ -197,8 +245,11 @@ function onQuerySubmitted(_value)
 end
 
 function onKey(chord, pressed)
-  if not pressed or #rows == 0 then return end
+  if not pressed then return end
   if chord == "escape" then panel.close()
+  elseif chord == "ctrl+i" then importBackground()
+  elseif chord == "delete" then removeBackground()
+  elseif #rows == 0 then return
   elseif chord == "down" or chord == "ctrl+j" then choose(if selected == #rows then 1 else selected + 1)
   elseif chord == "up" or chord == "ctrl+k" then choose(if selected == 1 then #rows else selected - 1)
   elseif chord == "home" then choose(1)

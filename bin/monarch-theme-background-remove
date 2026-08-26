@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# monarch:summary=Remove an imported background from the active theme
+# monarch:group=theme
+# monarch:name=background-remove
+# monarch:args=<path>
+# monarch:examples=monarch theme background-remove ~/.config/monarch/backgrounds/monarch/wallpaper.png
+
+set -euo pipefail
+
+path=$(readlink -f -- "${1:-}" 2>/dev/null || true)
+scheme=$(noctalia msg color-scheme-get 2>/dev/null | cut -d' ' -f2-)
+folder=${scheme,,}
+folder=${folder// /-}
+case $folder in
+rosé-pine | rosepine) folder="rose-pine" ;;
+esac
+user_dir=$(readlink -f "$HOME/.config/monarch/backgrounds/$folder" 2>/dev/null || true)
+monarch_root="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+shipped="$monarch_root/themes/$folder/${path##*/}"
+
+if [[ -z $path || ! -f $path || -z $user_dir || ${path%/*} != "$user_dir" || -f $shipped ]]; then
+  echo "monarch-theme-background-remove: only imported backgrounds from the active theme can be removed" >&2
+  exit 1
+fi
+
+if ! gio trash -- "$path"; then
+  echo "monarch-theme-background-remove: the background could not be moved to trash" >&2
+  exit 1
+fi
+monarch-theme-apply >/dev/null 2>&1 || true
+monarch-notification-send "" "Background removed" "${path##*/}" 2>/dev/null || true

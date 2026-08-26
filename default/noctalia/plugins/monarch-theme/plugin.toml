@@ -15,7 +15,7 @@ height = 650
 placement = "floating"
 position  = "center"
 keyboard_focus = "on_demand"
-capture_keys = ["up", "down", "return", "home", "end", "escape", "ctrl+j", "ctrl+k"]
+capture_keys = ["up", "down", "return", "home", "end", "delete", "escape", "ctrl+i", "ctrl+j", "ctrl+k"]
 dismiss_on_outside_click = true
 
 [[panel]]
