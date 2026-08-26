@@ -98,6 +98,13 @@ assert_equals "Backgrounds exposes import" "$output" "monarch-theme-background-i
 output=$("$MENU" --state | jq -r '.tree[] | select(.id == "style.backgrounds.select") | .action')
 assert_equals "Backgrounds uses the Monarch selector" "$output" "noctalia msg panel-toggle monarch/theme:background"
 
+output=$("$MENU" --tree | jq -r '.[0] | [.id, .label] | join("|")')
+assert_equals "--tree exposes menu data without guards" "$output" "apps|Apps"
+
+output=$("$MENU" --initial style.backgrounds | jq -r 'map(.id) | join(" ")')
+assert_equals "--initial limits data to the requested level" "$output" \
+  "style style.backgrounds style.backgrounds.select style.backgrounds.import"
+
 output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^setup\\.network\\.dns\\.[^.]+$")) | .label' | tr '\n' ' ')
 assert_equals "DNS exposes each provider directly" "${output% }" "DHCP Cloudflare Google Custom"
 

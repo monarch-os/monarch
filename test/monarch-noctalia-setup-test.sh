@@ -41,3 +41,10 @@ if [[ ! -f $marker ]]; then
 fi
 
 echo "Upgraded installs skip Noctalia's setup panel"
+
+if ! grep -q 'monarch/menu monarch/theme monarch/wifi-qr' "$ROOT/install/first-run/welcome.sh"; then
+  echo "Fresh installs do not enable the Monarch theme plugin" >&2
+  exit 1
+fi
+
+echo "Fresh installs enable the Monarch theme plugin"

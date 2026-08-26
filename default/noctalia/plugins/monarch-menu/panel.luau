@@ -204,6 +204,30 @@ local function refreshState(onDone)
   end)
 end
 
+local function refreshInitial(context, onDone)
+  noctalia.runAsync(monarchShell("monarch-menu --initial " .. shellQuote(context or "")), function(result)
+    if not result or result.exitCode ~= 0 then
+      status = "monarch-menu --initial failed"
+      render()
+      onDone(false)
+      return
+    end
+
+    local payload = noctalia.json.decode(result.stdout or "")
+    local parsed = type(payload) == "table" and model.fromArray(payload) or nil
+    if not parsed then
+      status = "The menu data did not parse"
+      render()
+      onDone(false)
+      return
+    end
+
+    menu = parsed
+    guards = {}
+    onDone(true)
+  end)
+end
+
 local function providerRowFor(row, index: number)
   return ui.row({
     key = "value:" .. row.value,
@@ -703,16 +727,7 @@ function onOpen(context)
   providerFor = nil
   providerRows = {}
 
-  -- Paint from what the last open left behind, so the panel is on screen and
-  -- usable on the first frame instead of sitting on "Loading the menu…" for as
-  -- long as the guards take. refreshState() corrects it in place below.
-  if canPaintFromRetained(context) then
-    openAt(context)
-  elseif not menu then
-    render()
-  end
-
-  refreshState(function()
+  local function settleState()
     if interacted then
       -- They have already typed or moved. Re-entering the route here would throw
       -- that away, so only the data underneath them is refreshed.
@@ -723,7 +738,22 @@ function onOpen(context)
     providerFor = nil
     providerRows = {}
     openAt(pendingContext)
-  end)
+  end
+
+  if canPaintFromRetained(context) then
+    openAt(context)
+    refreshState(settleState)
+  elseif menu then
+    refreshState(settleState)
+  else
+    render()
+    refreshInitial(context, function(loaded)
+      if loaded and canPaintFromRetained(context) then
+        openAt(context)
+      end
+      refreshState(settleState)
+    end)
+  end
 end
 
 function onQueryChanged(value)
