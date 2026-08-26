@@ -229,6 +229,7 @@ Theming is owned by Noctalia, not Monarch. There are no Monarch custom themes to
 - Toggle dark/light globally: control center or `noctalia msg theme-mode-toggle` (GTK/Qt follow automatically).
 - Tweak the Monarch palette: edit `~/.config/noctalia/palettes/Monarch.json` (it has `dark` and `light` blocks), then re-select it in the picker.
 - After a scheme change, Noctalia re-themes apps via its templates. The residual system layer (wallpaper folder, keyboard RGB, Chromium policy color, Plymouth) is re-synced by `monarch theme apply`, which Noctalia runs automatically on its `colors_changed` hook; you can also run it by hand.
+- Import a personal wallpaper into the active theme with `monarch theme background-import [path]`. Without a path, Monarch opens the desktop file chooser. Name collisions create a numbered copy and shipped backgrounds are never modified.
 
 ### Pattern 3: Use Hooks for Automation
 

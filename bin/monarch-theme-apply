@@ -303,5 +303,8 @@ sync_chromium() {
 
 # --- Run all residual concerns ----------------------------------------------
 sync_wallpaper
+if [[ -x $MONARCH_ROOT/bin/monarch-theme-background-list ]]; then
+  "$MONARCH_ROOT/bin/monarch-theme-background-list" >/dev/null 2>&1 &
+fi
 sync_keyboard
 sync_chromium

@@ -89,6 +89,15 @@ output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^style\\.bar\\.po
 assert_equals "bar position exposes four stateful choices" "$output" \
   $'Top|[[ $(monarch-bar-position) == top ]]|monarch-bar-position top\nBottom|[[ $(monarch-bar-position) == bottom ]]|monarch-bar-position bottom\nLeft|[[ $(monarch-bar-position) == left ]]|monarch-bar-position left\nRight|[[ $(monarch-bar-position) == right ]]|monarch-bar-position right'
 
+output=$("$MENU" --rows style.backgrounds | cut -f2 | tr '\n' ' ')
+assert_equals "Backgrounds groups selection and import" "${output% }" "Select Import"
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "style.backgrounds.import") | .action')
+assert_equals "Backgrounds exposes import" "$output" "monarch-theme-background-import"
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "style.backgrounds.select") | .action')
+assert_equals "Backgrounds uses the Monarch selector" "$output" "noctalia msg panel-toggle monarch/theme:background"
+
 output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^setup\\.network\\.dns\\.[^.]+$")) | .label' | tr '\n' ' ')
 assert_equals "DNS exposes each provider directly" "${output% }" "DHCP Cloudflare Google Custom"
 
