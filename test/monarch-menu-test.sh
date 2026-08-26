@@ -95,6 +95,9 @@ assert_equals "Backgrounds groups selection and import" "${output% }" "Select Im
 output=$("$MENU" --state | jq -r '.tree[] | select(.id == "style.backgrounds.import") | .action')
 assert_equals "Backgrounds exposes import" "$output" "monarch-theme-background-import"
 
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "style.backgrounds.select") | .action')
+assert_equals "Backgrounds uses the Monarch selector" "$output" "noctalia msg panel-toggle monarch/theme:background"
+
 output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^setup\\.network\\.dns\\.[^.]+$")) | .label' | tr '\n' ' ')
 assert_equals "DNS exposes each provider directly" "${output% }" "DHCP Cloudflare Google Custom"
 
