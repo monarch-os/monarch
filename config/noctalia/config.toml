@@ -166,6 +166,9 @@ show_label = false
 [widget.battery]
 show_label = false
 
+[widget.battery.actions]
+right = "exec monarch-toggle-battery-percentage"
+
 [widget.media]
 # Collapse the pill when no MPRIS player is active, instead of leaving a
 # permanent "Nothing playing".

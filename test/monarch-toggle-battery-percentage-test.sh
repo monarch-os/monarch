@@ -26,6 +26,10 @@ pass() {
   echo "ok - $1"
 }
 
+grep -Fx '[widget.battery.actions]' "$ROOT/config/noctalia/config.toml" >/dev/null || fail "battery actions are configured"
+grep -Fx 'right = "exec monarch-toggle-battery-percentage"' "$ROOT/config/noctalia/config.toml" >/dev/null || fail "right click toggles the battery percentage"
+pass "right click toggles the battery percentage"
+
 enabled=$("$ROOT/bin/monarch-toggle-battery-percentage" status | jq -r .enabled)
 [[ $enabled == false ]] || fail "percentage starts hidden"
 pass "percentage starts hidden"
