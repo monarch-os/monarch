@@ -6,9 +6,20 @@ export BAT_THEME=ansi
 export MANROFFOPT="-c"
 export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 
-export PATH=$PATH:~/.local/bin
 export NESSUS_KEY="NESSUS_KEY"
 
 # Duplicated from .config/uwsm/env so SSH works too
 export MONARCH_PATH=$HOME/.local/share/monarch
-export PATH=$MONARCH_PATH/bin:$PATH:$HOME/.local/bin
+case ":$PATH:" in
+  *":$MONARCH_PATH/bin:"*) ;;
+  *) PATH=$MONARCH_PATH/bin${PATH:+:$PATH} ;;
+esac
+case ":$PATH:" in
+  *":$HOME/.local/share/mise/shims:"*) ;;
+  *) PATH=${PATH:+$PATH:}$HOME/.local/share/mise/shims ;;
+esac
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) ;;
+  *) PATH=${PATH:+$PATH:}$HOME/.local/bin ;;
+esac
+export PATH
