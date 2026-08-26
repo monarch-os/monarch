@@ -89,21 +89,22 @@ output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^style\\.bar\\.po
 assert_equals "bar position exposes four stateful choices" "$output" \
   $'Top|[[ $(monarch-bar-position) == top ]]|monarch-bar-position top\nBottom|[[ $(monarch-bar-position) == bottom ]]|monarch-bar-position bottom\nLeft|[[ $(monarch-bar-position) == left ]]|monarch-bar-position left\nRight|[[ $(monarch-bar-position) == right ]]|monarch-bar-position right'
 
-output=$("$MENU" --rows style.backgrounds | cut -f2 | tr '\n' ' ')
-assert_equals "Backgrounds groups selection and import" "${output% }" "Select Import"
-
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "style.backgrounds.import") | .action')
-assert_equals "Backgrounds exposes import" "$output" "monarch-theme-background-import"
-
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "style.backgrounds.select") | .action')
-assert_equals "Backgrounds uses the Monarch selector" "$output" "noctalia msg panel-toggle monarch/theme:background"
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "style.backgrounds") | .action')
+assert_equals "Backgrounds opens the Monarch selector directly" "$output" "noctalia msg panel-toggle monarch/theme:background"
 
 output=$("$MENU" --tree | jq -r '.[0] | [.id, .label] | join("|")')
 assert_equals "--tree exposes menu data without guards" "$output" "apps|Apps"
 
 output=$("$MENU" --initial style.backgrounds | jq -r 'map(.id) | join(" ")')
 assert_equals "--initial limits data to the requested level" "$output" \
-  "style style.backgrounds style.backgrounds.select style.backgrounds.import"
+  "style style.backgrounds"
+
+if ! grep -q 'onImportClicked() importBackground()' "$ROOT/default/noctalia/plugins/monarch-theme/background.luau" ||
+  ! grep -q 'ctrl+i.*importBackground' "$ROOT/default/noctalia/plugins/monarch-theme/background.luau"; then
+  echo "Background selector does not expose import from pointer and keyboard" >&2
+  exit 1
+fi
+echo "ok - Background selector exposes import from pointer and keyboard"
 
 output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^setup\\.network\\.dns\\.[^.]+$")) | .label' | tr '\n' ' ')
 assert_equals "DNS exposes each provider directly" "${output% }" "DHCP Cloudflare Google Custom"

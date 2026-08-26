@@ -62,13 +62,15 @@ rosé-pine | rosepine) folder="rose-pine" ;;
 esac
 
 destination_dir="$HOME/.config/monarch/backgrounds/$folder"
+monarch_root="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+shipped_dir="$monarch_root/themes/$folder"
 filename=${source_path##*/}
 stem=${filename%.*}
 destination="$destination_dir/$filename"
 suffix=2
 
 mkdir -p "$destination_dir"
-while [[ -e $destination ]]; do
+while [[ -e $destination || -e $shipped_dir/${destination##*/} ]]; do
   destination="$destination_dir/$stem-$suffix.$extension"
   ((suffix++))
 done
