@@ -89,8 +89,11 @@ output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^style\\.bar\\.po
 assert_equals "bar position exposes four stateful choices" "$output" \
   $'Top|[[ $(monarch-bar-position) == top ]]|monarch-bar-position top\nBottom|[[ $(monarch-bar-position) == bottom ]]|monarch-bar-position bottom\nLeft|[[ $(monarch-bar-position) == left ]]|monarch-bar-position left\nRight|[[ $(monarch-bar-position) == right ]]|monarch-bar-position right'
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "style.background-import") | .action')
-assert_equals "Style exposes background import" "$output" "monarch-theme-background-import"
+output=$("$MENU" --rows style.backgrounds | cut -f2 | tr '\n' ' ')
+assert_equals "Backgrounds groups selection and import" "${output% }" "Select Import"
+
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "style.backgrounds.import") | .action')
+assert_equals "Backgrounds exposes import" "$output" "monarch-theme-background-import"
 
 output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^setup\\.network\\.dns\\.[^.]+$")) | .label' | tr '\n' ' ')
 assert_equals "DNS exposes each provider directly" "${output% }" "DHCP Cloudflare Google Custom"
