@@ -192,6 +192,9 @@ output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.toggle.idle-l
 assert_equals "idle lock check represents active caffeine" "$output" \
   "monarch-toggle-idle status | jq -e '.enabled'"
 
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.toggle.battery-percentage") | .when')
+assert_equals "battery percentage uses the battery presence guard" "$output" "monarch-battery-present"
+
 output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.capture.screenrecord.webcam") | .when')
 assert_equals "webcam recording is hardware guarded" "$output" "monarch-hw-webcam"
 
