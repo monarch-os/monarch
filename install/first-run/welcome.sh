@@ -24,9 +24,9 @@ setsid --fork bash -c '
   done
   # Seeding a plugin into ~/.local/share/noctalia/plugins/ only makes Noctalia
   # discover it; installation and activation are separate, and a discovered
-  # plugin stays disabled until asked for. Without this the bar indicators are
-  # simply absent on a fresh install. Idempotent.
-  for plugin in monarch/indicators monarch/agents monarch/menu monarch/wifi-qr monarch/network monarch/display; do
+  # plugin stays disabled until asked for. Without this its panels and widgets
+  # are absent on a fresh install. Idempotent.
+  for plugin in monarch/indicators monarch/agents monarch/menu monarch/theme monarch/wifi-qr monarch/network monarch/display; do
     noctalia msg plugins enable "$plugin" >/dev/null 2>&1 || true
   done
   monarch-theme-apply >/dev/null 2>&1 || true

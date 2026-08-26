@@ -188,6 +188,10 @@ function M.isVisible(menu: Menu, id: string, guards: { [string]: boolean }): boo
     return true
   end
 
+  if entry.hasChildren and #M.childrenOf(menu, id) == 0 then
+    return true
+  end
+
   for _, child in M.childrenOf(menu, id) do
     if M.isVisible(menu, child, guards) then
       return true

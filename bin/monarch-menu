@@ -123,6 +123,35 @@ field() {
   jq -r --arg id "$1" --arg key "$2" '.[$id][$key] // empty' <<<"$MENU_JSON"
 }
 
+tree_payload() {
+  jq -c '
+    . as $menu
+    | (keys_unsorted | map(select(test("\\.")) | sub("\\.[^.]+$"; "")) | unique) as $parents
+    | to_entries
+    | map(.key as $id | {
+        id: $id,
+        searchText: ([
+          (.value.label // ($id | split(".") | last)),
+          ($id | split(".") | last),
+          (.value.description // "")
+        ] + (.value.aliases // []) + (.value.keywords // []) | join(" "))
+        } + .value + {hasChildren: (($parents | index($id)) != null)})' <<<"$MENU_JSON"
+}
+
+initial_payload() {
+  local route=$1
+  tree_payload | jq -c --arg route "$route" '
+    map(.id as $id | select((.when == null) and (
+      if $route == "root" then
+        (($id | contains(".") | not) and (.hiddenAtRoot != true))
+      else
+        ($id == $route)
+        or ($route | startswith($id + "."))
+        or (($id | startswith($route + ".")) and (($id | ltrimstr($route + ".") | contains(".")) | not))
+      end
+    )))'
+}
+
 menu_title() {
   [[ $1 == root ]] && {
     echo Go
@@ -234,6 +263,58 @@ prime_guard_helpers() {
       command monarch-default-agent "$@"
     }
   fi
+
+  if [[ $MENU_JSON == *monarch-default-terminal* ]]; then
+    DEFAULT_TERMINAL=$(command monarch-default-terminal 2>/dev/null)
+    monarch-default-terminal() {
+      if (($# == 0)); then
+        printf '%s\n' "$DEFAULT_TERMINAL"
+      else
+        command monarch-default-terminal "$@"
+      fi
+    }
+  fi
+
+  if [[ $MENU_JSON == *monarch-default-editor* ]]; then
+    DEFAULT_EDITOR=$(command monarch-default-editor 2>/dev/null)
+    monarch-default-editor() {
+      if (($# == 0)); then
+        printf '%s\n' "$DEFAULT_EDITOR"
+      else
+        command monarch-default-editor "$@"
+      fi
+    }
+  fi
+
+  if [[ $MENU_JSON == *monarch-bar-position* ]]; then
+    BAR_POSITION=$(command monarch-bar-position 2>/dev/null)
+    monarch-bar-position() {
+      if (($# == 0)); then
+        printf '%s\n' "$BAR_POSITION"
+      else
+        command monarch-bar-position "$@"
+      fi
+    }
+  fi
+
+  if [[ $MENU_JSON == *monarch-version-channel* ]]; then
+    VERSION_CHANNEL=$(command monarch-version-channel 2>/dev/null)
+    monarch-version-channel() {
+      printf '%s\n' "$VERSION_CHANNEL"
+    }
+  fi
+
+  if [[ $MENU_JSON == *monarch-hibernation-available* ]]; then
+    HIBERNATION_AVAILABLE=false
+    command monarch-hibernation-available && HIBERNATION_AVAILABLE=true
+    monarch-hibernation-available() {
+      [[ $HIBERNATION_AVAILABLE == true ]]
+    }
+  fi
+
+  monarch-toggle-enabled() {
+    [[ -f "$HOME/.local/state/monarch/toggles/${1:-}" ]]
+  }
 }
 
 # ── Inspection ───────────────────────────────────────────────────────────────
@@ -284,6 +365,17 @@ check_menu() {
 }
 
 case "${1:-}" in
+--initial)
+  load_menu
+  route=$(resolve_route "${2:-}")
+  initial_payload "$route"
+  exit 0
+  ;;
+--tree)
+  load_menu
+  tree_payload
+  exit 0
+  ;;
 --state)
   # Tree and guards in one payload, which is what the panel asks for on every
   # open: one subprocess instead of two, and the tree can never go stale against
@@ -294,10 +386,20 @@ case "${1:-}" in
   # blow a plugin callback's CPU budget.
   load_menu
   prime_guard_helpers
+  declare -A guard_results=()
   guard_pairs=$(
     while IFS=$'\x1f' read -r key kind expression; do
       [[ -z $expression ]] && continue
-      if guard_passes "$expression"; then
+      if [[ -n ${guard_results["$expression"]+present} ]]; then
+        passed=${guard_results["$expression"]}
+      elif guard_passes "$expression"; then
+        passed=true
+        guard_results["$expression"]=$passed
+      else
+        passed=false
+        guard_results["$expression"]=$passed
+      fi
+      if [[ $passed == true ]]; then
         printf '%s:%s\ttrue\n' "$key" "$kind"
       else
         printf '%s:%s\tfalse\n' "$key" "$kind"
@@ -309,16 +411,7 @@ case "${1:-}" in
       | join("\u001f")' <<<"$MENU_JSON")
   )
   jq -nc \
-    --argjson tree "$(jq -c '
-      to_entries
-      | map(.key as $id | {
-          id: $id,
-          searchText: ([
-            (.value.label // ($id | split(".") | last)),
-            ($id | split(".") | last),
-            (.value.description // "")
-          ] + (.value.aliases // []) + (.value.keywords // []) | join(" "))
-        } + .value)' <<<"$MENU_JSON")" \
+    --argjson tree "$(tree_payload)" \
     --argjson guards "$(printf '%s' "$guard_pairs" | jq -R -s 'split("\n") | map(select(length > 0) | split("\t")) | map({key: .[0], value: (.[1] == "true")}) | from_entries')" \
     '{tree: $tree, guards: $guards}'
   exit 0
