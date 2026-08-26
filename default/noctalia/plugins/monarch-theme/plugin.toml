@@ -28,3 +28,14 @@ position  = "center"
 keyboard_focus = "on_demand"
 capture_keys = ["up", "down", "return", "home", "end", "escape", "ctrl+j", "ctrl+k"]
 dismiss_on_outside_click = true
+
+[[panel]]
+id     = "background-prototype"
+entry  = "background-prototype.luau"
+width  = 920
+height = 650
+placement = "floating"
+position  = "center"
+keyboard_focus = "on_demand"
+capture_keys = ["up", "down", "left", "right", "return", "home", "end", "escape", "ctrl+left", "ctrl+right"]
+dismiss_on_outside_click = true
