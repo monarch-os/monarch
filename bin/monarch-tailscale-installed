@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# monarch:summary=Check whether Tailscale and Taildrop are operational
+# monarch:hidden=true
+
+set -euo pipefail
+
+monarch-cmd-present tailscale
+tailscale status --json 2>/dev/null | jq -e '.BackendState == "Running"' >/dev/null
+systemctl is-active --quiet tailscaled.service
+systemctl --user is-active --quiet monarch-tailscale-receive.service

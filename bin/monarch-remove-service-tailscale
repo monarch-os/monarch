@@ -3,9 +3,12 @@
 # monarch:summary=Disconnect and remove Tailscale and its web app
 # monarch:requires-sudo=true
 
-set -e
+set -euo pipefail
 
-sudo tailscale down 2>/dev/null || true
+tailscale down 2>/dev/null || sudo tailscale down 2>/dev/null || true
+systemctl --user disable --now monarch-tailscale-receive.service 2>/dev/null || true
+rm -f "$HOME/.config/systemd/user/monarch-tailscale-receive.service"
+systemctl --user daemon-reload 2>/dev/null || true
 sudo systemctl disable --now tailscaled.service 2>/dev/null || true
 monarch-webapp-remove "Tailscale" 2>/dev/null || true
 monarch-pkg-drop tailscale

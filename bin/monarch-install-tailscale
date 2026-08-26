@@ -3,11 +3,24 @@
 # monarch:summary=Install the Tailscale mesh VPN service and a web app for the Tailscale Admin Console.
 # monarch:requires-sudo=true
 
+set -euo pipefail
+
 echo -e "\nInstalling Tailscale..."
 monarch-pkg-add tailscale
 
 echo -e "\nStarting Tailscale..."
 sudo systemctl enable --now tailscaled.service
 sudo tailscale up --accept-routes
+
+echo -e "\nAllowing $USER to manage Tailscale..."
+sudo tailscale set --operator="$USER"
+
+echo -e "\nReceiving Taildrop files in $HOME/Downloads..."
+monarch_path=${MONARCH_PATH:-$HOME/.local/share/monarch}
+mkdir -p "$HOME/.config/systemd/user"
+cp "$monarch_path/config/systemd/user/monarch-tailscale-receive.service" \
+  "$HOME/.config/systemd/user/monarch-tailscale-receive.service"
+systemctl --user daemon-reload
+systemctl --user enable --now monarch-tailscale-receive.service
 
 monarch-webapp-install "Tailscale" "https://login.tailscale.com/admin/machines" https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/tailscale-light.png

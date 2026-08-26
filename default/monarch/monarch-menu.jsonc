@@ -266,7 +266,7 @@
   "install.service.synology": {"icon":"󰘿","label":"Synology Drive","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Synology Driver from AUR...'; monarch-pkg-aur-add synology-drive && setsid gtk-launch synology-drive\"","disabled":"monarch-pkg-present synology-drive"},
   "install.service.proton": {"icon":"","label":"Proton Suite [AUR]","disabled":"monarch-pkg-present proton-vpn-gtk-app proton-pass-bin proton-mail-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-install-proton"},
   "install.service.displaylink": {"icon":"󰹑","label":"Displaylink [AUR]","action":"monarch-launch-floating-terminal-with-presentation monarch-install-displaylink","disabled":"monarch-pkg-present displaylink"},
-  "install.service.tailscale": {"icon":"","label":"Tailscale","action":"monarch-launch-floating-terminal-with-presentation monarch-install-tailscale","disabled":"monarch-pkg-present tailscale"},
+  "install.service.tailscale": {"icon":"","label":"Tailscale","action":"monarch-launch-floating-terminal-with-presentation monarch-install-tailscale","disabled":"monarch-tailscale-installed"},
   "install.service.nordvpn": {"icon":"󱇱","label":"NordVPN [AUR]","action":"monarch-launch-floating-terminal-with-presentation monarch-install-nordvpn","disabled":"monarch-pkg-present nordvpn-bin"},
   "install.service.lazyvpn": {"icon":"󰖂","label":"LazyVPN","action":"monarch-launch-floating-terminal-with-presentation monarch-install-lazyvpn","disabled":"monarch-pkg-present monarch-lazyvpn"},
   "install.service.bitwarden": {"icon":"󰟵","label":"Bitwarden","action":"monarch-install-and-launch Bitwarden 'bitwarden bitwarden-cli' bitwarden","disabled":"monarch-pkg-present bitwarden"},
