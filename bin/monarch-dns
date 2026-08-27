@@ -15,6 +15,10 @@
 
 set -uo pipefail
 
+if ((EUID == 0)); then
+  export PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin
+fi
+
 NM_DNS_CONF=/etc/NetworkManager/conf.d/20-monarch-dns.conf
 RESOLVED_CONF=/etc/systemd/resolved.conf
 
