@@ -5,6 +5,14 @@
 
 set -e
 
+if ! monarch-update-lock held; then
+  exec monarch-update-lock run "$0" "$@"
+fi
+
+run_without_update_lock() {
+  "$@" {MONARCH_UPDATE_LOCK_FD}>&-
+}
+
 if (($# == 0)); then
   echo "Usage: monarch-update-branch [main|dev]"
   exit 1
@@ -12,25 +20,22 @@ fi
 
 branch="$1"
 
-# Snapshot before switching branch
-monarch-snapshot create || (( $? == 127 ))
-
-if ! git -C "$MONARCH_PATH" diff --quiet || ! git -C "$MONARCH_PATH" diff --cached --quiet; then
+if ! run_without_update_lock git -C "$MONARCH_PATH" diff --quiet ||
+  ! run_without_update_lock git -C "$MONARCH_PATH" diff --cached --quiet; then
   stashed=true
-  git -C "$MONARCH_PATH" stash push -u -m "Autostash before switching to $branch"
+  run_without_update_lock git -C "$MONARCH_PATH" stash push -u -m "Autostash before switching to $branch"
 else
   stashed=false
 fi
 
 # Switch branches
-git -C "$MONARCH_PATH" switch "$branch"
+run_without_update_lock git -C "$MONARCH_PATH" switch "$branch"
 
 # Reapply stash if we made one
 if [[ $stashed == "true" ]]; then
-  if ! git -C "$MONARCH_PATH" stash pop; then
+  if ! run_without_update_lock git -C "$MONARCH_PATH" stash pop; then
     echo "⚠️ Conflicts when applying stash — stash kept"
   fi
 fi
 
-# Update the system from the new branch
-monarch-update-perform
+exec monarch-update -y

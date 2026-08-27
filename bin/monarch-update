@@ -14,10 +14,30 @@ if [[ -z $MONARCH_UPDATE_LOGGED ]]; then
   exec env MONARCH_UPDATE_LOGGED=1 script -qefc "$script_command" "/tmp/monarch-update.log"
 fi
 
-trap 'echo ""; echo -e "\033[0;31mSomething went wrong during the update!\n\nPlease review the output above carefully, correct the error, and retry the update.\n\nIf you need assistance, get help from the community at https://monarch-os.github.io\033[0m"' ERR
+if ! monarch-update-lock held; then
+  exec monarch-update-lock run "$0" "$@"
+fi
 
-if [[ $1 == "-y" ]] || monarch-update-confirm; then
-    monarch-snapshot create || (($? == 127))
-    monarch-update-git
-    monarch-update-perform
+run_without_update_lock() {
+  "$@" {MONARCH_UPDATE_LOCK_FD}>&-
+}
+
+trap 'echo ""; echo -e "\033[0;31mSomething went wrong during the update!\n\nPlease review the output above carefully, correct the error, and retry the update.\n\nIf you need assistance, get help from the community at https://monarch-os.github.io\033[0m"' ERR
+trap 'run_without_update_lock monarch-update-stay-awake stop' EXIT
+
+run_without_update_lock monarch-update-requires-free-space
+
+[[ ${1:-} != "-y" ]] || export MONARCH_UPDATE_UNATTENDED=1
+
+if [[ $1 == "-y" ]] || run_without_update_lock monarch-update-confirm; then
+  run_without_update_lock monarch-update-pkg-prune
+  run_without_update_lock monarch-snapshot create || (($? == 127)) ||
+    echo -e "\e[33mContinuing the update without a snapshot.\e[0m" >&2
+
+  run_without_update_lock monarch-update-stay-awake start
+  run_without_update_lock monarch-update-git
+  run_without_update_lock env MONARCH_UPDATE_TRANSACTION=1 monarch-update-perform
+  run_without_update_lock monarch-update-stay-awake stop
+  trap - EXIT
+  run_without_update_lock monarch-update-restart
 fi
