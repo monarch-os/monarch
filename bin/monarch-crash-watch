@@ -9,6 +9,7 @@ readonly COREDUMP_MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1
 readonly CRASH_GLYPH=$'\U000f16a1'
 readonly dedupe_seconds=${MONARCH_CRASH_DEDUPE_SECONDS:-60}
 readonly ignore_pattern=${MONARCH_CRASH_IGNORE:-}
+readonly program_pattern='^[[:alnum:]_.+@][[:alnum:]_.+@ -]*$'
 
 MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}
 PATH="$PATH:$MONARCH_PATH/bin"
@@ -29,11 +30,12 @@ announce() {
 journalctl -f -n 0 -o json "MESSAGE_ID=$COREDUMP_MESSAGE_ID" 2>/dev/null |
   while IFS= read -r entry; do
     IFS=$'\t' read -r uid comm pid exe signal < <(
-      jq -r '[(._UID // "-"),
-              (.COREDUMP_COMM // "-"),
-              (.COREDUMP_PID // "-"),
-              (.COREDUMP_EXE // "-"),
-              (.COREDUMP_SIGNAL_NAME // "-")] | @tsv' <<<"$entry" 2>/dev/null
+      jq -r 'def field: if . == null or . == "" then "-" else . end;
+             [(._UID | field),
+              (.COREDUMP_COMM | field),
+              (.COREDUMP_PID | field),
+              (.COREDUMP_EXE | field),
+              (.COREDUMP_SIGNAL_NAME | field)] | @tsv' <<<"$entry" 2>/dev/null
     )
 
     [[ $pid =~ ^[0-9]+$ ]] || continue
@@ -43,9 +45,12 @@ journalctl -f -n 0 -o json "MESSAGE_ID=$COREDUMP_MESSAGE_ID" 2>/dev/null |
 
     name=$comm
     [[ $exe == /* ]] && name=${exe##*/}
+    name=${name##*/}
+    [[ $name =~ $program_pattern && $name != "." && $name != ".." ]] || name=unknown
 
     [[ -n $ignore_pattern && $name =~ $ignore_pattern ]] && continue
     [[ $name == monarch-crash-* || $name == monarch-agent-* ]] && continue
+    monarch-toggle-enabled "crash-ignore/$name" && continue
 
     now=$EPOCHSECONDS
     (((now - ${last_notified[$name]:-0}) < dedupe_seconds)) && continue

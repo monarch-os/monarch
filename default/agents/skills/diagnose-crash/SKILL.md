@@ -55,4 +55,23 @@ Explain:
 Diagnosis is read-only. Do not fix, reconfigure, upload, or file an issue unless
 the user separately asks for it. Remove only temporary core copies you created.
 
+## Offer to mute repeat notifications
+
+After explaining a recurring crash, offer to mute notifications for that one
+program. Never mute it without the user's consent, and explain that crash
+records and core dumps continue to be captured.
+
+```bash
+monarch-crash-mute '<program>'
+monarch-crash-mute '<program>' status
+monarch-crash-mute '<program>' off
+monarch-crash-mute
+```
+
+Use the recorded executable path when available; otherwise use the process
+name. The command reduces paths to the same basename used by the watcher. An
+interpreter such as Python is the executable, so muting it affects every
+program recorded under that interpreter. Always mention how to unmute the
+program when offering the mute.
+
 If the evidence indicates a Monarch bug, read [`reporting.md`](reporting.md).
