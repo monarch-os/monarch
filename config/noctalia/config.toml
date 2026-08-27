@@ -217,6 +217,7 @@ type = "power_profile"
 # v4 kept these under general/ui, which no longer exist as sections.
 corner_radius_scale = 1.0
 clipboard_enabled = true
+clipboard_history_max_entries = 500
 # v4 silenced the telemetry wizard by pinning a version floor in
 # shell-state.json; v5 has no wizard, just this opt-out. The setting is
 # `telemetry_enabled` — the settings UI groups it as "shell.telemetry", which is

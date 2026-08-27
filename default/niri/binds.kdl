@@ -6,6 +6,7 @@
 
 binds {
     // --- System ---
+    Mod+Q hotkey-overlay-title="Close active window" { close-window; }
     Mod+Shift+Q hotkey-overlay-title="Close active window" { close-window; }
     Mod+L hotkey-overlay-title="Lock screen" allow-inhibiting=false { spawn "monarch-system-lock"; }
     Mod+Shift+L hotkey-overlay-title="Power menu" { spawn-sh "noctalia msg panel-toggle session"; }
