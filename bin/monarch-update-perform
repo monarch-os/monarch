@@ -5,25 +5,4 @@
 
 set -e
 
-# Ensure screensaver/sleep doesn't set in during updates
-INHIBIT_PID=""
-if command -v systemd-inhibit >/dev/null 2>&1; then
-  systemd-inhibit --what=idle --who=monarch --why="System update in progress" --mode=block sleep infinity &
-  INHIBIT_PID=$!
-fi
-
-monarch-update-keyring
-monarch-update-system-pkgs
-monarch-migrate
-monarch-update-aur-pkgs
-monarch-update-orphan-pkgs
-monarch-hook post-update
-
-monarch-update-analyze-logs
-
-monarch-update-restart
-
-# Re-enable screensaver/sleep after updates
-if [[ -n $INHIBIT_PID ]]; then
-  kill "$INHIBIT_PID" 2>/dev/null || true
-fi
+exec monarch-update -y

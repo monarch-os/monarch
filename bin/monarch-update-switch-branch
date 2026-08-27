@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# monarch:summary=Switch the Monarch source branch inside an update transaction
+# monarch:args=<main|dev>
+# monarch:hidden=true
+
+set -e
+
+branch="$1"
+
+case "$branch" in
+  main | dev) ;;
+  *)
+    echo "Unknown branch: $branch" >&2
+    exit 2
+    ;;
+esac
+
+if ! git -C "$MONARCH_PATH" diff --quiet || ! git -C "$MONARCH_PATH" diff --cached --quiet; then
+  stashed=true
+  git -C "$MONARCH_PATH" stash push -u -m "Autostash before switching to $branch"
+else
+  stashed=false
+fi
+
+git -C "$MONARCH_PATH" switch "$branch"
+
+if [[ $stashed == "true" ]] && ! git -C "$MONARCH_PATH" stash pop; then
+  echo "⚠️ Conflicts when applying stash — stash kept"
+fi

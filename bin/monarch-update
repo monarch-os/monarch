@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # monarch:summary=Update Monarch and system packages
-# monarch:args=[-y]
+# monarch:args=[-y] [--branch <main|dev>]
 # monarch:examples=monarch update | monarch update -y
 # monarch:requires-sudo=true
 
@@ -14,10 +14,66 @@ if [[ -z $MONARCH_UPDATE_LOGGED ]]; then
   exec env MONARCH_UPDATE_LOGGED=1 script -qefc "$script_command" "/tmp/monarch-update.log"
 fi
 
-trap 'echo ""; echo -e "\033[0;31mSomething went wrong during the update!\n\nPlease review the output above carefully, correct the error, and retry the update.\n\nIf you need assistance, get help from the community at https://monarch-os.github.io\033[0m"' ERR
+unattended=false
+branch=""
 
-if [[ $1 == "-y" ]] || monarch-update-confirm; then
-    monarch-snapshot create || (($? == 127))
-    monarch-update-git
-    monarch-update-perform
+while (( $# > 0 )); do
+  case "$1" in
+    -y)
+      unattended=true
+      ;;
+    --branch)
+      shift
+      [[ -n ${1:-} ]] || { echo "Usage: monarch update [-y] [--branch <main|dev>]" >&2; exit 2; }
+      branch="$1"
+      ;;
+    *)
+      echo "Usage: monarch update [-y] [--branch <main|dev>]" >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+case "$branch" in
+  "" | main | dev) ;;
+  *)
+    echo "Unknown branch: $branch" >&2
+    exit 2
+    ;;
+esac
+
+if ! monarch-update-lock held; then
+  update_args=()
+  [[ $unattended == "false" ]] || update_args+=(-y)
+  [[ -z $branch ]] || update_args+=(--branch "$branch")
+  exec monarch-update-lock run "$0" "${update_args[@]}"
+fi
+unset MONARCH_UPDATE_LOCKED
+
+trap 'echo ""; echo -e "\033[0;31mSomething went wrong during the update!\n\nPlease review the output above carefully, correct the error, and retry the update.\n\nIf you need assistance, get help from the community at https://monarch-os.github.io\033[0m"' ERR
+trap 'monarch-update-stay-awake stop' EXIT
+
+monarch-update-requires-free-space
+
+[[ $unattended == "false" ]] || export MONARCH_UPDATE_UNATTENDED=1
+
+if [[ $unattended == "true" ]] || monarch-update-confirm; then
+  monarch-update-pkg-prune
+  monarch-snapshot create || (($? == 127)) ||
+    echo -e "\e[33mContinuing the update without a snapshot.\e[0m" >&2
+
+  [[ -z $branch ]] || monarch-update-switch-branch "$branch"
+  monarch-update-stay-awake start
+  monarch-update-git
+  monarch-update-keyring
+  monarch-update-system-pkgs
+  monarch-migrate
+  monarch-update-aur-pkgs
+  monarch-update-orphan-pkgs
+  monarch-hook post-update
+  monarch-update-analyze-logs
+  monarch-update-stay-awake stop
+  trap - EXIT
+  monarch-update-restart
 fi

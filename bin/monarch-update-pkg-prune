@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# monarch:summary=Prune superseded versions from the pacman package cache
+# monarch:requires-sudo=true
+
+set -e
+
+echo -e "\e[32m\nPrune package cache\e[0m"
+sudo paccache -rk2 || echo -e "\e[33mCould not prune the package cache.\e[0m" >&2
+echo
