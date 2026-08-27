@@ -45,7 +45,7 @@ receive() {
   shift
 
   : >"$TEST_ROOT/notifications"
-  PATH="$TEST_ROOT/bin:$PATH" "$@" "$ROOT/bin/monarch-tailscale-receive" --once "$downloads"
+  PATH="$TEST_ROOT/bin:$ROOT/bin:$PATH" "$@" "$ROOT/bin/monarch-tailscale-receive" --once "$downloads"
 
   for _ in {1..50}; do
     (($(wc -l <"$TEST_ROOT/notifications") >= expected)) && break
@@ -55,7 +55,7 @@ receive() {
 
 printf 'png' >"$TEST_ROOT/outbox/photo.png"
 printf 'pdf' >"$TEST_ROOT/outbox/notes with space.pdf"
-receive 2 env NOTIFY_ACTION=open
+receive 2 env NOTIFY_ACTION=default
 
 [[ -f $downloads/photo.png && -f "$downloads/notes with space.pdf" ]] || fail "receiver saves incoming files"
 pass "receiver saves incoming files"

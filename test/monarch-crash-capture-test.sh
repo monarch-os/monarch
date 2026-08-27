@@ -18,17 +18,12 @@ EOF
 
 cat >"$TMP/bin/monarch-notification-send" <<'EOF'
 #!/bin/bash
-exit 0
+printf '%s\n' "$*" >>"$ACTION_LOG"
 EOF
 
 cat >"$TMP/bin/monarch-notification-wait" <<'EOF'
 #!/bin/bash
 exit 0
-EOF
-
-cat >"$TMP/bin/monarch-notification-action" <<'EOF'
-#!/bin/bash
-printf '%s\n' "$*" >>"$ACTION_LOG"
 EOF
 
 cat >"$TMP/bin/monarch-default-agent" <<'EOF'

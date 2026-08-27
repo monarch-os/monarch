@@ -1,32 +1,145 @@
 #!/bin/bash
 
-# monarch:summary=Send a desktop notification with monarch glyph and body spacing
-# monarch:args=<glyph> <headline> [description] [notify-send options]
-# monarch:examples=monarch notification send "󰔛" "Reminder" "5 minutes are up" -u critical
+# monarch:summary=Send a desktop notification with an optional safe action
+# monarch:args=[options] [-g <glyph>] [--image <path>] <headline> [description] [--action <label> <command> [args...]]
+# monarch:examples=monarch notification send -g "󰔛" "Reminder" "5 minutes are up" | monarch notification send -u critical "Update ready" --action "Open" monarch-update
 
 set -euo pipefail
 
-if (($# < 2)); then
-  echo "Usage: monarch-notification-send <glyph> <headline> [description] [notify-send options]"
+glyph=""
+description=""
+notify_options=(--app-name=Monarch)
+action_label=""
+action_argv=()
+parsed=0
+expire_set=false
+image=""
+
+usage() {
+  echo "Usage: monarch-notification-send [options] [-g <glyph>] [--image <path>] <headline> [description] [--action <label> <command> [args...]]" >&2
+}
+
+parse_option() {
+  local option=$1
+
+  case $option in
+    -g | --glyph)
+      (($# >= 2)) || return 2
+      glyph=$2
+      parsed=2
+      ;;
+    --glyph=*)
+      glyph=${option#*=}
+      parsed=1
+      ;;
+    --image)
+      (($# >= 2)) || return 2
+      image=$2
+      parsed=2
+      ;;
+    --image=*)
+      image=${option#*=}
+      parsed=1
+      ;;
+    -u | --urgency | -i | --icon | -t | --expire-time | -r | --replace-id | -a | --app-name | -c | --category | -h | --hint)
+      (($# >= 2)) || return 2
+      notify_options+=("$option" "$2")
+      [[ $option == -t || $option == --expire-time ]] && expire_set=true
+      parsed=2
+      ;;
+    --urgency=* | --icon=* | --expire-time=* | --replace-id=* | --app-name=* | --category=* | --hint=*)
+      notify_options+=("$option")
+      [[ $option == --expire-time=* ]] && expire_set=true
+      parsed=1
+      ;;
+    -p | --print-id | -w | --wait | -e | --transient)
+      notify_options+=("$option")
+      parsed=1
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+known_option() {
+  case $1 in
+    -g | --glyph | --image | -u | --urgency | -i | --icon | -t | --expire-time | -r | --replace-id | -a | --app-name | -c | --category | -h | --hint | -p | --print-id | -w | --wait | -e | --transient | --glyph=* | --image=* | --urgency=* | --icon=* | --expire-time=* | --replace-id=* | --app-name=* | --category=* | --hint=*) return 0 ;;
+  esac
+  return 1
+}
+
+while (($#)); do
+  if parse_option "$@"; then
+    shift "$parsed"
+  else
+    status=$?
+    if ((status == 2)); then
+      echo "Missing value for $1" >&2
+      exit 1
+    fi
+    break
+  fi
+done
+
+(($# >= 1)) || { usage; exit 1; }
+headline=$1
+shift
+
+if (($#)) && [[ $1 != "--action" ]] && ! known_option "$1"; then
+  description=$1
+  shift
+fi
+
+while (($#)); do
+  if [[ $1 == "--action" ]]; then
+    shift
+    (($# >= 2)) || { echo "--action needs a label and a command." >&2; exit 1; }
+    action_label=$1
+    shift
+    action_argv=("$@")
+    break
+  elif parse_option "$@"; then
+    shift "$parsed"
+  else
+    status=$?
+    if ((status == 2)); then
+      echo "Missing value for $1" >&2
+      exit 1
+    fi
+    echo "Unknown option: $1" >&2
+    usage
+    exit 1
+  fi
+done
+
+if ((${#action_argv[@]} == 1)) && [[ ${action_argv[0]} == *[[:space:]]* ]]; then
+  echo "--action takes the command as separate arguments, not one quoted string." >&2
   exit 1
 fi
 
-glyph=$1
-headline=$2
-description=${3:-}
-shift 2
+[[ -n $action_label || ${#action_argv[@]} == 0 ]] || { echo "--action needs a non-empty label." >&2; exit 1; }
+[[ ${#action_argv[@]} == 0 || -n ${action_argv[0]} ]] || { echo "--action needs a non-empty command." >&2; exit 1; }
 
-if (($# > 0)) && [[ $1 != -* ]]; then
-  shift
+summary="${glyph:+$glyph    }$headline"
+[[ -n $description ]] && description=$(sed 's/^/      /' <<<"$description")
+[[ -n $image ]] && notify_options+=(--hint="string:image-path:$image")
+
+if ((${#action_argv[@]})); then
+  $expire_set || notify_options+=(--expire-time=0)
+  setsid --fork bash -c '
+    option_count=$1
+    shift
+    options=("${@:1:option_count}")
+    shift "$option_count"
+    label=$1
+    summary=$2
+    body=$3
+    shift 3
+    action=$(notify-send "${options[@]}" --action="default=$label" -- "$summary" "$body") || exit 0
+    [[ $action == "default" ]] && exec "$@"
+  ' bash "${#notify_options[@]}" "${notify_options[@]}" "$action_label" "$summary" "$description" "${action_argv[@]}" \
+    </dev/null >/dev/null 2>&1
+elif [[ -n $description ]]; then
+  notify-send "${notify_options[@]}" -- "$summary" "$description"
 else
-  description=""
-fi
-
-summary="$glyph    $headline"
-
-if [[ -n $description ]]; then
-  description=$(sed 's/^/      /' <<<"$description")
-  notify-send "$@" "$summary" "$description"
-else
-  notify-send "$@" "$summary"
+  notify-send "${notify_options[@]}" -- "$summary"
 fi

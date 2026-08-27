@@ -35,7 +35,7 @@ else
   picked=$(monarch-file-select "${select_args[@]}") || status=$?
 
   if ((${status:-0} > 1)); then
-    monarch-notification-send "" "Could not share" "The file chooser did not open" -u critical
+    monarch-notification-send -g "" "Could not share" "The file chooser did not open" -u critical
     exit 1
   fi
 

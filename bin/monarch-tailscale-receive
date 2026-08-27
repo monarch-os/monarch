@@ -44,7 +44,7 @@ claim_path() {
 }
 
 announce() {
-  local received_path=$1 name="${1##*/}" icon="folder-download" action
+  local received_path=$1 name="${1##*/}" icon="folder-download"
 
   case ${name,,} in
   *.png | *.jpg | *.jpeg | *.gif | *.webp | *.avif | *.bmp | *.tif | *.tiff)
@@ -52,11 +52,9 @@ announce() {
     ;;
   esac
 
-  if action=$(notify-send --app-name="Monarch Taildrop" --urgency=critical \
-    --expire-time=0 --icon="$icon" --action=open=Open \
-    "Received $name" "Saved to ${dir/#$HOME/~}"); then
-    [[ $action == "open" ]] && xdg-open "$received_path" >/dev/null 2>&1
-  fi
+  monarch-notification-send --app-name="Monarch Taildrop" --urgency=critical \
+    --expire-time=0 --icon="$icon" "Received $name" "Saved to ${dir/#$HOME/~}" \
+    --action "Open" xdg-open "$received_path"
 }
 
 deliver() {

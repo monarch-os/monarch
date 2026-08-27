@@ -19,11 +19,10 @@ announce() {
   local comm=$1 pid=$2 exe=$3 signal=$4
 
   monarch-notification-wait || return 1
-  monarch-notification-action \
-    "$CRASH_GLYPH" \
+  monarch-notification-send -u critical -t 0 -g "$CRASH_GLYPH" \
     "Process crashed: $comm" \
     "Click to diagnose with AI. Nothing is sent automatically." \
-    "Diagnose" \
+    --action "Diagnose" \
     monarch-agent-crash "$pid" "$comm" "$exe" "$signal"
 }
 

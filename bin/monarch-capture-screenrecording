@@ -2,7 +2,7 @@
 
 # monarch:summary=Start or stop screen recording
 # monarch:group=capture
-# monarch:args=[--with-desktop-audio] [--with-microphone-audio] [--with-webcam] [--webcam-device=<device>] [--resolution=<size>] [--stop-recording]
+# monarch:args=[--fullscreen] [--with-desktop-audio] [--with-microphone-audio] [--with-webcam] [--webcam-device=<device>] [--resolution=<size>] [--stop-recording]
 # monarch:examples=monarch screenrecord | monarch capture screenrecord --with-desktop-audio
 # monarch:aliases=monarch screenrecord
 #
@@ -31,6 +31,7 @@ MICROPHONE_AUDIO="false"
 WEBCAM="false"
 WEBCAM_DEVICE=""
 RESOLUTION=""
+FULLSCREEN="false"
 STOP_RECORDING="false"
 RECORDING_FILE="/tmp/monarch-screenrecord-filename"
 LOG_FILE=$([[ ${MONARCH_SCREENRECORD_DEBUG:-false} == "true" ]] && echo "/tmp/monarch-screenrecord.log" || echo "/dev/null")
@@ -42,6 +43,7 @@ for arg in "$@"; do
   --with-webcam) WEBCAM="true" ;;
   --webcam-device=*) WEBCAM_DEVICE="${arg#*=}" ;;
   --resolution=*) RESOLUTION="${arg#*=}" ;;
+  --fullscreen) FULLSCREEN="true" ;;
   --stop-recording) STOP_RECORDING="true" ;;
   esac
 done
@@ -171,7 +173,11 @@ start_screenrecording() {
   # the portal backend supports and the kms backend doesn't). Default flow uses
   # slurp + the kms backend, which avoids the EGL DMA-BUF modifier import
   # failures the portal path can hit on some configurations.
-  if [[ ${MONARCH_SCREENRECORD_USE_PORTAL:-false} == "true" ]]; then
+  if [[ $FULLSCREEN == "true" ]]; then
+    target="monitor:$(niri msg --json focused-output 2>/dev/null | jq -r '.name // empty')"
+    [[ $target != "monitor:" ]] || return 1
+    capture_args=(-w "${target#monitor:}" -s "${RESOLUTION:-$(default_resolution)}")
+  elif [[ ${MONARCH_SCREENRECORD_USE_PORTAL:-false} == "true" ]]; then
     target="portal"
     capture_args=(-w portal -s "${RESOLUTION:-$(default_resolution)}")
   else
@@ -238,12 +244,14 @@ stop_screenrecording() {
     echo "$filename"
     local preview="${filename%.mp4}-preview.png"
 
-    # Generate a preview thumbnail from the first frame
     ffmpeg -y -i "$filename" -ss 00:00:00.1 -vframes 1 -q:v 2 "$preview" -loglevel quiet 2>/dev/null
 
+    monarch-notification-send -t 10000 --image "${preview:-$filename}" \
+      "Screen recording saved" "Open with Super + Alt + , (or click this)" \
+      --action "Open" mpv -- "$filename"
+
     (
-      ACTION=$(notify-send "Screen recording saved" "Open with Super + Alt + , (or click this)" -t 10000 -i "${preview:-$filename}" -A "default=open")
-      [[ $ACTION == "default" ]] && mpv "$filename"
+      sleep 2
       rm -f "$preview"
     ) &
   fi
