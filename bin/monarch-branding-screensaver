@@ -16,7 +16,7 @@ image)
   image=$(monarch-file-select --title "Choose a logo image" --extensions "png svg") || status=$?
 
   if ((${status:-0} > 1)); then
-    monarch-notification-send "󱄄" "Could not set the screensaver logo" "The file chooser did not open" -u critical
+    monarch-notification-send -g "󱄄" "Could not set the screensaver logo" "The file chooser did not open" -u critical
     exit 1
   fi
 

@@ -48,9 +48,9 @@ show_reminders() {
   done < <(systemctl --user list-timers --all --no-legend --no-pager "monarch-reminder-*.timer" 2>/dev/null | awk '{ print $(NF - 1) }')
 
   if [[ -z $body ]]; then
-    monarch-notification-send "󰔛" "Upcoming reminders" "No outstanding reminders" -u low
+    monarch-notification-send -g "󰔛" "Upcoming reminders" "No outstanding reminders" -u low
   else
-    monarch-notification-send "󰔛" "Upcoming reminders" "${body%$'\n'}" -u low
+    monarch-notification-send -g "󰔛" "Upcoming reminders" "${body%$'\n'}" -u low
   fi
 }
 
@@ -65,7 +65,7 @@ clear_reminders() {
   fi
 
   rm -f "$reminder_dir"/monarch-reminder-*.message 2>/dev/null || true
-  monarch-notification-send "󰔛" "All reminders have been cleared" -u low
+  monarch-notification-send -g "󰔛" "All reminders have been cleared" -u low
 }
 
 # Pull an optional urgency flag from anywhere in the args. The default stays
@@ -120,7 +120,7 @@ if [[ $interactive == true ]]; then
     if [[ $prompted_minutes =~ ^[0-9]+$ ]] && ((prompted_minutes > 0)); then
       break
     fi
-    monarch-notification-send "󰔛" "Invalid reminder" "Enter the number of minutes" -u critical
+    monarch-notification-send -g "󰔛" "Invalid reminder" "Enter the number of minutes" -u critical
   done
 
   prompted_message=$(monarch-menu-input "Reminder message")
@@ -159,6 +159,6 @@ if [[ -n $custom_message ]]; then
 fi
 
 systemd-run --user --quiet --collect --on-active="${minutes}m" --unit="$unit" \
-  bash -c 'monarch-notification-send "󰔛" "Reminder" "$1" -u "$3"; rm -f "$2"' bash "$message" "$message_file" "$urgency"
+  bash -c 'monarch-notification-send -g "󰔛" "Reminder" "$1" -u "$3"; rm -f "$2"' bash "$message" "$message_file" "$urgency"
 
-monarch-notification-send "󰔛" "$confirmation_title" "$confirmation" -u low
+monarch-notification-send -g "󰔛" "$confirmation_title" "$confirmation" -u low

@@ -29,4 +29,4 @@ if ! gio trash -- "$path"; then
   exit 1
 fi
 monarch-theme-apply >/dev/null 2>&1 || true
-monarch-notification-send "" "Background removed" "${path##*/}" 2>/dev/null || true
+monarch-notification-send -g "" "Background removed" "${path##*/}" 2>/dev/null || true

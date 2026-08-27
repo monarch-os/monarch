@@ -26,7 +26,7 @@ list_webcams() {
 mapfile -t webcams < <(list_webcams)
 
 if ((${#webcams[@]} == 0)); then
-  monarch-notification-send "󰄀" "No webcam devices found" -u critical
+  monarch-notification-send -g "󰄀" "No webcam devices found" -u critical
   exit 1
 fi
 

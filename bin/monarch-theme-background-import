@@ -9,7 +9,7 @@
 set -euo pipefail
 
 notify_error() {
-  monarch-notification-send "" "Could not import background" "$1" -u critical 2>/dev/null || true
+  monarch-notification-send -g "" "Could not import background" "$1" -u critical 2>/dev/null || true
   echo "monarch-theme-background-import: $1" >&2
 }
 
@@ -87,5 +87,5 @@ if ! monarch-theme-apply >/dev/null 2>&1 || ! noctalia msg wallpaper-set "$desti
   exit 1
 fi
 
-monarch-notification-send "" "Background imported" "$scheme · ${destination##*/}" 2>/dev/null || true
+monarch-notification-send -g "" "Background imported" "$scheme · ${destination##*/}" 2>/dev/null || true
 printf '%s\n' "$destination"

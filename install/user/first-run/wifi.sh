@@ -1,13 +1,13 @@
 #!/bin/bash
 
 notify_update() {
-  monarch-notification-send -u critical -g  "Update System" "Click to update the system." \
-    --exec monarch-launch-floating-terminal-with-presentation monarch-update
+  monarch-notification-send -u critical -t 0 -g  "Update System" "Click to update the system." \
+    --action "Update" monarch-launch-floating-terminal-with-presentation monarch-update
 }
 
 notify_wifi() {
-  monarch-notification-send -u critical -g 󰖩 "Setup Wi-Fi" "Click to configure the wireless network." \
-    --exec monarch-launch-wifi
+  monarch-notification-send -u critical -t 0 -g 󰖩 "Setup Wi-Fi" "Click to configure the wireless network." \
+    --action "Configure" monarch-launch-wifi
 }
 
 announce_network() {

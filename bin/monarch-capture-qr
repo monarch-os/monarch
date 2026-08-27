@@ -23,11 +23,11 @@ SELECTION=$(slurp 2>/dev/null)
 RESULT=$(grim -g "$SELECTION" - | zbarimg -q --raw -Sdisable -Sqrcode.enable - 2>/dev/null)
 
 if [[ -z $RESULT ]]; then
-  monarch-notification-send 󰐲 "No QR code found" "Select a region containing a QR code" -u critical
+  monarch-notification-send -g 󰐲 "No QR code found" "Select a region containing a QR code" -u critical
   exit 1
 fi
 
 # QR codes carry secrets (otpauth:// enrollment URIs), so the value goes to the
 # clipboard and nowhere else; --sensitive keeps it out of clipboard history.
 printf '%s' "$RESULT" | wl-copy --sensitive
-monarch-notification-send 󰐲 "QR code copied to clipboard"
+monarch-notification-send -g 󰐲 "QR code copied to clipboard"
