@@ -91,5 +91,11 @@ grep -Fq -- '--fullscreen) FULLSCREEN="true"' "$screenrecording"
 screenshot="$ROOT/bin/monarch-capture-screenshot"
 [[ $(grep -Fc 'wl-copy --type image/png' "$screenshot") == 2 ]]
 grep -Fq '^(-?[0-9]+),(-?[0-9]+)[[:space:]]' "$screenshot"
+grep -Fq 'SCREENSHOT_EDITOR="${MONARCH_SCREENSHOT_EDITOR:-tensaku-edit}"' "$screenshot"
+grep -Fq -- '--action "Edit" "$SCREENSHOT_EDITOR" "$FILEPATH"' "$screenshot"
+[[ ! -e $ROOT/bin/monarch-capture-screenshot-edit ]]
+
+grep -Fxq tensaku "$ROOT/install/monarch-base.packages"
+! grep -Fxq satty "$ROOT/install/monarch-base.packages"
 
 echo "Structured notification text and action argv checks pass"
