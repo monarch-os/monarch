@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # monarch:summary=Toggle idle locking (Noctalia caffeine)
-# monarch:args=[toggle|on|off|status]
+# monarch:args=[toggle|on|off|status|claim <owner>|release <owner>]
 # monarch:examples=monarch toggle idle | monarch toggle idle status
 
 # v4 flipped `idle.enabled` in settings.json. v5 has no such switch — inhibiting
@@ -34,11 +34,20 @@ caffeine_enabled() {
 }
 
 apply_state() {
+  local owner="${2:-user}"
+
   case "$1" in
     on)
-      noctalia msg caffeine-enable >/dev/null 2>&1 || return 1
       mkdir -p "$(dirname "$STATE_FILE")"
-      touch "$STATE_FILE"
+      if caffeine_enabled; then
+        printf '%s\n' "$owner" >"$STATE_FILE"
+        return
+      fi
+      printf '%s\n' "$owner" >"$STATE_FILE"
+      if ! noctalia msg caffeine-enable >/dev/null 2>&1; then
+        [[ $(<"$STATE_FILE") != $owner ]] || rm -f "$STATE_FILE"
+        return 1
+      fi
       ;;
     off)
       noctalia msg caffeine-disable >/dev/null 2>&1 || return 1
@@ -64,16 +73,32 @@ case "${1:-toggle}" in
     fi
     ;;
   on | stay-awake)
-    apply_state on
+    apply_state on user
     ;;
   off | allow-idle)
     apply_state off
+    ;;
+  claim)
+    owner="${2:-}"
+    [[ $owner =~ ^[A-Za-z0-9:._-]+$ ]] || { echo "Invalid Caffeine owner" >&2; exit 2; }
+    if ! caffeine_enabled; then
+      apply_state on "$owner"
+    else
+      exit 1
+    fi
+    ;;
+  release)
+    owner="${2:-}"
+    [[ $owner =~ ^[A-Za-z0-9:._-]+$ ]] || { echo "Invalid Caffeine owner" >&2; exit 2; }
+    if [[ -f $STATE_FILE && $(<"$STATE_FILE") == $owner ]]; then
+      apply_state off
+    fi
     ;;
   status | --status)
     print_status
     ;;
   *)
-    echo "Usage: $0 [toggle|on|off|status]" >&2
+    echo "Usage: $0 [toggle|on|off|status|claim <owner>|release <owner>]" >&2
     exit 1
     ;;
 esac

@@ -10,6 +10,8 @@ state_dir="${XDG_RUNTIME_DIR:-/tmp/monarch-$UID}/monarch-update-stay-awake"
 idle_owner_file="$state_dir/idle-owner"
 inhibit_pid_file="$state_dir/inhibit-pid"
 stay_awake_state="${XDG_RUNTIME_DIR:-/run/user/$UID}/monarch/caffeine"
+active_inhibit_pid=""
+active_inhibit_start_time=""
 
 process_start_time() {
   local process_pid="$1"
@@ -46,29 +48,36 @@ stop() {
     if [[ -f $stay_awake_state ]]; then
       current_idle_owner=$(<"$stay_awake_state")
     fi
-    if [[ -n $idle_owner && $current_idle_owner == "$idle_owner" ]]; then
-      monarch-toggle-idle allow-idle >/dev/null 2>&1 || true
+    if [[ -n $idle_owner && $current_idle_owner == $idle_owner ]]; then
+      monarch-toggle-idle release "$idle_owner" >/dev/null 2>&1 || true
     fi
     rm -f "$idle_owner_file"
   fi
 
-  if [[ -s $inhibit_pid_file ]]; then
+  if [[ -n $active_inhibit_pid ]]; then
+    inhibit_pid="$active_inhibit_pid"
+    recorded_start_time="$active_inhibit_start_time"
+  elif [[ -s $inhibit_pid_file ]]; then
     read -r inhibit_pid recorded_start_time <"$inhibit_pid_file" || true
+  fi
+
+  if [[ -n $inhibit_pid ]]; then
     if [[ $inhibit_pid =~ ^[0-9]+$ ]]; then
       current_start_time=$(process_start_time "$inhibit_pid" 2>/dev/null || true)
     fi
-    if [[ -n $recorded_start_time && $current_start_time == "$recorded_start_time" ]]; then
+    [[ -n $recorded_start_time ]] || recorded_start_time="$current_start_time"
+    if [[ -n $recorded_start_time && $current_start_time == $recorded_start_time ]]; then
       kill "$inhibit_pid" >/dev/null 2>&1 || true
 
       for (( attempt = 0; attempt < 50; attempt++ )); do
         current_start_time=$(process_start_time "$inhibit_pid" 2>/dev/null || true)
-        [[ $current_start_time == "$recorded_start_time" ]] || break
+        [[ $current_start_time == $recorded_start_time ]] || break
         [[ $(process_state "$inhibit_pid" 2>/dev/null || true) != "Z" ]] || break
         sleep 0.02
       done
 
       current_start_time=$(process_start_time "$inhibit_pid" 2>/dev/null || true)
-      if [[ $current_start_time == "$recorded_start_time" ]] &&
+      if [[ $current_start_time == $recorded_start_time ]] &&
         [[ $(process_state "$inhibit_pid" 2>/dev/null || true) != "Z" ]]; then
         echo "Failed to stop the Monarch update sleep inhibitor." >&2
         return 1
@@ -76,6 +85,9 @@ stop() {
     fi
     rm -f "$inhibit_pid_file"
   fi
+
+  active_inhibit_pid=""
+  active_inhibit_start_time=""
 
   rmdir "$state_dir" 2>/dev/null || true
 }
@@ -88,8 +100,10 @@ start() {
 
   stop
   mkdir -p "$state_dir"
+  trap 'stop; exit 130' INT
+  trap 'stop; exit 143' TERM
 
-  if command -v systemd-inhibit >/dev/null 2>&1; then
+  if monarch-cmd-present systemd-inhibit; then
     if (( EUID != 0 )); then
       if [[ -t 0 ]]; then
         sudo -v
@@ -99,36 +113,33 @@ start() {
       fi
     fi
 
-    if [[ -n ${MONARCH_UPDATE_LOCK_FD:-} ]]; then
-      "${inhibit_runner[@]}" systemd-inhibit \
-        --what=sleep:idle \
-        --who=monarch-update \
-        --why="Monarch update in progress" \
-        --mode=block \
-        sleep infinity >/dev/null 2>&1 {MONARCH_UPDATE_LOCK_FD}>&- &
-    else
-      "${inhibit_runner[@]}" systemd-inhibit \
-        --what=sleep:idle \
-        --who=monarch-update \
-        --why="Monarch update in progress" \
-        --mode=block \
-        sleep infinity >/dev/null 2>&1 &
-    fi
+    "${inhibit_runner[@]}" systemd-inhibit \
+      --what=sleep:idle \
+      --who=monarch-update \
+      --why="Monarch update in progress" \
+      --mode=block \
+      sleep infinity >/dev/null 2>&1 &
     inhibit_pid=$!
+    active_inhibit_pid="$inhibit_pid"
     inhibit_start_time=$(process_start_time "$inhibit_pid" 2>/dev/null || true)
     if [[ -n $inhibit_start_time ]]; then
+      active_inhibit_start_time="$inhibit_start_time"
       printf '%s %s\n' "$inhibit_pid" "$inhibit_start_time" >"$inhibit_pid_file"
+    else
+      kill "$inhibit_pid" >/dev/null 2>&1 || true
+      echo "Could not start the Monarch update sleep inhibitor." >&2
+      return 1
     fi
   fi
 
   if [[ ! -f $stay_awake_state ]]; then
     printf '%s\n' "$idle_owner" >"$idle_owner_file"
-    if monarch-toggle-idle stay-awake >/dev/null 2>&1; then
-      printf '%s\n' "$idle_owner" >"$stay_awake_state"
-    else
+    if ! monarch-toggle-idle claim "$idle_owner" >/dev/null 2>&1; then
       rm -f "$idle_owner_file"
     fi
   fi
+
+  trap - INT TERM
 }
 
 case "${1:-}" in

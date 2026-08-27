@@ -5,15 +5,4 @@
 
 set -e
 
-if [[ ${MONARCH_UPDATE_TRANSACTION:-0} != "1" ]]; then
-  exec monarch-update -y
-fi
-
-monarch-update-keyring
-monarch-update-system-pkgs
-monarch-migrate
-monarch-update-aur-pkgs
-monarch-update-orphan-pkgs
-monarch-hook post-update
-
-monarch-update-analyze-logs
+exec monarch-update -y

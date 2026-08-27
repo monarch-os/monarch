@@ -5,14 +5,6 @@
 
 set -e
 
-if ! monarch-update-lock held; then
-  exec monarch-update-lock run "$0" "$@"
-fi
-
-run_without_update_lock() {
-  "$@" {MONARCH_UPDATE_LOCK_FD}>&-
-}
-
 if (($# == 0)); then
   echo "Usage: monarch-update-branch [main|dev]"
   exit 1
@@ -20,22 +12,4 @@ fi
 
 branch="$1"
 
-if ! run_without_update_lock git -C "$MONARCH_PATH" diff --quiet ||
-  ! run_without_update_lock git -C "$MONARCH_PATH" diff --cached --quiet; then
-  stashed=true
-  run_without_update_lock git -C "$MONARCH_PATH" stash push -u -m "Autostash before switching to $branch"
-else
-  stashed=false
-fi
-
-# Switch branches
-run_without_update_lock git -C "$MONARCH_PATH" switch "$branch"
-
-# Reapply stash if we made one
-if [[ $stashed == "true" ]]; then
-  if ! run_without_update_lock git -C "$MONARCH_PATH" stash pop; then
-    echo "⚠️ Conflicts when applying stash — stash kept"
-  fi
-fi
-
-exec monarch-update -y
+exec monarch-update -y --branch "$branch"

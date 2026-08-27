@@ -10,13 +10,7 @@ lock_dir="${XDG_RUNTIME_DIR:-/tmp/monarch-$UID}"
 lock_path="$lock_dir/monarch-update.lock"
 
 lock_is_held() {
-  local lock_fd_path=""
-
-  [[ -n ${MONARCH_UPDATE_LOCK_FD:-} && -e /proc/$$/fd/$MONARCH_UPDATE_LOCK_FD ]] || return 1
-
-  lock_fd_path=$(readlink -f "/proc/$$/fd/$MONARCH_UPDATE_LOCK_FD" 2>/dev/null || true)
-  [[ $lock_fd_path == "$(readlink -m "$lock_path")" ]] &&
-    flock -n "$MONARCH_UPDATE_LOCK_FD"
+  [[ ${MONARCH_UPDATE_LOCKED:-} == "1" ]]
 }
 
 case "${1:-}" in
@@ -37,8 +31,8 @@ case "${1:-}" in
       exit 1
     fi
 
-    export MONARCH_UPDATE_LOCK_FD
-    exec "$@"
+    export MONARCH_UPDATE_LOCKED=1
+    "$@" {MONARCH_UPDATE_LOCK_FD}>&-
     ;;
   *)
     echo "Usage: monarch-update-lock <held|run> [command] [args...]" >&2
