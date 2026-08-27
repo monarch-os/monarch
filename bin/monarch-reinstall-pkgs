@@ -11,8 +11,8 @@ set -e
 monarch-refresh-pacman
 
 # Downgrade any packages to the stable setup
-sudo pacman -Suu --noconfirm
+sudo env MONARCH_UPDATE_PACMAN=1 pacman -Suu --noconfirm
 
 # Ensure all packages are installed
 mapfile -t packages < <(grep -v '^#' "$MONARCH_PATH/install/monarch-base.packages" | grep -v '^$')
-sudo pacman -Syu --noconfirm --needed "${packages[@]}"
+sudo env MONARCH_UPDATE_PACMAN=1 pacman -Syu --noconfirm --needed "${packages[@]}"

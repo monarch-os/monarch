@@ -39,6 +39,9 @@ jobs:
       - name: Run package list resolution test suite
         run: bash test/monarch-packages-exist-test.sh
 
+      - name: Run pacman update guard test suite
+        run: bash test/shell.d/update-pacman-guard-test.sh
+
       - name: Run socket discovery tests (stand-in niri, no compositor)
         run: bash test/monarch-niri-socket-test.sh
 
