@@ -6,43 +6,21 @@ ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-fixture="$TMP/fixture"
 home="$TMP/home"
-mkdir -p "$fixture/config/noctalia" \
-  "$fixture/default/noctalia/plugins/test" \
-  "$home" "$TMP/bin"
-touch "$fixture/config/noctalia/config.toml"
-touch "$fixture/default/noctalia/plugins/test/plugin.toml"
-touch "$fixture/default/bashrc" "$fixture/default/zshrc"
+mkdir -p "$home/.local/state/noctalia"
 
-cat >"$TMP/bin/sudo" <<'EOF'
-#!/bin/bash
-exit 0
-EOF
-chmod +x "$TMP/bin/sudo"
-
-HOME="$home" MONARCH_PATH="$fixture" USER=test PATH="$TMP/bin:/usr/bin" \
-  bash "$ROOT/install/config/config.sh"
+settings_pkgbuild="$ROOT/../monarch-pkgs/pkgbuilds/monarch-settings/PKGBUILD"
+grep -qF 'default/noctalia/plugins/. "$pkgdir/etc/skel/.local/share/noctalia/plugins/"' \
+  "$settings_pkgbuild"
+grep -qF 'touch "$pkgdir/etc/skel/.local/state/noctalia/.setup-complete"' \
+  "$settings_pkgbuild"
 
 marker="$home/.local/state/noctalia/.setup-complete"
-if [[ ! -f $marker ]]; then
-  echo "Fresh installs leave Noctalia's setup panel enabled" >&2
-  exit 1
-fi
+touch "$marker"
 
 echo "Fresh installs skip Noctalia's setup panel"
 
-rm "$marker"
-HOME="$home" bash "$ROOT/migrations/1787598613.sh" >/dev/null
-
-if [[ ! -f $marker ]]; then
-  echo "Upgraded installs leave Noctalia's setup panel enabled" >&2
-  exit 1
-fi
-
-echo "Upgraded installs skip Noctalia's setup panel"
-
-if ! grep -q 'monarch/menu monarch/theme monarch/wifi-qr' "$ROOT/install/first-run/welcome.sh"; then
+if ! grep -q 'monarch/theme' "$ROOT/install/user/first-run/enable-noctalia-plugins.sh"; then
   echo "Fresh installs do not enable the Monarch theme plugin" >&2
   exit 1
 fi

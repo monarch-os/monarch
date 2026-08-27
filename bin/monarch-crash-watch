@@ -10,7 +10,7 @@ readonly CRASH_GLYPH=$'\U000f16a1'
 readonly dedupe_seconds=${MONARCH_CRASH_DEDUPE_SECONDS:-60}
 readonly ignore_pattern=${MONARCH_CRASH_IGNORE:-}
 
-MONARCH_PATH=${MONARCH_PATH:-$HOME/.local/share/monarch}
+MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}
 PATH="$PATH:$MONARCH_PATH/bin"
 
 declare -A last_notified

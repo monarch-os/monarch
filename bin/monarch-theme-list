@@ -5,7 +5,7 @@
 
 set -uo pipefail
 
-MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
 PALETTES_DIR="$HOME/.config/noctalia/palettes"
 
 current=""

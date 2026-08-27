@@ -19,7 +19,7 @@ fi
 
 # Backup the destination file (with timestamp) to avoid clobbering (Ex: config.kdl.bak.1753817951)
 user_config_file="${HOME}/.config/$config_file"
-default_config_file="${HOME}/.local/share/monarch/config/$config_file"
+default_config_file="${MONARCH_PATH:-/usr/share/monarch}/config/$config_file"
 backup_config_file="$user_config_file.bak.$(date +%s)"
 
 mkdir -p "$(dirname "$user_config_file")"

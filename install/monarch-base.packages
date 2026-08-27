@@ -1,4 +1,4 @@
-# Monarch core package list installed via install/packaging/base.sh
+# Monarch core package list installed by the ISO orchestrator.
 # This file is also used by the ISO builder when determining needs
 
 alacritty
@@ -159,7 +159,6 @@ gau
 hashcat
 ligolo-ng
 massdns
-monarch-dns
 monarch-nvim
 monarch-welcome
 nmap

@@ -87,53 +87,10 @@ fi
 
 echo "Preinstall state changes only after a complete restore"
 
-fixture="$TMP/refresh-fixture"
-refresh_home="$TMP/refresh-home"
-mkdir -p "$fixture/applications/icons" "$fixture/applications/hidden" \
-  "$fixture/install/packaging" "$refresh_home/.local/share"
-touch "$fixture/applications/icons/test.png"
-touch "$fixture/applications/Test.desktop" "$fixture/applications/hidden/Hidden.desktop"
-ln -s "$fixture" "$refresh_home/.local/share/monarch"
-
-cat >"$TMP/bin/gtk-update-icon-cache" <<'EOF'
-#!/bin/bash
-exit 1
-EOF
-
-cat >"$TMP/bin/update-desktop-database" <<'EOF'
-#!/bin/bash
-exit 0
-EOF
-
-cat >"$TMP/bin/monarch-cmd-present" <<'EOF'
-#!/bin/bash
-exit 1
-EOF
-
-for step in icons tuis npx; do
-  printf 'touch "$HOME/%s-ran"\n' "$step" >"$fixture/install/packaging/$step.sh"
-done
-
-cat >"$fixture/install/packaging/webapps.sh" <<'EOF'
-(( ${REFRESH_WEBAPPS_FAIL:-0} == 0 )) || exit "$REFRESH_WEBAPPS_FAIL"
-touch "$HOME/webapps-ran"
-EOF
-
-chmod +x "$TMP/bin"/*
-
-HOME="$refresh_home" MONARCH_PATH="$fixture" PATH="$TMP/bin:/usr/bin" "$REFRESH"
-
-for step in icons webapps tuis npx; do
-  if [[ ! -f $refresh_home/$step-ran ]]; then
-    echo "Application refresh skipped $step after a non-critical cache failure" >&2
-    exit 1
-  fi
-done
-
-if HOME="$refresh_home" MONARCH_PATH="$fixture" PATH="$TMP/bin:/usr/bin" \
-  REFRESH_WEBAPPS_FAIL=17 "$REFRESH" >/dev/null 2>&1; then
-  echo "Application refresh masked a packaging failure" >&2
+if rg -q 'install/packaging' "$REFRESH"; then
+  echo "Application refresh still invokes the removed packaging pipeline" >&2
   exit 1
 fi
+grep -qF 'install/user/mise.sh' "$REFRESH"
 
-echo "Application refresh propagates packaging failures"
+echo "Application refresh uses packaged launchers and the user mise stage"

@@ -17,7 +17,7 @@ fi
 comm=${2:-unknown}
 exe=${3:-unknown}
 signal=${4:-unknown}
-MONARCH_PATH=${MONARCH_PATH:-$HOME/.local/share/monarch}
+MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}
 skill="$MONARCH_PATH/default/agents/skills/diagnose-crash/SKILL.md"
 
 when=$(coredumpctl list "$pid" --no-pager --no-legend 2>/dev/null | tail -1 | cut -d' ' -f1-4) || true

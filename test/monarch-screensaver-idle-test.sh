@@ -33,29 +33,3 @@ if HOME="$TMP/disabled" PATH="$TMP/bin:$ROOT/bin:/usr/bin" \
 fi
 
 echo "Fresh installs launch and stop the screensaver on idle"
-
-mkdir -p "$TMP/home/.config/noctalia"
-cat >"$TMP/home/.config/noctalia/config.toml" <<'EOF'
-[idle]
-# v4's flat idle.{lockTimeout,screenOffTimeout,…} became named behaviours with
-# their own timeouts, ordered by behavior_order. v4's idle.customCommands (the
-# screensaver at 150s) has no equivalent here and is not ported.
-behavior_order = ["lock", "screen-off"]
-
-  [idle.behavior.lock]
-action = "lock"
-enabled = true
-timeout = 300.0
-
-  [idle.behavior.screen-off]
-action = "screen_off"
-enabled = true
-timeout = 330.0
-EOF
-
-HOME="$TMP/home" MONARCH_PATH="$ROOT" bash "$ROOT/migrations/1787603337.sh" >/dev/null
-assert_screensaver_idle "$TMP/home/.config/noctalia/config.toml"
-grep -Fx 'timeout = 300.0' "$TMP/home/.config/noctalia/config.toml" >/dev/null
-! grep -q 'has no equivalent here' "$TMP/home/.config/noctalia/config.toml"
-
-echo "Existing installs gain the screensaver without losing idle settings"

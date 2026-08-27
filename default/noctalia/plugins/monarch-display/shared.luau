@@ -9,7 +9,7 @@ local function monarchRoot(): string
   if fromEnv and fromEnv ~= "" then
     return fromEnv
   end
-  return noctalia.expandPath("~/.local/share/monarch")
+  return "/usr/share/monarch"
 end
 
 -- Noctalia is started by the compositor, so its PATH has no Monarch bin/ and a

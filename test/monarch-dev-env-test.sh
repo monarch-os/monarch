@@ -43,8 +43,11 @@ grep -qF '$HOME/.local/share/mise/shims' "$ROOT/config/uwsm/env"
 grep -qF '@{HOME}/.local/share/mise/shims' "$ROOT/install/config/ssh-command-path.sh"
 
 shell_home="$TEST_ROOT/shell-home"
-mkdir -p "$shell_home/.local/share/monarch/bin"
-shell_path=$(HOME="$shell_home" PATH=/usr/bin bash -c '. "$1"; . "$1"; printf "%s" "$PATH"' sh "$ROOT/default/shells/envs")
-[[ $shell_path == "$shell_home/.local/share/monarch/bin:/usr/bin:$shell_home/.local/share/mise/shims:$shell_home/.local/bin" ]]
+shell_path=$(HOME="$shell_home" MONARCH_PATH= PATH=/usr/bin bash -c 'unset MONARCH_PATH; . "$1"; . "$1"; printf "%s" "$PATH"' sh "$ROOT/default/shells/envs")
+[[ $shell_path == "/usr/share/monarch/bin:/usr/bin:$shell_home/.local/share/mise/shims:$shell_home/.local/bin" ]]
+
+checkout="$shell_home/checkout"
+override_path=$(HOME="$shell_home" MONARCH_PATH="$checkout" PATH=/usr/bin bash -c '. "$1"; . "$1"; printf "%s" "$PATH"' sh "$ROOT/default/shells/envs")
+[[ $override_path == "$checkout/bin:/usr/bin:$shell_home/.local/share/mise/shims:$shell_home/.local/bin" ]]
 
 echo "All development environment tests passed."

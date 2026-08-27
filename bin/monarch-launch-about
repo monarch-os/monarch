@@ -19,7 +19,7 @@ if [[ ${1:-} == "--layout" ]]; then
 fi
 
 if [[ ${1:-} == "--render" ]]; then
-  monarch_path=${MONARCH_PATH:-$HOME/.local/share/monarch}
+  monarch_path=${MONARCH_PATH:-/usr/share/monarch}
   if [[ $(about_layout) == "full" ]]; then
     fastfetch
   else

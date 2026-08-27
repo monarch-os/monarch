@@ -8,7 +8,7 @@
 -- commands go through a shell that prepends Monarch's bin.
 
 local HOME = noctalia.getenv("HOME") or ""
-local MONARCH_BIN = HOME .. "/.local/share/monarch/bin"
+local MONARCH_BIN = "/usr/bin"
 
 local IMAGE_SIZE = 320
 local TEXT_WIDTH = 320

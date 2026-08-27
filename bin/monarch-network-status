@@ -8,8 +8,7 @@
 # Two shapes for two callers. Bare is the bar pill: one line, cheap enough to
 # poll. --verbose is the panel header, and pays for pings and a DNS lookup.
 #
-# Port of omarchy-network-status, plus the `dns` key: Monarch has no
-# `monarch-dns` to ask, so the provider is read back off resolved.conf here.
+# Port of the reference network status command, plus the `dns` key.
 
 set -uo pipefail
 
@@ -68,10 +67,9 @@ print_status() {
   printf 'wifi\t%s\t%s\t%s\n' "${ssid:-$device}" "$signal" "$freq"
 }
 
-# monarch-dns owns this once its package is installed — it also reads
-# NetworkManager's global-dns override, which wins over resolved.conf. Without
-# the package, fall back to sniffing resolved.conf: matched on the first server
-# of each provider, anything else a user put there is "Custom", no file "DHCP".
+# The runtime command also reads NetworkManager's global-dns override, which
+# wins over resolved.conf. The fallback keeps development checkouts usable
+# before their runtime package has been rebuilt.
 print_dns() {
   local dns
 

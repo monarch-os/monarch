@@ -3,7 +3,7 @@
 # monarch:summary=Overwrite the user config for the Plymouth drive decryption and boot sequence with the Monarch default and rebuild it.
 # monarch:requires-sudo=true
 
-sudo cp -r ~/.local/share/monarch/default/plymouth/* /usr/share/plymouth/themes/monarch/
+sudo cp -r "${MONARCH_PATH:-/usr/share/monarch}"/default/plymouth/* /usr/share/plymouth/themes/monarch/
 sudo plymouth-set-default-theme monarch
 
 if command -v limine-mkinitcpio &>/dev/null; then

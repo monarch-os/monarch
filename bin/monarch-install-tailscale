@@ -16,7 +16,7 @@ echo -e "\nAllowing $USER to manage Tailscale..."
 sudo tailscale set --operator="$USER"
 
 echo -e "\nReceiving Taildrop files in $HOME/Downloads..."
-monarch_path=${MONARCH_PATH:-$HOME/.local/share/monarch}
+monarch_path=${MONARCH_PATH:-/usr/share/monarch}
 mkdir -p "$HOME/.config/systemd/user"
 cp "$monarch_path/config/systemd/user/monarch-tailscale-receive.service" \
   "$HOME/.config/systemd/user/monarch-tailscale-receive.service"

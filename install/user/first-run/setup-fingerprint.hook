@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -e
+
+if monarch-hw-fingerprint && [[ ! -f /etc/pam.d/monarch-lock-fingerprint ]] &&
+  monarch-done ensure fingerprint-setup-invitation; then
+  monarch-notification-send -u critical -g 󰈷 "Setup Fingerprint Reader" \
+    "Enable sudo and unlocking with your fingerprint." \
+    --exec monarch-launch-floating-terminal-with-presentation monarch-setup-security-fingerprint
+fi

@@ -4,23 +4,25 @@
 
 set -e
 
+MONARCH_PATH="${MONARCH_PATH:-/usr/share/monarch}"
+
 mkdir -p ~/.local/share/icons/hicolor/48x48/apps/
-cp ~/.local/share/monarch/applications/icons/*.png ~/.local/share/icons/hicolor/48x48/apps/
+shopt -s nullglob
+application_icons=("$MONARCH_PATH"/applications/icons/*.png)
+(( ${#application_icons[@]} == 0 )) || cp "${application_icons[@]}" ~/.local/share/icons/hicolor/48x48/apps/
 gtk-update-icon-cache ~/.local/share/icons/hicolor &>/dev/null || true
 
 # Copy .desktop declarations
 mkdir -p ~/.local/share/applications
-cp ~/.local/share/monarch/applications/*.desktop ~/.local/share/applications/
-cp ~/.local/share/monarch/applications/hidden/*.desktop ~/.local/share/applications/
+cp "$MONARCH_PATH"/applications/*.desktop ~/.local/share/applications/
+cp "$MONARCH_PATH"/applications/hidden/*.desktop ~/.local/share/applications/
 
 if monarch-cmd-present foot; then
-  cp ~/.local/share/monarch/default/foot/foot.desktop ~/.local/share/applications/
+  cp "$MONARCH_PATH"/default/foot/foot.desktop ~/.local/share/applications/
 fi
 
-# Refresh the webapps, TUIs, and npx wrappers
-bash -e "$MONARCH_PATH/install/packaging/icons.sh"
-bash -e "$MONARCH_PATH/install/packaging/webapps.sh"
-bash -e "$MONARCH_PATH/install/packaging/tuis.sh"
-bash -e "$MONARCH_PATH/install/packaging/npx.sh"
+if [[ -f $MONARCH_PATH/install/user/mise.sh ]]; then
+  bash "$MONARCH_PATH/install/user/mise.sh"
+fi
 
 update-desktop-database ~/.local/share/applications

@@ -26,7 +26,7 @@ body=$(sed 's/^/      /' <<<"$description")
 # on-button-left wiring. With --action, notify-send blocks until the notification
 # is actioned or dismissed and prints the invoked action id on stdout.
 #
-# Run it detached (setsid) and backgrounded so callers such as monarch-first-run
+# Run it detached (setsid) and backgrounded so first-run notification callers
 # are never blocked and the listener outlives the parent process.
 setsid --fork bash -c '
   label=$1

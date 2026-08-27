@@ -9,7 +9,7 @@
 # schema. The menu is drawn by the monarch/menu Noctalia panel; this command
 # loads the data for it, evaluates the guards, and routes the keybinds to it.
 
-MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
 
 # Guard expressions call monarch-* commands, and this runs from a keybind, from
 # the Noctalia panel and from a plain shell — none of which can be relied on to
@@ -53,7 +53,7 @@ declare -A PROVIDER_ACTION=(
 
 # JSONC is JSON plus whole-line // comments and trailing commas, both stripped
 # textually — an inline trailing comment breaks the parse, same limitation
-# quattro documents. The user file is overlaid per key and per field, so reusing
+# Monarch documents. The user file is overlaid per key and per field, so reusing
 # a shipped id replaces only the fields it declares and keeps its position,
 # while new ids append. A user file that does not parse contributes nothing
 # rather than taking the whole menu down with it.

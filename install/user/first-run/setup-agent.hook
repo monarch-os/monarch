@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -e
+
+if [[ -z $(monarch-default-agent) ]] && monarch-done ensure agent-setup-invitation; then
+  monarch-notification-send -u critical -g 󰚩 "Set your default agent" \
+    "Let your favorite agent help with Monarch." \
+    --exec monarch menu summon setup.default.agent
+fi

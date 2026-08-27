@@ -93,7 +93,7 @@ local function collect(kind: string, ids: { string }?)
   -- a bare command name would silently fail to launch.
   local root = noctalia.getenv("MONARCH_PATH")
   if not root or root == "" then
-    root = noctalia.expandPath("~/.local/share/monarch")
+    root = "/usr/share/monarch"
   end
   local parts = { agents.shellQuote(root .. "/bin/monarch-agent-usage-update") }
 

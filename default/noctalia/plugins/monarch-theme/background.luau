@@ -1,7 +1,7 @@
 --!nonstrict
 
-local HOME = noctalia.getenv("HOME") or ""
-local BIN = HOME .. "/.local/share/monarch/bin"
+local MONARCH_ROOT = noctalia.getenv("MONARCH_PATH") or "/usr/share/monarch"
+local BIN = MONARCH_ROOT .. "/bin"
 local LIST = BIN .. "/monarch-theme-background-list"
 
 local backgrounds = {}

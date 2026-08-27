@@ -16,7 +16,7 @@ case $folder in
 rosé-pine | rosepine) folder="rose-pine" ;;
 esac
 user_dir=$(readlink -f "$HOME/.config/monarch/backgrounds/$folder" 2>/dev/null || true)
-monarch_root="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+monarch_root="${MONARCH_PATH:-/usr/share/monarch}"
 shipped="$monarch_root/themes/$folder/${path##*/}"
 
 if [[ -z $path || ! -f $path || -z $user_dir || ${path%/*} != "$user_dir" || -f $shipped ]]; then

@@ -35,7 +35,7 @@ GATE_BIN="/usr/local/bin/monarch-hw-laptop-closed"
 FPRINTD_GATE="auth      [success=1 default=ignore] pam_exec.so quiet $GATE_BIN"
 
 install_gate() {
-  local source="${MONARCH_PATH:-$HOME/.local/share/monarch}/bin/monarch-hw-laptop-closed"
+  local source="${MONARCH_PATH:-/usr/share/monarch}/bin/monarch-hw-laptop-closed"
   [[ -f $source ]] || return 0
   sudo install -Dm755 "$source" "$GATE_BIN"
 }

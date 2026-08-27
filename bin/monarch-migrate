@@ -9,6 +9,7 @@ mkdir -p "$STATE_DIR"
 mkdir -p "$STATE_DIR/skipped"
 
 # Run any pending migrations
+shopt -s nullglob
 for file in $MONARCH_PATH/migrations/*.sh; do
   filename=$(basename "$file")
 

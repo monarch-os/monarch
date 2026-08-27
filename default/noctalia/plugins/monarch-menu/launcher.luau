@@ -9,7 +9,7 @@
 local model = require("./model.luau")
 
 local HOME = noctalia.getenv("HOME") or ""
-local MONARCH_BIN = HOME .. "/.local/share/monarch/bin"
+local MONARCH_BIN = "/usr/bin"
 
 local menu = nil
 local guards = {}

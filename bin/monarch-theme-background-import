@@ -62,7 +62,7 @@ rosé-pine | rosepine) folder="rose-pine" ;;
 esac
 
 destination_dir="$HOME/.config/monarch/backgrounds/$folder"
-monarch_root="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+monarch_root="${MONARCH_PATH:-/usr/share/monarch}"
 shipped_dir="$monarch_root/themes/$folder"
 filename=${source_path##*/}
 stem=${filename%.*}

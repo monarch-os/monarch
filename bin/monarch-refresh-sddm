@@ -3,7 +3,7 @@
 # monarch:summary=Refresh the SDDM theme from default
 # monarch:requires-sudo=true
 
-MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
 
 sudo rm -rf /usr/share/sddm/themes/monarch || exit 1
 sudo cp -r "$MONARCH_ROOT/default/sddm/monarch" /usr/share/sddm/themes/monarch || exit 1

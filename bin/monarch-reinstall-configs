@@ -13,11 +13,11 @@ if (( EUID == 0 )); then
 fi
 
 echo "Resetting all Monarch configs"
-cp -R ~/.local/share/monarch/config/* ~/.config/
-cp ~/.local/share/monarch/default/bashrc ~/.bashrc
+cp -R "${MONARCH_PATH:-/usr/share/monarch}"/config/* ~/.config/
+cp "${MONARCH_PATH:-/usr/share/monarch}/default/bashrc" ~/.bashrc
 echo '[[ -f ~/.bashrc ]] && . ~/.bashrc' | tee ~/.bash_profile >/dev/null
 
-$(bash $MONARCH_PATH/install/config/theme.sh)
+monarch-theme-apply
 
 monarch-refresh-limine
 monarch-refresh-plymouth

@@ -19,7 +19,7 @@ local function monarchRoot(): string
   if fromEnv and fromEnv ~= "" then
     return fromEnv
   end
-  return noctalia.expandPath("~/.local/share/monarch")
+  return "/usr/share/monarch"
 end
 
 -- runAsync's argv-table form needs plugin_api >= 24 and this plugin targets 22,

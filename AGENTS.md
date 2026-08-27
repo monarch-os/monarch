@@ -8,6 +8,22 @@
 - Shebangs must use `#!/bin/bash` consistently (never `#!/usr/bin/env bash`)
 - Scripts under `install/` and `migrations/` may be sourced and intentionally omit shebangs
 
+# Git Worktrees
+
+Create worktrees inside the repository currently being modified, under its
+`.worktrees/` directory. Do not create sibling worktree directories in the
+workspace root.
+
+For example, work on branch `feature/bar-position` in this repository with:
+
+```bash
+git worktree add .worktrees/bar-position -b feature/bar-position origin/noctalia-v5
+```
+
+Apply the same rule independently in every workspace repository: a
+`monarch-pkgs` worktree belongs under `monarch-pkgs/.worktrees/`, not under
+`monarch/.worktrees/` or beside the repositories.
+
 # Command Naming
 
 All commands start with `monarch-`. Prefixes indicate purpose.
@@ -70,7 +86,7 @@ Install stage files follow this pattern:
 - leaf scripts are sourced by `run_logged $MONARCH_INSTALL/path/to/script.sh`
 - avoid `exit` in sourced install scripts unless intentionally aborting the install
 - use `$MONARCH_INSTALL` and `$MONARCH_PATH` instead of hard-coded Monarch paths
-- keep hardware-specific logic under `install/config/hardware/`
+- keep root hardware logic under `install/hardware/` and session-dependent fixes under `install/user/hardware/`
 - prefer helper commands for package and command checks where available
 
 Raw `command -v`, `pacman`, and `pacman-key` are acceptable in bootstrap/preflight/package-helper contexts where the helper commands may not be available yet or where direct package-manager behavior is the point of the script.
@@ -92,7 +108,7 @@ Exceptions are allowed for bootstrap, preflight, migration, and package-helper s
 - `config/noctalia/config.toml` - Monarch's Noctalia defaults (theme, bar lanes, per-widget settings, hooks, idle). Noctalia merges *every* `*.toml` in `~/.config/noctalia/`, and keeps its own mutable state in `~/.local/state/noctalia/settings.toml` — never ship that file.
 - `config/noctalia/palettes/Monarch.json` - the single Monarch color scheme (`dark` + `light` blocks, plus a `terminal` block of ANSI colors); Noctalia owns colors and dark/light
 - `config/herdr/config.toml` - herdr's config, shipped whole and never re-rendered: herdr queries the terminal for its palette over OSC, so `theme = "terminal"` plus ANSI slot names follow the scheme unaided. `monarch refresh herdr` restores the shipped file.
-- `default/noctalia/plugins/` - Luau plugins, seeded to `~/.local/share/noctalia/plugins/` (NOT `~/.config/`) by `install/config/config.sh`
+- `default/noctalia/plugins/` - Luau plugins, seeded to `~/.local/share/noctalia/plugins/` (NOT `~/.config/`) by `monarch-settings`
 - `default/noctalia/indicators/` - the shell scripts the bar indicators stream; each emits one JSON object per line
 - `themes/<scheme>/` - per-Noctalia-scheme wallpaper sets (flat layout, the only surviving `themes/` content); seeded into `~/.config/monarch/backgrounds/<scheme>/` by `monarch-theme-apply`
 

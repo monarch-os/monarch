@@ -22,9 +22,8 @@ local DISCONNECT_CMD = shared.bin("monarch-wifi-disconnect")
 local RADIO_CMD = shared.bin("monarch-toggle-wifi")
 local DNS_CMD = shared.bin("monarch-setup-dns")
 local TERMINAL_CMD = shared.bin("monarch-launch-floating-terminal-with-presentation")
--- The monarch-dns package. Root-owned, and etc/sudoers.d/monarch-dns grants the
--- three fixed providers passwordless — which is the whole reason it is a
--- package: a grant may only ever name a path the user cannot rewrite.
+-- The Monarch runtime installs this path root-owned, and monarch-settings
+-- grants the three fixed providers passwordless in etc/sudoers.d/monarch-dns.
 local PACKAGED_DNS = "/usr/bin/monarch-dns"
 
 local TEXT_WIDTH = 360

@@ -5,7 +5,7 @@
 
 set -uo pipefail
 
-MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
 state_file="$HOME/.local/state/monarch/unlock-theme"
 current=""
 [[ -f $state_file ]] && read -r current <"$state_file"

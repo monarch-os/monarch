@@ -5,7 +5,7 @@
 
 # Safety net for monarch-niri-monitor-internal, restored from the Hyprland model
 # (this binary + monarch-recover-internal-monitor.service + the
-# install/first-run/recover-internal-monitor.sh enabler).
+# install/user/first-run/enable-user-units.sh enabler).
 #
 # The old Hyprland helper was a login-time oneshot that cleared a *persisted*
 # toggle file. niri is different: monarch-niri-monitor-internal disables the eDP

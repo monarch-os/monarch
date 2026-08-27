@@ -3,7 +3,7 @@
 # monarch:summary=Apply the active or named Monarch color scheme to SDDM
 # monarch:hidden=true
 
-MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
 THEME_DIR="${MONARCH_SDDM_THEME_DIR:-/usr/share/sddm/themes/monarch}"
 THEME_DEST="$THEME_DIR/theme.conf"
 LOGO_MASTER="$MONARCH_ROOT/default/sddm/monarch/logo.png"

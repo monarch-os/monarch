@@ -70,9 +70,9 @@ grep -F 'Process crashed: crasher' "$ACTION_LOG" >/dev/null
 grep -F 'Click to diagnose with AI. Nothing is sent automatically.' "$ACTION_LOG" >/dev/null
 grep -F 'monarch-agent-crash 4242 crasher /usr/bin/crasher SIGSEGV' "$ACTION_LOG" >/dev/null
 
-service="$ROOT/config/systemd/user/monarch-crash-watch.service"
+service="$ROOT/default/systemd/user/monarch-crash-watch.service"
 grep -Fx 'ConditionPathExists=!%h/.local/state/monarch/toggles/crash-capture-off' "$service" >/dev/null
-grep -F 'crash-capture.sh' "$ROOT/bin/monarch-first-run" >/dev/null
+grep -F 'monarch-crash-watch.service' "$ROOT/install/user/first-run/enable-user-units.sh" >/dev/null
 
 if grep -Eqi 'upload|send.*core' "$ROOT/bin/monarch-agent-crash"; then
   echo "Crash launcher suggests sending the core dump" >&2

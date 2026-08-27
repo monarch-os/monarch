@@ -16,7 +16,7 @@
 
 set -uo pipefail
 
-MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
 PLYMOUTH_SRC="$MONARCH_ROOT/default/plymouth"
 PLYMOUTH_DEST="/usr/share/plymouth/themes/monarch"
 

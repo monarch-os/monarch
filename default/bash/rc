@@ -1,9 +1,9 @@
-source ~/.local/share/monarch/default/shells/envs
-source ~/.local/share/monarch/default/bash/shell
-source ~/.local/share/monarch/default/bash/completions
-source ~/.local/share/monarch/default/shells/aliases
-source ~/.local/share/monarch/default/shells/functions
-source ~/.local/share/monarch/default/shells/init
+source "${MONARCH_PATH:-/usr/share/monarch}/default/shells/envs"
+source "$MONARCH_PATH/default/bash/shell"
+source "$MONARCH_PATH/default/bash/completions"
+source "$MONARCH_PATH/default/shells/aliases"
+source "$MONARCH_PATH/default/shells/functions"
+source "$MONARCH_PATH/default/shells/init"
 
 
-[[ $- == *i* ]] && bind -f ~/.local/share/monarch/default/bash/inputrc
+[[ $- == *i* ]] && bind -f "$MONARCH_PATH/default/bash/inputrc"

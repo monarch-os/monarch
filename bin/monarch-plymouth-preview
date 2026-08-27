@@ -15,7 +15,7 @@ bg_hex=${1#\#}
 text_hex=${2#\#}
 logo_path=$3
 output_path=$4
-MONARCH_ROOT="${MONARCH_PATH:-$HOME/.local/share/monarch}"
+MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
 
 [[ $bg_hex =~ ^[0-9a-fA-F]{6}$ ]] || { echo "Invalid background color: $1" >&2; exit 1; }
 [[ $text_hex =~ ^[0-9a-fA-F]{6}$ ]] || { echo "Invalid text color: $2" >&2; exit 1; }

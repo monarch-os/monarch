@@ -181,6 +181,7 @@
   "setup.security.fingerprint": {"icon":"󰈷","label":"Fingerprint","when":"monarch-hw-fingerprint","checked":"[[ -f $HOME/.local/state/monarch/fingerprint-enabled ]]","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-fingerprint"},
   "setup.security.fido2": {"icon":"","label":"FIDO2","checked":"[[ -s /etc/fido2/fido2 ]] && grep -q pam_u2f.so /etc/pam.d/sudo","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-fido2"},
   "setup.security.sshd": {"icon":"󰣀","label":"SSH Server","description":"Enable SSH access or authorize another key","checked":"systemctl is-enabled --quiet sshd","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-sshd"},
+  "setup.factory-reset": {"icon":"󰑐","label":"Factory Reset","description":"Restore the read-only factory snapshot and provision a new owner","action":"monarch-launch-floating-terminal-with-presentation sudo monarch-system-factory-reset"},
   "setup.network.dns.dhcp": {"icon":"󰩟","label":"DHCP","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"DHCP\" ]]","action":"/usr/bin/monarch-dns DHCP"},
   "setup.network.dns.cloudflare": {"icon":"󰅟","label":"Cloudflare","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Cloudflare\" ]]","action":"/usr/bin/monarch-dns Cloudflare"},
   "setup.network.dns.google": {"icon":"󰊭","label":"Google","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Google\" ]]","action":"/usr/bin/monarch-dns Google"},

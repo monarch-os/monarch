@@ -148,22 +148,21 @@ printf '[Resolve]\nDNS=192.168.1.1\n' >"$MONARCH_RESOLVED_CONF"
 assert_equals "anything else is Custom" \
   "$("$STATUS" --verbose | awk '$1=="dns" {print $2}')" "Custom"
 
-# The resolved.conf sniff above is the fallback. With the monarch-dns package
-# installed the command owns the answer, because it also reads NetworkManager's
+# The resolved.conf sniff above is the development-checkout fallback. The
+# packaged runtime command owns the answer, because it also reads NetworkManager's
 # global-dns override — which wins over resolved.conf, so sniffing alone would
 # report the wrong provider. Asserted by reading the source rather than by
 # planting a binary in /usr/bin, which a test has no business doing.
 grep -q 'if \[\[ -x /usr/bin/monarch-dns \]\]' "$STATUS" ||
-  fail "status defers to the packaged monarch-dns when it is installed"
-pass "status defers to the packaged monarch-dns when it is installed"
+  fail "status defers to the packaged runtime DNS command"
+pass "status defers to the packaged runtime DNS command"
 
 # ── The DNS chooser ──────────────────────────────────────────────────────────
 
 # Same reason as above: what these pin is which path gets elevated, and a test
-# may not plant a binary in /usr/bin to find out. The rule naming that path
-# lives with the package, in monarch-pkgs, and so does the test for its shape.
+# may not plant a binary in /usr/bin to find out.
 
-grep -Fxq 'PACKAGED_DNS=/usr/bin/monarch-dns' "$CHOOSER" ||
+grep -Fxq 'MONARCH_DNS=/usr/bin/monarch-dns' "$CHOOSER" ||
   fail "the chooser hands over to the path the grant names"
 pass "the chooser hands over to the path the grant names"
 
@@ -173,9 +172,10 @@ if grep -qE 'resolved\.conf|systemd/network|nmcli connection modify' "$CHOOSER";
 fi
 pass "the chooser writes no DNS configuration of its own"
 
-grep -q 'monarch-pkg-add monarch-dns' "$CHOOSER" ||
-  fail "the chooser installs the package the panel sends it here for"
-pass "the chooser installs the package the panel sends it here for"
+if grep -q 'monarch-pkg-add monarch-dns' "$CHOOSER"; then
+  fail "the chooser still installs a retired standalone DNS package"
+fi
+pass "the chooser relies on the Monarch runtime"
 
 grep -Fq 'local PACKAGED_DNS = "/usr/bin/monarch-dns"' "$PANEL" ||
   fail "the panel elevates the same path and no other"

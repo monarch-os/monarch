@@ -36,8 +36,7 @@ jq -e '.enabledCssSnippets | index("noctalia") != null' \
 [[ ! -s $NOCTALIA_CALLS ]]
 
 grep -Fqx 'PathChanged=%h/.config/obsidian/obsidian.json' \
-  "$ROOT/config/systemd/user/monarch-obsidian-theme.path"
-grep -Fq 'obsidian-theme.sh' "$ROOT/bin/monarch-first-run"
-grep -Fq 'monarch-obsidian-theme."{path,service}' "$ROOT/migrations/1787643066.sh"
+  "$ROOT/default/systemd/user/monarch-obsidian-theme.path"
+grep -Fq 'monarch-obsidian-theme.path' "$ROOT/install/user/first-run/enable-user-units.sh"
 
 echo "Obsidian vault discovery and template watcher checks pass"
