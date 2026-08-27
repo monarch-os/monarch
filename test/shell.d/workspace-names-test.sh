@@ -8,21 +8,8 @@ source "$ROOT/install/helpers/workspaces.sh"
 test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
 
-cat >"$test_tmp/workspaces.conf" <<'EOF'
-# Personal workspaces
-
-  Main  
-Code
-Chat
-Mail
-Docs
-Media
-Seven
-Eight
-Nine
-Ten
-Ignored
-EOF
+printf '%s' $'# Personal workspaces\n\n  Main  \nCode\nChat\nMail\nDocs\nMedia\nSeven\nEight\nNine\nTen\nIgnored\n' \
+  >"$test_tmp/workspaces.conf"
 
 names=(stale)
 monarch_read_workspace_names "$test_tmp/workspaces.conf" names

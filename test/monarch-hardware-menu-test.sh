@@ -87,4 +87,3 @@ for device in touchpad touchscreen; do
   [[ $(jq -r '.enabled' <<<"$status") == false ]] || fail "$device reports its disabled state"
   pass "$device reports its disabled state"
 done
-
