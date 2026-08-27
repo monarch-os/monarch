@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # monarch:summary=Send a desktop notification with an optional safe action
-# monarch:args=[options] [-g <glyph>] <headline> [description] [--action <label> <command> [args...]]
+# monarch:args=[options] [-g <glyph>] [--image <path>] <headline> [description] [--action <label> <command> [args...]]
 # monarch:examples=monarch notification send -g "󰔛" "Reminder" "5 minutes are up" | monarch notification send -u critical "Update ready" --action "Open" monarch-update
 
 set -euo pipefail
@@ -13,9 +13,10 @@ action_label=""
 action_argv=()
 parsed=0
 expire_set=false
+image=""
 
 usage() {
-  echo "Usage: monarch-notification-send [options] [-g <glyph>] <headline> [description] [--action <label> <command> [args...]]" >&2
+  echo "Usage: monarch-notification-send [options] [-g <glyph>] [--image <path>] <headline> [description] [--action <label> <command> [args...]]" >&2
 }
 
 parse_option() {
@@ -29,6 +30,15 @@ parse_option() {
       ;;
     --glyph=*)
       glyph=${option#*=}
+      parsed=1
+      ;;
+    --image)
+      (($# >= 2)) || return 2
+      image=$2
+      parsed=2
+      ;;
+    --image=*)
+      image=${option#*=}
       parsed=1
       ;;
     -u | --urgency | -i | --icon | -t | --expire-time | -r | --replace-id | -a | --app-name | -c | --category | -h | --hint)
@@ -52,7 +62,7 @@ parse_option() {
 
 known_option() {
   case $1 in
-    -g | --glyph | -u | --urgency | -i | --icon | -t | --expire-time | -r | --replace-id | -a | --app-name | -c | --category | -h | --hint | -p | --print-id | -w | --wait | -e | --transient | --glyph=* | --urgency=* | --icon=* | --expire-time=* | --replace-id=* | --app-name=* | --category=* | --hint=*) return 0 ;;
+    -g | --glyph | --image | -u | --urgency | -i | --icon | -t | --expire-time | -r | --replace-id | -a | --app-name | -c | --category | -h | --hint | -p | --print-id | -w | --wait | -e | --transient | --glyph=* | --image=* | --urgency=* | --icon=* | --expire-time=* | --replace-id=* | --app-name=* | --category=* | --hint=*) return 0 ;;
   esac
   return 1
 }
@@ -111,6 +121,7 @@ fi
 
 summary="${glyph:+$glyph    }$headline"
 [[ -n $description ]] && description=$(sed 's/^/      /' <<<"$description")
+[[ -n $image ]] && notify_options+=(--hint="string:image-path:$image")
 
 if ((${#action_argv[@]})); then
   $expire_set || notify_options+=(--expire-time=0)

@@ -38,9 +38,12 @@ mapfile0() {
 }
 
 PATH="$PATH" "$ROOT/bin/monarch-notification-send" -u critical -g G \
-  "Headline" "Body" -t 4000
+  --image "/tmp/preview with space.png" "Headline" "Body" -t 4000
 mapfile0 "$NOTIFY_LOG"
-[[ ${ARGV[*]} == *"--app-name=Monarch -u critical -t 4000 -- G    Headline       Body"* ]]
+[[ ${ARGV[0]} == "--app-name=Monarch" && ${ARGV[1]} == "-u" && ${ARGV[2]} == "critical" ]]
+[[ ${ARGV[3]} == "-t" && ${ARGV[4]} == "4000" ]]
+[[ ${ARGV[5]} == "--hint=string:image-path:/tmp/preview with space.png" ]]
+[[ ${ARGV[6]} == "--" && ${ARGV[7]} == "G    Headline" && ${ARGV[8]} == "      Body" ]]
 
 payload='$(touch should-not-exist); one argument'
 PATH="$PATH" "$ROOT/bin/monarch-notification-send" -g X \
@@ -81,7 +84,12 @@ done
 screenrecording="$ROOT/bin/monarch-capture-screenrecording"
 grep -Fq 'local preview="${filename%.mp4}-preview.png"' "$screenrecording"
 grep -Fq 'ffmpeg -y -i "$filename"' "$screenrecording"
-grep -Fq -- '-i "${preview:-$filename}"' "$screenrecording"
+grep -Fq -- '--image "${preview:-$filename}"' "$screenrecording"
 grep -A2 'sleep 2' "$screenrecording" | grep -Fq 'rm -f "$preview"'
+grep -Fq -- '--fullscreen) FULLSCREEN="true"' "$screenrecording"
+
+screenshot="$ROOT/bin/monarch-capture-screenshot"
+[[ $(grep -Fc 'wl-copy --type image/png' "$screenshot") == 2 ]]
+grep -Fq '^(-?[0-9]+),(-?[0-9]+)[[:space:]]' "$screenshot"
 
 echo "Structured notification text and action argv checks pass"
