@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Upgrade
+Type = Package
+Target = *
+
+[Action]
+Description = Checking Monarch update entrypoint...
+When = PreTransaction
+Depends = monarch
+Exec = /usr/bin/monarch-update-pacman-guard
+AbortOnFail

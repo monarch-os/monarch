@@ -6,4 +6,4 @@
 set -e
 
 echo -e "\e[32m\nUpdate system packages\e[0m"
-sudo pacman -Syyu --noconfirm
+sudo env MONARCH_UPDATE_PACMAN=1 pacman -Syyu --noconfirm
