@@ -90,6 +90,15 @@ window-rule {
     default-window-height { fixed 580; }
 }
 
+// Welcome / onboarding wizard. Own app-id so it gets a fitted size instead of
+// the tall, mostly-empty float the shared org.monarch.terminal rule would give.
+window-rule {
+    match app-id="org.monarch.welcome"
+    open-floating true
+    default-column-width { fixed 760; }
+    default-window-height { fixed 600; }
+}
+
 // Pentest env manager (monarch-menu-pentestenv/exegol/rfswift). Its own app-id
 // so it gets a fitted dialog size instead of the tall, mostly-empty float that
 // the shared org.monarch.terminal would give — the fzf picker, footer actions

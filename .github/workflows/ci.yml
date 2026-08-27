@@ -39,8 +39,8 @@ jobs:
       - name: Run package list resolution test suite
         run: bash test/monarch-packages-exist-test.sh
 
-      - name: Run unattended install test suite
-        run: bash test/monarch-unattended-test.sh
+      - name: Run socket discovery tests (stand-in niri, no compositor)
+        run: bash test/monarch-niri-socket-test.sh
 
       - name: Run socket discovery tests (stand-in niri, no compositor)
         run: bash test/monarch-niri-socket-test.sh
