@@ -78,4 +78,10 @@ for caller in \
   grep -q -- '--action' "$ROOT/$caller"
 done
 
+screenrecording="$ROOT/bin/monarch-capture-screenrecording"
+grep -Fq 'local preview="${filename%.mp4}-preview.png"' "$screenrecording"
+grep -Fq 'ffmpeg -y -i "$filename"' "$screenrecording"
+grep -Fq -- '-i "${preview:-$filename}"' "$screenrecording"
+grep -A2 'sleep 2' "$screenrecording" | grep -Fq 'rm -f "$preview"'
+
 echo "Structured notification text and action argv checks pass"

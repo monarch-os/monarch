@@ -236,9 +236,18 @@ stop_screenrecording() {
     finalize_recording
     local filename=$(cat "$RECORDING_FILE" 2>/dev/null)
     echo "$filename"
-    monarch-notification-send -t 10000 -i video-x-generic \
+    local preview="${filename%.mp4}-preview.png"
+
+    ffmpeg -y -i "$filename" -ss 00:00:00.1 -vframes 1 -q:v 2 "$preview" -loglevel quiet 2>/dev/null
+
+    monarch-notification-send -t 10000 -i "${preview:-$filename}" \
       "Screen recording saved" "Open with Super + Alt + , (or click this)" \
-      --action "Open" mpv "$filename"
+      --action "Open" mpv -- "$filename"
+
+    (
+      sleep 2
+      rm -f "$preview"
+    ) &
   fi
 
   rm -f "$RECORDING_FILE"
