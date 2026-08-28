@@ -1,0 +1,116 @@
+#!/bin/bash
+
+set -euo pipefail
+
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+MANIFEST="$ROOT/test/suite.tsv"
+TEST_JOBS=${TEST_JOBS:-4}
+
+usage() {
+  echo "Usage: test/run focused <test-file...>"
+  echo "       test/run integration"
+  echo "       test/run full"
+}
+
+fail() {
+  echo "$1" >&2
+  exit 2
+}
+
+manifest_paths() {
+  tail -n +2 "$MANIFEST" | cut -f1
+}
+
+validate_manifest() {
+  local inventory manifest
+
+  inventory=$(find "$ROOT/test" -type f -name '*-test.sh' ! -name 'base-test.sh' |
+    sed "s|^$ROOT/||" | sort)
+  manifest=$(manifest_paths | sort)
+  [[ $inventory == "$manifest" ]] || fail "test/suite.tsv does not match the test inventory"
+}
+
+select_tests() {
+  local mode=$1
+
+  case $mode in
+    focused)
+      shift
+      (($# > 0)) || fail "focused mode needs at least one test file"
+      printf '%s\n' "$@"
+      ;;
+    integration)
+      awk -F '\t' 'NR > 1 && $4 == "isolated" { print $1 }' "$MANIFEST"
+      ;;
+    full)
+      manifest_paths
+      ;;
+    *)
+      usage >&2
+      exit 2
+      ;;
+  esac
+}
+
+run_batch() {
+  local test_file log_file timing_file elapsed index test_status
+  local -a pids=() files=() logs=() timings=()
+
+  for test_file in "$@"; do
+    log_file="$RUN_TMP/${test_file//\//_}.log"
+    timing_file="$log_file.time"
+    (
+      child_start=$(date +%s%N)
+      set +e
+      bash "$ROOT/$test_file" >"$log_file" 2>&1
+      child_status=$?
+      echo $(( ($(date +%s%N) - child_start) / 1000000 )) >"$timing_file"
+      exit "$child_status"
+    ) &
+    pids+=("$!")
+    files+=("$test_file")
+    logs+=("$log_file")
+    timings+=("$timing_file")
+  done
+
+  for index in "${!pids[@]}"; do
+    if wait "${pids[$index]}"; then
+      test_status=0
+    else
+      test_status=$?
+      failures=$((failures + 1))
+    fi
+    elapsed=$(<"${timings[$index]}")
+    cat "${logs[$index]}"
+    printf '%s - %s (%d ms)\n' "$([[ $test_status == 0 ]] && echo PASS || echo FAIL)" \
+      "${files[$index]}" "$elapsed"
+  done
+}
+
+validate_manifest
+((TEST_JOBS > 0)) || fail "TEST_JOBS must be greater than zero"
+
+mode=${1:-}
+[[ -n $mode ]] || {
+  usage >&2
+  exit 2
+}
+shift
+
+mapfile -t tests < <(select_tests "$mode" "$@")
+for test_file in "${tests[@]}"; do
+  grep -Fqx "$test_file" < <(manifest_paths) || fail "unknown test: $test_file"
+done
+
+RUN_TMP=$(mktemp -d)
+trap 'rm -rf "$RUN_TMP"' EXIT
+
+failures=0
+suite_start=$(date +%s%N)
+for ((offset = 0; offset < ${#tests[@]}; offset += TEST_JOBS)); do
+  run_batch "${tests[@]:offset:TEST_JOBS}"
+done
+suite_elapsed=$(( ($(date +%s%N) - suite_start) / 1000000 ))
+
+printf '\n%d tests, %d failures, %d ms\n' "${#tests[@]}" "$failures" "$suite_elapsed"
+((failures == 0))

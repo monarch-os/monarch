@@ -20,11 +20,12 @@ assert_equals() {
 export MONARCH_PATH="$ROOT"
 export PATH="$ROOT/bin:$PATH"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.security.sshd") | .action')
+tree=$("$MENU" --tree)
+output=$(jq -r '.[] | select(.id == "setup.security.sshd") | .action' <<<"$tree")
 assert_equals "setup exposes SSHD" "$output" \
   "monarch-launch-floating-terminal-with-presentation monarch-setup-security-sshd"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "remove.security.sshd") | .when')
+output=$(jq -r '.[] | select(.id == "remove.security.sshd") | .when' <<<"$tree")
 assert_equals "removal is shown only for an enabled service" "$output" \
   "systemctl is-enabled --quiet sshd"
 

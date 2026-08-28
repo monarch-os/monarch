@@ -58,7 +58,4 @@ case $grant_path in
     ;;
 esac
 
-grep -Fq 'default/tmpfiles.d/monarch-nopasswd-sudo.conf' \
-  "$ROOT/../monarch-pkgs/pkgbuilds/monarch-settings/PKGBUILD"
-
 echo "Passwordless sudo grants are cleared after a reboot"

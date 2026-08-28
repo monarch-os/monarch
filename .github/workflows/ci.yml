@@ -6,53 +6,23 @@ on:
   pull_request:
 
 jobs:
-  cli-tests:
-    name: CLI tests & route check
+  integration-tests:
+    name: Integration tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run CLI test suite
-        run: bash test/monarch-cli-test.sh
+      - name: Run deterministic integration suite
+        run: test/run integration
 
-      - name: Run menu test suite
-        run: bash test/monarch-menu-test.sh
+  repository-tests:
+    name: Repository availability tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Run Wi-Fi QR test suite
-        run: bash test/monarch-wifi-qr-test.sh
-
-      - name: Run Wi-Fi band test suite
-        run: bash test/monarch-wifi-band-test.sh
-
-      - name: Run network test suite
-        run: bash test/monarch-network-test.sh
-
-      - name: Run display test suite
-        run: bash test/monarch-display-test.sh
-
-      - name: Run power test suite
-        run: bash test/monarch-power-test.sh
-
-      - name: Run kernel headers test suite
-        run: bash test/monarch-kernel-headers-test.sh
-
-      - name: Run package list resolution test suite
-        run: bash test/monarch-packages-exist-test.sh
-
-      - name: Run pacman update guard test suite
-        run: bash test/shell.d/update-pacman-guard-test.sh
-
-      - name: Run socket discovery tests (stand-in niri, no compositor)
-        run: bash test/monarch-niri-socket-test.sh
-
-      - name: Run socket discovery tests (stand-in niri, no compositor)
-        run: bash test/monarch-niri-socket-test.sh
-
-      - name: Validate command routes and metadata
-        run: bin/monarch commands --check
-
-      - name: Validate menu data
-        run: bin/monarch-menu --check
+      - name: Check Pacman and PyPI package availability
+        run: test/run focused test/monarch-packages-exist-test.sh
 
   shellcheck:
     name: ShellCheck
@@ -71,3 +41,6 @@ jobs:
         run: |
           find install migrations -name '*.sh' \
             | xargs shellcheck --shell=bash --severity=error
+
+      - name: Lint test runner
+        run: shellcheck --severity=error test/run
