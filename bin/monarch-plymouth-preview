@@ -2,7 +2,7 @@
 
 # monarch:summary=Render a Plymouth and SDDM preview with custom colors and logo
 # monarch:args=<background-hex> <text-hex> <path-to-logo.png> <output-path>
-# monarch:examples=monarch plymouth preview '#1d2021' '#ebdbb2' ~/.local/share/monarch/default/plymouth/logo.png /tmp/unlock.png
+# monarch:examples=monarch plymouth preview '#1d2021' '#ebdbb2' /usr/share/monarch/default/plymouth/logo.png /tmp/unlock.png
 
 set -uo pipefail
 

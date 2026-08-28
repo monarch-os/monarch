@@ -16,8 +16,7 @@ default browser/mailto, and install/user/all.sh.
 For shipped configs see /etc/skel (new users) and monarch-reinstall-configs
 (existing users explicitly resyncing).
 
---first-install is used by the ISO in the target chroot. It marks shipped
-migrations complete for the freshly-created user.
+--first-install is used by the ISO in the target chroot.
 
 Idempotency marker: ~/.local/state/monarch/done/finalize-user
 USAGE
@@ -109,10 +108,7 @@ done
 source "$MONARCH_INSTALL/user/all.sh"
 
 if (( first_install )); then
-  mkdir -p "$state_dir/migrations"
-  for migration in "$MONARCH_PATH"/migrations/*.sh; do
-    [[ -f $migration ]] && touch "$state_dir/migrations/$(basename "$migration")"
-  done
+  monarch-reconcile --complete
 fi
 
 monarch-done mark finalize-user

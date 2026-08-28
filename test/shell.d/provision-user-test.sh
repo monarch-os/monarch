@@ -23,7 +23,7 @@ mkdir -p "$test_tmp/install/user"
 : >"$test_tmp/install/user/all.sh"
 
 HOME="$test_tmp/home" PATH="$mock_bin:$ROOT/bin:$PATH" MONARCH_PATH="$ROOT" \
-  MONARCH_INSTALL="$test_tmp/install" bash "$ROOT/bin/monarch-provision-user" >/dev/null ||
+  MONARCH_INSTALL="$test_tmp/install" bash "$ROOT/bin/monarch-provision-user" --first-install >/dev/null ||
   fail "monarch-provision-user finishes"
 
 for skill in diagnose-crash; do
@@ -33,3 +33,7 @@ for skill in diagnose-crash; do
 done
 
 pass "monarch-provision-user provisions Antigravity skills"
+
+[[ $(<"$test_tmp/home/.local/state/monarch/schema") == 2 ]] ||
+  fail "fresh installs record the current reconciliation schema"
+pass "monarch-provision-user records the current reconciliation schema"

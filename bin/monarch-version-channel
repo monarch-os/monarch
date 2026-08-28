@@ -2,7 +2,11 @@
 
 # monarch:summary=Print the active Monarch channel (the git branch tracked by the Monarch repository)
 
-branch=$(git -C "$MONARCH_PATH" branch --show-current 2>/dev/null)
+if [[ -d $MONARCH_PATH/.git ]]; then
+  branch=$(git -C "$MONARCH_PATH" branch --show-current 2>/dev/null)
+else
+  branch=main
+fi
 
 case "$branch" in
 main) echo "stable" ;;

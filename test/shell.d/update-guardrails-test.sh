@@ -38,7 +38,7 @@ steps=(
   monarch-update-git
   monarch-update-keyring
   monarch-update-system-pkgs
-  monarch-migrate
+  monarch-reconcile
   monarch-update-aur-pkgs
   monarch-update-orphan-pkgs
   monarch-hook
@@ -61,7 +61,7 @@ monarch-update-stay-awake
 monarch-update-git
 monarch-update-keyring
 monarch-update-system-pkgs
-monarch-migrate
+monarch-reconcile
 monarch-update-aur-pkgs
 monarch-update-orphan-pkgs
 monarch-hook
@@ -72,7 +72,7 @@ EOF
 diff -u "$test_tmp/expected" "$test_tmp/names" || fail "update guardrail ordering"
 grep -q '^monarch-update-system-pkgs unattended=1' "$test_tmp/steps" ||
   fail "unattended update state reaches package updates"
-pass "update orders preflight, pruning, snapshot, packages, migrations and hooks"
+pass "update orders preflight, pruning, snapshot, reconciliation and hooks"
 
 write_stub monarch-update-system-pkgs 'exit 1'
 : >"$test_tmp/steps"
@@ -81,7 +81,7 @@ if run_update -y >/dev/null 2>&1; then
 fi
 grep -q '^monarch-update-stay-awake .*args=stop' "$test_tmp/steps" ||
   fail "failed update releases its inhibitor"
-if grep -Eq '^monarch-(migrate|hook|update-restart) ' "$test_tmp/steps"; then
+if grep -Eq '^monarch-(reconcile|hook|update-restart) ' "$test_tmp/steps"; then
   fail "failed package update reaches later transaction steps"
 fi
 pass "update failure releases temporary state and stops later steps"

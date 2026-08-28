@@ -6,7 +6,7 @@
 - Prefer `(( ))` over numeric operators inside `[[ ]]` (e.g., `(( count < 50 ))`, not `[[ $count -lt 50 ]]`)
 - For strings/paths with spaces, quote them instead of escaping spaces with `\ ` (e.g., `"$APP_DIR/Disk Usage.desktop"`, not `$APP_DIR/Disk\ Usage.desktop`)
 - Shebangs must use `#!/bin/bash` consistently (never `#!/usr/bin/env bash`)
-- Scripts under `install/` and `migrations/` may be sourced and intentionally omit shebangs
+- Scripts under `install/` may be sourced and intentionally omit shebangs
 
 # Git Worktrees
 
@@ -47,7 +47,7 @@ Common prefixes include:
 
 Other current prefixes include:
 
-- `ac-`, `audio-`, `battery-`, `branch-`, `brightness-`, `channel-`, `config-`, `debug-`, `dev-`, `drive-`, `first-`, `font-`, `haptic-`, `hibernation-`, `hook-`, `menu-`, `migrate-`, `niri-`, `notification-`, `npx-`, `plymouth-`, `powerprofiles-`, `reinstall-`, `remove-`, `screensaver-`, `show-`, `snapshot-`, `state-`, `sudo-`, `system-`, `transcode-`, `tui-`, `tz-`, `upload-`, `version-`, `voxtype-`, `webapp-`, `wifi-`, `windows-`
+- `ac-`, `audio-`, `battery-`, `branch-`, `brightness-`, `channel-`, `config-`, `debug-`, `dev-`, `drive-`, `first-`, `font-`, `haptic-`, `hibernation-`, `hook-`, `menu-`, `migrate-`, `niri-`, `notification-`, `npx-`, `plymouth-`, `powerprofiles-`, `reconcile-`, `reinstall-`, `remove-`, `screensaver-`, `show-`, `snapshot-`, `state-`, `sudo-`, `system-`, `transcode-`, `tui-`, `tz-`, `upload-`, `version-`, `voxtype-`, `webapp-`, `wifi-`, `windows-`
 
 # Command Metadata
 
@@ -100,7 +100,7 @@ Use these instead of raw shell commands:
 - `monarch-pkg-add` - install packages (handles both pacman and AUR)
 - `monarch-hw-asus-rog` - detect ASUS ROG hardware (and similar `hw-*` commands)
 
-Exceptions are allowed for bootstrap, preflight, migration, and package-helper scripts where the helper may not be available yet, where the helper itself is being implemented, or where direct package-manager behavior is required.
+Exceptions are allowed for bootstrap, preflight, reconciliation, and package-helper scripts where the helper may not be available yet, where the helper itself is being implemented, or where direct package-manager behavior is required.
 
 # Config Structure
 
@@ -199,33 +199,29 @@ To copy a default config to user config with automatic backup:
 monarch-refresh-config noctalia/config.toml
 ```
 
-This copies `~/.local/share/monarch/config/noctalia/config.toml` to `~/.config/noctalia/config.toml`.
+This copies `/usr/share/monarch/config/noctalia/config.toml` to `~/.config/noctalia/config.toml`.
 
 For the Niri compositor specifically, prefer `monarch-refresh-niri` — it rebuilds `~/.config/niri/config.kdl` by concatenating the Monarch default, the current theme overlay, and the user override (`~/.config/niri/user.kdl`), then validates and reloads.
 
-# Migrations
+# Reconciliation
 
-To create a new migration, run `monarch-dev-add-migration --no-edit`. This creates a migration file named after the unix timestamp of the last commit.
+`monarch-reconcile` converges supported installations onto the current state
+after packages are updated. Do not add timestamped migrations. Put privileged,
+idempotent ownership in `install/reconcile/system.sh` and user/session ownership
+in `install/reconcile/user.sh`.
 
-New migration format:
-- File permissions must be `0644` (`-rw-r--r--`); migrations are sourced, not executed directly
-- No shebang line
-- Start with an `echo` describing what the migration does
-- Use `$MONARCH_PATH` to reference the monarch directory
-- Prefer helper commands such as `monarch-cmd-present`, `monarch-cmd-missing`, `monarch-pkg-present`, and `monarch-pkg-missing`
+Reconcilers must detect the state they own, tolerate repeated execution and
+stop before destructive cleanup if their replacement is unavailable. Remove a
+legacy branch once its source state falls outside the supported upgrade window.
+Use `$MONARCH_PATH` for the packaged runtime and `$MONARCH_SOURCE_ROOT` only when
+the checkout that bootstrapped the transition matters.
 
-Some older migrations predate these rules. Do not copy older migrations that start with shebangs, omit the leading `echo`, or hard-code `~/.local/share/monarch`.
-
-Migrations may use raw `pacman`, `command -v`, or direct config edits when needed for historical compatibility or one-off repair work.
-
-Example:
-```bash
-echo "Drop fingerprint marker if no fingerprint device is enrolled"
-
-if monarch-cmd-missing fprintd-list || ! fprintd-list "$USER" 2>/dev/null | grep -q "finger"; then
-  rm -f "$HOME/.local/state/monarch/fingerprint-enabled"
-fi
-```
+`~/.local/state/monarch/schema` records one installation schema, not individual
+changes. Bump it only for an architectural transition that needs a distinct
+upgrade path, keep `CURRENT_SCHEMA` and `MIN_SUPPORTED_SCHEMA` explicit in
+`monarch-reconcile`, and write the new value only after deferred work completes.
+An unversioned legacy install must prove the documented floor marker before it
+is treated as the minimum supported schema.
 
 # Upstream Sync
 
@@ -233,14 +229,13 @@ Monarch is a fork of [Omarchy](https://github.com/basecamp/omarchy) and tracks u
 
 Some `omarchy` references are intentional and must be preserved:
 
-- AUR package names that still appear in historical migration text (e.g. `omarchy-chromium`)
-- Historical migration text that documents past upstream behavior
+- AUR package names that still encode the upstream name
 
 When Monarch diverges from upstream, mark it clearly:
 
 - `bin/monarch-branch-set` only supports `main|dev` (no `rc` channel)
 - `test/monarch-cli-test.sh` may need assertion adjustments to match Monarch divergences after a sync
-- Some upstream commands (cliamp, etc.) are intentionally not shipped — skip the corresponding migrations
+- Some upstream commands (cliamp, etc.) are intentionally not shipped — skip their reconciliation logic
 - **Compositor: Monarch replaces Hyprland with Niri.** Hyprland-the-compositor and its tightly-coupled daemons (`hypridle`, `hyprsunset`, `xdg-desktop-portal-hyprland`) are dropped in favour of `niri`, `wlsunset`, and `xdg-desktop-portal-gnome`. Only `hyprpicker` is kept (wlr-screencopy color picker) and runs cleanly under Niri. Configs live under `config/niri/`, `default/niri/`. Night light is owned by Noctalia (`noctalia msg nightlight-toggle` / `[nightlight]`), which spawns `wlsunset` itself, so Monarch ships no wlsunset config. Idle (screensaver / lock / DPMS) is owned by Noctalia's `[idle.behavior.<name>]` blocks in `config.toml`; lid-close lock is a niri `switch-events` block (`default/niri/power.kdl`). During upstream syncs, drop any new Hyprland compositor configs that come from Omarchy and keep their Niri equivalents.
 - **Desktop shell: Noctalia v5 replaces waybar + walker + mako + hyprlock + swayosd + swaybg.** v5 is a native C++ rewrite with **no Qt and no Quickshell** — v4 (`noctalia-shell` + `qs -c`) is frozen upstream and gone from Monarch. The `noctalia` daemon (`noctalia -d`, package `noctalia` from Arch `extra`) provides the bar, launcher, notifications, control center, lock screen, OSDs and wallpaper management. Driven via `noctalia msg <command> [args]` over a Unix socket — flat verbs, not v4's `<target> <function>`; see `default/monarch-skill/SKILL.md` for the command reference. User config lives at `~/.config/noctalia/*.toml`. `fuzzel` provides the dmenu picker used by `monarch-menu` and friends (v5 ships its own `noctalia dmenu`, not yet adopted). During upstream syncs, drop any waybar/walker/mako/hyprlock/swayosd configs that come from Omarchy and surface their equivalents through Noctalia instead.
 - **Plugins are Luau, not QML.** v5 has no `CustomButton`; a bar entry that runs a command and renders its output is a plugin under `default/noctalia/plugins/`, referenced in the lanes as `<author>/<plugin>:<entry>`. A plugin declares any of **five** entry kinds — `[[widget]]` (bar), `[[panel]]`, `[[launcher_provider]]`, `[[desktop_widget]]`, `[[shortcut]]` — and may declare several in one manifest; bar widgets are simply the only kind Monarch uses today, not the API's ceiling. The authoritative surface is `noctalia.d.luau` at the root of `github.com/noctalia-dev/official-plugins` (declares `noctalia.*`, `barWidget.*`, `panel.*`, `launcher.*`, `desktopWidget.*`, `shortcut.*`, the `ui.*` node set and every entry-point callback); `noctalia plugins lint` checks a manifest offline. Plugin ids are namespaced, so a plugin **cannot override a built-in widget** — you remove the built-in from the lane and put yours in its place. Built-in widgets are tuned instead through top-level `[widget.<id>]` sections. Two traps: `plugin_api` must be **≥ 22** for relative `require()`, whose path must include the `.luau` extension; and the shell runs without Monarch's `bin/` on `PATH`, so every command a plugin launches needs an absolute path.

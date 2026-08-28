@@ -53,7 +53,7 @@ run through:
 
   monarch update
 
-That path keeps the update log, snapshot, keyrings, package upgrade, migrations,
+That path keeps the update log, snapshot, keyrings, package upgrade, reconciliation,
 post-update hooks and restart checks together.
 
 To deliberately bypass Monarch for this transaction, rerun pacman with:
