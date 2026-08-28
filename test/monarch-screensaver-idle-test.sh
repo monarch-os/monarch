@@ -19,7 +19,7 @@ assert_screensaver_idle() {
 }
 
 assert_screensaver_idle "$ROOT/config/noctalia/config.toml"
-! rg -n "pkill -f org\.monarch\.screensaver" \
+! grep -R -n "pkill -f org\.monarch\.screensaver" \
   "$ROOT/bin/monarch-screensaver" "$ROOT/bin/monarch-system-lock"
 ! grep -F "pgrep -f org.monarch.screensaver" "$ROOT/bin/monarch-launch-screensaver"
 

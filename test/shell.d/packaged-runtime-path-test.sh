@@ -38,7 +38,7 @@ grep -qF 'MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}' "$ROOT/default/shell
   fail "shell sessions do not default to the packaged runtime"
 pass "login sessions preserve an override and default to /usr/share/monarch"
 
-if rg -q '%h/.local/share/monarch/bin/' "$ROOT/config/systemd/user"; then
+if grep -R -q '%h/.local/share/monarch/bin/' "$ROOT/config/systemd/user"; then
   fail "a user service still invokes a checkout-only command path"
 fi
 pass "user services invoke packaged Monarch commands"

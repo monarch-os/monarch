@@ -69,6 +69,7 @@ trap cleanup EXIT
 export HOME="$TMPDIR/home"
 mkdir -p "$HOME/.config/monarch/extensions"
 USER_MENU="$HOME/.config/monarch/extensions/monarch-menu.jsonc"
+SHIPPED_TREE=$("$MENU" --tree)
 
 # ── The shipped data ─────────────────────────────────────────────────────────
 
@@ -85,14 +86,14 @@ assert_equals "root holds the eight top-level families in declaration order" \
 output=$("$MENU" --rows style.screensaver | cut -f2 | tr '\n' ' ')
 assert_equals "a level renders its own children only" "${output% }" "Edit Text Set From Image Restore Default"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^style\\.bar\\.position\\.[^.]+$")) | [.label, .checked, .action] | join("|")')
+output=$(jq -r '.[] | select(.id | test("^style\\.bar\\.position\\.[^.]+$")) | [.label, .checked, .action] | join("|")' <<<"$SHIPPED_TREE")
 assert_equals "bar position exposes four stateful choices" "$output" \
   $'Top|[[ $(monarch-bar-position) == top ]]|monarch-bar-position top\nBottom|[[ $(monarch-bar-position) == bottom ]]|monarch-bar-position bottom\nLeft|[[ $(monarch-bar-position) == left ]]|monarch-bar-position left\nRight|[[ $(monarch-bar-position) == right ]]|monarch-bar-position right'
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "style.backgrounds") | .action')
+output=$(jq -r '.[] | select(.id == "style.backgrounds") | .action' <<<"$SHIPPED_TREE")
 assert_equals "Backgrounds opens the Monarch selector directly" "$output" "noctalia msg panel-toggle monarch/theme:background"
 
-output=$("$MENU" --tree | jq -r '.[0] | [.id, .label] | join("|")')
+output=$(jq -r '.[0] | [.id, .label] | join("|")' <<<"$SHIPPED_TREE")
 assert_equals "--tree exposes menu data without guards" "$output" "apps|Apps"
 
 output=$("$MENU" --initial style.backgrounds | jq -r 'map(.id) | join(" ")')
@@ -106,24 +107,24 @@ if ! grep -q 'onImportClicked() importBackground()' "$ROOT/default/noctalia/plug
 fi
 echo "ok - Background selector exposes import from pointer and keyboard"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^setup\\.network\\.dns\\.[^.]+$")) | .label' | tr '\n' ' ')
+output=$(jq -r '.[] | select(.id | test("^setup\\.network\\.dns\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
 assert_equals "DNS exposes each provider directly" "${output% }" "DHCP Cloudflare Google Custom"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^setup\\.network\\.dns\\.[^.]+$")) | .action' | tr '\n' ' ')
+output=$(jq -r '.[] | select(.id | test("^setup\\.network\\.dns\\.[^.]+$")) | .action' <<<"$SHIPPED_TREE" | tr '\n' ' ')
 assert_contains "DNS provider rows bypass the old chooser" "$output" "/usr/bin/monarch-dns Cloudflare"
 
 output=$("$MENU" --rows setup.network | cut -f2 | tr '\n' ' ')
 assert_equals "network groups overview, Wi-Fi and DNS" "${output% }" "Overview Wi-Fi DNS"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^setup\\.defaults\\.agent\\.[^.]+$")) | .label' | tr '\n' ' ')
-assert_equals "default agents follow Quattro's catalog" "${output% }" \
+output=$(jq -r '.[] | select(.id | test("^setup\\.defaults\\.agent\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
+assert_equals "default agents follow Monarch's supported catalog" "${output% }" \
   "Antigravity Claude Codex Copilot Crush Grok omp OpenCode Ori Pi"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.plugins") | .action')
+output=$(jq -r '.[] | select(.id == "setup.plugins") | .action' <<<"$SHIPPED_TREE")
 assert_equals "plugin setup opens Noctalia's native plugin manager" "$output" \
   "noctalia msg settings-open plugins"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^system\\.[^.]+$")) | .label' | tr '\n' ' ')
+output=$(jq -r '.[] | select(.id | test("^system\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
 assert_equals "system contains only session and power actions" "${output% }" \
   "Lock Screensaver Suspend Hibernate Logout Restart Shutdown"
 
@@ -135,8 +136,8 @@ assert_contains "software links to the removal catalog" "$output" "Remove softwa
 assert_equals "software follows the install workflow" "${output% }" \
   "Package AUR Web App TUI Browser Editor Terminal Development AI Cyber Gaming Services Fonts Windows Preinstalls Remove software"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^install\\.ai\\.[^.]+$")) | .label' | tr '\n' ' ')
-assert_equals "AI follows the selected Quattro catalog" "${output% }" \
+output=$(jq -r '.[] | select(.id | test("^install\\.ai\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
+assert_equals "AI follows Monarch's supported catalog" "${output% }" \
   "ChatGPT Desktop Dictation LM Studio Ollama T3 Code"
 refute_contains "AI no longer lists Crush as a desktop app" "$output" "Crush"
 
@@ -145,68 +146,68 @@ if ! grep -q '^local WINDOW_ROWS = 10$' "$ROOT/default/noctalia/plugins/monarch-
 fi
 pass "menu viewport keeps its last row above the footer"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^remove\\.ai\\.[^.]+$")) | .label' | tr '\n' ' ')
+output=$(jq -r '.[] | select(.id | test("^remove\\.ai\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
 assert_equals "AI removal mirrors the install catalog" "${output% }" \
   "ChatGPT Desktop Dictation LM Studio Ollama T3 Code"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id | test("^remove\\.service\\.[^.]+$")) | .label' | tr '\n' ' ')
+output=$(jq -r '.[] | select(.id | test("^remove\\.service\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
 assert_equals "specialized service removals are grouped" "${output% }" "Tailscale LazyVPN Displaylink"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "install.service.signal") | [.label, .disabled, .action] | join("|")')
+output=$(jq -r '.[] | select(.id == "install.service.signal") | [.label, .disabled, .action] | join("|")' <<<"$SHIPPED_TREE")
 assert_equals "Signal is available in the service catalog" "$output" \
   "Signal|monarch-pkg-present signal-desktop|monarch-launch-floating-terminal-with-presentation monarch-install-service-signal"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.config.input") | .action')
+output=$(jq -r '.[] | select(.id == "setup.config.input") | .action' <<<"$SHIPPED_TREE")
 assert_contains "input settings edit the user-owned Niri override" "$output" ".config/niri/user.kdl"
 assert_contains "input settings validate and reload Niri" "$output" "monarch-refresh-niri"
 
 assert_equals "the Input route resolves inside Config" "$("$MENU" --resolve input)" "setup.config.input"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.security.sshd") | .checked')
+output=$(jq -r '.[] | select(.id == "setup.security.sshd") | .checked' <<<"$SHIPPED_TREE")
 assert_equals "SSH server exposes its enabled state" "$output" "systemctl is-enabled --quiet sshd"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.security.fingerprint") | .checked')
+output=$(jq -r '.[] | select(.id == "setup.security.fingerprint") | .checked' <<<"$SHIPPED_TREE")
 assert_equals "fingerprint setup reflects successful enrollment" "$output" \
   '[[ -f $HOME/.local/state/monarch/fingerprint-enabled ]]'
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "remove.security.fingerprint") | .when')
+output=$(jq -r '.[] | select(.id == "remove.security.fingerprint") | .when' <<<"$SHIPPED_TREE")
 assert_equals "fingerprint removal requires configured authentication" "$output" \
   '[[ -f $HOME/.local/state/monarch/fingerprint-enabled ]]'
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.security.fido2") | .checked')
+output=$(jq -r '.[] | select(.id == "setup.security.fido2") | .checked' <<<"$SHIPPED_TREE")
 assert_equals "FIDO2 setup reflects its auth file and PAM stack" "$output" \
   '[[ -s /etc/fido2/fido2 ]] && grep -q pam_u2f.so /etc/pam.d/sudo'
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "remove.security.fido2") | .when')
+output=$(jq -r '.[] | select(.id == "remove.security.fido2") | .when' <<<"$SHIPPED_TREE")
 assert_equals "FIDO2 removal requires configured authentication" "$output" \
   '[[ -s /etc/fido2/fido2 ]] && grep -q pam_u2f.so /etc/pam.d/sudo'
 
-output=$("$MENU" --state | jq '[.tree[] | select(.id | test("^trigger\\.toggle\\.[^.]+$")) | select(.checked)] | length')
+output=$(jq '[.[] | select(.id | test("^trigger\\.toggle\\.[^.]+$")) | select(.checked)] | length' <<<"$SHIPPED_TREE")
 assert_equals "every toggle exposes its active state" "$output" "9"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.toggle.notifications") | .checked')
+output=$(jq -r '.[] | select(.id == "trigger.toggle.notifications") | .checked' <<<"$SHIPPED_TREE")
 assert_equals "notifications check represents active DND" "$output" \
   "monarch-toggle-notification-silencing status | jq -e '.enabled'"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.toggle.idle-lock") | .checked')
+output=$(jq -r '.[] | select(.id == "trigger.toggle.idle-lock") | .checked' <<<"$SHIPPED_TREE")
 assert_equals "idle lock check represents active caffeine" "$output" \
   "monarch-toggle-idle status | jq -e '.enabled'"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.toggle.battery-percentage") | .when')
+output=$(jq -r '.[] | select(.id == "trigger.toggle.battery-percentage") | .when' <<<"$SHIPPED_TREE")
 assert_equals "battery percentage uses the battery presence guard" "$output" "monarch-battery-present"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.capture.screenrecord.webcam") | .when')
+output=$(jq -r '.[] | select(.id == "trigger.capture.screenrecord.webcam") | .when' <<<"$SHIPPED_TREE")
 assert_equals "webcam recording is hardware guarded" "$output" "monarch-hw-webcam"
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.capture.screenrecord.webcam") | .action')
+output=$(jq -r '.[] | select(.id == "trigger.capture.screenrecord.webcam") | .action' <<<"$SHIPPED_TREE")
 assert_equals "circle webcam recording is exposed" "$output" "monarch-capture-screenrecording-with-webcam --webcam-shape=circle"
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.capture.screenrecord.webcam-rectangle") | [.when, .action] | @tsv')
+output=$(jq -r '.[] | select(.id == "trigger.capture.screenrecord.webcam-rectangle") | [.when, .action] | @tsv' <<<"$SHIPPED_TREE")
 assert_equals "rectangle webcam recording is exposed and guarded" "$output" $'monarch-hw-webcam\tmonarch-capture-screenrecording-with-webcam --webcam-shape=rectangle'
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.security.fingerprint") | .when')
+output=$(jq -r '.[] | select(.id == "setup.security.fingerprint") | .when' <<<"$SHIPPED_TREE")
 assert_equals "fingerprint setup is hardware guarded" "$output" "monarch-hw-fingerprint"
 
 for device in touchpad touchscreen; do
-  output=$("$MENU" --state | jq -r --arg id "trigger.hardware.$device" '.tree[] | select(.id == $id) | .checked')
+  output=$(jq -r --arg id "trigger.hardware.$device" '.[] | select(.id == $id) | .checked' <<<"$SHIPPED_TREE")
   assert_equals "$device exposes its active state" "$output" \
     "monarch-toggle-$device status | jq -e '.enabled'"
 done
@@ -224,6 +225,21 @@ assert_equals "a hidden legacy category remains routable" "$("$MENU" --resolve r
 assert_equals "routes are case insensitive" "$("$MENU" --resolve SETTINGS)" "setup"
 assert_equals "underscores normalise to dashes" "$("$MENU" --resolve power_menu)" "system"
 assert_equals "an unknown route falls through literally" "$("$MENU" --resolve nope)" "nope"
+
+mkdir -p "$HOME/.config/niri" "$TMPDIR/keybindings-bin"
+cat >"$TMPDIR/keybindings-bin/xkbcli" <<'EOF'
+#!/bin/bash
+exit 0
+EOF
+chmod +x "$TMPDIR/keybindings-bin/xkbcli"
+cat >"$HOME/.config/niri/config.kdl" <<EOF
+include "$ROOT/default/niri/binds.kdl"
+EOF
+output=$(PATH="$TMPDIR/keybindings-bin:$PATH" "$ROOT/bin/monarch-menu-keybindings" --print)
+assert_contains "keybindings list the close-window aliases together" "$output" \
+  "SUPER + Q / SUPER SHIFT + Q"
+assert_equals "keybindings list close-window once" \
+  "$(grep -Fc 'Close active window' <<<"$output")" "1"
 
 # An exact id must beat an alias that names something else.
 cat >"$USER_MENU" <<'EOF'
@@ -350,17 +366,18 @@ rm -f "$USER_MENU"
 
 # One payload feeds both the panel and the launcher: the tree in declaration
 # order, and every guard already evaluated.
-output=$("$MENU" --state | jq -r '.tree[0].id + " " + .tree[-1].id')
+STATE=$("$MENU" --state)
+output=$(jq -r '.tree[0].id + " " + .tree[-1].id' <<<"$STATE")
 assert_equals "--state emits the tree in declaration order" "$output" "apps system.shutdown"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "learn.bash") | .action')
+output=$(jq -r '.tree[] | select(.id == "learn.bash") | .action' <<<"$STATE")
 assert_contains "--state carries the fields the panel renders" "$output" "devhints.io/bash"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.capture.screenshot") | [.description, (.keywords | join(" "))] | join(" ")')
+output=$(jq -r '.tree[] | select(.id == "trigger.capture.screenshot") | [.description, (.keywords | join(" "))] | join(" ")' <<<"$STATE")
 assert_contains "--state carries search descriptions" "$output" "Capture the screen"
 assert_contains "--state carries search keywords" "$output" "snip"
 
-output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.network.wifi") | .searchText')
+output=$(jq -r '.tree[] | select(.id == "setup.network.wifi") | .searchText' <<<"$STATE")
 assert_contains "--state prepares search text outside the plugin" "$output" "wireless"
 
 if ! grep -q 'query ~= "" and isCategory' "$ROOT/default/noctalia/plugins/monarch-menu/model.luau"; then
@@ -381,27 +398,27 @@ fi
 pass "search keeps result groups contiguous"
 
 # Guards are keyed `<id>:<w|c|d>` so the consumer decodes them natively.
-output=$("$MENU" --state | jq -r '.guards | keys | map(split(":")[1]) | unique | join(" ")')
+output=$(jq -r '.guards | keys | map(split(":")[1]) | unique | join(" ")' <<<"$STATE")
 assert_equals "--state reports all three guard kinds" "$output" "c d w"
 
 # Install rows stay listed when the software is already there, and say so with a
 # `disabled` guard; Remove rows are the opposite and hide what is not installed.
-output=$("$MENU" --state | jq -r '[.tree[] | select(.id | startswith("install.")) | select(.disabled)] | length')
+output=$(jq -r '[.tree[] | select(.id | startswith("install.")) | select(.disabled)] | length' <<<"$STATE")
 if [[ $output -lt 40 ]]; then
   fail "install rows carry a presence guard"
 fi
 pass "install rows carry a presence guard"
 
-output=$("$MENU" --state | jq -r '[.tree[] | select(.id | startswith("install.cyber.")) | select(.disabled)] | length')
+output=$(jq -r '[.tree[] | select(.id | startswith("install.cyber.")) | select(.disabled)] | length' <<<"$STATE")
 assert_equals "every Cyber install row carries a presence guard" "$output" "3"
 
-output=$("$MENU" --state | jq -r '[.tree[] | select(.id | startswith("install.")) | select(.when)] | length')
+output=$(jq -r '[.tree[] | select(.id | startswith("install.")) | select(.when)] | length' <<<"$STATE")
 assert_equals "install rows never hide with when" "$output" "0"
 
-output=$("$MENU" --state | jq -r '[.tree[] | select(.id | startswith("remove.")) | select(.disabled)] | length')
+output=$(jq -r '[.tree[] | select(.id | startswith("remove.")) | select(.disabled)] | length' <<<"$STATE")
 assert_equals "remove rows never dim with disabled" "$output" "0"
 
-output=$("$MENU" --state | jq -r '[.guards | keys[] | select(startswith("trigger.hardware"))] | length')
+output=$(jq -r '[.guards | keys[] | select(startswith("trigger.hardware"))] | length' <<<"$STATE")
 if [[ $output -lt 1 ]]; then
   fail "--state evaluates the hardware guards"
 fi

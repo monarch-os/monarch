@@ -8,15 +8,17 @@ test_tmp=$(mktemp -d)
 stub_bin="$test_tmp/bin"
 authdir="$test_tmp/fido2"
 authfile="$authdir/fido2"
+pamdir="$test_tmp/pam.d"
 setup_copy="$test_tmp/setup"
-mkdir -p "$stub_bin"
+mkdir -p "$stub_bin" "$pamdir"
 trap 'rm -rf "$test_tmp"' EXIT
 
 setup="$ROOT/bin/monarch-setup-security-fido2"
 [[ $(grep -Fxc 'authdir=/etc/fido2' "$setup") == 1 ]] || fail "setup has one fixed auth directory seam"
 [[ $(grep -Fxc 'authfile=/etc/fido2/fido2' "$setup") == 1 ]] || fail "setup has one fixed authfile seam"
 sed -e "s|^authdir=/etc/fido2$|authdir=$authdir|" \
-  -e "s|^authfile=/etc/fido2/fido2$|authfile=$authfile|" "$setup" >"$setup_copy"
+  -e "s|^authfile=/etc/fido2/fido2$|authfile=$authfile|" \
+  -e "s|/etc/pam.d|$pamdir|g" "$setup" >"$setup_copy"
 
 cat >"$stub_bin/monarch-pkg-add" <<'EOF'
 #!/bin/bash

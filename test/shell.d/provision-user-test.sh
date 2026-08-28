@@ -17,8 +17,8 @@ chmod +x "$mock_bin"/*
 
 # Provisioning prepends $MONARCH_PATH/bin, which shadows a mock for anything
 # Monarch ships, so the install suite is stubbed out at its path instead. The
-# real one rethemes the session it runs in: hyprctl reload against the live
-# compositor, gsettings against the live desktop, and a global Node install.
+# real one changes the live desktop through Noctalia and gsettings, then runs a
+# global Node install.
 mkdir -p "$test_tmp/install/user"
 : >"$test_tmp/install/user/all.sh"
 
