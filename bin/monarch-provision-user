@@ -107,5 +107,9 @@ done
 
 source "$MONARCH_INSTALL/user/all.sh"
 
+if (( first_install )); then
+  monarch-reconcile --complete
+fi
+
 monarch-done mark finalize-user
 echo "User finalization complete."

@@ -216,6 +216,13 @@ legacy branch once its source state falls outside the supported upgrade window.
 Use `$MONARCH_PATH` for the packaged runtime and `$MONARCH_SOURCE_ROOT` only when
 the checkout that bootstrapped the transition matters.
 
+`~/.local/state/monarch/schema` records one installation schema, not individual
+changes. Bump it only for an architectural transition that needs a distinct
+upgrade path, keep `CURRENT_SCHEMA` and `MIN_SUPPORTED_SCHEMA` explicit in
+`monarch-reconcile`, and write the new value only after deferred work completes.
+An unversioned legacy install must prove the documented floor marker before it
+is treated as the minimum supported schema.
+
 # Upstream Sync
 
 Monarch is a fork of [Omarchy](https://github.com/basecamp/omarchy) and tracks upstream releases via the `omarchy` git remote. The sync renames `omarchy*` → `monarch*` (binaries, paths, `# omarchy:` metadata directives, env vars like `OMARCHY_PATH`).

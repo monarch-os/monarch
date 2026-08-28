@@ -8,3 +8,4 @@ done
 
 monarch-theme-apply >/dev/null 2>&1 || true
 rm -f "$0"
+"${MONARCH_RECONCILE_BIN:-/usr/bin/monarch-reconcile}" --complete

@@ -33,3 +33,7 @@ for skill in diagnose-crash; do
 done
 
 pass "monarch-provision-user provisions Antigravity skills"
+
+[[ $(<"$test_tmp/home/.local/state/monarch/schema") == 5 ]] ||
+  fail "fresh installs record the current reconciliation schema"
+pass "monarch-provision-user records the current reconciliation schema"

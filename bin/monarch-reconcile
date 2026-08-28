@@ -5,6 +5,31 @@
 
 set -euo pipefail
 
+CURRENT_SCHEMA=5
+MIN_SUPPORTED_SCHEMA=4
+LEGACY_FLOOR_MARKER=1787067946.sh
+state_dir="$HOME/.local/state/monarch"
+schema_file="$state_dir/schema"
+plugin_hook="$HOME/.config/monarch/hooks/post-boot.d/noctalia-v5-plugins"
+runtime_hook="$HOME/.config/monarch/hooks/post-boot.d/packaged-runtime"
+
+complete_reconciliation() {
+  [[ ! -e $plugin_hook && ! -e $runtime_hook ]] || return 0
+  if [[ -f $schema_file ]]; then
+    existing_schema=$(<"$schema_file")
+    [[ $existing_schema =~ ^[0-9]+$ ]] || return 1
+    ((existing_schema <= CURRENT_SCHEMA)) || return 1
+  fi
+  mkdir -p "$state_dir"
+  printf '%s\n' "$CURRENT_SCHEMA" >"$schema_file.tmp"
+  mv "$schema_file.tmp" "$schema_file"
+}
+
+if [[ ${1:-} == "--complete" ]]; then
+  complete_reconciliation
+  exit
+fi
+
 source_root=${MONARCH_PATH:-$HOME/.local/share/monarch}
 runtime_root=${MONARCH_RUNTIME_ROOT:-/usr/share/monarch}
 
@@ -22,5 +47,34 @@ export MONARCH_SOURCE_ROOT=$source_root
 export MONARCH_PATH=$runtime_root
 export PATH="$runtime_root/bin:$PATH"
 
+if [[ -f $schema_file ]]; then
+  schema=$(<"$schema_file")
+  [[ $schema =~ ^[0-9]+$ ]] || {
+    echo "Invalid Monarch installation schema: $schema" >&2
+    exit 1
+  }
+elif [[ $source_root == "$HOME/.local/share/monarch" && -d $source_root && ! -L $source_root ]] ||
+  monarch-pkg-present noctalia-shell || [[ -f $HOME/.config/noctalia/settings.json ]]; then
+  if [[ ! -f $state_dir/migrations/$LEGACY_FLOOR_MARKER ]]; then
+    echo "This legacy installation predates the supported v4 upgrade baseline." >&2
+    echo "Update it fully on the v4 branch before moving to Noctalia v5." >&2
+    exit 1
+  fi
+  schema=4
+else
+  schema=$CURRENT_SCHEMA
+fi
+
+if ((schema < MIN_SUPPORTED_SCHEMA)); then
+  echo "Monarch schema $schema is no longer supported; upgrade through Monarch v4 or reinstall." >&2
+  exit 1
+fi
+
+if ((schema > CURRENT_SCHEMA)); then
+  echo "Monarch schema $schema is newer than this runtime; refusing to downgrade it." >&2
+  exit 1
+fi
+
 bash "$runtime_root/install/reconcile/system.sh"
 bash "$runtime_root/install/reconcile/user.sh"
+complete_reconciliation

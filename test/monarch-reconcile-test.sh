@@ -7,7 +7,10 @@ TEST_ROOT=$(mktemp -d)
 trap 'rm -rf "$TEST_ROOT"' EXIT
 
 bootstrap="$TEST_ROOT/bootstrap"
-mkdir -p "$bootstrap/bin"
+bootstrap_source="$bootstrap/home/.local/share/monarch"
+mkdir -p "$bootstrap/bin" "$bootstrap_source" \
+  "$bootstrap/home/.local/state/monarch/migrations"
+touch "$bootstrap/home/.local/state/monarch/migrations/1787067946.sh"
 cat >"$bootstrap/bin/monarch-pkg-missing" <<'EOF'
 #!/bin/bash
 [[ ! -f $BOOTSTRAP_ROOT/installed ]]
@@ -22,17 +25,48 @@ chmod +x "$BOOTSTRAP_ROOT/runtime/bin/monarch"
 printf '%s\n' 'printf "system\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/system.sh"
 printf '%s\n' 'printf "user\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/user.sh"
 EOF
+cat >"$bootstrap/bin/monarch-pkg-present" <<'EOF'
+#!/bin/bash
+exit 1
+EOF
 chmod +x "$bootstrap/bin/"*
 
-BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap/source" \
+BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
   MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
   bash "$ROOT/bin/monarch-reconcile" >/dev/null
 [[ $(<"$bootstrap/steps") == $'system\nuser' ]]
+[[ $(<"$bootstrap/home/.local/state/monarch/schema") == 5 ]]
+
+printf '%s\n' 3 >"$bootstrap/home/.local/state/monarch/schema"
+if BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
+  MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
+  bash "$ROOT/bin/monarch-reconcile" >/dev/null 2>&1; then
+  echo "unsupported old schema was accepted" >&2
+  exit 1
+fi
+
+printf '%s\n' 6 >"$bootstrap/home/.local/state/monarch/schema"
+if BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
+  MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
+  bash "$ROOT/bin/monarch-reconcile" >/dev/null 2>&1; then
+  echo "newer schema was downgraded" >&2
+  exit 1
+fi
+
+rm "$bootstrap/home/.local/state/monarch/schema" \
+  "$bootstrap/home/.local/state/monarch/migrations/1787067946.sh"
+if BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
+  MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
+  bash "$ROOT/bin/monarch-reconcile" >/dev/null 2>&1; then
+  echo "legacy installation below the support floor was accepted" >&2
+  exit 1
+fi
 
 export HOME="$TEST_ROOT/home"
 export MONARCH_PATH="$ROOT"
 export MONARCH_SOURCE_ROOT="$HOME/.local/share/monarch"
 export MONARCH_RUNTIME_ROOT="$TEST_ROOT/runtime"
+export MONARCH_RECONCILE_BIN="$ROOT/bin/monarch-reconcile"
 export TEST_LOG="$TEST_ROOT/calls"
 export TEST_NOCTALIA=unavailable
 export PATH="$TEST_ROOT/bin:/usr/bin"
@@ -90,6 +124,7 @@ grep -qx 'export MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}' "$HOME/.confi
 plugin_hook="$HOME/.config/monarch/hooks/post-boot.d/noctalia-v5-plugins"
 runtime_hook="$HOME/.config/monarch/hooks/post-boot.d/packaged-runtime"
 [[ -x $plugin_hook && -x $runtime_hook ]]
+[[ ! -e $HOME/.local/state/monarch/schema ]]
 
 export TEST_NOCTALIA=ready
 bash "$ROOT/install/reconcile/user.sh"
@@ -101,6 +136,7 @@ bash "$runtime_hook"
 [[ $(readlink "$HOME/.local/share/monarch") == "$MONARCH_RUNTIME_ROOT" ]]
 [[ -d $HOME/.local/share/monarch-v4/.git ]]
 [[ ! -e $runtime_hook ]]
+[[ $(<"$HOME/.local/state/monarch/schema") == 5 ]]
 
 if find "$ROOT/migrations" -type f -name '*.sh' -print -quit 2>/dev/null | grep -q .; then
   echo "historical migrations remain" >&2

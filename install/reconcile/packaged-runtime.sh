@@ -17,3 +17,4 @@ fi
 
 rm -rf "$HOME/.local/state/monarch/migrations"
 rm -f "$0"
+"${MONARCH_RECONCILE_BIN:-/usr/bin/monarch-reconcile}" --complete
