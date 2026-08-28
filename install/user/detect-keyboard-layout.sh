@@ -73,7 +73,11 @@ esac
 ws_conf="$HOME/.config/niri/workspaces.conf"
 ws_names=()
 if (( ${#azerty_binds[@]} > 0 )) && [[ -r $ws_conf ]]; then
-  source "$MONARCH_INSTALL/helpers/workspaces.sh"
+  workspace_helpers="${MONARCH_INSTALL:-${MONARCH_PATH:-/usr/share/monarch}/install}/helpers/workspaces.sh"
+  source "$workspace_helpers" || {
+    status=$?
+    return "$status" 2>/dev/null || exit "$status"
+  }
   monarch_read_workspace_names "$ws_conf" ws_names
 fi
 
