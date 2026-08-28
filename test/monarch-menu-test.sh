@@ -197,6 +197,10 @@ assert_equals "battery percentage uses the battery presence guard" "$output" "mo
 
 output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.capture.screenrecord.webcam") | .when')
 assert_equals "webcam recording is hardware guarded" "$output" "monarch-hw-webcam"
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.capture.screenrecord.webcam") | .action')
+assert_equals "circle webcam recording is exposed" "$output" "monarch-capture-screenrecording-with-webcam --webcam-shape=circle"
+output=$("$MENU" --state | jq -r '.tree[] | select(.id == "trigger.capture.screenrecord.webcam-rectangle") | [.when, .action] | @tsv')
+assert_equals "rectangle webcam recording is exposed and guarded" "$output" $'monarch-hw-webcam\tmonarch-capture-screenrecording-with-webcam --webcam-shape=rectangle'
 
 output=$("$MENU" --state | jq -r '.tree[] | select(.id == "setup.security.fingerprint") | .when')
 assert_equals "fingerprint setup is hardware guarded" "$output" "monarch-hw-fingerprint"

@@ -3,12 +3,20 @@
 # monarch:summary=Record the screen with desktop audio, microphone and a webcam overlay
 # monarch:group=capture
 # monarch:name=screenrecord-with-webcam
+# monarch:args=[--webcam-shape=<circle|rectangle>]
 # monarch:examples=monarch capture screenrecord-with-webcam
 
 # Picking the camera used to live in monarch-menu, which could call its own
 # helpers. Menu actions now run detached, so this is a command of its own.
 
 set -euo pipefail
+
+webcam_shape="circle"
+case ${1:-} in
+"") ;;
+--webcam-shape=circle | --webcam-shape=rectangle) webcam_shape=${1#*=} ;;
+*) echo "Usage: monarch capture screenrecord-with-webcam [--webcam-shape=<circle|rectangle>]" >&2; exit 1 ;;
+esac
 
 # v4l2-ctl prints a name on its own line, then its device nodes indented. Keep
 # the first node of each block: "<device>  <name>", one camera per line.
@@ -41,4 +49,5 @@ exec monarch-capture-screenrecording \
   --with-desktop-audio \
   --with-microphone-audio \
   --with-webcam \
+  --webcam-shape="$webcam_shape" \
   --webcam-device="${selection%% *}"
