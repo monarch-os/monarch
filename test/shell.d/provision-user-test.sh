@@ -23,7 +23,7 @@ mkdir -p "$test_tmp/install/user"
 : >"$test_tmp/install/user/all.sh"
 
 HOME="$test_tmp/home" PATH="$mock_bin:$ROOT/bin:$PATH" MONARCH_PATH="$ROOT" \
-  MONARCH_INSTALL="$test_tmp/install" bash "$ROOT/bin/monarch-provision-user" >/dev/null ||
+  MONARCH_INSTALL="$test_tmp/install" bash "$ROOT/bin/monarch-provision-user" --first-install >/dev/null ||
   fail "monarch-provision-user finishes"
 
 for skill in diagnose-crash; do
@@ -33,3 +33,10 @@ for skill in diagnose-crash; do
 done
 
 pass "monarch-provision-user provisions Antigravity skills"
+
+for migration in "$ROOT"/migrations/*.sh; do
+  marker="$test_tmp/home/.local/state/monarch/migrations/$(basename "$migration")"
+  [[ -f $marker ]] || fail "fresh installs mark $(basename "$migration") complete"
+done
+
+pass "monarch-provision-user skips migrations on fresh installs"
