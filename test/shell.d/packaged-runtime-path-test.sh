@@ -38,6 +38,11 @@ grep -qF 'MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}' "$ROOT/default/shell
   fail "shell sessions do not default to the packaged runtime"
 pass "login sessions preserve an override and default to /usr/share/monarch"
 
+grep -qF '${MONARCH_INSTALL:-${MONARCH_PATH:-/usr/share/monarch}/install}/helpers/workspaces.sh' \
+  "$ROOT/install/user/detect-keyboard-layout.sh" ||
+  fail "keyboard detection does not fall back from MONARCH_INSTALL to the packaged runtime"
+pass "keyboard detection resolves helpers from the packaged runtime"
+
 if grep -R -q '%h/.local/share/monarch/bin/' "$ROOT/config/systemd/user"; then
   fail "a user service still invokes a checkout-only command path"
 fi

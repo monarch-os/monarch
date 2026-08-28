@@ -3,6 +3,7 @@
 
 alacritty
 alsa-utils
+archlinux-keyring
 asdcontrol
 avahi
 bash-completion
@@ -13,6 +14,7 @@ bluez-utils
 bolt
 brightnessctl
 btop
+cachyos-keyring
 chromium
 clang
 cliphist
@@ -160,6 +162,7 @@ gau
 hashcat
 ligolo-ng
 massdns
+monarch-keyring
 monarch-nvim
 monarch-welcome
 nmap
