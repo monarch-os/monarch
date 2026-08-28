@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Copies the named config from ~/.local/share/monarch/config/X/Y/Z -> ~/.config/X/Y/Z.
+# monarch:summary=Copy a packaged default config into the user's config with a backup.
 # monarch:args=<config-path>
 
 config_file=$1
@@ -10,7 +10,7 @@ if [[ -z $config_file ]]; then
   Usage: $0 [config_file]
 
   Must provide a file path from the .config directory to be refreshed.
-  To copy ~/.local/share/monarch/config/niri/user.kdl to ~/.config/niri/user.kdl
+  To copy /usr/share/monarch/config/niri/user.kdl to ~/.config/niri/user.kdl
 
     $0 niri/user.kdl
 USAGE

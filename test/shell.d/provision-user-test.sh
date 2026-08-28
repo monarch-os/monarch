@@ -33,10 +33,3 @@ for skill in diagnose-crash; do
 done
 
 pass "monarch-provision-user provisions Antigravity skills"
-
-for migration in "$ROOT"/migrations/*.sh; do
-  marker="$test_tmp/home/.local/state/monarch/migrations/$(basename "$migration")"
-  [[ -f $marker ]] || fail "fresh installs mark $(basename "$migration") complete"
-done
-
-pass "monarch-provision-user skips migrations on fresh installs"

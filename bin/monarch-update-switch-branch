@@ -16,6 +16,15 @@ case "$branch" in
     ;;
 esac
 
+if [[ ! -d $MONARCH_PATH/.git ]]; then
+  if [[ $branch == "main" ]]; then
+    echo "The packaged runtime already tracks the stable channel."
+    exit 0
+  fi
+  echo "The dev channel requires a Monarch source checkout." >&2
+  exit 1
+fi
+
 if ! git -C "$MONARCH_PATH" diff --quiet || ! git -C "$MONARCH_PATH" diff --cached --quiet; then
   stashed=true
   git -C "$MONARCH_PATH" stash push -u -m "Autostash before switching to $branch"

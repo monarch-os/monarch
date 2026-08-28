@@ -1,0 +1,10 @@
+#!/bin/bash
+
+noctalia msg status >/dev/null 2>&1 || exit 0
+
+for plugin in monarch/indicators monarch/agents monarch/menu monarch/wifi-qr monarch/network monarch/display monarch/theme; do
+  noctalia msg plugins enable "$plugin" >/dev/null 2>&1 || exit 0
+done
+
+monarch-theme-apply >/dev/null 2>&1 || true
+rm -f "$0"

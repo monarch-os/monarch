@@ -68,7 +68,7 @@ if [[ $unattended == "true" ]] || monarch-update-confirm; then
   monarch-update-git
   monarch-update-keyring
   monarch-update-system-pkgs
-  monarch-migrate
+  monarch-reconcile
   monarch-update-aur-pkgs
   monarch-update-orphan-pkgs
   monarch-hook post-update

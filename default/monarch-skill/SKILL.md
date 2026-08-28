@@ -9,7 +9,7 @@ description: >
   ring, opacity, Noctalia bar/launcher/notifications/lock-screen/OSD, terminal config,
   themes, wallpaper, night light, idle, lock screen, screenshots, reminders, layer rules,
   workspace settings, display config, and user-facing monarch commands. Excludes Monarch
-  source development in ~/.local/share/monarch/ and `monarch dev` workflows.
+  source development and `monarch dev` workflows.
 ---
 
 # Monarch Skill
@@ -35,32 +35,31 @@ It is not for contributing to Monarch source code.
 
 **If you're about to edit a config file in ~/.config/ on this system, STOP and use this skill first.**
 
-**Do NOT use this skill for Monarch development tasks** (editing files in `~/.local/share/monarch/`, creating migrations, or running `monarch dev ...` workflows).
+**Do NOT use this skill for Monarch source development or `monarch dev ...` workflows.**
 
 ## Critical Safety Rules
 
-**For end-user customization tasks, NEVER modify anything in `~/.local/share/monarch/`** - but READING is safe and encouraged.
+**For end-user customization tasks, NEVER modify anything in `/usr/share/monarch/`** - but READING is safe and encouraged.
 
-This directory contains Monarch's source files managed by git. Any changes will be:
+This directory contains Monarch files managed by pacman. Any changes will be:
 - Lost on next `monarch update`
-- Cause conflicts with upstream
-- Break the system's update mechanism
+- Invisible to user-owned configuration
+- Liable to break the installed package
 
 ```
-~/.local/share/monarch/     # READ-ONLY - NEVER EDIT (reading is OK)
+/usr/share/monarch/         # Packaged defaults, READ-ONLY
 ├── bin/                    # Source scripts (symlinked to PATH)
 ├── config/                 # Default config templates (incl. noctalia color scheme)
 ├── themes/                 # Per-Noctalia-scheme wallpapers (themes/<scheme>/*.png|jpg)
 ├── default/                # System defaults
-├── migrations/             # Update migrations
 └── install/                # Installation scripts
 ```
 
-**Reading `~/.local/share/monarch/` is SAFE and useful** - do it freely to:
+**Reading `/usr/share/monarch/` is SAFE and useful** - do it freely to:
 - Understand how monarch commands work: `monarch refresh --help` or `cat $(which monarch-refresh-niri)`
-- See default configs before customizing: `cat ~/.local/share/monarch/config/noctalia/config.toml`
-- Inspect the shipped Monarch color scheme: `cat ~/.local/share/monarch/config/noctalia/palettes/Monarch.json`
-- Reference default Niri settings: `cat ~/.local/share/monarch/default/niri/config.kdl`
+- See default configs before customizing: `cat /usr/share/monarch/config/noctalia/config.toml`
+- Inspect the shipped Monarch color scheme: `cat /usr/share/monarch/config/noctalia/palettes/Monarch.json`
+- Reference default Niri settings: `cat /usr/share/monarch/default/niri/config.kdl`
 
 **Always use these safe locations instead:**
 - `~/.config/` - User configuration (safe to edit)
@@ -263,7 +262,7 @@ monarch refresh niri
 
 # The refresh command:
 # 1. Backs up current config with timestamp
-# 2. Rebuilds config from ~/.local/share/monarch/ defaults + user override
+# 2. Rebuilds config from /usr/share/monarch defaults + user override
 # 3. Reloads the live compositor or restarts the component
 ```
 
@@ -387,7 +386,7 @@ monarch reinstall
 When user requests system changes:
 
 1. **Is it a stock monarch command?** Use it directly via `monarch <group> <action>`
-2. **Is it a config edit?** Edit in `~/.config/`, never `~/.local/share/monarch/`
+2. **Is it a config edit?** Edit in `~/.config/`, never `/usr/share/monarch/`
 3. **Is it a theme / color change?** Use Noctalia (scheme picker, dark/light toggle, or edit `palettes/Monarch.json`)
 4. **Is it automation?** Use hooks in `~/.config/monarch/hooks/`
 5. **Is it a package install?** Use `monarch pkg add` (or `monarch pkg aur add` for AUR-only packages)
@@ -407,8 +406,7 @@ monarch reminder clear
 ## Out of Scope
 
 This skill intentionally does not cover Monarch source development. Do not use this skill for:
-- Editing files in `~/.local/share/monarch/` (`bin/`, `config/`, `default/`, `themes/`, `migrations/`, etc.)
-- Creating or editing migrations
+- Editing packaged files in `/usr/share/monarch/`
 - Running `monarch dev ...` commands
 
 ## Example Requests
