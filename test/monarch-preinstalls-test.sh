@@ -87,7 +87,7 @@ fi
 
 echo "Preinstall state changes only after a complete restore"
 
-if rg -q 'install/packaging' "$REFRESH"; then
+if grep -q 'install/packaging' "$REFRESH"; then
   echo "Application refresh still invokes the removed packaging pipeline" >&2
   exit 1
 fi

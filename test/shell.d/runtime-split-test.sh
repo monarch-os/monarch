@@ -34,7 +34,7 @@ pass "user setup excludes root-owned scripts"
 
 grep -qF 'hardware/input-group.sh' "$ROOT/install/hardware/all.sh" ||
   fail "input group is absent from root hardware setup"
-input_group_owners=$(rg -l 'input-group.sh' "$root_stage" "$ROOT/install/hardware/all.sh" "$user_stage" | wc -l)
+input_group_owners=$(grep -l 'input-group.sh' "$root_stage" "$ROOT/install/hardware/all.sh" "$user_stage" | wc -l)
 (( input_group_owners == 1 )) ||
   fail "input group has more than one phase owner"
 pass "input group has one root owner"
