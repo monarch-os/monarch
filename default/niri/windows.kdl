@@ -61,6 +61,23 @@ window-rule {
     border { off; }
 }
 
+// Webcam preview used while recording. It must be in the captured scene before
+// the recorder starts, without stealing focus or entering the scrolling layout.
+window-rule {
+    match app-id=r#"^org\.monarch\.webcam-overlay\.(circle|rectangle)$"#
+    open-floating true
+    open-focused false
+    opacity 1.0
+    border { off; }
+    shadow { off; }
+}
+
+window-rule {
+    match app-id="org.monarch.webcam-overlay.circle"
+    geometry-corner-radius 9999
+    clip-to-geometry true
+}
+
 // Calculator.
 window-rule {
     match app-id="org.gnome.Calculator"
