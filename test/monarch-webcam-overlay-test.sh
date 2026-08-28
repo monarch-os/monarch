@@ -49,6 +49,18 @@ fi
 EOF
 chmod +x "$TMP/bin/niri"
 
+cat >"$TMP/bin/v4l2-ctl" <<'EOF'
+#!/bin/bash
+printf 'Q17 Camera\n\t/dev/video42\n'
+EOF
+
+cat >"$TMP/bin/monarch-capture-screenrecording" <<'EOF'
+#!/bin/bash
+printf '%s\n' "$*" >"$MOCK_SCREENRECORD_LOG"
+EOF
+
+chmod +x "$TMP/bin/v4l2-ctl" "$TMP/bin/monarch-capture-screenrecording"
+
 run_resize() {
   PATH="$TMP/bin:/usr/bin" XDG_RUNTIME_DIR="$TMP/runtime" \
     "$ROOT/bin/monarch-capture-webcam-resize" "$1"
@@ -85,6 +97,14 @@ for args in '--webcam-size=huge' '--webcam-shape=triangle'; do
     exit 1
   fi
 done
+
+export MOCK_SCREENRECORD_LOG="$TMP/screenrecord.log"
+PATH="$TMP/bin:/usr/bin" "$ROOT/bin/monarch-capture-screenrecording-with-webcam" --webcam-shape=rectangle
+grep -Fqx -- '--with-desktop-audio --with-microphone-audio --with-webcam --webcam-shape=rectangle --webcam-device=/dev/video42' "$MOCK_SCREENRECORD_LOG"
+if PATH="$TMP/bin:/usr/bin" "$ROOT/bin/monarch-capture-screenrecording-with-webcam" --webcam-shape=triangle >/dev/null 2>&1; then
+  echo "Invalid wrapper webcam shape was accepted" >&2
+  exit 1
+fi
 
 grep -Fq 'match app-id="org.monarch.webcam-overlay.circle"' "$ROOT/default/niri/windows.kdl"
 grep -Fq 'geometry-corner-radius 9999' "$ROOT/default/niri/windows.kdl"

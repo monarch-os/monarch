@@ -85,7 +85,8 @@
   "trigger.capture.screenrecord.no-audio": {"icon":"","label":"With no audio","action":"monarch-capture-screenrecording"},
   "trigger.capture.screenrecord.desktop-audio": {"icon":"","label":"With desktop audio","action":"monarch-capture-screenrecording --with-desktop-audio"},
   "trigger.capture.screenrecord.microphone": {"icon":"","label":"With desktop + microphone audio","action":"monarch-capture-screenrecording --with-desktop-audio --with-microphone-audio"},
-  "trigger.capture.screenrecord.webcam": {"icon":"","label":"With desktop + microphone audio + webcam","when":"monarch-hw-webcam","action":"monarch-capture-screenrecording-with-webcam"},
+  "trigger.capture.screenrecord.webcam": {"icon":"","label":"With desktop + microphone audio + webcam (circle)","when":"monarch-hw-webcam","action":"monarch-capture-screenrecording-with-webcam --webcam-shape=circle"},
+  "trigger.capture.screenrecord.webcam-rectangle": {"icon":"","label":"With desktop + microphone audio + webcam (rectangle)","when":"monarch-hw-webcam","action":"monarch-capture-screenrecording-with-webcam --webcam-shape=rectangle"},
 
   // Trigger > Share
   "trigger.share.clipboard": {"icon":"","label":"Clipboard","action":"monarch-menu-share clipboard"},
