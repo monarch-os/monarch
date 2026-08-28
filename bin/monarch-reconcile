@@ -5,8 +5,8 @@
 
 set -euo pipefail
 
-CURRENT_SCHEMA=5
-MIN_SUPPORTED_SCHEMA=4
+CURRENT_SCHEMA=2
+MIN_SUPPORTED_SCHEMA=1
 LEGACY_FLOOR_MARKER=1787067946.sh
 state_dir="$HOME/.local/state/monarch"
 schema_file="$state_dir/schema"
@@ -60,13 +60,13 @@ elif [[ $source_root == "$HOME/.local/share/monarch" && -d $source_root && ! -L 
     echo "Update it fully on the v4 branch before moving to Noctalia v5." >&2
     exit 1
   fi
-  schema=4
+  schema=1
 else
   schema=$CURRENT_SCHEMA
 fi
 
 if ((schema < MIN_SUPPORTED_SCHEMA)); then
-  echo "Monarch schema $schema is no longer supported; upgrade through Monarch v4 or reinstall." >&2
+  echo "Monarch schema $schema is no longer supported; use a supported intermediate release or reinstall." >&2
   exit 1
 fi
 

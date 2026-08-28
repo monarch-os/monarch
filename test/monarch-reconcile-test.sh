@@ -35,9 +35,9 @@ BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_sour
   MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
   bash "$ROOT/bin/monarch-reconcile" >/dev/null
 [[ $(<"$bootstrap/steps") == $'system\nuser' ]]
-[[ $(<"$bootstrap/home/.local/state/monarch/schema") == 5 ]]
+[[ $(<"$bootstrap/home/.local/state/monarch/schema") == 2 ]]
 
-printf '%s\n' 3 >"$bootstrap/home/.local/state/monarch/schema"
+printf '%s\n' 0 >"$bootstrap/home/.local/state/monarch/schema"
 if BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
   MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
   bash "$ROOT/bin/monarch-reconcile" >/dev/null 2>&1; then
@@ -45,7 +45,7 @@ if BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_s
   exit 1
 fi
 
-printf '%s\n' 6 >"$bootstrap/home/.local/state/monarch/schema"
+printf '%s\n' 3 >"$bootstrap/home/.local/state/monarch/schema"
 if BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
   MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
   bash "$ROOT/bin/monarch-reconcile" >/dev/null 2>&1; then
@@ -136,7 +136,7 @@ bash "$runtime_hook"
 [[ $(readlink "$HOME/.local/share/monarch") == "$MONARCH_RUNTIME_ROOT" ]]
 [[ -d $HOME/.local/share/monarch-v4/.git ]]
 [[ ! -e $runtime_hook ]]
-[[ $(<"$HOME/.local/state/monarch/schema") == 5 ]]
+[[ $(<"$HOME/.local/state/monarch/schema") == 2 ]]
 
 if find "$ROOT/migrations" -type f -name '*.sh' -print -quit 2>/dev/null | grep -q .; then
   echo "historical migrations remain" >&2
