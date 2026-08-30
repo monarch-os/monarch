@@ -7,7 +7,7 @@ set -euo pipefail
 
 usage() {
   cat <<USAGE
-Usage: monarch provision user [--force] [--first-install]
+Usage: monarch provision user [--force] [--first-install] [--skip-preinstalls]
 
 Runs the per-user setup steps that /etc/skel can't seed:
 dev-aware skill symlinks, xdg-user-dirs + gtk bookmarks (need \$HOME),
@@ -29,6 +29,7 @@ fi
 
 force=0
 first_install=0
+skip_preinstalls=0
 while (($#)); do
   case "$1" in
     --force)
@@ -38,6 +39,10 @@ while (($#)); do
     --first-install)
       first_install=1
       force=1
+      shift
+      ;;
+    --skip-preinstalls)
+      skip_preinstalls=1
       shift
       ;;
     -h|--help)
@@ -106,6 +111,11 @@ for dir in Downloads Projects Pictures Videos; do
 done
 
 source "$MONARCH_INSTALL/user/all.sh"
+
+if (( skip_preinstalls )); then
+  monarch-remove-preinstall-artifacts
+  monarch-state set preinstalls-removed
+fi
 
 if (( first_install )); then
   monarch-reconcile --complete
