@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# monarch:summary=Remove user-owned artifacts created for Monarch preinstalls.
+# monarch:hidden=true
+
+set -e
+
+monarch-webapp-remove-all
+monarch-tui-remove-all
+
+rm -f ~/.local/bin/agy ~/.local/bin/claude ~/.local/bin/codex \
+  ~/.local/bin/copilot ~/.local/bin/crush ~/.local/bin/gemini \
+  ~/.local/bin/ghui ~/.local/bin/grok ~/.local/bin/omp \
+  ~/.local/bin/opencode ~/.local/bin/ori ~/.local/bin/pi \
+  ~/.local/bin/playwright-cli

@@ -785,8 +785,10 @@ configure_timezone() {
 
 finalize_user() {
   local home shell
+  local -a provision_args=(--force --first-install)
   home=$(getent passwd "$username" | cut -d: -f6)
   shell=$(getent passwd "$username" | cut -d: -f7)
+  [[ -f $PROVISIONING_DIR/skip-preinstalls ]] && provision_args+=(--skip-preinstalls)
 
   runuser -u "$username" -- env \
     HOME="$home" \
@@ -800,7 +802,7 @@ finalize_user() {
     MONARCH_USER_EMAIL="$email_address" \
     MONARCH_INSTALL_LOG_FILE="$LOG_FILE" \
     MONARCH_LOG_TO_STDOUT=1 \
-    "$MONARCH_PATH/bin/monarch-provision-user" --force --first-install
+    "$MONARCH_PATH/bin/monarch-provision-user" "${provision_args[@]}"
 }
 
 # Move the LUKS volume from the throwaway install passphrase to the user's

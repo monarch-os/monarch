@@ -5,52 +5,10 @@
 if gum confirm "Are you sure you want to remove all preinstalled web apps, TUI wrappers, and desktop applications?"; then
   echo -e "Removing preinstalled Monarch applications...\n"
 
-  monarch-webapp-remove-all
-  monarch-tui-remove-all
+  monarch-remove-preinstall-artifacts
 
-  # Reset the Niri user override to the minimal upstream-shipped version.
-  if [[ -f ~/.config/niri/user.kdl ]]; then
-    cp ~/.config/niri/user.kdl ~/.config/niri/user.kdl.bak
-  fi
-  cp "$MONARCH_PATH/config/niri/user.kdl" ~/.config/niri/user.kdl
-  monarch-refresh-niri
-
-  rm -f ~/.local/bin/agy ~/.local/bin/claude ~/.local/bin/codex \
-    ~/.local/bin/copilot ~/.local/bin/crush ~/.local/bin/gemini \
-    ~/.local/bin/ghui ~/.local/bin/grok ~/.local/bin/omp \
-    ~/.local/bin/opencode ~/.local/bin/ori ~/.local/bin/pi \
-    ~/.local/bin/playwright-cli
-
-  monarch-pkg-drop \
-    bettercap \
-    binwalk \
-    caido-desktop \
-    claude-code \
-    deezer \
-    fabric-ai-bin \
-    ffuf-bin \
-    fq \
-    fx \
-    gitleaks \
-    gau \
-    hashcat \
-    lazydocker \
-    lazygit \
-    ligolo-ng \
-    massdns \
-    nmap \
-    obsidian \
-    opencode \
-    posting \
-    signal-desktop \
-    socat \
-    sshm-bin \
-    termshark \
-    traceroute \
-    waybackurls \
-    websocat \
-    wifite \
-    xournalpp
+  mapfile -t packages < <(grep -vE '^[[:space:]]*(#|$)' "$MONARCH_PATH/install/monarch-preinstalls.packages")
+  monarch-pkg-drop "${packages[@]}"
 
   monarch-state set preinstalls-removed
 fi
