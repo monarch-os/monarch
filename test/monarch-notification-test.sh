@@ -73,6 +73,9 @@ for invitation in \
   ! grep -q -- '--exec' "$ROOT/$invitation"
 done
 
+grep -Fq -- '--action "Choose" monarch menu setup.defaults.agent' \
+  "$ROOT/install/user/first-run/setup-agent.hook"
+
 for caller in \
   bin/monarch-capture-screenshot \
   bin/monarch-capture-screenrecording \

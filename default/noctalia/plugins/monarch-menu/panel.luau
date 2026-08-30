@@ -748,7 +748,10 @@ function onOpen(context)
   else
     render()
     refreshInitial(context, function(loaded)
-      if loaded and canPaintFromRetained(context) then
+      if not loaded then
+        return
+      end
+      if canPaintFromRetained(context) then
         openAt(context)
       end
       refreshState(settleState)

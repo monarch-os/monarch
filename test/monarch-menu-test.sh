@@ -226,6 +226,11 @@ assert_equals "routes are case insensitive" "$("$MENU" --resolve SETTINGS)" "set
 assert_equals "underscores normalise to dashes" "$("$MENU" --resolve power_menu)" "system"
 assert_equals "an unknown route falls through literally" "$("$MENU" --resolve nope)" "nope"
 
+if "$MENU" --initial nope >/dev/null 2>&1; then
+  fail "an unknown initial route is rejected before the panel loads it"
+fi
+pass "an unknown initial route is rejected before the panel loads it"
+
 mkdir -p "$HOME/.config/niri" "$TMPDIR/keybindings-bin"
 cat >"$TMPDIR/keybindings-bin/xkbcli" <<'EOF'
 #!/bin/bash
@@ -483,6 +488,12 @@ if ! grep -q 'mode == "menu" and not menu' "$ROOT/default/noctalia/plugins/monar
   fail "native input handles keys without loading the menu tree"
 fi
 pass "native input handles keys without loading the menu tree"
+
+if ! grep -A4 'refreshInitial(context, function(loaded)' \
+  "$ROOT/default/noctalia/plugins/monarch-menu/panel.luau" | grep -q 'if not loaded then'; then
+  fail "a rejected initial route does not start a full state callback"
+fi
+pass "a rejected initial route does not start a full state callback"
 
 assert_equals "a bare call toggles the panel at the root" \
   "$("$MENU")" "msg panel-toggle monarch/menu:panel root"

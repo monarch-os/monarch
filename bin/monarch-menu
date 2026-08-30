@@ -368,6 +368,10 @@ case "${1:-}" in
 --initial)
   load_menu
   route=$(resolve_route "${2:-}")
+  if [[ $route != root ]] && ! jq -e --arg route "$route" 'has($route)' <<<"$MENU_JSON" >/dev/null; then
+    echo "monarch-menu: unknown route '$route'" >&2
+    exit 1
+  fi
   initial_payload "$route"
   exit 0
   ;;
