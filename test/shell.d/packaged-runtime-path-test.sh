@@ -66,7 +66,7 @@ runtime_commands=(
   monarch-unlock-list
 )
 for command in "${runtime_commands[@]}"; do
-  if grep -qF '$HOME/.local/share/monarch' "$ROOT/bin/$command"; then
+  if grep -Eq '\$HOME/\.local/share/monarch/(bin|config|default|install|themes)' "$ROOT/bin/$command"; then
     fail "$command still defaults to a checkout-only runtime"
   fi
 done

@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# monarch:summary=Remove an installed Git theme
+# monarch:args=[theme-id]
+# monarch:examples=monarch theme remove tokyo-night
+
+set -euo pipefail
+
+id=${1:-}
+if [[ -z $id ]]; then
+  selection=$(monarch-theme-bundle list | gum choose --header "Remove theme" --no-limit=1)
+  [[ -n $selection ]] || exit 0
+  id=${selection%%$'\t'*}
+fi
+
+name=$(monarch-theme-bundle remove "$id")
+echo "Removed $name"

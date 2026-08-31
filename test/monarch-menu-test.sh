@@ -134,7 +134,7 @@ assert_contains "documentation contains About" "$output" "About"
 output=$("$MENU" --rows install | cut -f2 | tr '\n' ' ')
 assert_contains "software links to the removal catalog" "$output" "Remove software"
 assert_equals "software follows the install workflow" "${output% }" \
-  "Package AUR Web App TUI Browser Editor Terminal Development AI Cyber Gaming Services Fonts Windows Preinstalls Remove software"
+  "Package AUR Web App TUI Theme Browser Editor Terminal Development AI Cyber Gaming Services Fonts Windows Preinstalls Remove software"
 
 output=$(jq -r '.[] | select(.id | test("^install\\.ai\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
 assert_equals "AI follows Monarch's supported catalog" "${output% }" \

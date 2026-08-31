@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# monarch:summary=Install a theme from a Git repository
+# monarch:args=[git-url]
+# monarch:examples=monarch theme install https://github.com/example/monarch-theme.git
+
+set -euo pipefail
+
+origin=${1:-}
+if [[ -z $origin ]]; then
+  origin=$(gum input --prompt "Git repository: " --placeholder "https://github.com/example/monarch-theme.git")
+fi
+[[ -n $origin ]] || exit 0
+
+result=$(monarch-theme-bundle install "$origin")
+IFS=$'\t' read -r id name <<<"$result"
+monarch-theme-set "$name"
+echo "Installed and applied $name ($id)"
