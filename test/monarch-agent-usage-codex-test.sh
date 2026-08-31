@@ -23,6 +23,10 @@ if [[ ${CODEX_FAKE_FAILURE:-} == "1" ]]; then
   exit 2
 fi
 
+if [[ ${CODEX_FAKE_NOISY:-} == "1" ]]; then
+  head -c 1048576 /dev/zero | tr '\0' x >&2
+fi
+
 while IFS= read -r request; do
   id=$(jq -r '.id // empty' <<<"$request")
   method=$(jq -r '.method' <<<"$request")
@@ -61,5 +65,10 @@ jq -e '
   .usageStatusText == "Codex limits unavailable" and
   .authHelpText == "error: approval policy changed again"
 ' <<<"$failed_record" >/dev/null
+
+noisy_record=$(env -u CODEX_HOME -u XDG_DATA_HOME HOME="$TEST_HOME" XDG_CACHE_HOME="$TEST_HOME/cache" \
+  CODEX_FAKE_NOISY=1 PATH="$TEST_HOME/bin:/usr/bin" "$ROOT/bin/monarch-agent-usage-codex" --limits-only)
+
+jq -e '.tierLabel == "plus" and (.limits | length) == 1' <<<"$noisy_record" >/dev/null
 
 echo "monarch-agent-usage-codex tests passed"
