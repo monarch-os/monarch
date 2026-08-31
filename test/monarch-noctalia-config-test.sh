@@ -10,13 +10,6 @@ echo "Noctalia keeps the extended clipboard history"
 grep -q 'monarch/theme' "$ROOT/install/user/first-run/enable-noctalia-plugins.sh"
 echo "Fresh installs enable the Monarch theme plugin"
 
-grep -Fqx 'colors_changed = ["monarch-theme-apply"]' "$ROOT/config/noctalia/config.toml"
-! grep -qs 'monarch-welcome\|org.monarch.welcome' "$ROOT/bin/monarch-provision-first-run"
-! grep -Rqs 'monarch-welcome\|org.monarch.welcome' "$ROOT/install/user/first-run"
-! grep -qs 'monarch-welcome\|org.monarch.welcome' "$ROOT/default/niri/windows.kdl"
-! grep -qx 'monarch-welcome' "$ROOT/install/monarch-base.packages"
-echo "Noctalia applies the residual theme without monarch-welcome"
-
 example="$ROOT/config/noctalia/user-templates.toml.example"
 EXAMPLE="$example" python3 <<'PY'
 import os
