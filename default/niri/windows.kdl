@@ -86,7 +86,7 @@ window-rule {
 
 // Floating helper apps (TUIs, image viewers, etc.).
 window-rule {
-    match app-id=r#"^(org\.monarch\.(nmtui|wiremix|btop|terminal|bash)|org\.codeberg\.dnkl\.foot|org\.gnome\.NautilusPreviewer|org\.gnome\.Evince|com\.gabm\.satty|Monarch|About|TUI\.float|imv|mpv)$"#
+    match app-id=r#"^(org\.monarch\.(nmtui|wiremix|btop|terminal|bash)|org\.codeberg\.dnkl\.foot|org\.gnome\.NautilusPreviewer|org\.gnome\.Evince|Monarch|About|TUI\.float|imv|mpv)$"#
     open-floating true
     default-column-width { fixed 875; }
 }
