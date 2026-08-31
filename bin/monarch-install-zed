@@ -8,8 +8,7 @@ echo "Installing Zed Editor..."
 monarch-pkg-add zed
 
 # Zed follows the active Monarch/Noctalia scheme through the `zed` community
-# template, enabled by id in config/noctalia/config.toml — v5 dropped the
-# user-template mechanism Monarch used to ship its own renderer through.
+# template enabled by id in config/noctalia/config.toml.
 # Noctalia re-renders it on every color generation and Zed hot-reloads its
 # themes/ dir, so theme switching is live. (This replaces the old `monzed`
 # package.)

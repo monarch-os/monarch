@@ -8,7 +8,7 @@
 #   - bars are named and plural: bar.widgets.{left,center,right} became
 #     bar.<name>.{start,center,end}
 #   - the palette moved to palettes/Monarch.json (same JSON format as v4)
-#   - user templates are gone; you enable catalog ids instead
+#   - catalog templates are selected by id; user templates live in overlays
 
 [theme]
 # palettes/Monarch.json is seeded to ~/.config/noctalia/palettes/. The file
@@ -20,14 +20,10 @@ custom_palette = "Monarch"
 mode = "dark"
 
 [theme.templates]
-# v5 has no user-template mechanism. `[templates.<name>]` with input_path /
-# output_path / post_hook is only valid inside a template's own template.toml,
-# under the builtin (/usr/share/noctalia/assets/templates) or community
-# (~/.local/state/noctalia/community-templates) tree — putting it in the user
-# config is rejected as an unknown section. Monarch's neovim, obsidian, fuzzel
-# and zed templates all exist in the community catalog, so they are enabled by
-# id rather than shipped. Templates whose client is not installed are skipped
-# silently, so listing all four is safe on any machine.
+# Monarch's neovim, obsidian, fuzzel and zed templates exist in Noctalia's
+# community catalog, so they are enabled by id rather than shipped. Apps absent
+# from the catalogs can use `[theme.templates.user.<id>]` in a separate user
+# overlay. See config/noctalia/user-templates.toml.example.
 #
 # sddm and herdr have no catalog entry and need none on this hook. herdr reads the
 # terminal palette over OSC, so its own config follows the scheme unaided. sddm
