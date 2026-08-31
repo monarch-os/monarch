@@ -84,8 +84,6 @@ run_first_run_step "set GNOME theme" \
 run_first_run_step "set GTK primary paste" \
   bash "$MONARCH_PATH/install/user/first-run/gtk-primary-paste.sh"
 monarch-notification-wait || log_first_run "Timed out waiting for notification service; continuing"
-run_first_run_step "apply the initial desktop theme" \
-  bash "$MONARCH_PATH/install/user/first-run/apply-theme.sh"
 run_first_run_step "schedule Wi-Fi/update notifications" \
   bash "$MONARCH_PATH/install/user/first-run/wifi.sh"
 
