@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-CURRENT_SCHEMA=3
+CURRENT_SCHEMA=2
 MIN_SUPPORTED_SCHEMA=1
 LEGACY_FLOOR_MARKER=1787067946.sh
 state_dir="$HOME/.local/state/monarch"

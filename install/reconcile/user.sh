@@ -2,10 +2,6 @@ set -euo pipefail
 
 echo "Reconcile Monarch user state"
 
-if monarch-pkg-present monarch-welcome; then
-  monarch-pkg-drop monarch-welcome
-fi
-
 legacy_noctalia=0
 if monarch-pkg-present noctalia-shell || [[ -f $HOME/.config/noctalia/settings.json ]]; then
   legacy_noctalia=1
