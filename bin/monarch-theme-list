@@ -6,7 +6,8 @@
 set -uo pipefail
 
 MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
-PALETTES_DIR="$HOME/.config/noctalia/palettes"
+PALETTES_DIR="${MONARCH_THEME_PALETTES_DIR:-$HOME/.config/noctalia/palettes}"
+BUNDLES_DIR="${MONARCH_THEME_BUNDLES_DIR:-$HOME/.local/share/monarch/theme-bundles}"
 
 current=""
 if command -v noctalia >/dev/null 2>&1; then
@@ -21,11 +22,23 @@ for palette in "$PALETTES_DIR"/*.json; do
   slug=${name,,}
   slug=${slug// /-}
   theme_dir="$MONARCH_ROOT/themes/$slug"
+  if [[ -f "$BUNDLES_DIR/$slug/provenance.json" ]]; then
+    theme_dir="$BUNDLES_DIR/$slug"
+  fi
   [[ -d $theme_dir ]] || continue
 
-  preview="$theme_dir/preview.png"
+  preview=""
+  if [[ -f "$theme_dir/provenance.json" ]]; then
+    preview_path=$(jq -r '.preview // empty' "$theme_dir/provenance.json" 2>/dev/null)
+    [[ -n $preview_path ]] && preview="$theme_dir/$preview_path"
+    backgrounds_path=$(jq -r '.backgrounds // empty' "$theme_dir/provenance.json" 2>/dev/null)
+    search_dir="$theme_dir/$backgrounds_path"
+  else
+    preview="$theme_dir/preview.png"
+    search_dir="$theme_dir"
+  fi
   if [[ ! -f $preview ]]; then
-    preview=$(find "$theme_dir" -maxdepth 1 -type f \
+    preview=$(find "$search_dir" -maxdepth 1 -type f \
       \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) \
       ! -name 'preview-unlock.png' -print -quit 2>/dev/null)
   fi

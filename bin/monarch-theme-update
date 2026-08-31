@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# monarch:summary=Update an installed Git theme
+# monarch:args=[theme-id]
+# monarch:examples=monarch theme update tokyo-night
+
+set -euo pipefail
+
+id=${1:-}
+name=""
+if [[ -z $id ]]; then
+  selection=$(monarch-theme-bundle list | gum choose --header "Update theme" --no-limit=1)
+  [[ -n $selection ]] || exit 0
+  id=${selection%%$'\t'*}
+  rest=${selection#*$'\t'}
+  name=${rest%%$'\t'*}
+fi
+
+if [[ -z $name ]]; then
+  name=$(monarch-theme-bundle list | awk -F '\t' -v id="$id" '$1 == id { print $2; exit }')
+fi
+echo "Downloading and validating ${name:-$id}..."
+active=$(noctalia msg color-scheme-get 2>/dev/null || true)
+active=${active#custom }
+result=$(monarch-theme-bundle update "$id")
+IFS=$'\t' read -r id name <<<"$result"
+if [[ $active == "$name" ]]; then
+  echo "Reapplying $name..."
+  monarch-theme-set "$name"
+fi
+echo "Updated $name ($id)"

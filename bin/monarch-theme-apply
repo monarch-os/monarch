@@ -44,12 +44,13 @@
 
 set -uo pipefail
 
-SCHEMES_DIR="$HOME/.config/noctalia/palettes"
-USER_BG_ROOT="$HOME/.config/monarch/backgrounds"
+SCHEMES_DIR="${MONARCH_THEME_PALETTES_DIR:-$HOME/.config/noctalia/palettes}"
+USER_BG_ROOT="${MONARCH_THEME_BACKGROUNDS_DIR:-$HOME/.config/monarch/backgrounds}"
 FARM_DIR="$USER_BG_ROOT/current"          # symlink farm wallpaper.directory points at
 EXTRA_SOURCES_DIR="$USER_BG_ROOT/sources" # user-mounted wallpaper folders (dir symlinks)
 MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
 SRC_THEMES="$MONARCH_ROOT/themes"
+BUNDLES_DIR="${MONARCH_THEME_BUNDLES_DIR:-$HOME/.local/share/monarch/theme-bundles}"
 # Records that a Monarch wallpaper has actually reached the shell at least once.
 # See sync_wallpaper: without it there is no way to tell a fresh install from a
 # user who deliberately picked Noctalia's own default.
@@ -156,6 +157,12 @@ apply_wallpaper() {
 sync_wallpaper() {
   local shipped_dir="$SRC_THEMES/$folder" # backgrounds shipped with the scheme
   local user_dir="$target_dir"            # user's own additions for the scheme
+  local bundle_dir="$BUNDLES_DIR/$folder"
+  local bundle_backgrounds=""
+  if [[ -f "$bundle_dir/provenance.json" ]]; then
+    bundle_backgrounds=$(jq -r '.backgrounds // empty' "$bundle_dir/provenance.json" 2>/dev/null)
+    [[ -n $bundle_backgrounds ]] && bundle_backgrounds="$bundle_dir/$bundle_backgrounds"
+  fi
 
   # Rebuild the farm. unlink removes the link only; it never follows a symlink to
   # its target, so no wallpaper file is deleted — the targets are never touched.
@@ -168,9 +175,10 @@ sync_wallpaper() {
 
   # Union sources, highest priority first (first to claim a basename wins):
   #   1. the scheme's user backgrounds   (~/.config/monarch/backgrounds/<scheme>)
-  #   2. the scheme's shipped backgrounds (themes/<scheme>)
-  #   3. every folder mounted under       (~/.config/monarch/backgrounds/sources/)
-  local -a sources=("$user_dir" "$shipped_dir")
+  #   2. an installed theme bundle
+  #   3. the scheme's shipped backgrounds (themes/<scheme>)
+  #   4. every folder mounted under       (~/.config/monarch/backgrounds/sources/)
+  local -a sources=("$user_dir" "$bundle_backgrounds" "$shipped_dir")
   local s
   if [[ -d $EXTRA_SOURCES_DIR ]]; then
     for s in "$EXTRA_SOURCES_DIR"/*; do
@@ -217,7 +225,7 @@ sync_wallpaper() {
 
   if [[ -n $resolved ]]; then
     case $resolved in
-    "$SRC_THEMES"/* | "$USER_BG_ROOT"/*) managed=1 ;;
+    "$SRC_THEMES"/* | "$BUNDLES_DIR"/* | "$USER_BG_ROOT"/*) managed=1 ;;
     esac
     for link in "${links[@]}"; do
       if [[ $(readlink -f "$link") == "$resolved" ]]; then

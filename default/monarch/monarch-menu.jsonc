@@ -243,6 +243,7 @@
   "install.aur": {"icon":"󰣇","label":"AUR","action":"xdg-terminal-exec --app-id=org.monarch.terminal monarch-pkg-aur-install"},
   "install.webapp": {"icon":"","label":"Web App","action":"monarch-launch-floating-terminal-with-presentation monarch-webapp-install"},
   "install.tui": {"icon":"","label":"TUI","action":"monarch-launch-floating-terminal-with-presentation monarch-tui-install"},
+  "install.theme": {"icon":"󰏘","label":"Theme","description":"Install a code-free theme from a Git repository","action":"monarch-launch-floating-terminal-with-presentation monarch-theme-install"},
   "install.browser": {"icon":"","label":"Browser"},
   "install.editor": {"icon":"","label":"Editor"},
   "install.terminal": {"icon":"","label":"Terminal"},
@@ -354,6 +355,7 @@
   "remove.package": {"icon":"󰣇","label":"Package","action":"xdg-terminal-exec --app-id=org.monarch.terminal monarch-pkg-remove"},
   "remove.webapp": {"icon":"","label":"Web App","when":"grep -q '^Exec=.*monarch-launch-webapp' $HOME/.local/share/applications/*.desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-webapp-remove"},
   "remove.tui": {"icon":"","label":"TUI","when":"grep -qE '^Exec=.*(\\$TERMINAL|xdg-terminal-exec).*-e' $HOME/.local/share/applications/*.desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-tui-remove"},
+  "remove.theme": {"icon":"󰏘","label":"Theme","when":"compgen -G \"$HOME/.local/share/monarch/theme-bundles/*/provenance.json\"","action":"monarch-launch-floating-terminal-with-presentation monarch-theme-remove"},
   "remove.ai": {"icon":"󱚤","label":"AI","title":"Remove"},
   "remove.service": {"icon":"","label":"Services","title":"Remove"},
   "remove.development": {"icon":"󰵮","label":"Development","title":"Remove"},
@@ -428,6 +430,7 @@
 
   // Update
   "update.monarch": {"icon":"","label":"Monarch","description":"Update Monarch and installed packages","keywords":["upgrade","system","packages"],"action":"monarch-launch-floating-terminal-with-presentation monarch-update"},
+  "update.theme": {"icon":"󰏘","label":"Themes","when":"compgen -G \"$HOME/.local/share/monarch/theme-bundles/*/provenance.json\"","action":"monarch-launch-floating-terminal-with-presentation monarch-theme-update"},
   "update.channel": {"icon":"󰔫","label":"Channel","title":"Update channel"},
   "update.config": {"icon":"","label":"Config","title":"Use default config"},
   "update.process": {"icon":"","label":"Process","title":"Restart"},
