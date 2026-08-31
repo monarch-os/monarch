@@ -91,29 +91,11 @@ window-rule {
     default-column-width { fixed 875; }
 }
 
-// Welcome / onboarding wizard. Own app-id so it gets a fitted size instead of
-// the tall, mostly-empty float the shared org.monarch.terminal rule would give.
-window-rule {
-    match app-id="org.monarch.welcome"
-    open-floating true
-    default-column-width { fixed 760; }
-    default-window-height { fixed 600; }
-}
-
 window-rule {
     match app-id="org.monarch.about"
     open-floating true
     default-column-width { fixed 1100; }
     default-window-height { fixed 580; }
-}
-
-// Welcome / onboarding wizard. Own app-id so it gets a fitted size instead of
-// the tall, mostly-empty float the shared org.monarch.terminal rule would give.
-window-rule {
-    match app-id="org.monarch.welcome"
-    open-floating true
-    default-column-width { fixed 760; }
-    default-window-height { fixed 600; }
 }
 
 // Pentest env manager (monarch-menu-pentestenv/exegol/rfswift). Its own app-id
