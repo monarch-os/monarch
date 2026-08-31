@@ -474,7 +474,7 @@ def _cached_local_stats(max_age):
     return stats
 
 
-def rpc_request(proc, request_id, method, params=None, timeout=8):
+def rpc_request(proc, stderr_file, request_id, method, params=None, timeout=8):
   payload = {"id": request_id, "method": method, "params": params or {}}
   proc.stdin.write(json.dumps(payload) + "\n")
   proc.stdin.flush()
@@ -492,6 +492,11 @@ def rpc_request(proc, request_id, method, params=None, timeout=8):
       continue
     if message.get("id") == request_id:
       return message
+  if proc.poll() is not None:
+    stderr_file.seek(0, os.SEEK_END)
+    stderr_file.seek(max(0, stderr_file.tell() - 8192))
+    details = stderr_file.read().strip()
+    raise RuntimeError(details or f"codex app-server exited with status {proc.returncode}")
   raise TimeoutError(method)
 
 
@@ -526,26 +531,30 @@ def fetch_codex_rpc():
     result["authHelpText"] = "codex not found in PATH"
     return result
 
+  stderr_file = None
   try:
+    stderr_file = tempfile.TemporaryFile(mode="w+t")
     proc = subprocess.Popen(
-      [codex, "-s", "read-only", "-a", "untrusted", "app-server"],
+      [codex, "-s", "read-only", "-a", "never", "app-server"],
       stdin=subprocess.PIPE,
       stdout=subprocess.PIPE,
-      stderr=subprocess.DEVNULL,
+      stderr=stderr_file,
       text=True,
       env=ENV,
     )
   except Exception as exc:
+    if stderr_file:
+      stderr_file.close()
     result["usageStatusText"] = "Codex unavailable"
     result["authHelpText"] = str(exc)
     return result
 
   try:
-    rpc_request(proc, 1, "initialize", {"clientInfo": {"name": "monarch-agent-usage", "version": "1"}}, timeout=8)
+    rpc_request(proc, stderr_file, 1, "initialize", {"clientInfo": {"name": "monarch-agent-usage", "version": "1"}}, timeout=8)
     proc.stdin.write(json.dumps({"method": "initialized", "params": {}}) + "\n")
     proc.stdin.flush()
-    account_msg = rpc_request(proc, 2, "account/read", timeout=4)
-    limits_msg = rpc_request(proc, 3, "account/rateLimits/read", timeout=4)
+    account_msg = rpc_request(proc, stderr_file, 2, "account/read", timeout=4)
+    limits_msg = rpc_request(proc, stderr_file, 3, "account/rateLimits/read", timeout=4)
 
     account = (account_msg.get("result") or {}).get("account") or {}
     limits = (limits_msg.get("result") or {}).get("rateLimits") or {}
@@ -568,6 +577,7 @@ def fetch_codex_rpc():
         proc.kill()
       except Exception:
         pass
+    stderr_file.close()
   return result
 
 
