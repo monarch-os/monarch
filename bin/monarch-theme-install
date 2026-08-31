@@ -12,7 +12,9 @@ if [[ -z $origin ]]; then
 fi
 [[ -n $origin ]] || exit 0
 
+echo "Downloading and validating theme..."
 result=$(monarch-theme-bundle install "$origin")
 IFS=$'\t' read -r id name <<<"$result"
+echo "Applying $name..."
 monarch-theme-set "$name"
 echo "Installed and applied $name ($id)"

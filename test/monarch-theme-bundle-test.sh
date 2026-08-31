@@ -113,4 +113,38 @@ if "$ROOT/bin/monarch-theme-bundle" install 'ext::sh -c id' >/dev/null 2>&1; the
   exit 1
 fi
 
+monarch-theme-bundle() {
+  case $1 in
+  install | update) printf 'q5-test\tQ5 Test\n' ;;
+  remove) printf 'Q5 Test\n' ;;
+  list) printf 'q5-test\tQ5 Test\tdeadbeef\thttps://example.com/q5-test.git\n' ;;
+  esac
+}
+
+monarch-theme-set() {
+  [[ $1 == "Q5 Test" ]]
+}
+
+gum() {
+  case $1 in
+  choose) head -n 1 ;;
+  confirm) printf '%s\n' "$*" >"$HOME/gum-confirm" ;;
+  esac
+}
+
+export -f monarch-theme-bundle monarch-theme-set gum
+output=$("$ROOT/bin/monarch-theme-install" https://example.com/q5-test.git)
+[[ $output == $'Downloading and validating theme...\nApplying Q5 Test...\nInstalled and applied Q5 Test (q5-test)' ]]
+
+output=$("$ROOT/bin/monarch-theme-update" q5-test)
+[[ $output == $'Downloading and validating Q5 Test...\nUpdated Q5 Test (q5-test)' ]]
+
+printf 'Q5 Test\n' >"$HOME/active-theme"
+output=$("$ROOT/bin/monarch-theme-update" q5-test)
+[[ $output == $'Downloading and validating Q5 Test...\nReapplying Q5 Test...\nUpdated Q5 Test (q5-test)' ]]
+
+output=$("$ROOT/bin/monarch-theme-remove")
+[[ $output == $'Removing Q5 Test...\nRemoved Q5 Test' ]]
+[[ $(<"$HOME/gum-confirm") == "confirm Remove Q5 Test?" ]]
+
 echo ok

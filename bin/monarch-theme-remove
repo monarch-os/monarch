@@ -7,11 +7,19 @@
 set -euo pipefail
 
 id=${1:-}
+name=""
 if [[ -z $id ]]; then
   selection=$(monarch-theme-bundle list | gum choose --header "Remove theme" --no-limit=1)
   [[ -n $selection ]] || exit 0
   id=${selection%%$'\t'*}
+  rest=${selection#*$'\t'}
+  name=${rest%%$'\t'*}
+  gum confirm "Remove $name?" || exit 0
 fi
 
+if [[ -z $name ]]; then
+  name=$(monarch-theme-bundle list | awk -F '\t' -v id="$id" '$1 == id { print $2; exit }')
+fi
+echo "Removing ${name:-$id}..."
 name=$(monarch-theme-bundle remove "$id")
 echo "Removed $name"
