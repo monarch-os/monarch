@@ -492,6 +492,9 @@ def rpc_request(proc, request_id, method, params=None, timeout=8):
       continue
     if message.get("id") == request_id:
       return message
+  if proc.poll() is not None:
+    details = proc.stderr.read().strip()
+    raise RuntimeError(details or f"codex app-server exited with status {proc.returncode}")
   raise TimeoutError(method)
 
 
@@ -528,10 +531,10 @@ def fetch_codex_rpc():
 
   try:
     proc = subprocess.Popen(
-      [codex, "-s", "read-only", "-a", "untrusted", "app-server"],
+      [codex, "-s", "read-only", "-a", "never", "app-server"],
       stdin=subprocess.PIPE,
       stdout=subprocess.PIPE,
-      stderr=subprocess.DEVNULL,
+      stderr=subprocess.PIPE,
       text=True,
       env=ENV,
     )
