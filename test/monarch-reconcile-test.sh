@@ -71,10 +71,33 @@ export TEST_LOG="$TEST_ROOT/calls"
 export TEST_NOCTALIA=unavailable
 export PATH="$TEST_ROOT/bin:/usr/bin"
 
+source "$ROOT/install/reconcile/config-files.sh"
+ownership="$TEST_ROOT/ownership"
+mkdir -p "$ownership/source-tree" "$ownership/managed-tree" "$ownership/shared"
+printf '%s\n' current >"$ownership/source"
+printf '%s\n' stale >"$ownership/managed"
+printf '%s\n' current >"$ownership/source-tree/current"
+printf '%s\n' stale >"$ownership/managed-tree/stale"
+printf '%s\n' third-party >"$ownership/shared/plugin"
+
+monarch_reconcile_managed_file "$ownership/source" "$ownership/managed"
+[[ $(<"$ownership/managed") == "current" ]]
+monarch_reconcile_seeded_file "$ownership/source" "$ownership/seeded"
+printf '%s\n' customized >"$ownership/seeded"
+monarch_reconcile_seeded_file "$ownership/source" "$ownership/seeded"
+[[ $(<"$ownership/seeded") == "customized" ]]
+monarch_reconcile_managed_tree "$ownership/source-tree" "$ownership/managed-tree"
+[[ -f $ownership/managed-tree/current && ! -e $ownership/managed-tree/stale ]]
+[[ $(<"$ownership/shared/plugin") == "third-party" ]]
+
 mkdir -p "$TEST_ROOT/bin" "$HOME/.config/noctalia" "$HOME/.config/uwsm" \
-  "$HOME/.local/share/monarch/.git" "$MONARCH_RUNTIME_ROOT/bin"
+  "$HOME/.local/share/monarch/.git" "$MONARCH_RUNTIME_ROOT/bin" \
+  "$HOME/.local/share/noctalia/plugins/third-party" \
+  "$HOME/.local/share/noctalia/plugins/monarch-theme"
 touch "$MONARCH_RUNTIME_ROOT/bin/monarch"
 chmod +x "$MONARCH_RUNTIME_ROOT/bin/monarch"
+printf '%s\n' keep >"$HOME/.local/share/noctalia/plugins/third-party/plugin.toml"
+printf '%s\n' stale >"$HOME/.local/share/noctalia/plugins/monarch-theme/removed.luau"
 
 cat >"$TEST_ROOT/bin/monarch-pkg-present" <<'EOF'
 #!/bin/bash
@@ -116,6 +139,8 @@ grep -qx 'monarch-pkg-drop noctalia-shell polkit-gnome' "$TEST_LOG"
 [[ ! -e $HOME/.config/noctalia/settings.json ]]
 [[ ! -e $HOME/.config/noctalia/plugins.json ]]
 [[ -f $HOME/.local/share/noctalia/plugins/monarch-theme/plugin.toml ]]
+[[ ! -e $HOME/.local/share/noctalia/plugins/monarch-theme/removed.luau ]]
+[[ -f $HOME/.local/share/noctalia/plugins/third-party/plugin.toml ]]
 [[ -f $HOME/.config/noctalia/palettes/Monarch.json ]]
 grep -qF '/usr/share/monarch}/default/zsh/rc' "$HOME/.zshrc"
 grep -qF '/usr/share/monarch}/default/bash/rc' "$HOME/.bashrc"
