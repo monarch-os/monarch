@@ -12,6 +12,7 @@ test/monarch-kernel-headers-test.sh	kernel-packages	high	isolated
 test/monarch-menu-test.sh	menu	medium	isolated
 test/monarch-mise-agent-test.sh	developer-agents	medium	isolated
 test/monarch-reconcile-test.sh	updates	high	isolated
+test/shell.d/retired-sudoers-reconcile-test.sh	security	high	isolated
 test/monarch-network-test.sh	network	medium	isolated
 test/monarch-niri-socket-test.sh	display-recovery	high	isolated
 test/monarch-noctalia-config-test.sh	desktop-shell	medium	isolated
