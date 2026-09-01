@@ -1,5 +1,11 @@
 monarch_install_packaged_runtime() {
   local legacy_supported=${1:-false}
+
+  if [[ $legacy_supported != "true" ]]; then
+    monarch-pkg-add monarch
+    return
+  fi
+
   local system_root=${MONARCH_LEGACY_SYSTEM_ROOT:-/}
   local -a legacy_paths=(
     etc/sudoers.d/monarch-tzupdate
@@ -28,11 +34,6 @@ monarch_install_packaged_runtime() {
   done
 
   if (( ${#existing_files[@]} == 0 )); then
-    monarch-pkg-add monarch
-    return
-  fi
-
-  if [[ $legacy_supported != "true" ]]; then
     monarch-pkg-add monarch
     return
   fi
