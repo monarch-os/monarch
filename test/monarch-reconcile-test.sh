@@ -140,10 +140,16 @@ printf '%s %s\n' "${0##*/}" "$*" >>"$TEST_LOG"
 EOF
 done
 
+cat >"$TEST_ROOT/bin/monarch-refresh-noctalia" <<'EOF'
+#!/bin/bash
+printf '%s\n' monarch-refresh-noctalia >>"$TEST_LOG"
+touch "$(dirname "$TEST_LOG")/noctalia-ready"
+EOF
+
 cat >"$TEST_ROOT/bin/noctalia" <<'EOF'
 #!/bin/bash
 if [[ $1 == "msg" && $2 == "status" ]]; then
-  [[ $TEST_NOCTALIA == "ready" ]]
+  [[ $TEST_NOCTALIA == "ready" || -f $(dirname "$TEST_LOG")/noctalia-ready ]]
   exit
 fi
 printf '%s\n' "$*" >>"$TEST_LOG"
@@ -178,14 +184,15 @@ grep -qx 'export MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}' "$HOME/.confi
 
 plugin_hook="$HOME/.config/monarch/hooks/post-boot.d/noctalia-v5-plugins"
 runtime_hook="$HOME/.config/monarch/hooks/post-boot.d/packaged-runtime"
-[[ -x $plugin_hook && -x $runtime_hook ]]
+[[ ! -e $plugin_hook && -x $runtime_hook ]]
 [[ ! -e $HOME/.local/state/monarch/schema ]]
+grep -qx 'monarch-refresh-noctalia' "$TEST_LOG"
+grep -qx 'msg plugins enable monarch/theme' "$TEST_LOG"
 
 export TEST_NOCTALIA=ready
 bash "$ROOT/install/reconcile/schema/1-to-2/user.sh"
 bash "$ROOT/install/reconcile/user.sh"
 [[ ! -e $plugin_hook ]]
-grep -qx 'msg plugins enable monarch/theme' "$TEST_LOG"
 
 bash "$runtime_hook"
 [[ -L $HOME/.local/share/monarch ]]

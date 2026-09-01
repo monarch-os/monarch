@@ -42,6 +42,14 @@ fi
 
 monarch-refresh-niri
 
+if ((legacy_noctalia)); then
+  monarch-refresh-noctalia
+  for _ in $(seq 1 50); do
+    noctalia msg status >/dev/null 2>&1 && break
+    sleep 0.1
+  done
+fi
+
 legacy_root="$HOME/.local/share/monarch"
 if [[ $MONARCH_SOURCE_ROOT == "$legacy_root" && -d $legacy_root && ! -L $legacy_root ]]; then
   finalize_hook="$HOME/.config/monarch/hooks/post-boot.d/packaged-runtime"
