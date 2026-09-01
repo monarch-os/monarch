@@ -4,6 +4,7 @@ echo "Reconcile Monarch system state"
 
 sudo bash "$MONARCH_PATH/install/config/ssh-command-path.sh"
 sudo bash "$MONARCH_PATH/install/reconcile/browser-policy.sh" "$MONARCH_PATH"
+sudo bash "$MONARCH_PATH/install/reconcile/legacy-udev-rules.sh"
 
 if [[ -f /etc/pam.d/noctalia ]]; then
   sudo rm -f /etc/pam.d/noctalia
