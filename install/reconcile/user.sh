@@ -2,6 +2,8 @@ set -euo pipefail
 
 echo "Reconcile Monarch user state"
 
+source "$MONARCH_PATH/install/reconcile/config-files.sh"
+
 legacy_noctalia=0
 if monarch-pkg-present noctalia-shell || [[ -f $HOME/.config/noctalia/settings.json ]]; then
   legacy_noctalia=1
@@ -31,9 +33,15 @@ EOF
   fi
 fi
 
-mkdir -p "$HOME/.config/noctalia/palettes" "$HOME/.local/share/noctalia/plugins"
-cp -f "$MONARCH_PATH"/config/noctalia/palettes/*.json "$HOME/.config/noctalia/palettes/"
-cp -rf "$MONARCH_PATH"/default/noctalia/plugins/. "$HOME/.local/share/noctalia/plugins/"
+for palette in "$MONARCH_PATH"/config/noctalia/palettes/*.json; do
+  monarch_reconcile_managed_file "$palette" \
+    "$HOME/.config/noctalia/palettes/$(basename "$palette")"
+done
+
+for plugin in "$MONARCH_PATH"/default/noctalia/plugins/monarch-*; do
+  monarch_reconcile_managed_tree "$plugin" \
+    "$HOME/.local/share/noctalia/plugins/$(basename "$plugin")"
+done
 
 for shell_rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
   [[ -f $shell_rc ]] || continue
