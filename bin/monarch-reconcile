@@ -35,7 +35,13 @@ runtime_root=${MONARCH_RUNTIME_ROOT:-/usr/share/monarch}
 
 if monarch-pkg-missing monarch || [[ ! -x $runtime_root/bin/monarch ]]; then
   echo "Install the packaged Monarch runtime"
-  monarch-pkg-add monarch
+  source "$source_root/install/reconcile/packaged-runtime-bootstrap.sh"
+  legacy_supported=false
+  if [[ $source_root == "$HOME/.local/share/monarch" && -d $source_root && ! -L $source_root && \
+    -f $state_dir/migrations/$LEGACY_FLOOR_MARKER ]]; then
+    legacy_supported=true
+  fi
+  monarch_install_packaged_runtime "$legacy_supported"
 fi
 
 if monarch-pkg-missing monarch || [[ ! -x $runtime_root/bin/monarch ]]; then

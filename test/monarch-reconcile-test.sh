@@ -8,9 +8,12 @@ trap 'rm -rf "$TEST_ROOT"' EXIT
 
 bootstrap="$TEST_ROOT/bootstrap"
 bootstrap_source="$bootstrap/home/.local/share/monarch"
-mkdir -p "$bootstrap/bin" "$bootstrap_source" \
-  "$bootstrap/home/.local/state/monarch/migrations"
+mkdir -p "$bootstrap/bin" "$bootstrap_source/install/reconcile" \
+  "$bootstrap/home/.local/state/monarch/migrations" "$bootstrap/system"
 touch "$bootstrap/home/.local/state/monarch/migrations/1787067946.sh"
+cp "$ROOT/install/reconcile/packaged-runtime-bootstrap.sh" \
+  "$bootstrap_source/install/reconcile/packaged-runtime-bootstrap.sh"
+export MONARCH_LEGACY_SYSTEM_ROOT="$bootstrap/system"
 cat >"$bootstrap/bin/monarch-pkg-missing" <<'EOF'
 #!/bin/bash
 [[ ! -f $BOOTSTRAP_ROOT/installed ]]
