@@ -22,6 +22,11 @@ should normally live in a dedicated managed fragment rather than overwrite the
 user's configuration. Its palette directory and plugin root are shared: manage
 individual palette files and Monarch's own plugin subdirectories only.
 
-A schema bump changes which input states are supported. It is not required for
-an additive managed file, a newly seeded file, or an idempotent reconciliation
-rule that works for every supported schema.
+A schema bump changes which input states are supported. Permanent invariants
+stay in `system.sh` and `user.sh`; historical transformations live under
+`schema/<from>-to-<to>/` and run only while crossing that boundary. Once the
+older schema is no longer supported, its whole transition directory can be
+deleted.
+
+A bump is not required for an additive managed file, a newly seeded file, or an
+idempotent invariant that works for every supported schema.

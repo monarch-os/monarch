@@ -19,11 +19,13 @@ cat >"$bootstrap/bin/monarch-pkg-add" <<'EOF'
 #!/bin/bash
 [[ $1 == "monarch" ]]
 touch "$BOOTSTRAP_ROOT/installed"
-mkdir -p "$BOOTSTRAP_ROOT/runtime/bin" "$BOOTSTRAP_ROOT/runtime/install/reconcile"
+mkdir -p "$BOOTSTRAP_ROOT/runtime/bin" "$BOOTSTRAP_ROOT/runtime/install/reconcile/schema/1-to-2"
 touch "$BOOTSTRAP_ROOT/runtime/bin/monarch"
 chmod +x "$BOOTSTRAP_ROOT/runtime/bin/monarch"
 printf '%s\n' 'printf "system\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/system.sh"
 printf '%s\n' 'printf "user\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/user.sh"
+printf '%s\n' 'printf "transition-system\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/schema/1-to-2/system.sh"
+printf '%s\n' 'printf "transition-user\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/schema/1-to-2/user.sh"
 EOF
 cat >"$bootstrap/bin/monarch-pkg-present" <<'EOF'
 #!/bin/bash
@@ -34,8 +36,14 @@ chmod +x "$bootstrap/bin/"*
 BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
   MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
   bash "$ROOT/bin/monarch-reconcile" >/dev/null
-[[ $(<"$bootstrap/steps") == $'system\nuser' ]]
+[[ $(<"$bootstrap/steps") == $'system\ntransition-system\ntransition-user\nuser' ]]
 [[ $(<"$bootstrap/home/.local/state/monarch/schema") == 2 ]]
+
+: >"$bootstrap/steps"
+BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
+  MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
+  bash "$ROOT/bin/monarch-reconcile" >/dev/null
+[[ $(<"$bootstrap/steps") == $'system\nuser' ]]
 
 printf '%s\n' 0 >"$bootstrap/home/.local/state/monarch/schema"
 if BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
@@ -132,6 +140,7 @@ printf '%s\n' 'source ~/.local/share/monarch/default/zsh/rc' >"$HOME/.zshrc"
 printf '%s\n' 'source ~/.local/share/monarch/default/bash/rc' >"$HOME/.bashrc"
 printf '%s\n' 'export MONARCH_PATH=$HOME/.local/share/monarch' >"$HOME/.config/uwsm/env"
 
+bash "$ROOT/install/reconcile/schema/1-to-2/user.sh"
 bash "$ROOT/install/reconcile/user.sh"
 
 grep -qx 'monarch-pkg-add noctalia qrencode' "$TEST_LOG"
@@ -152,6 +161,7 @@ runtime_hook="$HOME/.config/monarch/hooks/post-boot.d/packaged-runtime"
 [[ ! -e $HOME/.local/state/monarch/schema ]]
 
 export TEST_NOCTALIA=ready
+bash "$ROOT/install/reconcile/schema/1-to-2/user.sh"
 bash "$ROOT/install/reconcile/user.sh"
 [[ ! -e $plugin_hook ]]
 grep -qx 'msg plugins enable monarch/theme' "$TEST_LOG"
