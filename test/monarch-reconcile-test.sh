@@ -8,9 +8,12 @@ trap 'rm -rf "$TEST_ROOT"' EXIT
 
 bootstrap="$TEST_ROOT/bootstrap"
 bootstrap_source="$bootstrap/home/.local/share/monarch"
-mkdir -p "$bootstrap/bin" "$bootstrap_source" \
-  "$bootstrap/home/.local/state/monarch/migrations"
+mkdir -p "$bootstrap/bin" "$bootstrap_source/install/reconcile" \
+  "$bootstrap/home/.local/state/monarch/migrations" "$bootstrap/system"
 touch "$bootstrap/home/.local/state/monarch/migrations/1787067946.sh"
+cp "$ROOT/install/reconcile/packaged-runtime-bootstrap.sh" \
+  "$bootstrap_source/install/reconcile/packaged-runtime-bootstrap.sh"
+export MONARCH_LEGACY_SYSTEM_ROOT="$bootstrap/system"
 cat >"$bootstrap/bin/monarch-pkg-missing" <<'EOF'
 #!/bin/bash
 [[ ! -f $BOOTSTRAP_ROOT/installed ]]
@@ -18,6 +21,7 @@ EOF
 cat >"$bootstrap/bin/monarch-pkg-add" <<'EOF'
 #!/bin/bash
 [[ $1 == "monarch" ]]
+printf '%s\n' "$*" >>"$BOOTSTRAP_ROOT/pkg-add-calls"
 touch "$BOOTSTRAP_ROOT/installed"
 mkdir -p "$BOOTSTRAP_ROOT/runtime/bin" "$BOOTSTRAP_ROOT/runtime/install/reconcile/schema/1-to-2"
 touch "$BOOTSTRAP_ROOT/runtime/bin/monarch"
@@ -26,6 +30,15 @@ printf '%s\n' 'printf "system\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/r
 printf '%s\n' 'printf "user\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/user.sh"
 printf '%s\n' 'printf "transition-system\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/schema/1-to-2/system.sh"
 printf '%s\n' 'printf "transition-user\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/schema/1-to-2/user.sh"
+EOF
+cat >"$bootstrap/bin/pacman" <<'EOF'
+#!/bin/bash
+printf '%s\n' "$*" >>"$BOOTSTRAP_ROOT/pacman-calls"
+exit 1
+EOF
+cat >"$bootstrap/bin/sudo" <<'EOF'
+#!/bin/bash
+exec "$@"
 EOF
 cat >"$bootstrap/bin/monarch-pkg-present" <<'EOF'
 #!/bin/bash
@@ -63,12 +76,20 @@ fi
 
 rm "$bootstrap/home/.local/state/monarch/schema" \
   "$bootstrap/home/.local/state/monarch/migrations/1787067946.sh"
+rm -f "$bootstrap/installed"
+rm -rf "$bootstrap/runtime"
+mkdir -p "$bootstrap/system/usr/share/sddm/themes/monarch"
+touch "$bootstrap/system/usr/share/sddm/themes/monarch/theme.conf"
+: >"$bootstrap/pkg-add-calls"
+: >"$bootstrap/pacman-calls"
 if BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
   MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
   bash "$ROOT/bin/monarch-reconcile" >/dev/null 2>&1; then
   echo "legacy installation below the support floor was accepted" >&2
   exit 1
 fi
+[[ $(<"$bootstrap/pkg-add-calls") == "monarch" ]]
+[[ ! -s $bootstrap/pacman-calls ]]
 
 export HOME="$TEST_ROOT/home"
 export MONARCH_PATH="$ROOT"
