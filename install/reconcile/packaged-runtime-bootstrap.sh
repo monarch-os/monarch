@@ -7,30 +7,33 @@ monarch_install_packaged_runtime() {
   fi
 
   local system_root=${MONARCH_LEGACY_SYSTEM_ROOT:-/}
-  local -a legacy_paths=(
+  local -a legacy_files=(
     etc/sudoers.d/monarch-tzupdate
     usr/lib/systemd/system-sleep/unmount-fuse
     usr/local/share/wayland-sessions/monarch.desktop
-    usr/share/plymouth/themes/monarch
     usr/share/sddm/niri.kdl
+  )
+  local -a legacy_trees=(
+    usr/share/plymouth/themes/monarch
     usr/share/sddm/themes/monarch
   )
   local -a existing_files=()
   local -a overwrite_args=()
   local path file relative
 
-  for path in "${legacy_paths[@]}"; do
+  for path in "${legacy_files[@]}"; do
+    sudo test -e "$system_root/$path" || continue
+    existing_files+=("$system_root/$path")
+    overwrite_args+=(--overwrite "$path")
+  done
+
+  for path in "${legacy_trees[@]}"; do
     [[ -e $system_root/$path || -L $system_root/$path ]] || continue
-    if [[ -d $system_root/$path && ! -L $system_root/$path ]]; then
-      while IFS= read -r -d '' file; do
-        existing_files+=("$file")
-        relative=${file#"$system_root"}
-        overwrite_args+=(--overwrite "${relative#/}")
-      done < <(find "$system_root/$path" \( -type f -o -type l \) -print0)
-    else
-      existing_files+=("$system_root/$path")
-      overwrite_args+=(--overwrite "$path")
-    fi
+    while IFS= read -r -d '' file; do
+      existing_files+=("$file")
+      relative=${file#"$system_root"}
+      overwrite_args+=(--overwrite "${relative#/}")
+    done < <(find "$system_root/$path" \( -type f -o -type l \) -print0)
   done
 
   if (( ${#existing_files[@]} == 0 )); then

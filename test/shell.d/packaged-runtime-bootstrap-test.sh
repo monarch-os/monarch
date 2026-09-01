@@ -6,7 +6,10 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
 
-mkdir -p "$test_tmp/bin" "$test_tmp/system/usr/share/sddm/themes/monarch"
+mkdir -p "$test_tmp/bin" "$test_tmp/system/etc/sudoers.d" \
+  "$test_tmp/system/usr/share/sddm/themes/monarch"
+touch "$test_tmp/system/etc/sudoers.d/monarch-tzupdate"
+chmod 000 "$test_tmp/system/etc/sudoers.d"
 touch "$test_tmp/system/usr/share/sddm/themes/monarch/theme.conf"
 
 cat >"$test_tmp/bin/pacman" <<'EOF'
@@ -17,6 +20,9 @@ EOF
 
 cat >"$test_tmp/bin/sudo" <<'EOF'
 #!/bin/bash
+if [[ $1 == "test" && $3 == */etc/sudoers.d/monarch-tzupdate ]]; then
+  exit 0
+fi
 exec "$@"
 EOF
 
@@ -33,13 +39,17 @@ export MONARCH_LEGACY_SYSTEM_ROOT="$test_tmp/system"
 source "$ROOT/install/reconcile/packaged-runtime-bootstrap.sh"
 monarch_install_packaged_runtime true
 
-grep -qF -- '-S --noconfirm --needed --overwrite usr/share/sddm/themes/monarch/theme.conf monarch' "$TEST_LOG"
+grep -qF -- '--overwrite etc/sudoers.d/monarch-tzupdate' "$TEST_LOG"
+grep -qF -- '--overwrite usr/share/sddm/themes/monarch/theme.conf' "$TEST_LOG"
+grep -qF -- ' monarch' "$TEST_LOG"
 ! grep -q '^pkg-add ' "$TEST_LOG"
+chmod 700 "$test_tmp/system/etc/sudoers.d"
 
 : >"$TEST_LOG"
 rm -rf "$test_tmp/system/usr/share/sddm"
 monarch_install_packaged_runtime true
-grep -qx 'pkg-add monarch' "$TEST_LOG"
+grep -qF -- '--overwrite etc/sudoers.d/monarch-tzupdate' "$TEST_LOG"
+! grep -q '^pkg-add ' "$TEST_LOG"
 
 cat >"$test_tmp/bin/pacman" <<'EOF'
 #!/bin/bash
