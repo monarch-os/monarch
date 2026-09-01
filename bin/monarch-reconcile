@@ -76,5 +76,18 @@ if ((schema > CURRENT_SCHEMA)); then
 fi
 
 bash "$runtime_root/install/reconcile/system.sh"
+
+while ((schema < CURRENT_SCHEMA)); do
+  next_schema=$((schema + 1))
+  transition="$runtime_root/install/reconcile/schema/$schema-to-$next_schema"
+  [[ -d $transition ]] || {
+    echo "Missing Monarch schema transition: $schema to $next_schema" >&2
+    exit 1
+  }
+  [[ ! -f $transition/system.sh ]] || bash "$transition/system.sh"
+  [[ ! -f $transition/user.sh ]] || bash "$transition/user.sh"
+  schema=$next_schema
+done
+
 bash "$runtime_root/install/reconcile/user.sh"
 complete_reconciliation
