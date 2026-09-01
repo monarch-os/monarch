@@ -10,7 +10,7 @@ export HOME="$TEST_ROOT/home"
 export MONARCH_THEME_BUNDLES_DIR="$TEST_ROOT/bundles"
 export MONARCH_THEME_PALETTES_DIR="$TEST_ROOT/palettes"
 export MONARCH_THEME_BACKGROUNDS_DIR="$TEST_ROOT/backgrounds"
-mkdir -p "$HOME" "$TEST_ROOT/bin"
+mkdir -p "$HOME" "$TEST_ROOT/bin" "$TEST_ROOT/runtime/bin"
 
 cat >"$TEST_ROOT/bin/noctalia" <<'EOF'
 #!/bin/bash
@@ -19,6 +19,11 @@ if [[ -f $HOME/active-theme ]]; then
 fi
 EOF
 chmod +x "$TEST_ROOT/bin/noctalia"
+cat >"$TEST_ROOT/runtime/bin/monarch-theme-set-browser-policy" <<'EOF'
+#!/bin/bash
+exit 0
+EOF
+chmod +x "$TEST_ROOT/runtime/bin/monarch-theme-set-browser-policy"
 export PATH="$TEST_ROOT/bin:$PATH"
 
 make_theme() {

@@ -5,8 +5,8 @@
 # monarch:examples=monarch install browser firefox | monarch install browser brave
 
 setup_policy_directory() {
-  sudo mkdir -p "$1"
-  sudo chmod a+rw "$1"
+  source "${MONARCH_PATH:-/usr/share/monarch}/install/helpers/browser-policy.sh"
+  browser_policy_setup_dir "$1"
 }
 
 announce_browser_installed() {
@@ -22,8 +22,8 @@ copy_chromium_flags() {
 setup_firefox_preferences() {
   local distribution_dir="$1"
 
-  setup_policy_directory "$distribution_dir"
-  sudo cp -f "$MONARCH_PATH/default/firefox/policies.json" "$distribution_dir/policies.json"
+  source "${MONARCH_PATH:-/usr/share/monarch}/install/helpers/browser-policy.sh"
+  browser_policy_setup_firefox "$distribution_dir"
 }
 
 setup_firefox_wayland() {

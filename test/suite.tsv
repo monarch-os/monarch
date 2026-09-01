@@ -2,6 +2,7 @@ path	feature	risk	environment
 test/monarch-about-test.sh	about	low	isolated
 test/monarch-agent-usage-codex-test.sh	agent-usage	medium	isolated
 test/monarch-bar-position-test.sh	desktop-bar	medium	isolated
+test/shell.d/browser-policy-hardening-test.sh	browser-security	high	isolated
 test/monarch-cli-test.sh	cli-routing	high	isolated
 test/monarch-crash-capture-test.sh	crash-reporting	high	isolated
 test/monarch-dev-env-test.sh	developer-environment	medium	isolated
