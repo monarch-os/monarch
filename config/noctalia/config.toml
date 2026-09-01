@@ -214,11 +214,8 @@ type = "power_profile"
 corner_radius_scale = 1.0
 clipboard_enabled = true
 clipboard_history_max_entries = 500
-# v4 silenced the telemetry wizard by pinning a version floor in
-# shell-state.json; v5 has no wizard, just this opt-out. The setting is
-# `telemetry_enabled` — the settings UI groups it as "shell.telemetry", which is
-# a UI path, not a config key, and `shell.telemetry` is rejected as unknown.
 telemetry_enabled = false
+setup_wizard_enabled = false
 
 # The authentication dialog for pkexec and anything else that asks polkit. v5
 # registers its own agent (/org/noctalia/PolkitAuthenticationAgent) and draws the
