@@ -277,24 +277,10 @@ PY
 }
 
 # --- Chromium / Chrome / Edge / Brave ----------------------------------------
-# Managed-policy theme color. Monarch makes /etc/chromium/policies/managed
-# world-writable at install, so no sudo is needed for Chromium; the others only
-# get themed if their policy dir already exists and is writable.
 sync_chromium() {
   local hex=${bg_hex#\#}
   [[ $hex =~ ^[0-9a-fA-F]{6}$ ]] || return 0
-  local json
-  json=$(printf '{"BrowserThemeColor": "#%s", "BrowserColorScheme": "device"}' "$hex")
-
-  local dir
-  for dir in \
-    /etc/chromium/policies/managed \
-    /etc/opt/chrome/policies/managed \
-    /etc/opt/edge/policies/managed \
-    /etc/brave/policies/managed; do
-    [[ -d $dir && -w $dir ]] || continue
-    printf '%s\n' "$json" >"$dir/color.json" 2>/dev/null || true
-  done
+  "$MONARCH_ROOT/bin/monarch-theme-set-browser-policy" "${hex,,}" || true
 
   refresh_browser() {
     local process=$1 command=$2 pgrep_args=${3:--x}

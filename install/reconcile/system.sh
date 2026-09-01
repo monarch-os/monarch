@@ -3,6 +3,7 @@ set -euo pipefail
 echo "Reconcile Monarch system state"
 
 sudo bash "$MONARCH_PATH/install/config/ssh-command-path.sh"
+sudo bash "$MONARCH_PATH/install/reconcile/browser-policy.sh" "$MONARCH_PATH"
 
 if [[ -f /etc/pam.d/noctalia ]]; then
   sudo rm -f /etc/pam.d/noctalia
