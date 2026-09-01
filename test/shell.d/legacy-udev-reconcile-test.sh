@@ -25,7 +25,7 @@ run_reconcile() {
     MONARCH_UDEVADM_COMMAND="$udevadm" \
     MONARCH_UDEVADM_LOG="$TEST_ROOT/udevadm.log" \
     MONARCH_UDEVADM_FAIL="${MONARCH_UDEVADM_FAIL:-0}" \
-    bash "$ROOT/install/reconcile/legacy-udev-rules.sh"
+    bash "$ROOT/install/reconcile/schema/1-to-2/legacy-udev-rules.sh"
 }
 
 power_rule="$rules_dir/99-power-profile.rules"
@@ -139,7 +139,7 @@ MONARCH_UDEV_RULES_DIR="$rules_dir" \
   MONARCH_UDEV_MARKER_DIR="$marker_dir" \
   MONARCH_UDEV_CONTROL="$udev_control" \
   MONARCH_INSTALL_COMMAND="$TEST_ROOT/failing-install" \
-  bash "$ROOT/install/reconcile/legacy-udev-rules.sh"
+  bash "$ROOT/install/reconcile/schema/1-to-2/legacy-udev-rules.sh"
 marker_status=$?
 set -e
 ((marker_status != 0))
@@ -161,13 +161,14 @@ MONARCH_UDEV_RULES_DIR="$rules_dir" \
   MONARCH_UDEV_CONTROL="$udev_control" \
   MONARCH_STAT_COMMAND="$TEST_ROOT/churning-stat" \
   MONARCH_STAT_COUNT="$TEST_ROOT/stat-count" \
-  bash "$ROOT/install/reconcile/legacy-udev-rules.sh"
+  bash "$ROOT/install/reconcile/schema/1-to-2/legacy-udev-rules.sh"
 churn_status=$?
 set -e
 ((churn_status != 0))
 [[ -f $wifi_rule ]]
 
-grep -qF 'install/reconcile/legacy-udev-rules.sh' "$ROOT/install/reconcile/system.sh"
-! grep -qF 'legacy-udev-rules.sh' "$ROOT/install/reconcile/schema/1-to-2/system.sh"
+! grep -qF 'legacy-udev-rules.sh' "$ROOT/install/reconcile/system.sh"
+grep -qF 'install/reconcile/schema/1-to-2/legacy-udev-rules.sh' \
+  "$ROOT/install/reconcile/schema/1-to-2/system.sh"
 
 echo "Legacy udev reconciliation checks pass"
