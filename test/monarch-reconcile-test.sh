@@ -98,6 +98,7 @@ export MONARCH_PATH="$ROOT"
 export MONARCH_SOURCE_ROOT="$HOME/.local/share/monarch"
 export MONARCH_RUNTIME_ROOT="$TEST_ROOT/runtime"
 export MONARCH_RECONCILE_BIN="$ROOT/bin/monarch-reconcile"
+export MONARCH_NVIM_CONFIG_DIR="$TEST_ROOT/monarch-nvim/config"
 export TEST_LOG="$TEST_ROOT/calls"
 export TEST_NOCTALIA=unavailable
 export PATH="$TEST_ROOT/bin:/usr/bin"
@@ -123,6 +124,8 @@ monarch_reconcile_managed_tree "$ownership/source-tree" "$ownership/managed-tree
 
 mkdir -p "$TEST_ROOT/bin" "$HOME/.config/noctalia" "$HOME/.config/uwsm" \
   "$HOME/.local/share/monarch/.git" "$MONARCH_RUNTIME_ROOT/bin" \
+  "$HOME/.config/nvim/lua/config" "$HOME/.config/nvim/lua/plugins" \
+  "$MONARCH_NVIM_CONFIG_DIR/lua/config" \
   "$HOME/.local/share/noctalia/plugins/third-party" \
   "$HOME/.local/share/noctalia/plugins/monarch-theme"
 touch "$MONARCH_RUNTIME_ROOT/bin/monarch"
@@ -179,6 +182,11 @@ EOF
 chmod +x "$TEST_ROOT/bin/"*
 
 touch "$HOME/.config/noctalia/settings.json" "$HOME/.config/noctalia/plugins.json"
+ln -s "$HOME/.config/monarch/current/theme/neovim.lua" \
+  "$HOME/.config/nvim/lua/plugins/theme.lua"
+touch "$HOME/.config/nvim/lua/plugins/omarchy-theme-hotreload.lua"
+printf '%s\n' 'vim.opt.relativenumber = false' >"$HOME/.config/nvim/lua/config/options.lua"
+printf '%s\n' 'return {}' >"$MONARCH_NVIM_CONFIG_DIR/lua/config/remote_clipboard.lua"
 printf '%s\n' 'source ~/.local/share/monarch/default/zsh/rc' >"$HOME/.zshrc"
 printf '%s\n' 'source ~/.local/share/monarch/default/bash/rc' >"$HOME/.bashrc"
 printf '%s\n' 'export MONARCH_PATH=$HOME/.local/share/monarch' >"$HOME/.config/uwsm/env"
@@ -191,6 +199,11 @@ grep -qx 'monarch-refresh-config fastfetch/config.jsonc' "$TEST_LOG"
 grep -qx 'monarch-provision-first-run' "$TEST_LOG"
 [[ ! -e $HOME/.config/noctalia/settings.json ]]
 [[ ! -e $HOME/.config/noctalia/plugins.json ]]
+[[ ! -e $HOME/.config/nvim/lua/plugins/theme.lua ]]
+[[ ! -e $HOME/.config/nvim/lua/plugins/omarchy-theme-hotreload.lua ]]
+cmp "$MONARCH_NVIM_CONFIG_DIR/lua/config/remote_clipboard.lua" \
+  "$HOME/.config/nvim/lua/config/remote_clipboard.lua"
+[[ $(head -1 "$HOME/.config/nvim/lua/config/options.lua") == 'require("config.remote_clipboard").setup()' ]]
 [[ -f $HOME/.local/share/noctalia/plugins/monarch-theme/plugin.toml ]]
 [[ ! -e $HOME/.local/share/noctalia/plugins/monarch-theme/removed.luau ]]
 [[ -f $HOME/.local/share/noctalia/plugins/third-party/plugin.toml ]]
@@ -230,6 +243,14 @@ TEST_NOCTALIA_READY_AFTER=3 MONARCH_RECONCILE_BIN="$TEST_ROOT/bin/reconcile-comp
 [[ ! -e $plugin_hook ]]
 [[ $(<"$TEST_ROOT/noctalia-status-count") == 4 ]]
 [[ $(<"$TEST_ROOT/reconcile-complete") == "--complete" ]]
+
+cat >"$TEST_ROOT/bin/gsettings" <<'EOF'
+#!/bin/bash
+printf '%s\n' "$*" >>"$TEST_ROOT/gsettings-calls"
+EOF
+chmod +x "$TEST_ROOT/bin/gsettings"
+TEST_ROOT="$TEST_ROOT" bash "$ROOT/install/user/first-run/gnome-theme.sh"
+[[ $(<"$TEST_ROOT/gsettings-calls") == $'set org.gnome.desktop.interface gtk-theme Adwaita-dark\nset org.gnome.desktop.interface color-scheme prefer-dark\nset org.gnome.desktop.interface icon-theme Yaru-blue' ]]
 
 if find "$ROOT/migrations" -type f -name '*.sh' -print -quit 2>/dev/null | grep -q .; then
   echo "historical migrations remain" >&2
