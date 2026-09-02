@@ -8,10 +8,11 @@ fi
 if ((legacy_noctalia)); then
   monarch-pkg-add noctalia qrencode
   pkill -f 'qs.*noctalia-shell' 2>/dev/null || true
-  monarch-pkg-drop noctalia-shell polkit-gnome
+  monarch-pkg-drop noctalia-shell polkit-gnome monarch-welcome
 
   monarch-refresh-config noctalia/config.toml
   monarch-refresh-config herdr/config.toml
+  monarch-refresh-config fastfetch/config.jsonc
 
   rm -f "$HOME"/.config/noctalia/settings.json "$HOME"/.config/noctalia/settings.json.bak.*
   rm -f "$HOME"/.config/noctalia/user-templates.toml "$HOME"/.config/noctalia/user-templates.toml.bak.*

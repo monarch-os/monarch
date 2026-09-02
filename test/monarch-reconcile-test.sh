@@ -171,7 +171,8 @@ bash "$ROOT/install/reconcile/schema/1-to-2/user.sh"
 bash "$ROOT/install/reconcile/user.sh"
 
 grep -qx 'monarch-pkg-add noctalia qrencode' "$TEST_LOG"
-grep -qx 'monarch-pkg-drop noctalia-shell polkit-gnome' "$TEST_LOG"
+grep -qx 'monarch-pkg-drop noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"
+grep -qx 'monarch-refresh-config fastfetch/config.jsonc' "$TEST_LOG"
 [[ ! -e $HOME/.config/noctalia/settings.json ]]
 [[ ! -e $HOME/.config/noctalia/plugins.json ]]
 [[ -f $HOME/.local/share/noctalia/plugins/monarch-theme/plugin.toml ]]
