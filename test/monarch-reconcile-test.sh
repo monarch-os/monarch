@@ -146,6 +146,11 @@ printf '%s\n' monarch-refresh-noctalia >>"$TEST_LOG"
 touch "$(dirname "$TEST_LOG")/noctalia-ready"
 EOF
 
+cat >"$TEST_ROOT/bin/monarch-provision-first-run" <<'EOF'
+#!/bin/bash
+printf '%s\n' monarch-provision-first-run >>"$TEST_LOG"
+EOF
+
 cat >"$TEST_ROOT/bin/noctalia" <<'EOF'
 #!/bin/bash
 if [[ $1 == "msg" && $2 == "status" ]]; then
@@ -170,9 +175,10 @@ printf '%s\n' 'export MONARCH_PATH=$HOME/.local/share/monarch' >"$HOME/.config/u
 bash "$ROOT/install/reconcile/schema/1-to-2/user.sh"
 bash "$ROOT/install/reconcile/user.sh"
 
-grep -qx 'monarch-pkg-add noctalia qrencode' "$TEST_LOG"
+grep -qx 'monarch-pkg-add noctalia qrencode pacman-contrib tensaku zbar' "$TEST_LOG"
 grep -qx 'monarch-pkg-drop noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"
 grep -qx 'monarch-refresh-config fastfetch/config.jsonc' "$TEST_LOG"
+grep -qx 'monarch-provision-first-run' "$TEST_LOG"
 [[ ! -e $HOME/.config/noctalia/settings.json ]]
 [[ ! -e $HOME/.config/noctalia/plugins.json ]]
 [[ -f $HOME/.local/share/noctalia/plugins/monarch-theme/plugin.toml ]]
@@ -208,5 +214,6 @@ if find "$ROOT/migrations" -type f -name '*.sh' -print -quit 2>/dev/null | grep 
 fi
 
 grep -q '^  monarch-reconcile$' "$ROOT/bin/monarch-update"
+grep -qF 'install/config/enable-services.sh' "$ROOT/install/reconcile/system.sh"
 
 echo "All reconciliation tests passed."

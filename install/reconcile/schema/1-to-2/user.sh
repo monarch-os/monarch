@@ -6,7 +6,7 @@ if monarch-pkg-present noctalia-shell || [[ -f $HOME/.config/noctalia/settings.j
 fi
 
 if ((legacy_noctalia)); then
-  monarch-pkg-add noctalia qrencode
+  monarch-pkg-add noctalia qrencode pacman-contrib tensaku zbar
   pkill -f 'qs.*noctalia-shell' 2>/dev/null || true
   monarch-pkg-drop noctalia-shell polkit-gnome monarch-welcome
 
@@ -49,6 +49,9 @@ if ((legacy_noctalia)); then
     noctalia msg status >/dev/null 2>&1 && break
     sleep 0.1
   done
+  if noctalia msg status >/dev/null 2>&1; then
+    monarch-provision-first-run
+  fi
 fi
 
 legacy_root="$HOME/.local/share/monarch"
