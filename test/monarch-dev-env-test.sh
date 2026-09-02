@@ -60,9 +60,9 @@ cp "$ROOT/default/shells/envs" "$legacy_root/default/shells/envs"
 touch "$legacy_root/default/bash/"{shell,completions} \
   "$legacy_root/default/shells/"{aliases,functions,init} \
   "$legacy_root/default/zsh/"{shell,inputrc}
-for shell in bash zsh; do
+for shell_rc in bash zsh; do
   recovered=$(HOME="$shell_home" MONARCH_RUNTIME_ROOT="$packaged_runtime" MONARCH_PATH= PATH=/usr/bin \
-    "$shell" -c 'unset MONARCH_PATH; . "$1"; command -v monarch' sh "$ROOT/default/$shell/rc")
+    bash -c 'unset MONARCH_PATH; . "$1"; command -v monarch' sh "$ROOT/default/$shell_rc/rc")
   [[ $recovered == "$legacy_root/bin/monarch" ]]
 done
 
