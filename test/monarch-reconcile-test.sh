@@ -156,6 +156,15 @@ EOF
 cat >"$TEST_ROOT/bin/noctalia" <<'EOF'
 #!/bin/bash
 if [[ $1 == "msg" && $2 == "status" ]]; then
+  if [[ -n ${TEST_NOCTALIA_READY_AFTER:-} ]]; then
+    count_file=$(dirname "$TEST_LOG")/noctalia-status-count
+    count=0
+    [[ ! -f $count_file ]] || count=$(<"$count_file")
+    ((++count))
+    printf '%s\n' "$count" >"$count_file"
+    ((count >= TEST_NOCTALIA_READY_AFTER))
+    exit
+  fi
   [[ $TEST_NOCTALIA == "ready" || -f $(dirname "$TEST_LOG")/noctalia-ready ]]
   exit
 fi
@@ -208,6 +217,19 @@ bash "$runtime_hook"
 [[ -d $HOME/.local/share/monarch-v4/.git ]]
 [[ ! -e $runtime_hook ]]
 [[ $(<"$HOME/.local/state/monarch/schema") == 2 ]]
+
+cp "$ROOT/install/reconcile/noctalia-plugins.sh" "$plugin_hook"
+cat >"$TEST_ROOT/bin/reconcile-complete" <<'EOF'
+#!/bin/bash
+printf '%s\n' "$*" >"$(dirname "$TEST_LOG")/reconcile-complete"
+EOF
+chmod +x "$TEST_ROOT/bin/reconcile-complete"
+rm -f "$TEST_ROOT/noctalia-status-count"
+TEST_NOCTALIA_READY_AFTER=3 MONARCH_RECONCILE_BIN="$TEST_ROOT/bin/reconcile-complete" \
+  bash "$plugin_hook"
+[[ ! -e $plugin_hook ]]
+[[ $(<"$TEST_ROOT/noctalia-status-count") == 4 ]]
+[[ $(<"$TEST_ROOT/reconcile-complete") == "--complete" ]]
 
 if find "$ROOT/migrations" -type f -name '*.sh' -print -quit 2>/dev/null | grep -q .; then
   echo "historical migrations remain" >&2
