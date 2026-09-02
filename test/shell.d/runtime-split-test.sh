@@ -22,6 +22,17 @@ grep -qE '^HOOKS=.*\bencrypt\b' "$ROOT/etc/mkinitcpio.conf.d/monarch_hooks.conf"
   fail "the packaged initramfs configuration has no encrypt hook"
 pass "the package owns encrypted initramfs hooks without a login finalizer"
 
+grep -qF '"bip": "10.66.0.1/16"' "$ROOT/etc/docker/daemon.json" ||
+  fail "Docker does not use Monarch's dedicated bridge"
+grep -qF '"base":"10.67.0.0/16"' "$ROOT/etc/docker/daemon.json" ||
+  fail "Docker does not reserve Monarch's network pool"
+grep -qxF 'DNSStubListenerExtra=10.66.0.1' \
+  "$ROOT/etc/systemd/resolved.conf.d/20-docker-dns.conf" ||
+  fail "resolved does not listen on Monarch's Docker bridge"
+grep -qF 'from 10.66.0.0/15 to 10.66.0.1 port 53' "$ROOT/install/config/firewall.sh" ||
+  fail "UFW does not allow DNS from Monarch's Docker bridge"
+pass "Docker, resolved and UFW share Monarch's dedicated network"
+
 if grep -qF 'helpers/chroot.sh' "$apply_hardware"; then
   fail "hardware apply still depends on the legacy chroot helper"
 fi
