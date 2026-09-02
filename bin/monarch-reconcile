@@ -81,6 +81,7 @@ if ((schema > CURRENT_SCHEMA)); then
   exit 1
 fi
 
+bash "$runtime_root/install/reconcile/required-packages.sh"
 bash "$runtime_root/install/reconcile/system.sh"
 
 while ((schema < CURRENT_SCHEMA)); do

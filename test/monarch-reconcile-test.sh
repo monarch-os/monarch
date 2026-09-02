@@ -20,12 +20,14 @@ cat >"$bootstrap/bin/monarch-pkg-missing" <<'EOF'
 EOF
 cat >"$bootstrap/bin/monarch-pkg-add" <<'EOF'
 #!/bin/bash
-[[ $1 == "monarch" ]]
 printf '%s\n' "$*" >>"$BOOTSTRAP_ROOT/pkg-add-calls"
-touch "$BOOTSTRAP_ROOT/installed"
+if [[ $1 == "monarch" ]]; then
+  touch "$BOOTSTRAP_ROOT/installed"
+fi
 mkdir -p "$BOOTSTRAP_ROOT/runtime/bin" "$BOOTSTRAP_ROOT/runtime/install/reconcile/schema/1-to-2"
 touch "$BOOTSTRAP_ROOT/runtime/bin/monarch"
 chmod +x "$BOOTSTRAP_ROOT/runtime/bin/monarch"
+printf '%s\n' 'printf "required-packages\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/required-packages.sh"
 printf '%s\n' 'printf "system\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/system.sh"
 printf '%s\n' 'printf "user\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/user.sh"
 printf '%s\n' 'printf "transition-system\\n" >>"$BOOTSTRAP_ROOT/steps"' >"$BOOTSTRAP_ROOT/runtime/install/reconcile/schema/1-to-2/system.sh"
@@ -49,14 +51,14 @@ chmod +x "$bootstrap/bin/"*
 BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
   MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
   bash "$ROOT/bin/monarch-reconcile" >/dev/null
-[[ $(<"$bootstrap/steps") == $'system\ntransition-system\ntransition-user\nuser' ]]
+[[ $(<"$bootstrap/steps") == $'required-packages\nsystem\ntransition-system\ntransition-user\nuser' ]]
 [[ $(<"$bootstrap/home/.local/state/monarch/schema") == 2 ]]
 
 : >"$bootstrap/steps"
 BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
   MONARCH_RUNTIME_ROOT="$bootstrap/runtime" PATH="$bootstrap/bin:/usr/bin" \
   bash "$ROOT/bin/monarch-reconcile" >/dev/null
-[[ $(<"$bootstrap/steps") == $'system\nuser' ]]
+[[ $(<"$bootstrap/steps") == $'required-packages\nsystem\nuser' ]]
 
 printf '%s\n' 0 >"$bootstrap/home/.local/state/monarch/schema"
 if BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_source" \
@@ -175,7 +177,6 @@ printf '%s\n' 'export MONARCH_PATH=$HOME/.local/share/monarch' >"$HOME/.config/u
 bash "$ROOT/install/reconcile/schema/1-to-2/user.sh"
 bash "$ROOT/install/reconcile/user.sh"
 
-grep -qx 'monarch-pkg-add noctalia qrencode pacman-contrib tensaku zbar' "$TEST_LOG"
 grep -qx 'monarch-pkg-drop noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"
 grep -qx 'monarch-refresh-config fastfetch/config.jsonc' "$TEST_LOG"
 grep -qx 'monarch-provision-first-run' "$TEST_LOG"

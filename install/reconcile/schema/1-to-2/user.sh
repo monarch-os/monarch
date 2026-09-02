@@ -6,7 +6,6 @@ if monarch-pkg-present noctalia-shell || [[ -f $HOME/.config/noctalia/settings.j
 fi
 
 if ((legacy_noctalia)); then
-  monarch-pkg-add noctalia qrencode pacman-contrib tensaku zbar
   pkill -f 'qs.*noctalia-shell' 2>/dev/null || true
   monarch-pkg-drop noctalia-shell polkit-gnome monarch-welcome
 
