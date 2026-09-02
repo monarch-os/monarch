@@ -13,6 +13,9 @@ echo "Noctalia skips its setup wizard on managed installs"
 grep -q 'monarch/theme' "$ROOT/install/user/first-run/enable-noctalia-plugins.sh"
 echo "Fresh installs enable the Monarch theme plugin"
 
+grep -Fqx 'noctalia msg config-reload' "$ROOT/install/user/first-run/enable-noctalia-plugins.sh"
+echo "Plugin activation reloads Noctalia through the v5 IPC"
+
 example="$ROOT/config/noctalia/user-templates.toml.example"
 EXAMPLE="$example" python3 <<'PY'
 import os

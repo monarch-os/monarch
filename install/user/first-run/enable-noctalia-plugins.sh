@@ -23,4 +23,4 @@ for plugin_id in \
   noctalia msg plugins enable "$plugin_id"
 done
 
-noctalia msg shell config-reload
+noctalia msg config-reload
