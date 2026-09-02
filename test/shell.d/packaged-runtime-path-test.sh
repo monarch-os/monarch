@@ -34,9 +34,15 @@ pass "refresh niri uses MONARCH_PATH for packaged defaults"
 
 grep -qF 'MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}' "$ROOT/config/uwsm/env" ||
   fail "the graphical session does not default to the packaged runtime"
-grep -qF 'MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}' "$ROOT/default/shells/envs" ||
-  fail "shell sessions do not default to the packaged runtime"
-pass "login sessions preserve an override and default to /usr/share/monarch"
+grep -qF 'MONARCH_RUNTIME_ROOT:-/usr/share/monarch' "$ROOT/default/shells/envs" ||
+  fail "shell sessions do not prefer the packaged runtime"
+grep -qF 'MONARCH_PATH=$HOME/.local/share/monarch' "$ROOT/default/shells/envs" ||
+  fail "shell sessions cannot recover through the legacy checkout"
+for rc in "$ROOT/default/zsh/rc" "$ROOT/default/bash/rc"; do
+  grep -qF '! -x ${MONARCH_RUNTIME_ROOT:-/usr/share/monarch}/bin/monarch' "$rc" ||
+    fail "$(basename "$(dirname "$rc")") enters the packaged runtime before checking it"
+done
+pass "login sessions prefer the packaged runtime and retain upgrade recovery"
 
 grep -qF '${MONARCH_INSTALL:-${MONARCH_PATH:-/usr/share/monarch}/install}/helpers/workspaces.sh' \
   "$ROOT/install/user/detect-keyboard-layout.sh" ||

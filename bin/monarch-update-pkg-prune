@@ -6,5 +6,10 @@
 set -e
 
 echo -e "\e[32m\nPrune package cache\e[0m"
-sudo paccache -rk2 || echo -e "\e[33mCould not prune the package cache.\e[0m" >&2
+paccache_bin=${MONARCH_PACCACHE_BIN:-paccache}
+if ! command -v "$paccache_bin" &>/dev/null; then
+  echo -e "\e[33mSkipping package cache pruning until pacman-contrib is installed.\e[0m" >&2
+elif ! sudo "$paccache_bin" -rk2; then
+  echo -e "\e[33mCould not prune the package cache.\e[0m" >&2
+fi
 echo
