@@ -4,6 +4,10 @@ echo "Reconcile Monarch user state"
 
 source "$MONARCH_PATH/install/reconcile/config-files.sh"
 
+monarch_reconcile_seeded_file \
+  "$MONARCH_PATH/config/alacritty/monarch-text-size.toml" \
+  "$HOME/.config/alacritty/monarch-text-size.toml"
+
 for palette in "$MONARCH_PATH"/config/noctalia/palettes/*.json; do
   monarch_reconcile_managed_file "$palette" \
     "$HOME/.config/noctalia/palettes/$(basename "$palette")"

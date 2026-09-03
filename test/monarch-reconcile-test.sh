@@ -271,6 +271,7 @@ bash "$ROOT/install/reconcile/schema/1-to-2/user.sh"
 
 runtime_hook="$HOME/.config/monarch/hooks/post-boot.d/packaged-runtime"
 [[ -x $runtime_hook ]]
+[[ -f $HOME/.local/state/monarch/reboot-required ]]
 bash "$runtime_hook"
 [[ -d $HOME/.local/share/monarch && -x $runtime_hook ]]
 
@@ -312,6 +313,8 @@ cmp "$MONARCH_NVIM_CONFIG_DIR/lua/config/remote_clipboard.lua" \
 [[ ! -e $HOME/.local/share/noctalia/plugins/monarch-theme/removed.luau ]]
 [[ -f $HOME/.local/share/noctalia/plugins/third-party/plugin.toml ]]
 [[ -f $HOME/.config/noctalia/palettes/Monarch.json ]]
+cmp "$ROOT/config/alacritty/monarch-text-size.toml" \
+  "$HOME/.config/alacritty/monarch-text-size.toml"
 grep -qF '/usr/share/monarch}/default/zsh/rc' "$HOME/.zshrc"
 grep -qF '/usr/share/monarch}/default/bash/rc' "$HOME/.bashrc"
 grep -qx 'export MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}' "$HOME/.config/uwsm/env"
@@ -338,6 +341,8 @@ ln -s "$HOME/dotfiles/remote_clipboard.lua" \
 printf '%s\n' user-config >"$HOME/.config/noctalia/config.toml"
 printf '%s\n' current >"$HOME/.config/noctalia/user-templates.toml"
 printf '%s\n' newer >"$HOME/.config/noctalia/templates/newer.tpl"
+printf '%s\n' '[font]' 'size = 12' \
+  >"$HOME/.config/alacritty/monarch-text-size.toml"
 bash "$ROOT/install/reconcile/schema/1-to-2/user.sh"
 bash "$ROOT/install/reconcile/schema/1-to-2/system-after-user.sh"
 bash "$ROOT/install/reconcile/user.sh"
@@ -350,6 +355,7 @@ grep -qx 'echo user-gemini' "$HOME/.local/bin/gemini"
 [[ $(<"$HOME/.config/noctalia/config.toml") == "user-config" ]]
 [[ $(<"$HOME/.config/noctalia/user-templates.toml") == "current" ]]
 [[ $(<"$HOME/.config/noctalia/templates/newer.tpl") == "newer" ]]
+[[ $(<"$HOME/.config/alacritty/monarch-text-size.toml") == $'[font]\nsize = 12' ]]
 (( $(grep -xc monarch-refresh-noctalia "$TEST_LOG") == 1 ))
 
 legacy_backup="$HOME/.local/share/monarch-v4"

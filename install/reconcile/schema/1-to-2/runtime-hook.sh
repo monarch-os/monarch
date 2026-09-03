@@ -12,4 +12,6 @@ if [[ -d $legacy_root && ! -L $legacy_root ]] ||
   install -m 0755 "$MONARCH_PATH/install/reconcile/packaged-runtime.sh" "$hook_tmp"
   mv -fT "$hook_tmp" "$finalize_hook"
   trap - EXIT
+  monarch-state set reboot-required
+  echo "The Monarch V5 upgrade will finish after your next login."
 fi
