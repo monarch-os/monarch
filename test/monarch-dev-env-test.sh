@@ -55,7 +55,7 @@ touch "$packaged_runtime/default/zsh/"{shell,inputrc} \
   "$packaged_runtime/default/shells/"{init,aliases,functions}
 cp "$ROOT/default/shells/envs" "$packaged_runtime/default/shells/envs"
 zsh_runtime=$(HOME="$shell_home" MONARCH_RUNTIME_ROOT="$packaged_runtime" MONARCH_PATH= PATH=/usr/bin \
-  zsh -c 'unset MONARCH_PATH; source "$1"; printf "%s" "$MONARCH_PATH"' zsh "$ROOT/default/zsh/rc")
+  bash -c 'unset MONARCH_PATH; source "$1"; printf "%s" "$MONARCH_PATH"' bash "$ROOT/default/zsh/rc")
 [[ $zsh_runtime == $packaged_runtime ]]
 
 chmod -x "$packaged_runtime/bin/monarch"
