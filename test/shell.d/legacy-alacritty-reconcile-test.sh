@@ -30,7 +30,7 @@ run_reconcile() {
 
 for index in "${!fixture_names[@]}"; do
   fixture="$fixture_dir/${fixture_names[$index]}"
-  [[ $(sha256sum "$fixture" | cut -d' ' -f1) == "${fixture_checksums[$index]}" ]] ||
+  [[ $(sha256sum "$fixture" | cut -d' ' -f1) == ${fixture_checksums[$index]} ]] ||
     fail "${fixture_names[$index]} no longer matches its V4 provenance"
 
   stock_home="$test_tmp/stock-$index"

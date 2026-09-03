@@ -50,6 +50,14 @@ chmod +x "$packaged_runtime/bin/monarch" "$shell_home/.local/share/monarch/bin/m
 shell_path=$(HOME="$shell_home" MONARCH_RUNTIME_ROOT="$packaged_runtime" MONARCH_PATH= PATH=/usr/bin bash -c 'unset MONARCH_PATH; . "$1"; . "$1"; printf "%s" "$PATH"' sh "$ROOT/default/shells/envs")
 [[ $shell_path == $packaged_runtime/bin:/usr/bin:$shell_home/.local/share/mise/shims:$shell_home/.local/bin ]]
 
+mkdir -p "$packaged_runtime/default/"{shells,zsh}
+touch "$packaged_runtime/default/zsh/"{shell,inputrc} \
+  "$packaged_runtime/default/shells/"{init,aliases,functions}
+cp "$ROOT/default/shells/envs" "$packaged_runtime/default/shells/envs"
+zsh_runtime=$(HOME="$shell_home" MONARCH_RUNTIME_ROOT="$packaged_runtime" MONARCH_PATH= PATH=/usr/bin \
+  zsh -c 'unset MONARCH_PATH; source "$1"; printf "%s" "$MONARCH_PATH"' zsh "$ROOT/default/zsh/rc")
+[[ $zsh_runtime == $packaged_runtime ]]
+
 chmod -x "$packaged_runtime/bin/monarch"
 legacy_path=$(HOME="$shell_home" MONARCH_RUNTIME_ROOT="$packaged_runtime" MONARCH_PATH= PATH=/usr/bin bash -c 'unset MONARCH_PATH; . "$1"; printf "%s" "$PATH"' sh "$ROOT/default/shells/envs")
 [[ $legacy_path == $shell_home/.local/share/monarch/bin:/usr/bin:$shell_home/.local/share/mise/shims:$shell_home/.local/bin ]]

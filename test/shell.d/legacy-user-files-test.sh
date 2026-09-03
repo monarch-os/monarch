@@ -190,8 +190,8 @@ bash "$ROOT/install/reconcile/schema/1-to-2/legacy-user-files.sh"
 
 [[ ! -e $recover_unit && ! -e $battery_unit && ! -e $battery_timer ]]
 [[ ! -e $menu && ! -e $theme_sample ]]
-[[ $(readlink "$MONARCH_USER_SYSTEMD_DIR/graphical-session.target.wants/${recover_unit##*/}") == "$MONARCH_SYSTEMD_USER_VENDOR_DIR/${recover_unit##*/}" ]]
-[[ $(readlink "$MONARCH_USER_SYSTEMD_DIR/timers.target.wants/${battery_timer##*/}") == "$MONARCH_SYSTEMD_USER_VENDOR_DIR/${battery_timer##*/}" ]]
+[[ $(readlink "$MONARCH_USER_SYSTEMD_DIR/graphical-session.target.wants/${recover_unit##*/}") == $MONARCH_SYSTEMD_USER_VENDOR_DIR/${recover_unit##*/} ]]
+[[ $(readlink "$MONARCH_USER_SYSTEMD_DIR/timers.target.wants/${battery_timer##*/}") == $MONARCH_SYSTEMD_USER_VENDOR_DIR/${battery_timer##*/} ]]
 grep -qx 'ExecStart=/usr/bin/monarch-hw-recover-internal-monitor' \
   "$MONARCH_SYSTEMD_USER_VENDOR_DIR/${recover_unit##*/}"
 grep -qx 'ExecStart=/usr/bin/monarch-battery-monitor' \
@@ -220,7 +220,7 @@ bash "$ROOT/install/reconcile/schema/1-to-2/legacy-user-files.sh"
 [[ $(<"$battery_unit") == "# custom battery monitor" ]]
 [[ $(<"$menu") == "# custom menu" ]]
 [[ $(<"$theme_sample") == "# custom hook sample" ]]
-[[ -L $recover_unit && $(readlink "$recover_unit") == "$test_tmp/custom-recovery.service" ]]
+[[ -L $recover_unit && $(readlink "$recover_unit") == $test_tmp/custom-recovery.service ]]
 [[ ! -s $TEST_SYSTEMCTL_LOG ]]
 
 rm -f "$recover_unit"
@@ -241,7 +241,7 @@ unit_marker="$HOME/.local/state/monarch/reconcile/1-to-2/legacy-user-files/${rec
 bash "$ROOT/install/reconcile/schema/1-to-2/legacy-user-files.sh"
 
 [[ ! -e $unit_marker ]]
-[[ $(readlink "$MONARCH_USER_SYSTEMD_DIR/graphical-session.target.wants/${recover_unit##*/}") == "$MONARCH_SYSTEMD_USER_VENDOR_DIR/${recover_unit##*/}" ]]
+[[ $(readlink "$MONARCH_USER_SYSTEMD_DIR/graphical-session.target.wants/${recover_unit##*/}") == $MONARCH_SYSTEMD_USER_VENDOR_DIR/${recover_unit##*/} ]]
 (( $(grep -xc 'daemon-reload ' "$TEST_SYSTEMCTL_LOG") == 2 ))
 (( $(grep -xc 'reenable monarch-recover-internal-monitor.service' "$TEST_SYSTEMCTL_LOG") == 2 ))
 (( $(grep -xc 'restart monarch-recover-internal-monitor.service' "$TEST_SYSTEMCTL_LOG") == 2 ))

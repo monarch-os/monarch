@@ -5,7 +5,11 @@ legacy_nvim_theme="$HOME/.config/monarch/current/theme/neovim.lua"
 if [[ -L $nvim_plugins/theme.lua && $(readlink "$nvim_plugins/theme.lua") == $legacy_nvim_theme ]]; then
   rm -f "$nvim_plugins/theme.lua"
 fi
-rm -f "$nvim_plugins/omarchy-theme-hotreload.lua"
+legacy_hotreload="$nvim_plugins/omarchy-theme-hotreload.lua"
+if [[ -f $legacy_hotreload && ! -L $legacy_hotreload &&
+  $(sha256sum "$legacy_hotreload" | cut -d' ' -f1) == "69c7e055fe9eb78690cc03438f82484f9c13829a921c3daa3c18d66222bb0541" ]]; then
+  rm -f "$legacy_hotreload"
+fi
 
 nvim_config="$HOME/.config/nvim"
 nvim_options="$nvim_config/lua/config/options.lua"

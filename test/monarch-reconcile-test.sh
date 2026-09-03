@@ -210,6 +210,10 @@ if [[ $1 == "msg" && $2 == "status" ]]; then
   [[ $TEST_NOCTALIA == "ready" || -f $(dirname "$TEST_LOG")/noctalia-ready ]]
   exit
 fi
+if [[ $1 == "msg" && $2 == "plugins" && $3 == "enable" &&
+  $4 == "${TEST_NOCTALIA_PLUGIN_FAILURE:-}" ]]; then
+  exit 1
+fi
 printf '%s\n' "$*" >>"$TEST_LOG"
 EOF
 
@@ -251,7 +255,8 @@ printf '%s\n' custom >"$HOME/.config/noctalia/templates/custom.tpl"
 printf '%s\n' legacy >"$HOME/.config/noctalia/user-templates.toml"
 ln -s "$HOME/.config/monarch/current/theme/neovim.lua" \
   "$HOME/.config/nvim/lua/plugins/theme.lua"
-touch "$HOME/.config/nvim/lua/plugins/omarchy-theme-hotreload.lua"
+cp "$ROOT/test/fixtures/nvim-v4/omarchy-theme-hotreload.lua" \
+  "$HOME/.config/nvim/lua/plugins/omarchy-theme-hotreload.lua"
 printf '%s\n' 'vim.opt.relativenumber = false' >"$HOME/dotfiles/nvim-options.lua"
 ln -s "$HOME/dotfiles/nvim-options.lua" "$HOME/.config/nvim/lua/config/options.lua"
 printf '%s\n' 'return {}' >"$MONARCH_NVIM_CONFIG_DIR/lua/config/remote_clipboard.lua"
@@ -358,6 +363,16 @@ grep -qx 'echo user-gemini' "$HOME/.local/bin/gemini"
 [[ $(<"$HOME/.config/alacritty/monarch-text-size.toml") == $'[font]\nsize = 12' ]]
 (( $(grep -xc monarch-refresh-noctalia "$TEST_LOG") == 1 ))
 
+export TEST_NOCTALIA_PLUGIN_FAILURE=monarch/menu
+rm -f "$plugin_hook"
+bash "$ROOT/install/reconcile/user.sh"
+[[ -x $plugin_hook ]]
+bash "$ROOT/bin/monarch-reconcile" --complete
+[[ ! -e $HOME/.local/state/monarch/schema ]]
+unset TEST_NOCTALIA_PLUGIN_FAILURE
+bash "$plugin_hook"
+[[ ! -e $plugin_hook ]]
+
 legacy_backup="$HOME/.local/share/monarch-v4"
 ln -s missing "$legacy_backup"
 if bash "$runtime_hook" >/dev/null 2>&1; then
@@ -398,7 +413,7 @@ rm -f "$TEST_ROOT/noctalia-status-count"
 TEST_NOCTALIA_READY_AFTER=3 MONARCH_RECONCILE_BIN="$TEST_ROOT/bin/reconcile-complete" \
   bash "$plugin_hook"
 [[ ! -e $plugin_hook ]]
-[[ $(<"$TEST_ROOT/noctalia-status-count") == "4" ]]
+[[ $(<"$TEST_ROOT/noctalia-status-count") == "3" ]]
 [[ $(<"$TEST_ROOT/reconcile-complete") == "--complete" ]]
 
 prepare_deferred_hooks() {
@@ -456,15 +471,19 @@ TEST_NOTIFICATION_READY=true HOME="$archive_only_home" \
 [[ $(<"$archive_only_home/.local/state/monarch/schema") == "2" ]]
 
 nvim_conflict_home="$TEST_ROOT/nvim-conflict"
-mkdir -p "$nvim_conflict_home/.config/nvim/lua/config" "$nvim_conflict_home/dotfiles"
+mkdir -p "$nvim_conflict_home/.config/nvim/lua/config" \
+  "$nvim_conflict_home/.config/nvim/lua/plugins" "$nvim_conflict_home/dotfiles"
 printf '%s\n' 'return { custom = true }' >"$nvim_conflict_home/dotfiles/remote_clipboard.lua"
 ln -s "$nvim_conflict_home/dotfiles/remote_clipboard.lua" \
   "$nvim_conflict_home/.config/nvim/lua/config/remote_clipboard.lua"
 printf '%s\n' 'vim.opt.number = true' \
   >"$nvim_conflict_home/.config/nvim/lua/config/options.lua"
+printf '%s\n' 'return { user_customization = true }' \
+  >"$nvim_conflict_home/.config/nvim/lua/plugins/omarchy-theme-hotreload.lua"
 HOME="$nvim_conflict_home" MONARCH_NVIM_CONFIG_DIR="$MONARCH_NVIM_CONFIG_DIR" \
   bash "$ROOT/install/reconcile/schema/1-to-2/nvim.sh"
 [[ -L $nvim_conflict_home/.config/nvim/lua/config/remote_clipboard.lua ]]
+[[ -f $nvim_conflict_home/.config/nvim/lua/plugins/omarchy-theme-hotreload.lua ]]
 if grep -qF 'config.remote_clipboard' \
   "$nvim_conflict_home/.config/nvim/lua/config/options.lua"; then
   echo "A custom Nvim provider was enabled without a compatible setup function" >&2

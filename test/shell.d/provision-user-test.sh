@@ -40,7 +40,7 @@ assert_skills() {
   for skill_dir in "${skill_dirs[@]}"; do
     for skill in monarch diagnose-crash; do
       link="$test_tmp/home/$skill_dir/$skill"
-      [[ -L $link && $(readlink "$link") == "$ROOT/default/agents/skills/$skill" ]] ||
+      [[ -L $link && $(readlink "$link") == $ROOT/default/agents/skills/$skill ]] ||
         fail "monarch-provision-user provisions $skill for $skill_dir"
     done
   done

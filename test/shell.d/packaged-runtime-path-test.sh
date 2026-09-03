@@ -39,8 +39,10 @@ grep -qF 'MONARCH_RUNTIME_ROOT:-/usr/share/monarch' "$ROOT/default/shells/envs" 
 grep -qF 'MONARCH_PATH=$HOME/.local/share/monarch' "$ROOT/default/shells/envs" ||
   fail "shell sessions cannot recover through the legacy checkout"
 for rc in "$ROOT/default/zsh/rc" "$ROOT/default/bash/rc"; do
-  grep -qF '! -x ${MONARCH_RUNTIME_ROOT:-/usr/share/monarch}/bin/monarch' "$rc" ||
-    fail "$(basename "$(dirname "$rc")") enters the packaged runtime before checking it"
+  grep -qF '${MONARCH_RUNTIME_ROOT:-/usr/share/monarch}/bin/monarch' "$rc" ||
+    fail "$(basename "$(dirname "$rc")") does not check the packaged runtime"
+  grep -qF 'MONARCH_PATH=$HOME/.local/share/monarch' "$rc" ||
+    fail "$(basename "$(dirname "$rc")") cannot recover through the legacy checkout"
 done
 pass "login sessions prefer the packaged runtime and retain upgrade recovery"
 

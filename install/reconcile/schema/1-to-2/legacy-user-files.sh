@@ -12,7 +12,7 @@ file_matches() {
   [[ -f $file && ! -L $file ]] || return 1
   checksum=$(sha256sum "$file")
   checksum=${checksum%% *}
-  [[ $checksum == "$expected_checksum" ]]
+  [[ $checksum == $expected_checksum ]]
 }
 
 valid_enable_state() {
@@ -84,30 +84,25 @@ remove_legacy_file() {
   rm -f "$file"
 }
 
-units=(
-  monarch-recover-internal-monitor.service
-  monarch-battery-monitor.service
-  monarch-battery-monitor.timer
-)
-unit_checksums=(
-  a60226f83b010601daa675cec6dd065851e3cf6cd66176cc5df687420bf0e1fc
-  f8a2f9a09f9b189c1d49e39e00bd74e010b2f7323c27f451878d3ce581d66a1c
-  e073738fdaadb814f04fcf9be55ac99a167f6c863d494da5b67b65d87d209761
+declare -A unit_checksums=(
+  [monarch-recover-internal-monitor.service]=a60226f83b010601daa675cec6dd065851e3cf6cd66176cc5df687420bf0e1fc
+  [monarch-battery-monitor.service]=f8a2f9a09f9b189c1d49e39e00bd74e010b2f7323c27f451878d3ce581d66a1c
+  [monarch-battery-monitor.timer]=e073738fdaadb814f04fcf9be55ac99a167f6c863d494da5b67b65d87d209761
 )
 
-for index in "${!units[@]}"; do
-  prepare_unit "${units[$index]}" "${unit_checksums[$index]}"
+for unit in "${!unit_checksums[@]}"; do
+  prepare_unit "$unit" "${unit_checksums[$unit]}"
 done
 
 pending=false
-for unit in "${units[@]}"; do
+for unit in "${!unit_checksums[@]}"; do
   [[ ! -f $state_dir/$unit ]] || pending=true
 done
 
 if [[ $pending == "true" ]]; then
   systemctl --user daemon-reload
 
-  for unit in "${units[@]}"; do
+  for unit in "${!unit_checksums[@]}"; do
     marker="$state_dir/$unit"
     [[ -f $marker ]] || continue
     [[ -f $vendor_unit_dir/$unit ]] || {
