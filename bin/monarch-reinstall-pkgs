@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Reinstall all default Monarch packages from the stable channel
+# monarch:summary=Reinstall all Monarch base packages from the stable channel
 # monarch:requires-sudo=true
 
 set -e
@@ -13,6 +13,10 @@ monarch-refresh-pacman
 # Downgrade any packages to the stable setup
 sudo env MONARCH_UPDATE_PACMAN=1 pacman -Suu --noconfirm
 
+sudo env MONARCH_UPDATE_PACMAN=1 pacman -S --noconfirm monarch monarch-settings
+
 # Ensure all packages are installed
-mapfile -t packages < <(grep -v '^#' "$MONARCH_PATH/install/monarch-base.packages" | grep -v '^$')
+source "$MONARCH_PATH/install/helpers/package-manifest.sh"
+packages=()
+monarch_load_package_manifest packages "$MONARCH_PATH/install/monarch-base.packages"
 sudo env MONARCH_UPDATE_PACMAN=1 pacman -Syu --noconfirm --needed "${packages[@]}"

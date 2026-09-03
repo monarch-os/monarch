@@ -1,9 +1,12 @@
 #!/bin/bash
 
-# monarch:summary=Remove preinstalled Monarch applications (web apps, TUIs, and selected packages).
+# monarch:summary=Remove the user-removable Monarch software bundle.
 
-if gum confirm "Are you sure you want to remove all preinstalled web apps, TUI wrappers, and desktop applications?"; then
-  echo -e "Removing preinstalled Monarch applications...\n"
+set -euo pipefail
+MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}
+
+if gum confirm "Are you sure you want to remove the user-removable Monarch software bundle?"; then
+  echo -e "Removing the user-removable Monarch software bundle...\n"
 
   monarch-remove-preinstall-artifacts
 

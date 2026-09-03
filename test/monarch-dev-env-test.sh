@@ -43,11 +43,39 @@ grep -qF '$HOME/.local/share/mise/shims' "$ROOT/config/uwsm/env"
 grep -qF '@{HOME}/.local/share/mise/shims' "$ROOT/install/config/ssh-command-path.sh"
 
 shell_home="$TEST_ROOT/shell-home"
-shell_path=$(HOME="$shell_home" MONARCH_PATH= PATH=/usr/bin bash -c 'unset MONARCH_PATH; . "$1"; . "$1"; printf "%s" "$PATH"' sh "$ROOT/default/shells/envs")
-[[ $shell_path == "/usr/share/monarch/bin:/usr/bin:$shell_home/.local/share/mise/shims:$shell_home/.local/bin" ]]
+packaged_runtime="$TEST_ROOT/packaged-runtime"
+mkdir -p "$packaged_runtime/bin" "$shell_home/.local/share/monarch/bin"
+touch "$packaged_runtime/bin/monarch" "$shell_home/.local/share/monarch/bin/monarch"
+chmod +x "$packaged_runtime/bin/monarch" "$shell_home/.local/share/monarch/bin/monarch"
+shell_path=$(HOME="$shell_home" MONARCH_RUNTIME_ROOT="$packaged_runtime" MONARCH_PATH= PATH=/usr/bin bash -c 'unset MONARCH_PATH; . "$1"; . "$1"; printf "%s" "$PATH"' sh "$ROOT/default/shells/envs")
+[[ $shell_path == $packaged_runtime/bin:/usr/bin:$shell_home/.local/share/mise/shims:$shell_home/.local/bin ]]
+
+mkdir -p "$packaged_runtime/default/"{shells,zsh}
+touch "$packaged_runtime/default/zsh/"{shell,inputrc} \
+  "$packaged_runtime/default/shells/"{init,aliases,functions}
+cp "$ROOT/default/shells/envs" "$packaged_runtime/default/shells/envs"
+zsh_runtime=$(HOME="$shell_home" MONARCH_RUNTIME_ROOT="$packaged_runtime" MONARCH_PATH= PATH=/usr/bin \
+  bash -c 'unset MONARCH_PATH; source "$1"; printf "%s" "$MONARCH_PATH"' bash "$ROOT/default/zsh/rc")
+[[ $zsh_runtime == $packaged_runtime ]]
+
+chmod -x "$packaged_runtime/bin/monarch"
+legacy_path=$(HOME="$shell_home" MONARCH_RUNTIME_ROOT="$packaged_runtime" MONARCH_PATH= PATH=/usr/bin bash -c 'unset MONARCH_PATH; . "$1"; printf "%s" "$PATH"' sh "$ROOT/default/shells/envs")
+[[ $legacy_path == $shell_home/.local/share/monarch/bin:/usr/bin:$shell_home/.local/share/mise/shims:$shell_home/.local/bin ]]
+
+legacy_root="$shell_home/.local/share/monarch"
+mkdir -p "$legacy_root/default/"{bash,shells,zsh}
+cp "$ROOT/default/shells/envs" "$legacy_root/default/shells/envs"
+touch "$legacy_root/default/bash/"{shell,completions} \
+  "$legacy_root/default/shells/"{aliases,functions,init} \
+  "$legacy_root/default/zsh/"{shell,inputrc}
+for shell_rc in bash zsh; do
+  recovered=$(HOME="$shell_home" MONARCH_RUNTIME_ROOT="$packaged_runtime" MONARCH_PATH= PATH=/usr/bin \
+    bash -c 'unset MONARCH_PATH; . "$1"; command -v monarch' sh "$ROOT/default/$shell_rc/rc")
+  [[ $recovered == $legacy_root/bin/monarch ]]
+done
 
 checkout="$shell_home/checkout"
 override_path=$(HOME="$shell_home" MONARCH_PATH="$checkout" PATH=/usr/bin bash -c '. "$1"; . "$1"; printf "%s" "$PATH"' sh "$ROOT/default/shells/envs")
-[[ $override_path == "$checkout/bin:/usr/bin:$shell_home/.local/share/mise/shims:$shell_home/.local/bin" ]]
+[[ $override_path == $checkout/bin:/usr/bin:$shell_home/.local/share/mise/shims:$shell_home/.local/bin ]]
 
 echo "All development environment tests passed."

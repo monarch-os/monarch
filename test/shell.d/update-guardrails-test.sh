@@ -218,11 +218,18 @@ grep -q '^monarch-update-switch-branch .*args=dev$' "$test_tmp/steps" ||
   fail "branch update does not forward its selected branch"
 pass "branch updates enter the common transaction before mutating Git state"
 
+write_stub paccache 'exit 0'
 write_stub sudo 'printf "%s\n" "$*" >"$PACCACHE_LOG"'
 PACCACHE_LOG="$test_tmp/paccache" PATH="$stub_bin:$ROOT/bin:$PATH" \
   "$ROOT/bin/monarch-update-pkg-prune" >/dev/null
 grep -Eq '^paccache -rk2$' "$test_tmp/paccache" || fail "package prune retains two cache versions"
 pass "package cache pruning preserves two rollback versions"
+
+prune_output=$(MONARCH_PACCACHE_BIN="$test_tmp/missing-paccache" \
+  PATH="$stub_bin:/usr/bin" "$ROOT/bin/monarch-update-pkg-prune" 2>&1)
+[[ $prune_output != *"command not found"* ]] || fail "missing paccache produces a shell error"
+[[ $prune_output == *"Skipping package cache pruning"* ]] || fail "missing paccache is not explained"
+pass "package cache pruning is skipped cleanly when pacman-contrib is absent"
 
 stay_awake_stub="$stub_bin/monarch-update-stay-awake"
 mv "$stay_awake_stub" "$stay_awake_stub.disabled"

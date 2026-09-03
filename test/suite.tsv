@@ -43,7 +43,14 @@ test/monarch-windows-key-test.sh	windows	low	isolated
 test/shell.d/dns-security-test.sh	dns	medium	isolated
 test/shell.d/factory-reset-esp-test.sh	factory-reset	high	isolated
 test/shell.d/install-keyring-test.sh	installer	high	isolated
+test/shell.d/legacy-agent-reconcile-test.sh	updates	high	isolated
+test/shell.d/legacy-alacritty-reconcile-test.sh	updates	high	isolated
+test/shell.d/legacy-docker-firewall-test.sh	security	high	isolated
 test/shell.d/legacy-udev-reconcile-test.sh	security	high	isolated
+test/shell.d/legacy-user-files-test.sh	updates	high	isolated
+test/shell.d/legacy-settings-pacnew-test.sh	updates	high	isolated
+test/shell.d/legacy-runtime-remove-test.sh	updates	high	isolated
+test/shell.d/package-manifest-test.sh	package-install	high	isolated
 test/shell.d/packaged-runtime-path-test.sh	package-runtime	high	isolated
 test/shell.d/provision-owner-branding-test.sh	provisioning	low	isolated
 test/shell.d/provision-user-test.sh	provisioning	high	isolated
@@ -53,6 +60,7 @@ test/shell.d/security-fido2-remove-test.sh	security	high	isolated
 test/shell.d/security-fido2-test.sh	security	high	isolated
 test/shell.d/setup-form-test.sh	installer	medium	isolated
 test/shell.d/shell-init-login-test.sh	shell	medium	isolated
+test/shell.d/system-power-test.sh	power	high	isolated
 test/shell.d/update-guardrails-test.sh	updates	high	isolated
 test/shell.d/update-pacman-guard-test.sh	updates	high	isolated
 test/shell.d/workspace-names-test.sh	workspaces	low	isolated

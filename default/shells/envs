@@ -9,7 +9,14 @@ export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 export NESSUS_KEY="NESSUS_KEY"
 
 # Duplicated from .config/uwsm/env so SSH works too
-export MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}
+if [[ -z ${MONARCH_PATH:-} ]]; then
+  if [[ -x ${MONARCH_RUNTIME_ROOT:-/usr/share/monarch}/bin/monarch ]]; then
+    MONARCH_PATH=${MONARCH_RUNTIME_ROOT:-/usr/share/monarch}
+  else
+    MONARCH_PATH=$HOME/.local/share/monarch
+  fi
+fi
+export MONARCH_PATH
 case ":$PATH:" in
   *":$MONARCH_PATH/bin:"*) ;;
   *) PATH=$MONARCH_PATH/bin${PATH:+:$PATH} ;;

@@ -92,11 +92,11 @@ mkdir -p ~/.agents/skills ~/.claude/skills ~/.codex/skills ~/.pi/agent/skills ~/
 for skill in "$MONARCH_PATH"/default/agents/skills/*/; do
   skill=${skill%/}
   name=${skill##*/}
-  ln -sfn "$skill" ~/.agents/skills/"$name"
-  ln -sfn "$skill" ~/.claude/skills/"$name"
-  ln -sfn "$skill" ~/.codex/skills/"$name"
-  ln -sfn "$skill" ~/.pi/agent/skills/"$name"
-  ln -sfn "$skill" ~/.gemini/config/skills/"$name"
+  for skill_dir in ~/.agents/skills ~/.claude/skills ~/.codex/skills ~/.pi/agent/skills ~/.gemini/config/skills; do
+    destination="$skill_dir/$name"
+    [[ ! -e $destination || -L $destination ]] || continue
+    ln -sfnT "$skill" "$destination"
+  done
 done
 
 mkdir -p ~/Downloads ~/Pictures ~/Videos ~/.config/gtk-3.0

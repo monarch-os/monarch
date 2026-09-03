@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-BUNDLES_DIR="${MONARCH_THEME_BUNDLES_DIR:-$HOME/.local/share/monarch/theme-bundles}"
+BUNDLES_DIR="${MONARCH_THEME_BUNDLES_DIR:-$HOME/.config/monarch/themes}"
 PALETTES_DIR="${MONARCH_THEME_PALETTES_DIR:-$HOME/.config/noctalia/palettes}"
 
 fail() {

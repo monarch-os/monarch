@@ -3,6 +3,8 @@
 # monarch:summary=Reset Noctalia configuration to Monarch defaults, re-apply the Monarch wallpaper, and restart the shell.
 # monarch:examples=monarch refresh noctalia
 
+set -euo pipefail
+
 monarch-refresh-config noctalia/config.toml
 monarch-refresh-config noctalia/palettes/Monarch.json
 

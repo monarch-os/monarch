@@ -1,3 +1,7 @@
+if [[ -z ${MONARCH_PATH:-} && ! -x ${MONARCH_RUNTIME_ROOT:-/usr/share/monarch}/bin/monarch ]]; then
+  export MONARCH_PATH=$HOME/.local/share/monarch
+fi
+
 source "${MONARCH_PATH:-/usr/share/monarch}/default/shells/envs"
 source "$MONARCH_PATH/default/bash/shell"
 source "$MONARCH_PATH/default/bash/completions"

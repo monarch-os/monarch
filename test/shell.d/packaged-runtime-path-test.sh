@@ -34,9 +34,17 @@ pass "refresh niri uses MONARCH_PATH for packaged defaults"
 
 grep -qF 'MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}' "$ROOT/config/uwsm/env" ||
   fail "the graphical session does not default to the packaged runtime"
-grep -qF 'MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}' "$ROOT/default/shells/envs" ||
-  fail "shell sessions do not default to the packaged runtime"
-pass "login sessions preserve an override and default to /usr/share/monarch"
+grep -qF 'MONARCH_RUNTIME_ROOT:-/usr/share/monarch' "$ROOT/default/shells/envs" ||
+  fail "shell sessions do not prefer the packaged runtime"
+grep -qF 'MONARCH_PATH=$HOME/.local/share/monarch' "$ROOT/default/shells/envs" ||
+  fail "shell sessions cannot recover through the legacy checkout"
+for rc in "$ROOT/default/zsh/rc" "$ROOT/default/bash/rc"; do
+  grep -qF '${MONARCH_RUNTIME_ROOT:-/usr/share/monarch}/bin/monarch' "$rc" ||
+    fail "$(basename "$(dirname "$rc")") does not check the packaged runtime"
+  grep -qF 'MONARCH_PATH=$HOME/.local/share/monarch' "$rc" ||
+    fail "$(basename "$(dirname "$rc")") cannot recover through the legacy checkout"
+done
+pass "login sessions prefer the packaged runtime and retain upgrade recovery"
 
 grep -qF '${MONARCH_INSTALL:-${MONARCH_PATH:-/usr/share/monarch}/install}/helpers/workspaces.sh' \
   "$ROOT/install/user/detect-keyboard-layout.sh" ||
@@ -54,6 +62,16 @@ for plugin in theme background unlock; do
     fail "the Monarch $plugin panel does not default to the packaged runtime"
 done
 pass "theme panels invoke commands from the packaged Monarch runtime"
+
+for command in monarch-theme-apply monarch-theme-bundle monarch-theme-list; do
+  grep -qF '$HOME/.config/monarch/themes' "$ROOT/bin/$command" ||
+    fail "$command does not keep user themes under ~/.config/monarch"
+done
+grep -qF '$HOME/.config/monarch/themes' "$ROOT/default/monarch/monarch-menu.jsonc" ||
+  fail "the menu does not discover user themes under ~/.config/monarch"
+[[ ! -e $ROOT/bin/monarch-reinstall-git ]] ||
+  fail "the package runtime still exposes the checkout reinstaller"
+pass "user themes and reinstall workflows no longer depend on a source checkout"
 
 runtime_commands=(
   monarch-install-tailscale

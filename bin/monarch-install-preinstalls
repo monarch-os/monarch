@@ -1,12 +1,13 @@
 #!/bin/bash
 
-# monarch:summary=Restore the preinstalled Monarch applications (web apps, TUIs, and selected packages).
+# monarch:summary=Restore the user-removable Monarch software bundle.
 # monarch:requires-sudo=true
 
-set -e
+set -euo pipefail
+MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}
 
-if gum confirm "Are you sure you want to restore all preinstalled web apps, TUI wrappers, and desktop applications?"; then
-  echo -e "Restoring preinstalled Monarch applications...\n"
+if gum confirm "Are you sure you want to restore the user-removable Monarch software bundle?"; then
+  echo -e "Restoring the user-removable Monarch software bundle...\n"
 
   monarch-refresh-applications
 
