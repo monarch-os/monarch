@@ -1,799 +1,918 @@
-# Noctalia v5 — migration TODO
+# Noctalia v5 — follow-up roadmap
 
-State of the `noctalia-v5` branch and what is left on it.
+The migration from Noctalia v4 is feature-complete. This uncommitted working
+document tracks only follow-up work. Do not start an item without explicit user
+validation. Update its status after every test, PR and merge.
 
-Noctalia v5 is a native C++ Wayland shell: no Qt, no Quickshell. v4 is frozen, so
-this migration is forced rather than opportunistic. The package is `extra/noctalia`
-in the Arch official repos, so there is no packaging work — the binary is
-`noctalia`, the daemon is `noctalia -d`, and IPC is `noctalia msg <verb>`.
+Statuses: `candidate`, `approved`, `in progress`, `in review`, `merged`,
+`deferred`, `rejected`.
 
-The blocking migration, wallpaper integration, status indicators, menu and
-responsive About screen are done. Remaining work is tracked under **Next
-chantiers** below. Firefox/pywalfox remains deliberately deferred.
+## Installation architecture handoff — 2026-08-27
 
----
+- **Status:** in review
+- **Scope:** package Monarch as a system runtime, split runtime/defaults into
+  two packages, and make the ISO use the phased installer plus the same
+  first-boot provisioning interfaces.
+- **Product decision:** Pangolin/Newt is deferred and is not part of these PRs.
+- **Compatibility decision:** there is no installed fleet to migrate yet. The
+  legacy installer tree and historical migrations were removed intentionally;
+  migration compatibility will be reviewed separately if it becomes relevant.
 
-## Blocking before merge
+Open PRs:
 
-### 1. Migration for existing v4 installs — *done, `migrations/1787176715.sh`*
+- [`monarch#170`](https://github.com/monarch-os/monarch/pull/170),
+  `noctalia-v5` → `dev`: Noctalia V5 plus the packaged Monarch runtime.
+  Main feature commit: `a16e873c`; latest branch commit after merging current
+  `dev` and cleaning fixtures: `85f0b31c`.
+- [`monarch-pkgs#64`](https://github.com/monarch-os/monarch-pkgs/pull/64),
+  `monarch/runtime-packages` → `main`: `monarch` and `monarch-settings`, with
+  the obsolete standalone `monarch-dns` package removed. Commit: `8c97c9b`.
+- [`monarch-iso#19`](https://github.com/monarch-os/monarch-iso/pull/19),
+  `noctalia-v5` → `main`: packaged local-source builds, phased orchestrator,
+  dashboard, full-disk/free-space installation, deferred provisioning,
+  factory reset, Tailscale, diagnostics and release sidecars. Commit:
+  `de7414e`.
 
-An existing v4 machine now gets the whole switch in one migration: the package
-swap (`noctalia-shell` declares no conflict with `noctalia`, so pacman would
-otherwise keep both, and `-Rns` takes the `noctalia-qs` Quickshell fork along),
-the v4 state removal, the v5 config and plugin seeding, the fingerprint toggle
-carried into `monarch-fingerprint.toml`, and `monarch-refresh-niri` so
-`config.kdl` stops spawning `qs -c noctalia-shell`.
+The `monarch` and `monarch-iso` integration branches are deliberately both
+named `noctalia-v5`. An older remote ISO branch named
+`monarch/installer-orchestrator` points at the same implementation but has no
+PR and can be deleted after merge.
 
-Two things the original plan got wrong, worth not re-deriving:
+Validation completed before opening the PRs:
 
-- **`~/.config/noctalia/templates/` must not be deleted.** It is still live under
-  v5 — it holds the sddm and herdr inputs `monarch-theme-apply` renders. Only the
-  inputs Monarch no longer ships are pruned.
-- **`~/.config/noctalia/colors.json` must not be deleted.** `monarch-sddm-theme`
-  and `monarch-plymouth-apply` both read it.
+- a complete local-source ISO build succeeded;
+- interactive ISO boot, installation, reboot and desktop startup succeeded in
+  QEMU;
+- unattended and deferred-owner installation paths were exercised in QEMU;
+- `monarch-iso/test/all` passed: every shell unit suite and 68 Python tests;
+- Monarch CLI, menu, network, display, power, kernel-header and packaged-runtime
+  shell suites passed;
+- the Niri socket-discovery test passed outside the restricted agent sandbox;
+- repository and PyPI resolution passed for all 220 package names;
+- PKGBUILD/install-hook syntax and all three repository diffs passed their
+  static checks.
 
-`user-templates.toml` is removed rather than left: v5 merges every `*.toml` in
-that directory, so it is parsed, not ignored, and its `[templates.*]` sections
-are rejected as unknown.
+Remaining before merge/release:
 
-Plugin activation needs a running daemon, and a migration is stamped as done
-whether or not one answered — so when the shell is down the enable is deferred to
-a self-removing `post-boot.d` hook.
+1. wait for and review all GitHub CI results;
+2. merge/publish the runtime and settings packages before relying on a normal
+   non-local ISO build, then merge the ISO PR;
+3. rebuild once from published packages rather than `--local-source`;
+4. retain the planned real-hardware UEFI/LUKS validation for free-space install
+   and factory reset before a release claim;
+5. decide separately whether the local changes in this roadmap belong in a
+   documentation commit; they are intentionally outside PR #170 today.
 
-### 2. Per-scheme wallpaper directory pinning — *done, verified in a booted VM*
+## Completed
 
-v4 repointed `wallpaper.directory` at the active scheme's background folder on
-every color change (`monarch-theme-apply`). v5 exposes no IPC for it: there is
-`wallpaper-set`, `wallpaper-get`, `wallpaper-next/previous/random`, but nothing
-that moves the picker's source folder.
+- Existing installations migrate from `noctalia-shell` to native Noctalia v5.
+- Wallpapers follow the active palette through Monarch's symlink farm; the
+  native wallpaper picker remains the source of truth.
+- Status, privacy, display, network and coding-agent widgets are native Luau
+  plugins.
+- The network panel covers Wi-Fi, DNS and diagnostics; network and disk speed
+  tests are exposed under Trigger.
+- The data-driven Monarch menu, global search and compact input/select panels
+  replace the old nested picker.
+- `monarch-about` has responsive layouts plus image, text and reset branding.
+- Removed preinstalled packages, webapps and TUIs can be restored safely;
+  failures preserve their retry state.
+- Crash capture keeps diagnostics local and exposes its state in the menu.
+- Noctalia's first-run setup panel is skipped on fresh Monarch sessions.
+- SDDM and application templates follow the active palette; new Obsidian vaults
+  are themed automatically.
+- Hardware guards, SSH setup, plugin settings, software organization, default
+  coding agents and Signal match the accepted Quattro scope.
 
-**Shipped solution — a symlink farm at a fixed directory.** Rather than move
-`wallpaper.directory` per scheme (which would need the unverified two-`.toml`
-merge-precedence trick and a `config-reload`-repoints-the-picker assumption),
-`config.toml` pins it once at `~/.config/monarch/backgrounds/current`, a
-Monarch-owned directory of symlinks that `monarch-theme-apply` rebuilds on every
-`colors_changed` hook. The farm unions the active scheme's shipped
-(`themes/<scheme>/`) and user (`~/.config/monarch/backgrounds/<scheme>/`)
-backgrounds — the same two-folder model `omarchy-theme-bg-next` uses — with the
-user file shadowing a shipped one of the same name. The directory path never
-changes, so no reload is needed; the native picker and `wallpaper-next/-previous`
-cycle whatever the farm currently holds. Rebuild only ever `unlink`s the links,
-never their targets, so no wallpaper file is deleted.
+## Quattro parity snapshot — 2026-08-27
 
-**Cold start needs a first-run stamp.** An earlier note here claimed the
-config-stage `monarch-theme-apply` was enough to paint the first frame. It is
-not, and a booted VM showed the desktop coming up on Noctalia's own bundled
-wallpaper. The config-stage run builds the farm but cannot apply anything —
-noctalia is installed by then but is not *running*, so `apply_wallpaper` returns
-early. Noctalia then starts and posts its own default, which is a real existing
-file, so an "apply only when nothing is set" test reads it as a deliberate choice
-and declines on every later hook and every later boot. `sync_wallpaper` therefore
-records that a Monarch wallpaper actually reached the shell, in
-`~/.local/state/monarch/wallpaper-applied`, and applies one while that stamp is
-missing *or* while what is set no longer exists. The stamp is written only when
-`wallpaper-set` succeeded, so the config-stage run does not claim a wallpaper it
-never set.
+The primary desktop migration is feature-complete, but Monarch does not yet
+match every part of Quattro's product experience. This is the historical
+snapshot against Quattro `946704f3`; Q21 below supersedes it with a release-by-
+release audit through v4.0.2 and current Quattro head.
 
-**Custom folders.** The picker scans one directory flat, so the farm can only
-hold file links, not a mounted subdirectory. A user who wants a whole collection
-(e.g. `~/Pictures/Wallpapers`) in every scheme drops a directory symlink into
-`~/.config/monarch/backgrounds/sources/`; `sync_wallpaper` flattens each mounted
-folder's images into the farm — the "pass N directories" model
-`omarchy-menu-images` uses, adapted to Noctalia's single-directory picker. The
-farm's `find` filters by image extension (jpg/jpeg/png/gif/bmp/webp), matching
-`omarchy-theme-bg-next`, so a stray `.txt`/`.md` in a mounted folder is ignored.
-Union priority (first to claim a basename wins): per-scheme user → shipped →
-mounted sources.
+Highest-value gaps still worth evaluating:
 
-Files: `config/noctalia/config.toml` (`[wallpaper] directory`),
-`bin/monarch-theme-apply` (`sync_wallpaper`), `install/config/config.sh` comment.
-**Verified in a booted VM** (autoinstalled from the branch ISO): the union and
-its priority, a directory symlink under `sources/` flattened in, the extension
-filter, stale-link cleanup with the link targets untouched, and the farm
-following a scheme change in both directions. Noctalia's own `wallpaper-set`
-applies a farm *link* path and the screen changes, `wallpaper-next` cycles the
-farm, and after a scheme change the same noctalia process cycles the new contents
-with no restart — so the picker re-scans the directory live, as assumed.
+- harden FIDO2 credential staging and the privileged DNS helper;
+- repair first-run notification actions and keep command arguments structured;
+- protect the supported update path with a lock, preflight checks and Quattro's
+  ALPM pre-transaction guard;
+- install, update and remove code-free Monarch theme bundles;
+- let users author application templates missing from Noctalia's catalogues;
+- add Quattro's crash-notification mute flow to the local crash diagnosis;
+- evaluate the restrained About-logo sheen without reopening the logo design.
 
-Two things the VM corrected. The `colors_changed` hook fires ~5s after the
-change, not synchronously, which reads as "the hook never fired" if you look too
-early. And v5 passes the hook **no arguments** — v4's appearance as `$1` is gone,
-so both the appearance and the scheme name come over IPC; the header comment
-claiming otherwise was wrong and has been fixed.
+Known gaps that are currently accepted, deferred or rejected:
 
-**The picker is settled: Noctalia already ships one.** This section used to plan
-an image-grid picker as a Monarch `[[panel]]`, on the premise that v5 had none.
-That premise is wrong. `noctalia msg panel-open wallpaper` opens a native panel
-with a virtual grid of thumbnails, a filter field, per-wallpaper favourites,
-sorting by name/date/random, a flatten toggle and a per-monitor selector — richer
-than quattro's. It reads `wallpaper.directory`, so it is already sitting on the
-farm above.
+- Noctalia has no atomic editable-plugin clone and built-in fallback lifecycle;
+- clock-format cycling, direct timezone access, a dedicated microphone widget,
+  weather and active-window widgets are not part of the default bar;
+- Dropbox integration is deferred, ONCE is rejected in its current form, and
+  Sunshine remains an independent future integration;
+- Monarch deliberately keeps Noctalia's native audio, wallpaper and plugin
+  management surfaces instead of rebuilding Quattro's QML panels;
+- a full Quattro-style user-authored shell and bar-plugin architecture remains
+  out of scope for the Noctalia v5 migration.
 
-Two ids are easy to confuse: the *panel* is `wallpaper`, while `wallpaper-selector`
-is the **bar widget**. `panel-toggle` returns `ok` for any id, valid or not, so a
-wrong one fails silently; `panel-open` validates and prints the valid ids in its
-error, which is the quick way to check.
+Already covered by Monarch or a richer Noctalia equivalent: Tailscale and
+Taildrop, Ori and Antigravity, Signal, opt-in sudoless Docker, the FIDO2 product
+flow apart from Q12's hardening, compact and repositionable bars, Quattro
+palettes, background selection/import, and the network, display and coding-
+agent panels. Q21 corrects the earlier assumption that Dell XPS speaker tuning
+was complete.
 
-A Monarch alternative modelled on quattro's carousel was built and measured
-against it. Verdict: keep the native panel, revisit when Noctalia's plugin API
-can express the look. Reasons, in order of weight:
+## Active roadmap
 
-- quattro's slices are masked parallelograms with an explicit z-order, and the
-  v5 plugin API has no shape, transform, mask or stacking primitive — see the
-  facts section. What *can* be matched (portrait slices, overlap via a negative
-  `gap`, dimming via `opacity` on a wrapper, a centred selection) gets close but
-  not there.
-- a plugin cannot fix that: the API is a fixed vocabulary of node types with
-  allowlisted props, and unknown props are logged and dropped.
-- doing it outside Noctalia — a Quickshell overlay, which is how Omarchy hosts
-  its picker — is possible and cheap on disk, but expensive in memory. See the
-  facts section for the numbers.
+### Q1 — Bar position
 
----
+- **Status:** merged — PR #161; single-monitor VM validation complete
+- **Scope:** expose Top, Bottom, Left and Right under `Style > Menu Bar`, persist
+  the choice safely and retain the visibility toggle.
+- **Acceptance criteria:**
+  - the current position is checked in the menu;
+  - changing it applies without logout and survives reboot;
+  - unrelated user configuration is preserved;
+  - every stock and Monarch widget renders in all four orientations;
+  - panels anchor to the correct edge;
+  - reserved space, auto-hide and multi-monitor behaviour remain correct;
+  - menu, CLI and config validation pass;
+  - all four positions are visually verified in the VM.
 
-## Deferred by choice
+Noctalia accepts `position` in bar config but exposes no position IPC. Use a
+safe config writer followed by `config-reload`. Evaluate drag-to-edge separately.
+The vertical layouts currently stack the clock text one character per line;
+track that visual correction under Q2 rather than expanding Q1.
 
-### 3. Firefox / pywalfox template
+### Q2 — Compact Monarch bar design
 
-Explicitly set aside. No v5 blocker known; it is simply not started.
+- **Status:** merged — PR #162; four-position VM validation complete
+- **Depends on:** Q1 configuration inventory and visual approval.
+- **Scope:** make the bar thinner and tighter, with a rectangular active
+  workspace indicator.
+- **Acceptance criteria:**
+  - compare at least two native-setting prototypes in the VM;
+  - remain readable at 1x and scaled displays;
+  - keep spacing consistent across start, centre and end;
+  - keep occupied, empty and focused workspaces distinguishable;
+  - preserve mouse and keyboard workspace switching;
+  - avoid clipping in horizontal and vertical layouts;
+  - replace the native widget only if its schema cannot express the design.
 
----
+Quattro uses a 26 px horizontal and 28 px vertical bar with compact fixed-width
+workspace slots. Port the visual goal through Noctalia, not Quattro's QML.
 
-## New features requested
+### Q3 — Plugin menu integration audit
 
-Three net-new features modelled on Omarchy quattro (items 4–6), detailed below
-against the actual `basecamp/omarchy@quattro` source. Item 7 was not requested:
-it came out of a later review of quattro's menu and is recorded here because it
-is the same kind of decision.
+- **Status:** completed — native-only integration approved; no implementation needed
+- **Scope:** decide whether `Setup > Plugins` needs direct actions alongside
+  Noctalia's native settings.
+- **Acceptance criteria:**
+  - exercise discovery, install, update, enable, disable, removal and placement;
+  - record warnings for unsandboxed plugin code;
+  - document missing or awkward flows with reproductions;
+  - do not duplicate native flows that work;
+  - evaluate editable cloning separately for reload, id collision, routing and
+    recovery to the built-in plugin;
+  - obtain approval of the audit conclusion before implementation.
 
-### The architectural catch, read this first
+Quattro exposes Enable, Disable, Add, Clone and Remove. Its clone operation also
+keeps placement/settings and redirects the built-in id. Do not promise that
+unless Noctalia supports it safely.
 
-**Omarchy quattro's shell is QML/Quickshell. Noctalia v5 is native C++ with Luau
-plugins.** Quattro dropped waybar and now ships its own shell under `shell/`
-(`shell.qml`, `Commons/`, `Ui/`, `services/`, `plugins/`), configured by
-`~/.config/omarchy/shell.json`.
+Audit findings on Noctalia 5.0.0:
 
-So the two projects took opposite bets at the same moment: Omarchy moved *to*
-Quickshell, Noctalia moved *away* from it. **No quattro source file can be
-reused — every item below is a reimplementation** against Noctalia's Luau plugin
-API, whose ceiling this build sets at API level 23 (no `runAsync` argument
-arrays, declarative `ui.*` tree only).
+- the native page covers catalog discovery, Git/path sources, enable/disable,
+  source updates, auto-update scope, plugin settings and confirmed removal;
+- adding a plugin materializes and enables it, but bar widgets still need a
+  separate placement under `Bar: default`;
+- panel placement is exposed in the plugin's generated settings;
+- disabled plugins retain their files and settings; removal is available for
+  catalog plugins, while local/path plugins are removed through their source;
+- lower sources deterministically override duplicate ids, so a path source can
+  stand in for an editable clone while preserving id-based settings and bar
+  references;
+- removing that overriding source disables the shared id, so the built-in
+  fallback must be re-enabled manually;
+- there is no one-click editable clone or source editor handoff comparable to
+  Quattro;
+- the store shows source and compatibility information but no trust warning,
+  despite plugins being able to run commands and access arbitrary user paths.
 
-Reimplementation is not the same as impossibility, and an earlier revision of
-this file overstated the ceiling by treating "bar widgets" as the whole plugin
-API. **A v5 plugin declares five kinds of entry** — `[[widget]]`, `[[panel]]`,
-`[[launcher_provider]]`, `[[desktop_widget]]`, `[[shortcut]]` — so quattro's
-*architecture* often does port even though its code does not. Item 7 is the case
-where that distinction changes the answer outright.
+Recommendation: retain the single native `Setup > Plugins` action. Do not add
+duplicate enable, disable, update or remove pickers, and do not port Clone until
+Noctalia provides an atomic override/fallback lifecycle. Track the missing trust
+warning and post-install widget-placement handoff upstream rather than building
+a parallel Monarch plugin manager.
 
-The authoritative API reference is `noctalia.d.luau` at the root of
-`github.com/noctalia-dev/official-plugins`: full type declarations for
-`noctalia.*`, `barWidget.*`, `panel.*`, `launcher.*`, `desktopWidget.*`,
-`shortcut.*` and the `ui.*` node set, plus the entry-point callback list. Read it
-before concluding that something cannot be done; the two plugin repos
-(`official-plugins`, `community-plugins`) are the worked examples.
+### Q4a — Native theme and wallpaper selection audit
 
-### 4. Status indicators: do-not-disturb, night mode, … — *done, verified in VM*
+- **Status:** merged — PR #163; visual selector and VM validation complete
+- **Scope:** determine whether Monarch needs its own theme picker or can expose
+  Noctalia's native wallpaper panel as the unified theme workflow.
 
-Shipped as three `monarch/indicators` entries — `dnd`, `caffeine`,
-`nightlight` — in the bar's **centre** lane, each hidden unless its state is on.
-Quattro's `Reminder.qml` maps onto `monarch/indicators:todo`, already shipped.
+Audit findings on Noctalia 5.0.0:
 
-**Why not the stock widgets.** v5 does have `caffeine`, `nightlight` and
-`notifications` widget types (the full list is `active-window audio-visualizer
-battery bluetooth brightness caffeine clipboard clock control-center
-custom-button keyboard-layout launcher lock-keys media network nightlight
-notifications power-profile privacy screenshot session settings spacer sysmon
-taskbar text theme-mode tray volume wallpaper weather workspaces`), and they
-were tried first. They are always visible and accept **no settings at all** —
-probed by feeding candidate keys to `noctalia config validate`, which *does*
-report unknown `[widget.<id>]` keys: every `hide_when_*` was rejected on
-`caffeine` and `nightlight`, and `notifications` accepts only
-`hide_when_no_unread` (unread count, not DND). Nothing there can express
-"show only when active".
+- Appearance provides palette swatches and search, but separates palette and
+  wallpaper configuration;
+- the wallpaper panel already combines palette source, palette selection,
+  dark/light/auto mode, wallpaper thumbnails, search, sorting and favorites;
+- selecting a Monarch custom palette triggers templates and
+  `monarch-theme-apply`; VM round-trips between Lumon and Monarch correctly
+  changed the palette, wallpaper collection and selected wallpaper;
+- the menu labels this capable panel only as `Background`, so theme selection
+  is effectively undiscoverable;
+- built-in palettes without a matching Monarch background directory clear the
+  symlink farm and leave the previous wallpaper displayed from an empty picker;
+- built-in palettes have no JSON file under `~/.config/noctalia/palettes`, so
+  Monarch's SDDM, browser and keyboard residual theming cannot derive their
+  colors even though Noctalia and its application templates can.
 
-**The state problem, and the shape that solves it.** A plugin can only render
-what it can read, and v5 will not report caffeine or forced night light: no
-status verb (`noctalia msg --help` on a live shell is authoritative), nothing in
-`~/.local/state/noctalia/settings.toml`, no DBus (`dev.noctalia.Debug` exposes
-only verbose-logging control, `dev.noctalia.Mpris` only media), and
-`caffeine-enable` takes the wayland idle-inhibit path so it is not in
-`systemd-inhibit --list` either.
+Conclusion: the native wallpaper panel remains the right low-level wallpaper
+picker, but is not sufficient as Monarch's canonical theme selector. Palette
+source terminology is implementation-facing, themes have no visual preview,
+the wallpaper grid does not reliably refresh after a palette change, and the
+flow gives no visibility into SDDM or Plymouth. Prototype a Monarch theme
+selector that presents one theme catalogue and delegates the actual palette and
+wallpaper mutations to Noctalia. It must also show whether SDDM follows the
+selection and keep Plymouth explicitly manual because applying it rebuilds the
+initramfs.
 
-So Monarch owns the state, following the `omarchy-toggle-idle` shape: the
-`monarch-toggle-*` command is both the toggle and the source of truth, gains
-`[toggle|on|off|status]` subcommands, and prints `{"enabled":…,"tooltip":…}` on
-`status`. The indicator polls that one command every 2s and knows nothing else —
-`indicator.pollToggle()` in the plugin is shared by all three. DND needs no
-bookkeeping at all, since `notification-dnd-status` reports the real thing.
+### Q4 — Import and manage backgrounds in the active scheme
 
-Consequences worth knowing:
+- **Status:** merged — PRs #164 and #166; local and VM validation complete
+- **Scope:** add a selected image to the active scheme's user collection and
+  refresh the native picker.
+- **Acceptance criteria:**
+  - validate supported formats before mutation;
+  - cancellation and invalid input change nothing;
+  - naming collisions follow a non-destructive policy;
+  - the image appears immediately in the picker;
+  - it remains associated after scheme switches and reboot;
+  - shipped backgrounds are never modified;
+  - imported backgrounds can be moved to trash after confirmation;
+  - shipped and external backgrounds remain protected from removal.
 
-- caffeine and forced night light are tracked in `$XDG_RUNTIME_DIR/monarch/`,
-  not `~/.local/state/monarch/toggles/`: they mirror live shell state and must
-  die with the session, since a fresh shell always starts with both off.
-  `monarch-restart-noctalia` clears them for the same reason
-- the control center's caffeine, nightlight and notification shortcuts are
-  **removed** from `[[control_center.shortcuts]]`, which keeps only wifi,
-  bluetooth and power_profile. For caffeine and night light this is
-  correctness — a toggle from there would desync the indicator until the next
-  `monarch-toggle-*` call re-converged it. DND could not drift, and is dropped
-  for consistency. Every path now goes through the commands: `Mod+Ctrl+I`,
-  `Mod+Ctrl+N`, `Mod+Ctrl+Comma` (rewired from raw `notification-dnd-toggle`
-  IPC to `monarch-toggle-notification-silencing`), `monarch menu toggle`, and
-  the pill itself while it is on. Notification *history* is untouched — it is a
-  control center sidebar tab, not a shortcut tile. The array is restated in
-  full, since arrays of tables are replaced across `.toml` files, not merged
-- quattro's hover-reveal of *inactive* indicators is still not reproduced, and
-  cannot be from a plugin — but hiding them outright serves the same intent
+### Q5 — Installable Monarch theme bundles
 
-Verified on the running VM (v5.0.0, shell restarted): all three off shows a bare
-clock; toggling each on makes exactly its glyph appear in accent colour within
-the poll interval, driven from the CLI the way the keybindings do. The click
-path (`onClick` → same command, then an immediate refresh) is not exercised by
-that test and still wants a real click. `noctalia plugins lint` passes on the
-plugin. `[osd.kinds]` defaults `caffeine`, `dnd` and `nightlight` to
-`true`, so a keyboard toggle also pops an OSD for free.
+- **Status:** merged ([#184](https://github.com/monarch-os/monarch/pull/184));
+  physical-machine install validated with
+  [`y0no/monarch-theme-q5-test`](https://github.com/y0no/monarch-theme-q5-test)
+- **Depends on:** Q4 and an approved bundle format.
+- **Scope:** define a code-free palette/background/metadata bundle with safe
+  install, update and removal.
+- **Acceptance criteria:**
+  - bundles cannot execute hooks or arbitrary code;
+  - validate accepted Git transports and repository layout;
+  - record provenance and installed revision;
+  - show update changes and preserve local backgrounds;
+  - roll back failed install/update;
+  - removal cannot delete unrelated files and handles the active theme safely;
+  - palette, picker, app templates and SDDM remain synchronized;
+  - cover local, remote and malformed bundles automatically.
 
-The original analysis follows, kept for the presentation idea (hover-reveal) and
-the IPC facts.
+Do not build an Aether-like GUI until the format and lifecycle are stable.
 
-#### Original analysis
+Q5 defines a declarative schema-1 bundle containing one Noctalia palette,
+flat wallpaper assets, an optional preview and metadata. Installation accepts
+only constrained HTTPS/SSH Git transports, rejects executable files, symbolic
+links and unsupported repository content, records provenance, and publishes
+the palette through a bundle-owned symlink. Updates stage and validate a fresh
+clone before replacing the installed bundle, while removal refuses the active
+theme and preserves user-imported backgrounds. Menu-driven install, update and
+removal report their progress; interactive removal requires confirmation.
 
-Quattro puts a **single aggregate widget** `omarchy.indicators` in the bar centre
-(`shell/plugins/bar/widgets/Indicators.qml`), which hosts six indicators from
-`shell/plugins/bar/indicators/`:
+### Q6 — User-authored application templates
 
-| indicator | Monarch today |
-|---|---|
-| `Dnd.qml` | **missing** |
-| `NightLight.qml` | **missing** |
-| `StayAwake.qml` (caffeine) | **missing** |
-| `Reminder.qml` | **missing** (relates to monarch-todo) |
-| `ScreenRecording.qml` | have it, standalone |
-| `Dictation.qml` | have it, standalone (voxtype) |
+- **Status:** merged — PR #186.
+- **Depends on:** native Noctalia user templates and Q5's format.
+- **Scope:** restore local templates for apps absent from Noctalia's catalogues.
+- **Acceptance criteria:**
+  - use native Noctalia support rather than a Monarch renderer;
+  - users can add a target and override a shipped one;
+  - rendering failures name the template and preserve usable config;
+  - templates apply on colour changes without restarting the desktop;
+  - document the boundary between visual data and executable code.
 
-**The presentation is the real idea, not the list.** `Indicators.qml` splits its
-children into an *active* block and an *inactive* block; the inactive block has
-zero width until hovered, then reveals itself:
+Noctalia now accepts `[theme.templates.user.<id>]` in user TOML overlays and
+reapplies them on palette or configuration changes. Monarch ships an inert,
+data-only example and documents that replacing a catalogue template requires
+removing its id from the corresponding enabled array. Hooks and dynamic output
+commands remain trusted local code and are forbidden in Q5 bundles. Noctalia
+preserves the previous output on template-evaluation errors, but direct writes,
+multiple outputs and hooks are not transactional; stronger guarantees belong
+upstream rather than in a duplicate Monarch renderer.
 
-```qml
-implicitWidth: root.revealInactiveIndicators
-  ? inactiveHorizontalBlock.implicitWidth : 0
+### Q7 — About refinement
+
+- **Status:** candidate
+- **Depends on:** explicit visual approval; keep the current logo unchanged.
+- **Scope:** evaluate a restrained ASCII sheen and optional Set From Text action.
+- **Acceptance criteria:**
+  - static rendering remains the fallback;
+  - custom text, images, wide Unicode and custom fastfetch configs do not
+    corrupt the terminal or trigger resize loops;
+  - animation stops with the window and has negligible idle CPU use;
+  - responsive sizing remains correct;
+  - visual evidence is approved before retaining the implementation.
+
+Image, text and reset branding already exist. The only current Quattro gap is
+the recent animated sheen and its safe fallbacks; do not reopen logo design.
+
+### Q8 — Secondary widget interactions audit
+
+- **Status:** merged — PR #167; source audit and VM validation complete
+- **Scope:** compare left, right, middle and scroll actions with Quattro.
+- **Acceptance criteria:**
+  - record an interaction matrix for every default widget;
+  - do not duplicate existing Monarch or Noctalia actions;
+  - proposed actions have visible feedback and no binding conflicts;
+  - test every retained interaction from the VM bar.
+
+Audit findings against Quattro `0ae16948` and Noctalia v5 main:
+
+- Noctalia already matches Quattro for volume (panel, mute and scroll),
+  Bluetooth (panel and radio toggle), workspaces (click and scroll), brightness,
+  tray items and the primary battery action;
+- Monarch's network, display, agents and state indicators already preserve their
+  useful custom actions; changing them would either remove a richer panel or
+  duplicate a menu action;
+- Quattro right-clicks its power widget to toggle the battery percentage.
+  Monarch has the same toggle command but exposes it only through the menu;
+- Quattro gives clock right-click to format cycling and middle-click to the
+  timezone picker. Noctalia reserves middle-click consistently for widget
+  settings, and Monarch has no persisted clock-format cycling command;
+- Quattro maps media left/middle/right to play-pause/next/panel. Noctalia uses
+  left for its richer media panel, right for play-pause, scroll for tracks and
+  middle for widget settings. Rebinding it would trade away native conventions
+  without adding capability;
+- Quattro ships a dedicated microphone widget. Noctalia can express the same
+  controls with a second `volume` widget targeting input, but Monarch's privacy
+  widget already signals active capture. The dedicated widget was rejected as
+  redundant after review;
+- weather and active-window gestures do not apply because neither widget is in
+  Monarch's default bar.
+
+Recommendation: add only battery right-click →
+`monarch-toggle-battery-percentage`. Keep Noctalia's native clock and media
+gestures. Evaluate the input-volume widget separately with a visual prototype
+before changing the default bar.
+
+### Q9 — Optional service panels
+
+- **Status:** completed — Tailscale/Taildrop shipped in PR #168; Dropbox
+  deferred; custom audio rejected after audit
+- **Scope:** evaluate Tailscale/Taildrop first; consider Dropbox and custom audio
+  independently.
+- **Acceptance criteria:**
+  - audit native and existing Monarch capability first;
+  - optional widgets hide cleanly when their package is absent;
+  - install/remove leaves no broken bar entry;
+  - account, privilege and network side effects are explicit;
+  - approve and ship each service independently.
+
+Tailscale audit findings:
+
+- Monarch already installs the package, enables `tailscaled`, runs `tailscale up
+  --accept-routes`, installs the admin webapp, and provides a symmetric removal
+  path;
+- unlike Quattro, the installer does not set the current user as Tailscale's
+  operator, install a Taildrop receiver, expose Taildrop send/receive commands,
+  or add a bar panel;
+- Quattro's receiver is a persistent user service. It receives into a private
+  staging directory, resolves collisions without overwriting, moves completed
+  files into Downloads, and posts persistent clickable notifications;
+- Quattro's send command uses Monarch-compatible primitives: the native file
+  selector, `tailscale file cp`, and success/failure notifications;
+- Quattro's bar panel adds connection state, up/down, account switching, exit
+  nodes, peer browsing, copy actions and Taildrop send. Its QML implementation
+  cannot be reused by Noctalia v5;
+- Noctalia's community catalogue already offers `davemhammer/tailscale` and
+  `rylos/tailnet`. Both provide native Luau panels, status, peer browsing,
+  up/down and exit-node controls. Tailnet also receives Taildrop files; neither
+  currently combines Quattro's Taildrop send and multi-account switching;
+- automatically installing a community plugin would trust unsandboxed code and
+  couple Monarch's service lifecycle to a separately versioned source. Shipping
+  a third first-party panel would duplicate most of two maintained plugins.
+
+Recommendation:
+
+1. port Quattro's system integration only: operator permission, robust
+   background receiver, `monarch tailscale send/receive`, install/remove
+   lifecycle and tests;
+2. keep the bar optional and direct users to Noctalia's plugin catalogue rather
+   than automatically installing third-party code;
+3. do not port account switching or a Monarch panel unless real use shows the
+   community plugins insufficient;
+4. audit Dropbox separately after Tailscale is resolved.
+
+Installing Tailscale changes routing (`--accept-routes`), enables a privileged
+system daemon, grants the user operator control over it, and enables a persistent
+per-user receiver. The implementation must stop on package/daemon setup failure
+and remove only Monarch-owned integration while leaving received files intact.
+
+Dropbox audit findings:
+
+- Monarch currently exposes neither Dropbox installation nor removal;
+- Quattro installs `dropbox`, `dropbox-cli`, `libappindicator-gtk3`,
+  `python-gpgme` and `nautilus-dropbox`, starts the client, and adds a dedicated
+  bar panel;
+- Noctalia has no Dropbox plugin in either its official or community catalogue;
+- Dropbox's Linux client already publishes a tray item with login, sync state,
+  activity, storage, preferences and folder access. Noctalia's native tray is
+  therefore the supported low-maintenance UI;
+- Quattro's panel adds pause/resume, login, recent local files and estimated
+  storage usage. Its helper recursively stats the complete Dropbox tree every
+  60 seconds and compares local bytes with a hard-coded plan quota. This can be
+  expensive and misleading with large trees, selective sync, business plans or
+  future quota changes;
+- the Quattro plugin is QML and cannot be reused by Noctalia v5. Rebuilding it
+  in Luau would duplicate the official tray while preserving the unreliable
+  local quota approximation;
+- Dropbox is proprietary, Linux support officially targets Ubuntu and Fedora,
+  does not support Linux ARM, and may synchronize a substantial local dataset.
+  Authentication opens a browser after the daemon starts;
+- removal must stop the daemon and remove packages/integration while preserving
+  `~/Dropbox`, account state and all synchronized user data.
+
+Decision: defer Dropbox. The native tray would cover most useful interactions,
+while the proprietary client has limited official Linux support and a dedicated
+Monarch panel would add disproportionate maintenance for an optional service.
+
+Custom audio audit findings:
+
+- Quattro's panel provides output and input volume/mute, output and input device
+  selection, a microphone level meter, and per-application playback volume;
+- Noctalia v5 already provides output and input volume/mute, both device
+  selectors and the per-application mixer in its native control-center audio
+  tab;
+- Noctalia additionally resolves application identities and icons, can pin each
+  application stream to a specific output, and exposes input/output EasyEffects
+  profiles when available;
+- its bar volume widget already opens that panel, right-clicks to mute and
+  scrolls to adjust volume. A second input-targeted widget is available but was
+  previously rejected as redundant with Monarch's privacy indicator;
+- Quattro's QML contains substantial snapshot, polling and device-workaround
+  logic needed by Quickshell's PipeWire model. Noctalia implements the same
+  lifecycle natively in its PipeWire service and C++ audio tab.
+
+Decision: reject a Monarch audio plugin. Keep Noctalia's native panel as the
+single audio surface; it is both more capable and cheaper to maintain. Q9 is
+complete.
+
+### Q10 — ONCE self-hosting
+
+- **Status:** deferred — not a good fit in its current form.
+- **Decision:** do not add ONCE to Monarch's menu. Its built-in catalog is
+  compiled into the binary, while custom images must satisfy a narrow
+  single-container contract (HTTP on port 80, `/up`, persistent `/storage`).
+  Supporting tools such as Artemis would therefore require either a maintained
+  ONCE fork or Monarch-specific adapter images, with little benefit over a
+  dedicated Docker Compose installer.
+- **Reconsider when upstream provides:**
+  - an external configurable application catalog;
+  - manifest or Docker Compose support;
+  - explicit port and firewall handling;
+  - enough relevant applications that work without Monarch-maintained adapters.
+
+### Q11 — Guard direct Pacman system upgrades
+
+- **Status:** merged — PR #174; runtime hook packaged in monarch-pkgs PR #66
+- **Scope:** port Quattro's ALPM pre-transaction guard so full system upgrades
+  normally run through `monarch update` rather than direct `pacman -Syu`.
+- **Acceptance criteria:**
+  - block short and long forms that combine sync with system upgrade;
+  - leave package installs, removals and other non-system-upgrade transactions
+    untouched;
+  - let every Monarch-owned upgrade, channel and package-repair path opt in with
+    one internal environment marker;
+  - retain an explicit, documented escape hatch for intentional direct upgrades;
+  - explain which Monarch update guarantees would otherwise be bypassed;
+  - install the hook through the packaged runtime and cover it with shell tests;
+  - audit every existing `pacman` invocation before enabling the hook.
+
+Quattro installs `00-omarchy-update-guard.hook` as an ALPM `PreTransaction`
+hook for package upgrades. Its helper inspects Pacman's parent command line and
+aborts only sync-plus-sysupgrade transactions unless the official update path
+sets `OMARCHY_UPDATE_PACMAN=1`; users can deliberately bypass it with
+`OMARCHY_ALLOW_DIRECT_PACMAN=1`. The Monarch port should use equivalent
+`MONARCH_*` markers and account for the packaged-runtime layout introduced by
+the installation architecture handoff.
+
+### Q12 — Security hardening parity
+
+- **Status:** completed — FIDO2 atomic staging/removal safety and privileged DNS
+  path pinning implemented with focused shell coverage
+- **Scope:** port Quattro's FIDO2 staging and privileged DNS `PATH` hardening.
+- **Acceptance criteria:**
+  - reject a symlink or non-directory at `/etc/fido2` and a symlink or
+    non-regular registration file;
+  - create the FIDO2 staging file as root beside the final authfile, validate
+    the generated path and type, publish it atomically and clean it on failure;
+  - never stage authentication material at a predictable caller-owned path such
+    as `/tmp/fido2`;
+  - make FIDO2 removal reject unsafe path types and remove only the expected
+    registration hierarchy;
+  - pin `PATH` to trusted system directories whenever `monarch-dns` runs as
+    root, while preserving unprivileged discovery of `sudo` and `pkexec`;
+  - cover the symlink, replacement, cleanup and untrusted-`PATH` cases with
+    focused shell tests.
+
+Monarch currently writes `pamu2fcfg` output to predictable `/tmp/fido2` before
+moving it as root. Quattro instead creates a root-owned unique sibling of
+`/etc/fido2/fido2`, validates every privileged pathname and atomically renames
+the completed file. Monarch's passwordless DNS helper also resolves bare system
+commands without first discarding a potentially user-writable development
+`PATH`; Quattro pins the path only after elevation.
+
+### Q13 — Structured notification actions
+
+- **Status:** completed — unified argv-safe notification actions implemented;
+  first-run invitations and clickable file/capture notifications migrated
+- **Scope:** repair the first-run notification invitations and converge every
+  clickable Monarch notification on one argv-safe interface.
+- **Acceptance criteria:**
+  - define one unambiguous CLI contract for glyph, text, notification options,
+    action label and command arguments;
+  - preserve ordinary `notify-send` option parity where the generic helper
+    continues to accept it;
+  - never reinterpret notification text or a relayed command as shell source;
+  - keep action arguments distinct through delivery and execution;
+  - retain compatibility only where it can fail closed;
+  - migrate every `--exec` caller and prove first-run Wi-Fi, update,
+    fingerprint and agent invitations execute the intended argv;
+  - verify Taildrop, Voxtype, screenshot and screen-recording actions against
+    the same safety rules.
+
+The current first-run callers pass option-first invocations and `--exec` to
+`monarch-notification-send`, whose actual contract expects the glyph first and
+does not implement `--exec`. Monarch already has the safer
+`monarch-notification-action`; the audit must decide whether to make it the only
+clickable path or replace both helpers with Quattro's direct D-Bus model.
+
+### Q14 — Transactional update guardrails
+
+- **Status:** merged — PR #175
+- **Depends on:** Q11, which must share the same definition of an official
+  Monarch update transaction.
+- **Scope:** prevent overlapping updates and fail early when the machine cannot
+  safely complete one.
+- **Acceptance criteria:**
+  - serialize `monarch update` with a per-user runtime lock and explain a
+    concurrent refusal;
+  - prove child processes and sleep inhibitors cannot accidentally retain the
+    lock after the update exits;
+  - check required free space before mutation and report an actionable failure;
+  - prune the package cache before taking the snapshot so reclaimed space is
+    not retained by that snapshot;
+  - preserve interactive and unattended `-y` behavior;
+  - always release the inhibitor and temporary state on success, failure and
+    interruption;
+  - test ordering around cache pruning, snapshot creation, package upgrade,
+    migrations and post-update hooks.
+
+Quattro implements these as `omarchy-update-lock`,
+`omarchy-update-requires-free-space`, `omarchy-update-pkg-prune` and a dedicated
+stay-awake lifecycle. Monarch currently inhibits idle inside
+`monarch-update-perform`, but has no concurrent-update lock or disk-space
+preflight and takes its snapshot before reclaiming package-cache space.
+
+### Q15 — Small Quattro UX parity
+
+- **Status:** merged ([#176](https://github.com/monarch-os/monarch/pull/176))
+- **Scope:** resolve the remaining small interaction and default-tool gaps
+  without overriding better native Noctalia behavior.
+- **Acceptance criteria:**
+  - add `Mod+Q` as an alternative close-window chord and present alternative
+    chords coherently wherever Monarch lists keybindings;
+  - do not add `hey-cli` or other Basecamp products to Monarch;
+  - determine whether Noctalia's native clock supports live-second formats and
+    efficient second-only refresh, then expose the formats only if both hold;
+  - determine Noctalia's actual clipboard history cap before changing anything,
+    and match Quattro's 500 entries only when the native setting supports it;
+  - verify Niri internal-display recovery with automatic fractional scaling;
+    record the Hyprland-specific clamshell fix as not applicable if Niri already
+    preserves the resolved scale;
+  - keep a source-backed accepted/rejected decision for every audited item.
+
+Quattro's corresponding changes are a second close-window chord, lazy
+`hey-cli`, two clock formats with live seconds, a 500-entry clipboard history
+and a clamshell recovery fix for Hyprland's automatic scale. The latter three
+must be tested against native Noctalia and Niri rather than ported mechanically.
+
+Decisions accepted for Q15:
+
+- ship `Mod+Q` beside `Mod+Shift+Q`, grouping alternative chords into one row
+  in Monarch's keybinding picker;
+- set Noctalia's native `clipboard_history_max_entries` to 500; its supported
+  range is 10–10,000 (`noctalia-dev/noctalia@74e6c279`, `example.toml` and
+  `src/config/config_limits.h`);
+- reject `hey-cli`; Monarch must not integrate Basecamp products;
+- reject live-second presets for now: Noctalia accepts `%S`, but
+  `Bar::onSecondTick()` refreshes every bar surface each second regardless of
+  the clock format (`src/shell/bar/bar.cpp` at `74e6c279`), unlike Quattro's
+  conditional minute/second precision;
+- record the clamshell scale fix as not applicable: Monarch's Niri helper only
+  enables the internal output and never substitutes a numeric scale for an
+  automatic one.
+
+### Q16 — Per-program crash notification mute
+
+- **Status:** merged ([#177](https://github.com/monarch-os/monarch/pull/177))
+- **Depends on:** the existing local crash-capture and diagnosis flow.
+- **Scope:** let a crash diagnosis mute or unmute repeat notifications for the
+  affected program without disabling crash capture globally.
+- **Acceptance criteria:**
+  - derive one stable program identifier from validated crash metadata;
+  - expose explicit mute, unmute and status operations;
+  - suppress only desktop notifications, while retaining local crash records
+    and diagnosis data;
+  - make the muted state visible and reversible from the diagnosis instructions;
+  - reject empty, malformed and option-like identifiers;
+  - keep state per user and survive reboot without granting additional
+    privileges;
+  - prove one muted program does not silence another program or the global
+    crash-capture controls.
+
+Quattro's new `omarchy-crash-mute` keeps the crash watcher active but lets the
+diagnosis skill silence one repeatedly crashing program. Monarch now provides
+the same per-program distinction with stricter identifier validation, explicit
+status control and tests proving that capture and other programs remain active.
+
+### Q17 — Niri webcam recording overlay parity
+
+- **Status:** merged ([#178](https://github.com/monarch-os/monarch/pull/178)); hardware-GPU smoke test pending
+- **Scope:** restore the webcam-overlay quality lost when screen recording was
+  ported from Hyprland to Niri.
+- **Acceptance criteria:**
+  - give the overlay a dedicated app-id and Niri rule so it opens floating,
+    fully opaque, unfocused and outside the scrolling layout;
+  - anchor it inside the selected monitor or recording region rather than the
+    desktop globally;
+  - restore small, medium and large presets with sizing relative to the capture
+    area, including a useful default and runtime resizing where Niri permits;
+  - wait for the overlay to map and reach its final geometry before starting
+    `gpu-screen-recorder`;
+  - preserve cleanup on cancellation, start failure, stop and interruption;
+  - validate the real webcam path in a desktop/VM at multiple output scales and
+    inspect a captured frame before marking complete.
+
+Monarch now gives its `mpv` overlay shape-specific window identities, Niri-side
+circle clipping, proportional presets and capture-region-aware placement. It
+waits for the exact mapped geometry before recording, supports keyboard and
+mouse resizing, and cleans up by the recorded process identity. VM validation
+covered circle and rectangle rendering, 1x and 1.5x output scales, focus
+retention and live resizing; `gpu-screen-recorder` itself cannot run with the
+VM's AMD-safe llvmpipe renderer and still needs one hardware-GPU smoke test.
+
+### Q18 — Test suite triage and rationalization
+
+- **Status:** merged ([#179](https://github.com/monarch-os/monarch/pull/179))
+- **Scope:** make the test suite faster, clearer and cheaper to maintain without
+  reducing meaningful behavioral coverage.
+- **Acceptance criteria:**
+  - inventory tests by feature, risk, runtime and execution environment;
+  - identify duplicate assertions, obsolete compatibility cases and tests that
+    verify implementation details instead of public behavior;
+  - consolidate shared fixtures and helpers without creating hidden coupling;
+  - define focused, integration and full-suite entry points with deterministic
+    ownership and documented expectations;
+  - remove or merge tests only after proving the retained coverage exercises
+    the same failure modes;
+  - record before/after runtime, test count and coverage decisions.
+
+Q18 inventories the original 50 executable tests by feature, risk and
+environment and adds focused, deterministic integration and full-suite entry
+points. Milestone-named coverage was merged into its owning
+suites; low-value package-recipe assertions were removed after review, leaving
+49 Monarch tests. CI now runs all 48 repository-local tests instead of 10
+unique files, keeps external
+repository availability isolated in its own job, and removes a duplicate Niri
+run plus the redundant standalone route check. No behavioral test was removed:
+the menu suite reuses one declaration snapshot and one evaluated-state snapshot,
+and unused Hyprland/Quickshell test helpers are gone. On the development machine,
+the old serial inventory took
+164 s with five environment-related failures; the retained integration suite
+passes in 25.7 s and the 49-test full suite passes in 28.4 s with four workers.
+
+### Q19 — Migration optimization and reduction
+
+- **Status:** merged ([#180](https://github.com/monarch-os/monarch/pull/180));
+  `monarch` and `monarch-settings` published as
+  `0.12.0.r108.g65891ad-1`
+- **Scope:** reduce migration volume and update cost before Noctalia v5 is
+  deployed, while preserving the migrations that still represent supported
+  installation states.
+- **Acceptance criteria:**
+  - inventory migrations by supported source state, side effects, dependencies
+    and continued relevance;
+  - remove migrations that can only target an installation state that has
+    never shipped, rather than carrying speculative compatibility;
+  - fold compatible operations into current defaults, install phases or a
+    smaller number of idempotent migrations when that makes ownership clearer;
+  - preserve ordering where one retained migration genuinely depends on
+    another and keep update interruption safe;
+  - avoid repeated package, config refresh and privileged operations across the
+    retained migration path;
+  - prove fresh installation and every supported upgrade starting point reach
+    the same final state, with before/after migration count and runtime.
+
+The timestamped migration model is removed rather than compacted. Updates now
+run `monarch-reconcile`, which first bootstraps the `monarch` and
+`monarch-settings` packages and then converges the supported system and user
+states through fixed, idempotent reconcilers. Future compatibility logic is
+owned by domain in those reconcilers and removed when its source state leaves
+the supported upgrade window; it no longer creates one permanent file per
+change.
+
+Support is bounded by one installation schema in
+`~/.local/state/monarch/schema`: current schema 2, minimum supported schema 1.
+Schema 1 is the historical checkout model; schema 2 is the packaged runtime.
+Fresh installs record 2 directly; unversioned checkout installs must prove the
+last supported v4 migration marker before being inferred as schema 1. Older
+states are told to update through v4 first, and schemas newer than the running
+code are never downgraded. Schema 2 is committed atomically only after both
+deferred transition hooks have completed.
+
+The v4 path restores the complete Noctalia transition that the packaged-runtime
+refactor had accidentally deleted: install v5 before removing `noctalia-shell`,
+replace incompatible config and cache state, preserve fingerprint enablement,
+seed every palette and plugin, refresh Niri, and enable plugins immediately or
+through a retrying post-boot hook. It also applies the SSH PATH and fingerprint
+PAM repairs that existing installs do not receive from fresh-install stages.
+
+The old `~/.local/share/monarch` checkout remains in place for the update that
+is executing from it. On the next desktop boot it is moved atomically to
+`~/.local/share/monarch-v4` and replaced with a compatibility symlink to
+`/usr/share/monarch`; historical migration markers are then removed. Stock
+shell and UWSM references are rewritten before that finalization. Packaged
+updates skip Git, while source checkouts retain Git and dev-channel behavior.
+
+The runtime packages are now published from `monarch-pkgs` PR #64, with the
+x86_64 builders aligned on CachyOS by `monarch-pkgs-builder` PR #6 and
+`monarch-pkgs` PR #69. The isolated suite passes 49/49 in 25.7 s, and focused
+tests cover legacy-state cleanup, immediate/deferred plugin activation,
+repeated convergence, runtime path rewriting, checkout archival and update
+ordering. A normal ISO build without `--local-source` also passes and bundles
+the published `0.12.0.r108.g65891ad-1` package pair. Installing that ISO also
+passes: the machine boots from Btrfs with schema 2, the packaged runtime, no
+legacy checkout and no failed units. PR #181 corrected the runtime path used by
+AZERTY keyboard regeneration and made all three repository keyrings explicit
+target packages populated during finalization. On a fresh VM, the CachyOS key
+has full trust, `pacman -Syy` and `monarch-update-keyring` succeed, and two
+successive reconciliations plus Niri validation pass.
+
+### Q20 — Decommission monarch-welcome
+
+- **Status:** `monarch` merged — PR #187; package retirement pending in
+  `monarch-pkgs`.
+  to the follow-up `monarch-pkgs` change.
+- **Scope:** remove the standalone onboarding TUI now that its application
+  catalogue, setup checklist and desktop tour overlap the Monarch menu and
+  current setup flows.
+- **Acceptance criteria:**
+  - fresh installations do not install or launch `monarch-welcome`;
+  - the first Noctalia-ready theme application remains intact;
+  - obsolete Niri rules are removed;
+  - retire the package recipe only after the core change is merged;
+  - archive the source repository only after a replacement ISO is validated.
+  - revisit onboarding as a separate product-design task, using the existing
+    menu, notifications and setup surfaces before considering another app.
+
+The core change moves the first theme application into its own first-run script
+and removes the package from the base set. No reconciliation is added because
+Noctalia v5 has not been deployed to users. The package remains published until
+the ordered `monarch-pkgs` follow-up.
+
+Removing `monarch-welcome` does not mean Monarch no longer needs onboarding.
+Reassess what a first-time user must discover, which steps deserve active
+guidance and how progress should be surfaced. Start from native Noctalia and
+Monarch interactions; do not assume the replacement should be a standalone TUI.
+
+### Q21 — Quattro 4.0.0–4.0.2 release-gap closure
+
+- **Status:** audited against `origin/noctalia-v5@ff9f94293`, Quattro v4.0.0
+  `f0020448c`, v4.0.1 `13f18b2cb` and v4.0.2 `346e69e1c`; implementation not
+  started.
+- **Scope:** close security and correctness gaps first, repair accidental
+  regressions, then make explicit product decisions for optional Quattro
+  features. Current Quattro head `f99d33a8d` is included so this does not become
+  another stale tag-only snapshot.
+- **Research:** `QUATTRO-4-RELEASES-AUDIT.md` records the release-by-release
+  evidence and covered/equivalent/not-applicable classifications.
+
+#### P0 — privileged boundaries and remotely influenced input
+
+- Remove `monarch-sudo-reset`. Quattro v4.0.1 removed the same flow; Monarch
+  still interpolates caller-controlled `$USER` into `su -c` and preserves a
+  privilege-reset command that should not exist.
+- Publish Plymouth and SDDM inputs through root-owned staging. Do not let an
+  unprivileged user replace or rewrite a file between validation and privileged
+  copy, and remove the world-writable SDDM theme/logo path.
+- Rework SSH setup as a validated, idempotent drop-in: disable password login,
+  verify the effective OpenSSH configuration, and reconcile existing installs.
+- Stop granting `input` by default and replace the blanket wheel-wide
+  `NOPASSWD: /usr/bin/asdcontrol` rule with the narrowest workable boundary.
+- Disable automatic remote printer discovery. If `cups-browsed` remains an
+  option, ship a hardened opt-in configuration instead of
+  `CreateRemotePrinters Yes`.
+- Harden Windows VM storage and launch handling: validate all user-supplied
+  values, keep host mounts behind an explicit protected boundary, pin immutable
+  inputs where practical, and make cleanup operate only on resolved VM-owned
+  paths.
+- Validate web-app names, URLs and icon media; reject path separators and
+  non-HTTP(S) URLs, escape Desktop Entry values, and remove from recorded paths
+  rather than reconstructing paths from the display name. Apply the same
+  shell-argument discipline to app/font install helpers.
+
+#### P1 — release regressions and hardening helpers
+
+- Restore the XPS speaker-tuning implementation or delete its dead installer
+  hook. `install/hardware/speaker-tuning.sh` calls `monarch-audio-tuning`, but
+  neither that command nor `default/audio/` exists on `origin/noctalia-v5`, so
+  the advertised tuning silently never applies.
+- Reject an empty replacement LUKS password and require confirmation before
+  invoking `cryptsetup luksChangeKey`.
+- Detect NVIDIA hardware through sysfs vendor/class/device IDs without waking a
+  suspended discrete GPU; do not depend on `lspci` marketing-name regexes.
+  Bound `supergfxctl` probes so a stuck daemon cannot hang the menu.
+- Centralize internal-panel detection and recognize LVDS as well as eDP.
+- Treat OWE Wi-Fi as passwordless. The network plugin currently classifies any
+  non-empty security label as credentialed and opens a password prompt.
+- Reconcile installations where the old iwd transition left `wpa_supplicant`
+  masked, including runtime masks and the NetworkManager recovery path.
+- Force a stable numeric locale for the network speed test so Luau receives a
+  decimal point on every locale.
+- Complete or remove the advertised opt-in sudoless-Docker flow. The default
+  group grant is correctly gone, but the documented setup/remove commands and
+  menu toggle do not exist.
+- Restore controlled recovery from Pacman conflicts: quarantine only confirmed
+  unowned files, rollback on failure, and make the retry an explicit user
+  decision.
+- Add the hardened Apple-brightness query/retry/cache path, the default-browser
+  MIME fallback, and Chromium's `gnome-libsecret` password-store flag. The
+  Chromium first-run EULA preference is already covered.
+- Add an installed-tree acceptance target, privileged-heredoc/static boundary
+  checks, and repository security ownership guidance. PRs #191–#196 repair the
+  known legacy files but do not guard the pattern from returning.
+
+#### P2 — explicit product choices, not automatic parity work
+
+- Evaluate a Niri-native window layout save/restore flow and keyboard-driven
+  screenshot target selection.
+- Decide whether the default product wants active-window, weather, dedicated
+  microphone and richer media widgets; Fireworks usage and Google Meet picture-
+  in-picture; captive-portal handling; or Hermes integration.
+- Decide separately whether to add Quattro's small default utilities and
+  services (`udiskie`, `mpv-mpris`, `yt-dlp`, `dua-cli`, Docker multi-arch
+  binfmt). Moonlight already has an optional installer and need not become a
+  default merely for parity.
+- Keep Dropbox, ONCE and Sunshine under their existing decisions. Keep native
+  Noctalia clipboard/history, themes, panels and plugin lifecycle instead of
+  porting Quattro's QML/Hyprland implementation details.
+
+#### Confirmed covered or not applicable
+
+- v4.0.0's shell foundation is covered by Noctalia or Monarch equivalents:
+  unified bar/control centre, notifications and history, clipboard/emoji,
+  palette and wallpaper integration, movable compact bar, nested menu,
+  text scaling, DDC brightness, QR sharing, Tailscale/Taildrop, Claude/Codex
+  usage, owner provisioning, factory reset, disk preflight, zram, systemd-oomd
+  and per-source power profiles.
+- v4.0.1's agent auto-review, FIDO staging, structured notification arguments,
+  data-only theme import, DNS helper PATH/polkit fallback, opt-in Docker group,
+  Taildrop waiting, quiet mise wrapper and psmouse tolerance are covered.
+- v4.0.2's browser-policy hardening and removal of legacy v4 privileged files
+  are covered by PRs #190–#196; Monarch's repository already requires package
+  signatures. Hyprland Lua, Quickshell QML image loading and Quattro plugin-
+  cloning fixes do not map to the Niri/Noctalia architecture.
+
+Acceptance requires focused regression tests for every P0/P1 item, the full CLI
+and menu suites, installed-tree execution for privileged checks, and a fresh VM
+install for SSH, printing, display-manager, Plymouth, input, audio and GPU paths.
+
+## Deferred
+
+- Use the `bypass_dnd` directive for urgent notifications such as low-battery
+  warnings.
+- Firefox/pywalfox integration.
+- Replacing Noctalia's native wallpaper or application picker.
+- A full Quattro-style user-authored shell or bar-plugin architecture.
+
+## References
+
+- [Quattro bar manual](https://github.com/basecamp/omarchy/blob/4cd8a081cb67af345be7d8677faeee6575d89bef/manual/05-the-top-bar.md)
+- [Quattro plugin manual](https://github.com/basecamp/omarchy/blob/4cd8a081cb67af345be7d8677faeee6575d89bef/manual/32-shell-plugins.md)
+- [Quattro background manual](https://github.com/basecamp/omarchy/blob/4cd8a081cb67af345be7d8677faeee6575d89bef/manual/39-backgrounds.md)
+- [Quattro theme authoring](https://github.com/basecamp/omarchy/blob/4cd8a081cb67af345be7d8677faeee6575d89bef/manual/43-making-your-own-theme.md)
+
+## Validation
+
+```bash
+bash test/monarch-cli-test.sh
+bash test/monarch-menu-test.sh
+bin/monarch commands --check
+bin/monarch-menu --check
 ```
 
-So an indicator that is *off* is still inspectable and clickable on hover, instead
-of vanishing. Monarch's indicators today are binary: shown or gone. This is
-strictly better and is what makes a six-indicator cluster tolerable in the bar.
-
-Each indicator is tiny — the whole of `Dnd.qml` is a declarative block over a
-shared `BarIndicator` base:
-
-```qml
-BarIndicator {
-  readonly property bool dnd: notificationService ? notificationService.doNotDisturb : false
-  active: dnd
-  activeText: "󰂛"
-  inactiveText: "󰂛"
-  activeTooltipText: "Allow Notifications"
-  inactiveTooltipText: "Silence Notifications"
-  onPressed: function() { notificationService.setDoNotDisturb(!notificationService.doNotDisturb) }
-}
-```
-
-**Feasibility on Noctalia v5: good.** Every state Monarch needs is already an IPC
-verb, and each has both a getter and a toggle:
-
-| indicator | read | write |
-|---|---|---|
-| DND | `notification-dnd-status` | `notification-dnd-toggle` |
-| night light | *(none — see below)* | `nightlight-force-toggle` |
-| caffeine | *(none — see below)* | `caffeine-toggle` |
-
-**Known gap (still true, now moot for this item):** there is no
-`nightlight-status` or `caffeine-status`. `msg status` returns only
-`barVisible`, `panelOpen`, `activePanelId`, `locked`; the complete inventory of
-read verbs in the binary is `bluetooth-status`, `wifi-status`,
-`notification-dnd-status`, `color-scheme-get`, `theme-mode-get`, `wallpaper-get`,
-`get-volume`, `log-level-status`, `workspace-alert-status`. So a *plugin* can
-toggle nightlight and caffeine but cannot read them back. Two partial escape
-hatches were found while checking:
-
-- both have idempotent setters, not just toggles — `caffeine-on|off|enable|
-  disable` and `nightlight-on|off|enable|disable`, plus `nightlight-force-toggle`
-- `[nightlight] force` is a real config key — but **it is not a state readback**:
-  toggling with `nightlight-force-toggle` in the VM left
-  `~/.local/state/noctalia/settings.toml` without a `[nightlight]` section at
-  all. Like caffeine (a live logind/wayland inhibitor), the forced state exists
-  only in the running shell. Nothing on disk to poll for either one
-
-Neither is needed now that the stock widgets do the job, but the two missing
-getters are the right upstream request for anything plugin-side — they are the
-*only* way to read these states from outside the shell.
-
-~~**Plan:** one `monarch/indicators` widget per concern (the plugin already hosts
-five), plus a decision on whether Noctalia's Luau `ui.*` tree can express the
-hover-reveal grouping.~~ Superseded — the stock widgets cover it. The
-always-visible-pills fallback is what shipped, and the hover-reveal grouping
-remains a later refinement (and an upstream request, since only the shell can
-implement it).
-
-### 5. Network widget on par with Omarchy quattro — *expensive, scope carefully*
-
-Where the whole v5 question started. Quattro's implementation:
-
-- `shell/plugins/panels/network/` — `Panel.qml` is **72 KB**, `Model.js` 12.5 KB
-- backed by `bin/omarchy-network-status`, which prints tab-separated fields and,
-  with `--verbose`: `ssid`, `signal_dbm`, `freq` (band), `bitrate`, interface, IP,
-  prefix, gateway, RX/TX byte counters from `/sys/class/net/*/statistics/`,
-  ethernet speed + duplex, and **router and internet ping latency**
-- separate sibling panels: `wifiqr` (share the network as a QR code — also
-  `bin/omarchy-network-qr`), `speedtest`, `disk-speedtest`
-- plus `bin/omarchy-network-band` (2.4/5 GHz), `omarchy-network-password`,
-  `omarchy-dns`
-
-Monarch today uses the stock v5 `network` widget with `show_label = false`.
-
-**The blocker is not the data, it is the panel.** `wifi-status`, `wifi-toggle` and
-`network-toggle` exist as IPC, so the *indicator* half is easy. But a Noctalia
-plugin cannot render the shell's own network panel, so matching quattro means
-rebuilding a network picker inside a Luau `ui.*` tree — against a 72 KB QML panel
-written with a full widget toolkit. That is not a like-for-like effort.
-
-**Recommendation: split it.**
-1. *Cheap and valuable now* — keep the stock widget for picking, and add the
-   diagnostics quattro has and Noctalia lacks (band, bitrate, dBm, gateway/internet
-   latency) as a `monarch/indicators` entry with a small panel. A
-   `monarch-network-status` script modelled on `omarchy-network-status` is
-   straightforward and is the reusable half.
-2. *Only if step 1 proves insufficient* — replace the picker. Cost this against
-   contributing the missing fields upstream to Noctalia instead.
-
-Note quattro's status script has **no VPN detection**; Monarch already exposes VPN
-state through the LazyVPN widget, so that is one place Monarch is ahead.
-
-### 6. Theme and background plugins like Omarchy quattro
-
-The original motivation: "le theming est trop rigide, je peux rien customiser".
-Quattro has **two separate git-clone-based systems**, and conflating them is easy:
-
-**Themes** — `omarchy-theme-install <git-url>` clones to
-`~/.config/omarchy/themes/<name>` (name derived from the repo, stripping the
-`omarchy-` prefix and `-theme` suffix). A theme directory holds:
-
-- `colors.toml` — the palette (generated from `alacritty.toml` when absent)
-- `shell.toml` — shell-specific settings
-- `backgrounds/` — the theme's wallpapers
-
-`omarchy-theme-set` then rebuilds a staging dir, flips the
-`~/.local/state/omarchy/current/{theme,background}` symlinks, notifies the running
-shell immediately, and re-themes 13+ apps in parallel (alacritty, hyprctl, btop,
-vscode/opencode, helix, foot, tmux, gnome, claude, browser, obsidian, keyboard).
-
-**Plugins** — `omarchy-plugin-add <git-url>` clones to
-`~/.config/omarchy/plugins/<id>`, validated by `omarchy-plugin-validate`. A
-`manifest.json` declares `id`, `name`, `description`, `kinds`, `entryPoints`
-(`barWidget` / `bar`), and optional `barWidget.defaultSection`. First-party
-plugins live in `$OMARCHY_PATH/shell/plugins` and are prefixed `omarchy.`. The
-catalog (`omarchy-plugin-catalog`) merges both trees and is the single source of
-truth for bar widget selection. **Bar widgets and plugins are the same thing** —
-which is why `omarchy bar put` can offer any installed plugin.
-
-**How this maps onto Noctalia v5:**
-
-| quattro | Noctalia v5 |
-|---|---|
-| user themes cloned from git | palettes in `~/.config/noctalia/palettes/`, no installer |
-| `colors.toml` per theme | `Monarch.json` (v4 schema, unchanged) |
-| per-app retint, 13 apps | template catalog, `templates-apply` |
-| user-authored templates | **absent — v5 rejects `[templates.<name>]`** |
-| `backgrounds/` inside the theme | `[wallpaper] directory`, one folder |
-| plugin = bar widget, git-installable | Luau plugins, no installer or catalog |
-
-**The sharpest regression is the loss of user templates.** v5 renders only
-catalog ids; a template that is not in the builtin or community catalog cannot be
-rendered at all. Monarch already pays this: sddm and herdr are rendered by
-`monarch-theme-apply` off the `colors_changed` hook precisely because they have no
-catalog entry.
-
-That last sentence was aspirational: `monarch-theme-apply` renders neither, and
-herdr turned out not to need it. **sddm still does not follow a scheme change** —
-it ships a static `theme.conf` matching the Monarch scheme and is re-tinted only
-by `monarch refresh sddm`. Wiring that into the hook is open work.
-
-Worth recording, because it cost two wrong diagnoses before the right one. herdr
-follows the scheme **on its own**: it queries the terminal for its palette at
-startup — 256 `OSC 4` queries plus `OSC 10`/`11` for foreground and background —
-so `theme = "terminal"` and colours named after ANSI slots track whatever Noctalia
-themed the terminal to. Verified by stripping `[theme.custom]` entirely and
-switching schemes: chrome teal under Retro 82, grey under Vantablack. Omarchy
-relies on exactly this — not one of its dozen `omarchy-theme-set-*` scripts
-touches herdr, and `omarchy-theme-osc` pushes the same sequences the other way to
-repaint terminals already open.
-
-Two measurement errors got there the long way, both worth not repeating:
-
-1. *"The ANSI block never moves between schemes."* Measured across `Monarch.json`
-   and a `Tokyo Night.json` that was a byte-copy of it. **Diff the palettes before
-   concluding anything about what follows them.**
-2. *"The chrome needs concrete colours."* Never tested — and the very first
-   screenshot already showed the chrome tracking ANSI blue with no config at all.
-
-What is genuinely open: an ANSI slot is the terminal's colour, not the shell's, so
-under Retro 82 herdr reads teal beside an orange bar. Matching `mPrimary` instead
-would mean rewriting the config on every colour change, and was judged not worth
-the hook cost.
-
-The escape hatch works but does not scale to user-authored theming, which is what
-was asked for.
-
-**Decide between, in increasing order of cost:**
-1. keep extending the `colors_changed` hook — works today, no upstream dependency,
-   but every new app is Monarch code rather than user data
-2. ask upstream for a local template source (a directory of user templates
-   alongside the builtin and community trees). This is the smallest change that
-   actually restores what was lost
-3. build a Monarch-side theme installer that git-clones into
-   `palettes/` + a Monarch-owned backgrounds tree, and renders user templates from
-   the hook. Restores quattro's *user* experience without upstream, at the cost of
-   Monarch owning a renderer
-
-**Note this subsumes blocking item 2.** Quattro resolves per-theme backgrounds by
-searching two directories — `~/.local/state/omarchy/current/theme/backgrounds/`
-*and* `~/.config/omarchy/backgrounds/$THEME_NAME/`, the latter being the user's own
-additions for that theme — and cycles within them (`omarchy-theme-bg-next`).
-Monarch's existing `~/.config/monarch/backgrounds/monarch/` already mirrors the
-second path exactly. So rather than fighting for a Noctalia IPC that does not
-exist, do the resolution Monarch-side in `monarch-theme-apply` and write the
-result with `wallpaper-set`. Design items 2 and 6 together.
-
-The background half of that is now done and verified (item 2), and the picker
-question that hung off it is closed: Noctalia ships its own, and Monarch keeps
-it. What remains here is the *theming* half — user-authored templates — which
-the plugin API's rendering ceiling does not affect either way, since it is about
-what the shell renders per app, not about what a plugin may draw.
-
-### 7. Menu: quattro's data-driven menu, as a Noctalia panel
-
-**Split in two. Step 1 is done; step 2 is the panel.**
-
-- **Step 1 — the data model, rendered by fuzzel.** Shipped on `feat/menu-data`:
-  `default/monarch/monarch-menu.jsonc` (266 entries), `bin/monarch-menu` reduced
-  to a renderer, the user overlay moved from sourced bash to JSONC, and
-  `test/monarch-menu-test.sh` covering loading, the overlay, routes, guards and
-  navigation — the last through a fake `fuzzel` on `PATH`, so none of it needs a
-  compositor. `monarch-menu --check` validates the data in CI.
-- **Step 2 — the Noctalia panel.** Shipped on `feat/menu-panel`: the
-  `monarch/menu` plugin renders the tree, and `bin/monarch-menu` drops the picker
-  and the renderer to become the data server plus a `panel-toggle` route.
-  Verified in the VM: routes, guards against real hardware, the fonts provider
-  with the current value ticked and pre-selected, keyboard navigation, global
-  search across the whole tree with breadcrumbs, and an action that actually
-  flipped do-not-disturb. Quattro's `disabled` convention came with it: 55
-  Install rows now dim and tick what is already installed, 28 Remove rows hide
-  what is not there. A `[[launcher_provider]]` entry puts the whole menu behind
-  `/mm` in Mod+Space. `monarch-menu-select` and `-input` now use compact native
-  panels. **fuzzel still ships** for `monarch-menu-file` and `-keybindings`.
-
-  Not ported, deliberately: quattro's `apps` provider lists desktop entries
-  inside the menu and offers right-click uninstall. Monarch's Apps row opens the
-  Noctalia launcher instead, which already ranks and pins applications. The
-  uninstall gesture is not recoverable on this API level anyway — `onRightClick`
-  is accepted only by `ui.button`, never by a row, and `panel.openContextMenu`
-  needs `plugin_api 28` against our ceiling of 23. Revisit if that ceiling
-  moves.
-
-**What quattro did.** `bin/omarchy-menu` went from ~800 lines of nested bash to
-**52 lines** of IPC wrapper. The content became data
-(`default/omarchy/omarchy-menu.jsonc`, 358 lines), the rendering became a shell
-plugin (`shell/plugins/menu/Menu.qml`, 1473 lines), and the pure logic became
-`MenuModel.js` (524 lines, loadable by Node so `test/shell.d/menu-test.sh` and
-`menu-guards-test.sh` exercise it directly). Their data model:
-
-- Object keys are ids; **dotted ids are the tree** (`trigger.share.file` is a
-  child of `trigger.share`). No `parent` field to keep in sync.
-- Kind is inferred: `action` → action, `target` → link, otherwise submenu.
-- Fields: `icon`, `iconFont`, `label`, `title`, `aliases`, `description`,
-  `provider`, and three shell-condition guards — `when` (hide), `checked`
-  (append ✓), `disabled` (keep listed, dim, ✓, unselectable).
-- The user's `~/.config/omarchy/extensions/omarchy-menu.jsonc` overlays the
-  defaults **per key and per field**: reusing a shipped id retitles or re-icons
-  a row without re-declaring its action, and keeps its position.
-- `provider:` fills a submenu at runtime (`apps`, `fonts`, `power-profiles`),
-  one tab-delimited `label\tvalue\tcurrent` line per row.
-- Guards are batched into **one** bash process per (re)load and per open, off a
-  single `pacman -Q` snapshot, with `$(...)` readers shared between rows
-  (`GUARD_READERS`); a test fails the build when a multi-row reader is missing
-  from that list.
-
-**Why this ports, contrary to what this file said before.** The menu needs a
-panel, and v5 plugins can declare one. Verified against `noctalia.d.luau` and
-the two plugin repos:
-
-| quattro | Noctalia v5 |
-|---|---|
-| Quickshell plugin `omarchy.menu` | a `[[panel]]` entry of a Monarch plugin |
-| `Menu.qml` rendering | `panel.render(...)` over the `ui.*` tree |
-| `omarchy-shell shell toggle omarchy.menu '{"menu":"style"}'` | `noctalia msg panel-toggle monarch/menu:menu style` — the panel's `context` **is** the route, delivered to `onOpen(context)` |
-| ad-hoc plugin calls | `noctalia msg plugin <author/plugin:entry> <target> <event> [payload]` → `onIpc(event, payload)` |
-| `MenuModel.js` | a Luau module behind `require("./model.luau")` |
-| JSONC data + user overlay | same shape, read with `noctalia.readFileAsync` |
-| `apps` / `fonts` providers | `runAsync`, `commandExists`, `processMatches`, same row contract |
-| search inside the menu | `noctalia.fuzzyScore`, plus a `[[launcher_provider]]` entry with `include_in_global_search` |
-| `omarchy-menu-select` / `-input` | `ui.input` in the panel, or the same launcher provider |
-
-The `ui.*` set is large enough: `column`, `row`, `box`, `label`, `markdown`,
-`glyph`, `image`, `separator`, `spacer`, `progress`, `button`, `graph`, `input`,
-`select`, `slider`, `toggle`, `scroll`, `dragSource`, `dropZone`. Panel
-callbacks are `onOpen(context)`, `onClose()`, `onKey(chord, pressed)`,
-`onIpc(event, payload)`, `onFrameTick(deltaMs)`.
-
-**The manifest gates are all below our ceiling.** `dismiss_on_outside_click`
-needs API ≥ 8, `keyboard_focus` ≥ 10, `capture_keys` ≥ 13 — read off shipped
-plugins that declare them (`bitwarden` 8, `tailscale` 10, `bookmarks` 13). This
-build accepts up to 23, so a keyboard-driven menu panel is in range. Only
-`panel.openContextMenu` (≥ 28) is out, and the menu does not need it.
-
-**Two things this buys that fuzzel cannot.** The panel is drawn by Noctalia, so
-it is themed with the rest of the shell for free; and a `[[launcher_provider]]`
-entry makes every menu action reachable from the global launcher — something
-even quattro does not do, since its search stops at the menu's own field.
-
-**What it costs.** A comparable panel plugin — `dunarand/bookmarks`, a
-searchable list with `capture_keys` — is 1447 lines of Luau, in the same range
-as quattro's 1473 lines of QML. Budget a rendering layer, not a translation.
-And note the guard problem comes back with it: today's bash builds only the
-level being shown, lazily, so per-row conditions are cheap; a panel evaluates
-the tree before drawing, which is exactly why quattro batches. `MenuModel.js`
-stops being a QML curiosity and becomes the reference to port.
-
-**Reference implementations to read first**: `noctalia/notes` (a `[[panel]]` +
-`[[launcher_provider]]` + `[[widget]]` in one manifest, with
-`width`/`height`/`placement`/`position`), `dunarand/bookmarks` (keyboard-driven
-searchable list), `noctalia/kaomoji` (launcher provider with category filters).
-
-**Only then can fuzzel leave `install/monarch-base.packages`.** Its remaining
-consumers are `monarch-menu-file` and `monarch-menu-keybindings`, and it remains
-in `community_ids` in `config/noctalia/config.toml`. Dropping the package means
-replacing both consumers and removing that template id.
-
-`noctalia dmenu` was evaluated as the intermediate replacement. It preserves
-the stdin/stdout selection contract but opens the full-height launcher and does
-not support free text input, so native compact panels replaced
-`monarch-menu-select` and `monarch-menu-input` instead.
-
-#### Menu: applications as menu rows — *built, then rolled back*
-
-Quattro's `apps` entry declares `"provider":"apps"` and renders the application
-list as rows of the menu; Monarch's hands off to Noctalia's launcher. The quattro
-shape was implemented and worked end to end — `monarch app list` enumerating
-desktop entries (XDG order, `NoDisplay`/`Hidden`/`OnlyShowIn`/`NotShowIn`, user
-copies shadowing system ones) with each `Icon=` resolved through the icon themes,
-`monarch app launch` running one by id via `uwsm-app`, the rows spliced into the
-tree so search reached them, and real per-app icons drawn with `ui.image`.
-
-Rolled back (`d0defa51`, recoverable with `git cherry-pick`) once the follow-up
-question — a right-click action such as uninstall — turned out to be unbuildable
-here: right-click is button-only and plugin context menus need API 28 (see the
-facts section). An uninstall would also have covered only 21 of 34 applications,
-the rest being the webapps and TUIs Monarch generates, which have their own
-removal paths. Without a secondary action the list adds little over the native
-launcher, which already has icons, fuzzy search and frecency.
-
-Two findings worth keeping if this is revisited:
-
-- **Catalogue vs selector.** A provider that declares a `current` command is a
-  selector (fonts, power profiles) and needs its tick, so it stays on the runtime
-  path; one without is a catalogue and can be merged into the tree, where search
-  and activation treat its rows like any shipped entry.
-- **A merged entry must stop advertising `provider`.** The panel fetches one at
-  runtime whenever it sees the field, and then displays that older batch instead
-  of the merged rows. The symptom is indistinguishable from icons failing to
-  render — the rows appear, but blank and without images — and cost four rounds
-  of blaming `ui.image`, which was innocent.
-
-#### Menu: fixes already landed
-
-Independent of the port, applied to the current bash menu:
-
-- `monarch menu screenshot` routed to `show_screenshot_menu`, which was never
-  defined — a dead route that failed silently. Now runs
-  `monarch-capture-screenshot`, matching quattro's `trigger.capture.screenshot`.
-- `toggle_existing_menu` ran `pkill -x fuzzel` and stopped there, leaving the
-  monarch-menu behind the picker alive: an empty selection reads as "go back",
-  so the keybind popped the parent menu back up instead of closing the menu. It
-  now tracks its own pids in `$XDG_RUNTIME_DIR/monarch/menu{,-picker}.pid`
-  (re-checked against `/proc`, since a pid file outlives its process) and kills
-  both. **A foreign picker is still dismissed**, and has to be: fuzzel is
-  single-instance per display — it holds
-  `/run/user/UID/fuzzel-$WAYLAND_DISPLAY.lock` and a second instance exits 1
-  with `failed to acquire lock`. So "leave other pickers alone" is not an
-  option; the menu simply would not open. Verified in the VM.
-- `install "obs-studio" "pinta" "kdenlive"` installed only `pinta`: `install()`
-  reads `$1` as the label and `$2` as the package list, and ignored `$3`.
-- Cosmetic: `show_setup_security_menu` and `show_setup_default_menu` were
-  indented as if nested. They were not — a mis-indentation that made
-  `show_setup_default_menu` read as a function defined inside another one.
-
----
-
-### 8. Improve `monarch-about` rendering — *done, verified in the VM*
-
-The current terminal presentation breaks at the VM's 1900×1005 resolution:
-the ASCII logo and its labels are clipped, the left-side metadata collides with
-the artwork, and the right-side boxes leave large uneven gaps. Make the layout
-derive from the available terminal rows and columns, keep every label inside its
-section, and provide a compact fallback when the full composition does not fit.
-Validate it at the VM resolution as well as a conventional 1920×1080 display.
-
-`monarch-launch-about` now opens under its own `org.monarch.about` app id in a
-fitted 1100×580 window. It selects the full branded composition when at least
-104×30 terminal cells are available and a 14-row, logo-free compact composition
-otherwise. Both paths were verified at 1900×1005, with the compact path forced
-through an 800×400 window.
-
-## Next chantiers
-
-In intended order:
-
-1. **Preinstall restore — done, verified in the VM.** Restore the application
-   launchers and the same 29 packages removed by `monarch-remove-preinstalls`,
-   without overwriting a Niri user override that may have changed since removal.
-2. **Network and disk speed tests.** Expose the existing
-   `monarch-network-speedtest` from the menu, then implement the disk equivalent.
-3. **SSHD setup.** Install and enable OpenSSH, authorize a pasted key or keys
-   from a GitHub username, and make the firewall exposure explicit.
-4. **Network diagnostics.** Keep Noctalia's native picker and add band, signal,
-   bitrate, addressing and latency information to Monarch's network panel.
-5. **Extensible application theming.** Prefer an upstream local-template source;
-   otherwise scope a Monarch-owned installer and renderer. SDDM still needs to
-   follow palette changes.
-6. **Crash capture.** Decide what is captured, retained and shared before adding
-   a watcher service or menu toggle.
-
-Noctalia plugin management remains blocked on reliable plugin reload after an
-enable or disable operation.
-
-## v5 facts worth not rediscovering
-
-Hard-won during the port; all verified against a running v5.0.0-beta.8.
-
-**The plugin UI API is a vocabulary, not a toolkit.** A plugin describes a tree
-of typed nodes and the host renders it: `column row box label glyph image
-separator spacer progress button graph input markdown select slider toggle scroll
-dragSource dropZone`, each with an allowlist of props (`kFlex`, `kBox`, `kImage`…
-in `src/ui/ui_tree_reconciler.cpp`). Anything else is logged as
-`ui tree: '<node>' has no prop '<name>', ignored` and dropped. There is **no**
-shape or vector geometry, transform, mask, shader or z-order — children paint in
-tree order. Quickshell, which Omarchy uses, exposes the whole Qt Quick scene
-graph instead; that is the difference, and it is a deliberate one, since v5 left
-Quickshell for C++ and gives script callbacks a CPU budget.
-
-Nothing suggests this changes soon. 28 API levels shipped in a few months and
-every one is a *capability* — HTTP streaming, drag and drop, keyboard focus,
-system monitoring, audio, markdown, module loading, context menus — none a
-rendering primitive; six weeks of commits on the reconciler are all widgets and
-interaction. Three upstream requests cover exactly the gap and none is triaged:
-[#3507](https://github.com/noctalia-dev/noctalia/issues/3507) (transform,
-clipping, transitions), [#3607](https://github.com/noctalia-dev/noctalia/issues/3607)
-(skew), [#3923](https://github.com/noctalia-dev/noctalia/issues/3923) (animated
-gradients) — no label, no milestone, no comment, no reaction, in a backlog of
-132 open feature issues with no milestones and no published roadmap.
-
-**A prop set to nil is not cleared, it is left alone.** The host applies a prop
-only when it is present, and `row`/`column` have no clear-on-absence path (only
-`drop_zone` does). `fill = selected and "primary/0.12" or nil` therefore left the
-old fill painted, so every row the cursor passed through stayed highlighted. Pass
-an explicit value — `"primary/0"` — for the off state.
-
-**`opacity` and a negative `gap` both work.** Useful when a design needs dimming
-or overlap: `opacity` is valid on `row`/`column`/`box` (not on `image`, so wrap
-it), and `setGap` does not clamp negatives, so children overlap. `ui.spacer` is
-*flexible* space and will swallow a row; a fixed gap wants `ui.box({width = n})`.
-
-**Right-click is button-only, and plugin context menus are not in beta.8.**
-`onRightClick` appears in `kButton` alone; `row`/`column` take `onClick` and
-`onHover`. The plugin-facing context-menu API arrived at API level 28 and is
-absent from the shipped binary, which supports up to 23. Any secondary action on
-a list row has to be a button, a keyboard chord, or a submenu until Monarch moves
-to a newer Noctalia.
-
-**Quickshell as an escape hatch: cheap on disk, expensive in memory.** Measured
-on a Monarch install: 13 MiB installed and 3.1 MiB downloaded, because SDDM
-already pulls `qt6-base` (66 MiB) and `qt6-declarative` (120 MiB) — only
-`quickshell`, `qt6-wayland`, `libdwarf` and `cpptrace` are new. Noctalia itself
-depends on no Qt at all. But an *empty* Quickshell instance costs 205 MiB RSS /
-125 MiB PSS, more than the whole Noctalia shell (159 / 113), and a wallpaper
-picker with thumbnails ~255 / 174 — the naive version, loading full-resolution
-images, hit 765 / 684, which is why quattro loads pre-generated thumbnails.
-Note the disk figure is contingent: swap SDDM for `noctalia-greeter` and nothing
-pulls `qt6-declarative`, so Quickshell would cost ~193 MiB instead of 13.
-
-**The `colors_changed` hook fires late and passes nothing.** It runs a few
-seconds after the change, not synchronously — long enough to conclude it never
-fired if you look too early. And v5 passes the hook **no arguments**: v4's
-`"dark"`/`"light"` as `$1` is gone, so appearance and scheme both come over IPC.
-
-**The validator has blind spots.** `noctalia config validate` does *not* check
-inline tables, `[plugin_settings]` keys, widget ids, or enum values.
-`noctalia config export merged` does not validate at all — it echoes back
-whatever you wrote, including keys the shell rejects. Authoritative sources are
-`noctalia msg --help`, the error strings in the binary, the settings UI as
-rendered, and above all `/usr/share/noctalia/assets/translations/en.json`.
-
-**The translations catalog is the setting index.** It is how `hide_when_no_media`,
-`hide_when_empty`, `labels_only_when_occupied`, `glyph` and
-`lockscreen.fingerprint` were all found. Search it *before* guessing a key name.
-
-**The settings-UI grouping is not the TOML section.** The catalog path
-`settings.schema.shell.telemetry` corresponds to the key `telemetry_enabled` under
-`[shell]`; `shell.telemetry` is rejected as an unknown setting. Confirm the real
-key against the binary, not the UI path.
-
-**Per-widget settings are top-level `[widget.<id>]` sections.** Never inline
-tables in a bar lane — the TOML validator accepts them and the widget is silently
-dropped at load time. Bar lanes hold plain strings only.
-
-**Bar lane arrays are replaced across `.toml` files, not merged.** A second file
-declaring `end = [...]` wipes the whole lane rather than appending. This is why
-install-time widget wiring is not viable: the user's lane would freeze at its
-install-day value and stop tracking Monarch's defaults. Widgets that depend on an
-optional package belong in the shipped layout, hiding themselves when the package
-is absent.
-
-**Plugin binaries need absolute paths.** Noctalia is started by the compositor,
-so its PATH is only `/usr/local/sbin:/usr/local/bin:/usr/bin` — a bare command
-name silently fails to launch. `indicator.bin()` resolves commands from the repo's
-`bin/`; `indicator.pkgBin()` resolves package binaries under `/usr/bin`. Using the
-wrong one leaves the widget permanently hidden with no error.
-
-**Plugin API level is 22.** `require()` of a relative `.luau` module needs ≥22
-(and the extension is mandatory). The build accepts 3–23 despite the docs
-advertising 3–27, which rules out `runAsync`'s argument-array form (24+) — hence
-the hand-quoting in `agents.luau`'s `shellQuote`. Entry ids are unique across the
-whole plugin, not per kind. Settings must use `label_key` / `description_key`
-with a `translations/` catalog; a literal `label` is rejected.
-
-**A plugin is not just bar widgets.** The five entry kinds are `[[widget]]`,
-`[[panel]]`, `[[launcher_provider]]`, `[[desktop_widget]]` and `[[shortcut]]`,
-and one manifest may declare several. Bar widgets are simply the only kind
-Monarch uses so far — do not read that as the API's ceiling, which is how item 7
-was nearly written off. `noctalia.d.luau`, at the root of
-`github.com/noctalia-dev/official-plugins`, is the authoritative surface: it
-declares `noctalia.*`, `barWidget.*`, `panel.*`, `launcher.*`, `desktopWidget.*`,
-`shortcut.*`, every `ui.*` node and every entry-point callback. Consult it before
-the binary's strings.
-
-**An unparseable config falls back to defaults silently.** No notification, no
-message on the bar — the shell simply comes up with stock settings. The tells
-are visual (the Monarch palette reverts to Noctalia's) and, decisively,
-`noctalia msg color-scheme-get` returning `builtin Noctalia` instead of
-`custom Monarch`. `noctalia config export merged` is what prints the actual
-parse error with a line number; `config validate` on a file that was truncated
-mid-copy can still pass, so when testing in the VM, checksum the config after
-copying it in rather than trusting the copy.
-
-**`config-reload` applies config changes live** — verified by changing a clock
-format and reading it back off the bar. A full shell restart is only needed when
-the config file itself is replaced wholesale.
-
-**v5 has no changelog or telemetry wizard.** Only the plain `[shell]
-telemetry_enabled` opt-out. The v4 `shell-state.json` version floor is obsolete.
-
-**v5 paints the wallpaper from `[wallpaper] directory` with no persisted state.**
-Verified by cold-starting the shell after stripping every wallpaper entry: the
-Monarch background still appeared on the first frame. The v4 cache seeding is
-therefore unnecessary, not merely obsolete.
-
----
-
-## Testing
-
-Every feature is tested by building an ISO and booting it in QEMU
-(`monarch-iso`), never by deploying into `~/.local/share/monarch` on the live
-machine. `monarch-iso-make --local-source` mounts `$MONARCH_PATH` into Docker, so
-no commit or push is needed to test a change.
-
-Note the VM disk image lives on `/tmp`, which is a 16 GB tmpfs mounted with
-`usrquota`. An 11 GB image leaves very little headroom, and exhausting the quota
-makes unrelated commands fail with `EDQUOT` in confusing ways.
+For desktop changes, deploy to the dev VM, exercise the real path, capture and
+inspect a screenshot. Keep this document uncommitted unless explicitly asked.
