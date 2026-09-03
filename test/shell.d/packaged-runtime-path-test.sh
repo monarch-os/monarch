@@ -61,6 +61,16 @@ for plugin in theme background unlock; do
 done
 pass "theme panels invoke commands from the packaged Monarch runtime"
 
+for command in monarch-theme-apply monarch-theme-bundle monarch-theme-list; do
+  grep -qF '$HOME/.config/monarch/themes' "$ROOT/bin/$command" ||
+    fail "$command does not keep user themes under ~/.config/monarch"
+done
+grep -qF '$HOME/.config/monarch/themes' "$ROOT/default/monarch/monarch-menu.jsonc" ||
+  fail "the menu does not discover user themes under ~/.config/monarch"
+[[ ! -e $ROOT/bin/monarch-reinstall-git ]] ||
+  fail "the package runtime still exposes the checkout reinstaller"
+pass "user themes and reinstall workflows no longer depend on a source checkout"
+
 runtime_commands=(
   monarch-install-tailscale
   monarch-plymouth-preview

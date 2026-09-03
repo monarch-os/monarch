@@ -45,6 +45,7 @@ test/shell.d/factory-reset-esp-test.sh	factory-reset	high	isolated
 test/shell.d/install-keyring-test.sh	installer	high	isolated
 test/shell.d/legacy-udev-reconcile-test.sh	security	high	isolated
 test/shell.d/legacy-settings-pacnew-test.sh	updates	high	isolated
+test/shell.d/legacy-runtime-remove-test.sh	updates	high	isolated
 test/shell.d/package-manifest-test.sh	package-install	high	isolated
 test/shell.d/packaged-runtime-path-test.sh	package-runtime	high	isolated
 test/shell.d/provision-owner-branding-test.sh	provisioning	low	isolated

@@ -7,7 +7,7 @@ set -uo pipefail
 
 MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
 PALETTES_DIR="${MONARCH_THEME_PALETTES_DIR:-$HOME/.config/noctalia/palettes}"
-BUNDLES_DIR="${MONARCH_THEME_BUNDLES_DIR:-$HOME/.local/share/monarch/theme-bundles}"
+BUNDLES_DIR="${MONARCH_THEME_BUNDLES_DIR:-$HOME/.config/monarch/themes}"
 
 current=""
 if command -v noctalia >/dev/null 2>&1; then

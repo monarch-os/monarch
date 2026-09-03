@@ -101,7 +101,7 @@ export MONARCH_RECONCILE_BIN="$ROOT/bin/monarch-reconcile"
 export MONARCH_NVIM_CONFIG_DIR="$TEST_ROOT/monarch-nvim/config"
 export TEST_LOG="$TEST_ROOT/calls"
 export TEST_NOCTALIA=unavailable
-export PATH="$TEST_ROOT/bin:/usr/bin"
+export PATH="$TEST_ROOT/bin:$ROOT/bin:/usr/bin"
 
 source "$ROOT/install/reconcile/config-files.sh"
 ownership="$TEST_ROOT/ownership"
@@ -124,6 +124,7 @@ monarch_reconcile_managed_tree "$ownership/source-tree" "$ownership/managed-tree
 
 mkdir -p "$TEST_ROOT/bin" "$HOME/.config/noctalia" "$HOME/.config/uwsm" \
   "$HOME/.local/share/monarch/.git" "$MONARCH_RUNTIME_ROOT/bin" \
+  "$HOME/.local/bin" "$HOME/.config/monarch/defaults" \
   "$HOME/.config/nvim/lua/config" "$HOME/.config/nvim/lua/plugins" \
   "$MONARCH_NVIM_CONFIG_DIR/lua/config" \
   "$HOME/.local/share/noctalia/plugins/third-party" \
@@ -144,6 +145,16 @@ for command in monarch-pkg-add monarch-pkg-drop monarch-refresh-config monarch-r
 printf '%s %s\n' "${0##*/}" "$*" >>"$TEST_LOG"
 EOF
 done
+
+cat >"$TEST_ROOT/bin/monarch-notification-wait" <<'EOF'
+#!/bin/bash
+[[ ${TEST_NOTIFICATION_READY:-false} == "true" ]]
+EOF
+
+cat >"$TEST_ROOT/bin/monarch-notification-send" <<'EOF'
+#!/bin/bash
+printf 'notification %s\n' "$*" >>"$TEST_LOG"
+EOF
 
 cat >"$TEST_ROOT/bin/monarch-refresh-noctalia" <<'EOF'
 #!/bin/bash
@@ -190,6 +201,12 @@ printf '%s\n' 'return {}' >"$MONARCH_NVIM_CONFIG_DIR/lua/config/remote_clipboard
 printf '%s\n' 'source ~/.local/share/monarch/default/zsh/rc' >"$HOME/.zshrc"
 printf '%s\n' 'source ~/.local/share/monarch/default/bash/rc' >"$HOME/.bashrc"
 printf '%s\n' 'export MONARCH_PATH=$HOME/.local/share/monarch' >"$HOME/.config/uwsm/env"
+cat >"$HOME/.local/bin/gemini" <<'EOF'
+#!/bin/bash
+package="@google/gemini-cli"
+command="gemini"
+EOF
+printf '%s\n' gemini >"$HOME/.config/monarch/defaults/agent"
 
 bash "$ROOT/install/reconcile/schema/1-to-2/user.sh"
 bash "$ROOT/install/reconcile/user.sh"
@@ -211,6 +228,10 @@ cmp "$MONARCH_NVIM_CONFIG_DIR/lua/config/remote_clipboard.lua" \
 grep -qF '/usr/share/monarch}/default/zsh/rc' "$HOME/.zshrc"
 grep -qF '/usr/share/monarch}/default/bash/rc' "$HOME/.bashrc"
 grep -qx 'export MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}' "$HOME/.config/uwsm/env"
+[[ ! -e $HOME/.local/bin/gemini ]]
+[[ $(<"$HOME/.config/monarch/defaults/agent") == "agy" ]]
+grep -qx 'mise use -g --quiet "codex" || exit 1' "$HOME/.local/bin/codex"
+grep -qx 'mise use -g --quiet "antigravity-cli" || exit 1' "$HOME/.local/bin/agy"
 
 plugin_hook="$HOME/.config/monarch/hooks/post-boot.d/noctalia-v5-plugins"
 runtime_hook="$HOME/.config/monarch/hooks/post-boot.d/packaged-runtime"
@@ -220,16 +241,27 @@ grep -qx 'monarch-refresh-noctalia' "$TEST_LOG"
 grep -qx 'msg plugins enable monarch/theme' "$TEST_LOG"
 
 export TEST_NOCTALIA=ready
+printf '%s\n' '#!/bin/bash' 'echo user-gemini' >"$HOME/.local/bin/gemini"
 bash "$ROOT/install/reconcile/schema/1-to-2/user.sh"
 bash "$ROOT/install/reconcile/user.sh"
 [[ ! -e $plugin_hook ]]
+grep -qx 'echo user-gemini' "$HOME/.local/bin/gemini"
 
-bash "$runtime_hook"
-[[ -L $HOME/.local/share/monarch ]]
-[[ $(readlink "$HOME/.local/share/monarch") == "$MONARCH_RUNTIME_ROOT" ]]
+if bash "$runtime_hook"; then
+  echo "runtime finalization ignored an unavailable notification service" >&2
+  exit 1
+fi
+[[ ! -e $HOME/.local/share/monarch ]]
 [[ -d $HOME/.local/share/monarch-v4/.git ]]
 [[ ! -e $runtime_hook ]]
 [[ $(<"$HOME/.local/state/monarch/schema") == 2 ]]
+invitation_hook="$HOME/.config/monarch/hooks/post-boot.d/legacy-runtime-cleanup"
+[[ -x $invitation_hook ]]
+
+TEST_NOTIFICATION_READY=true bash "$invitation_hook"
+[[ ! -e $invitation_hook ]]
+grep -qF 'notification -g 󰆴 Monarch V5 upgrade complete' "$TEST_LOG"
+grep -qF -- '--action Clean up monarch-launch-floating-terminal-with-presentation monarch-remove-legacy-runtime' "$TEST_LOG"
 
 cp "$ROOT/install/reconcile/noctalia-plugins.sh" "$plugin_hook"
 cat >"$TEST_ROOT/bin/reconcile-complete" <<'EOF'

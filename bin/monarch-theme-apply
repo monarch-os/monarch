@@ -50,7 +50,7 @@ FARM_DIR="$USER_BG_ROOT/current"          # symlink farm wallpaper.directory poi
 EXTRA_SOURCES_DIR="$USER_BG_ROOT/sources" # user-mounted wallpaper folders (dir symlinks)
 MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
 SRC_THEMES="$MONARCH_ROOT/themes"
-BUNDLES_DIR="${MONARCH_THEME_BUNDLES_DIR:-$HOME/.local/share/monarch/theme-bundles}"
+BUNDLES_DIR="${MONARCH_THEME_BUNDLES_DIR:-$HOME/.config/monarch/themes}"
 # Records that a Monarch wallpaper has actually reached the shell at least once.
 # See sync_wallpaper: without it there is no way to tell a fresh install from a
 # user who deliberately picked Noctalia's own default.

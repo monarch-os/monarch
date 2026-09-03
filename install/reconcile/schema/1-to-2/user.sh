@@ -29,6 +29,21 @@ EOF
   fi
 fi
 
+source "$MONARCH_PATH/install/user/mise.sh"
+
+legacy_gemini="$HOME/.local/bin/gemini"
+if [[ -f $legacy_gemini && ! -L $legacy_gemini ]] &&
+  grep -qx 'package="@google/gemini-cli"' "$legacy_gemini" &&
+  grep -qx 'command="gemini"' "$legacy_gemini"; then
+  rm -f "$legacy_gemini"
+fi
+
+agent_file="$HOME/.config/monarch/defaults/agent"
+if [[ -f $agent_file ]] && read -r default_agent <"$agent_file" &&
+  [[ $default_agent == "gemini" || $default_agent == "gemini-cli" ]]; then
+  printf '%s\n' agy >"$agent_file"
+fi
+
 for shell_rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
   [[ -f $shell_rc ]] || continue
   sed -i 's|source ~/.local/share/monarch/default/zsh/rc|source "${MONARCH_PATH:-/usr/share/monarch}/default/zsh/rc"|' "$shell_rc"
