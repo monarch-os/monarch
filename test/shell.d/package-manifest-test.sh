@@ -10,28 +10,45 @@ trap 'rm -rf "$TEST_ROOT"' EXIT
 
 manifest="$ROOT/install/monarch-base.packages"
 required=()
-preinstalled=()
+defaults=()
 all=()
 
 monarch_load_package_manifest required "$manifest" required
-monarch_load_package_manifest preinstalled "$manifest" preinstalled
+monarch_load_package_manifest defaults "$manifest" default
 monarch_load_package_manifest all "$manifest"
 
 ((${#required[@]})) || fail "required package section is populated"
-((${#preinstalled[@]})) || fail "preinstalled package section is populated"
-((${#all[@]} == ${#required[@]} + ${#preinstalled[@]})) ||
+((${#defaults[@]})) || fail "default package section is populated"
+((${#all[@]} == ${#required[@]} + ${#defaults[@]})) ||
   fail "all packages combine both manifest sections"
 
+declare -A required_packages=()
+declare -A default_packages=()
+declare -A all_packages=()
+for package in "${required[@]}"; do
+  required_packages[$package]=true
+done
+for package in "${defaults[@]}"; do
+  default_packages[$package]=true
+done
+for package in "${all[@]}"; do
+  all_packages[$package]=true
+done
+
 for package in chromium fuzzel gpu-screen-recorder grim localsend mpv neovim niri noctalia networkmanager sddm slurp uwsm yay zbar; do
-  [[ " ${required[*]} " == *" $package "* ]] || fail "$package is a required package"
+  [[ -v required_packages[$package] ]] || fail "$package is a required package"
 done
 
 for package in firefox obsidian signal-desktop; do
-  [[ " ${preinstalled[*]} " == *" $package "* ]] || fail "$package is a preinstalled package"
+  [[ -v default_packages[$package] ]] || fail "$package is a default package"
+done
+
+for package in claude-code opencode; do
+  [[ ! -v all_packages[$package] ]] || fail "$package is mise-managed, not a pacman base package"
 done
 
 if ((${#all[@]} != $(printf '%s\n' "${all[@]}" | sort -u | wc -l))); then
-  fail "package manifest contains no duplicates"
+  fail "package manifest contains duplicate packages"
 fi
 
 invalid="$TEST_ROOT/package-manifest"
@@ -41,7 +58,7 @@ if monarch_load_package_manifest all "$invalid" 2>/dev/null; then
 fi
 
 printf '%s\n' '# required' niri >"$invalid"
-if monarch_load_package_manifest preinstalled "$invalid" preinstalled 2>/dev/null; then
+if monarch_load_package_manifest defaults "$invalid" default 2>/dev/null; then
   fail "missing requested sections are rejected"
 fi
 
@@ -58,6 +75,6 @@ chmod +x "$TEST_ROOT/bin/monarch-pkg-add" "$TEST_ROOT/bin/pacman"
 TEST_ROOT="$TEST_ROOT" MONARCH_PATH="$ROOT" PATH="$TEST_ROOT/bin:/usr/bin" \
   bash "$ROOT/install/reconcile/required-packages.sh"
 mapfile -t installed <"$TEST_ROOT/installed-packages"
-[[ ${installed[*]} == "${required[*]}" ]] || fail "reconciliation installs exactly the required packages"
+[[ ${installed[*]} == ${required[*]} ]] || fail "reconciliation installs exactly the required packages"
 
 pass "package manifest sections are valid"

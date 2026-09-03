@@ -3,6 +3,8 @@
 set -euo pipefail
 
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
 
 grep -Fqx 'clipboard_history_max_entries = 500' "$ROOT/config/noctalia/config.toml"
 echo "Noctalia keeps the extended clipboard history"
@@ -31,3 +33,28 @@ assert entry == {
 }
 PY
 echo "Noctalia ships an inert data-only user-template example"
+
+mkdir -p "$TMP/bin"
+printf '%s\n' '#!/bin/bash' 'exit 23' >"$TMP/bin/monarch-refresh-config"
+chmod +x "$TMP/bin/monarch-refresh-config"
+if PATH="$TMP/bin:/usr/bin" "$ROOT/bin/monarch-refresh-noctalia" >/dev/null 2>&1; then
+  echo "Noctalia refresh hid a configuration failure" >&2
+  exit 1
+fi
+echo "Noctalia refresh propagates configuration failures"
+
+refresh_home="$TMP/refresh-home"
+refresh_source="$TMP/refresh-source"
+mkdir -p "$refresh_home/.config/noctalia" "$refresh_source/config/noctalia"
+printf '%s\n' user-config >"$refresh_home/.config/noctalia/config.toml"
+if HOME="$refresh_home" MONARCH_PATH="$refresh_source" \
+  "$ROOT/bin/monarch-refresh-config" noctalia/config.toml >/dev/null 2>&1; then
+  echo "Config refresh hid a failed packaged-default copy" >&2
+  exit 1
+fi
+[[ $(<"$refresh_home/.config/noctalia/config.toml") == "user-config" ]]
+if compgen -G "$refresh_home/.config/noctalia/config.toml.bak.*" >/dev/null; then
+  echo "Config refresh backed up a file before validating its packaged default" >&2
+  exit 1
+fi
+echo "Config refresh propagates packaged-default copy failures"

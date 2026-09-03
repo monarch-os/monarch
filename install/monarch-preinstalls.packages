@@ -1,7 +1,8 @@
+# User-removable subset of the default section in monarch-base.packages.
+
 bettercap
 binwalk
 caido-desktop
-claude-code
 deezer
 fabric-ai-bin
 ffuf-bin
@@ -16,7 +17,6 @@ ligolo-ng
 massdns
 nmap
 obsidian
-opencode
 posting
 signal-desktop
 socat

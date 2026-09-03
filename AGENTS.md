@@ -208,7 +208,9 @@ For the Niri compositor specifically, prefer `monarch-refresh-niri` — it rebui
 `monarch-reconcile` converges supported installations onto the current state
 after packages are updated. Do not add timestamped migrations. Put privileged,
 idempotent ownership in `install/reconcile/system.sh` and user/session ownership
-in `install/reconcile/user.sh`.
+in `install/reconcile/user.sh`. A schema transition may add
+`system-after-user.sh` when destructive system cleanup must wait until its user
+replacement exists.
 
 Reconcilers must detect the state they own, tolerate repeated execution and
 stop before destructive cleanup if their replacement is unavailable. Remove a

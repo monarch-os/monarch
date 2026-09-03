@@ -10,6 +10,7 @@ MIN_SUPPORTED_SCHEMA=1
 LEGACY_FLOOR_MARKER=1787067946.sh
 state_dir="$HOME/.local/state/monarch"
 schema_file="$state_dir/schema"
+legacy_root="$HOME/.local/share/monarch"
 plugin_hook="$HOME/.config/monarch/hooks/post-boot.d/noctalia-v5-plugins"
 runtime_hook="$HOME/.config/monarch/hooks/post-boot.d/packaged-runtime"
 
@@ -23,6 +24,7 @@ complete_reconciliation() {
   mkdir -p "$state_dir"
   printf '%s\n' "$CURRENT_SCHEMA" >"$schema_file.tmp"
   mv "$schema_file.tmp" "$schema_file"
+  rm -rf "$state_dir/reconcile"
 }
 
 if [[ ${1:-} == "--complete" ]]; then
@@ -37,7 +39,7 @@ if monarch-pkg-missing monarch || [[ ! -x $runtime_root/bin/monarch ]]; then
   echo "Install the packaged Monarch runtime"
   source "$source_root/install/reconcile/packaged-runtime-bootstrap.sh"
   legacy_supported=false
-  if [[ $source_root == "$HOME/.local/share/monarch" && -d $source_root && ! -L $source_root && \
+  if [[ $source_root == $legacy_root && -d $source_root && ! -L $source_root && \
     -f $state_dir/migrations/$LEGACY_FLOOR_MARKER ]]; then
     legacy_supported=true
   fi
@@ -49,7 +51,6 @@ if monarch-pkg-missing monarch || [[ ! -x $runtime_root/bin/monarch ]]; then
   exit 1
 fi
 
-export MONARCH_SOURCE_ROOT=$source_root
 export MONARCH_PATH=$runtime_root
 export PATH="$runtime_root/bin:$PATH"
 
@@ -59,7 +60,7 @@ if [[ -f $schema_file ]]; then
     echo "Invalid Monarch installation schema: $schema" >&2
     exit 1
   }
-elif [[ $source_root == "$HOME/.local/share/monarch" && -d $source_root && ! -L $source_root ]] ||
+elif [[ -d $legacy_root && ! -L $legacy_root ]] ||
   monarch-pkg-present noctalia-shell || [[ -f $HOME/.config/noctalia/settings.json ]]; then
   if [[ ! -f $state_dir/migrations/$LEGACY_FLOOR_MARKER ]]; then
     echo "This legacy installation predates the supported v4 upgrade baseline." >&2
@@ -93,6 +94,7 @@ while ((schema < CURRENT_SCHEMA)); do
   }
   [[ ! -f $transition/system.sh ]] || bash "$transition/system.sh"
   [[ ! -f $transition/user.sh ]] || bash "$transition/user.sh"
+  [[ ! -f $transition/system-after-user.sh ]] || bash "$transition/system-after-user.sh"
   schema=$next_schema
 done
 

@@ -48,11 +48,11 @@ mkdir -p "$packaged_runtime/bin" "$shell_home/.local/share/monarch/bin"
 touch "$packaged_runtime/bin/monarch" "$shell_home/.local/share/monarch/bin/monarch"
 chmod +x "$packaged_runtime/bin/monarch" "$shell_home/.local/share/monarch/bin/monarch"
 shell_path=$(HOME="$shell_home" MONARCH_RUNTIME_ROOT="$packaged_runtime" MONARCH_PATH= PATH=/usr/bin bash -c 'unset MONARCH_PATH; . "$1"; . "$1"; printf "%s" "$PATH"' sh "$ROOT/default/shells/envs")
-[[ $shell_path == "$packaged_runtime/bin:/usr/bin:$shell_home/.local/share/mise/shims:$shell_home/.local/bin" ]]
+[[ $shell_path == $packaged_runtime/bin:/usr/bin:$shell_home/.local/share/mise/shims:$shell_home/.local/bin ]]
 
 chmod -x "$packaged_runtime/bin/monarch"
 legacy_path=$(HOME="$shell_home" MONARCH_RUNTIME_ROOT="$packaged_runtime" MONARCH_PATH= PATH=/usr/bin bash -c 'unset MONARCH_PATH; . "$1"; printf "%s" "$PATH"' sh "$ROOT/default/shells/envs")
-[[ $legacy_path == "$shell_home/.local/share/monarch/bin:/usr/bin:$shell_home/.local/share/mise/shims:$shell_home/.local/bin" ]]
+[[ $legacy_path == $shell_home/.local/share/monarch/bin:/usr/bin:$shell_home/.local/share/mise/shims:$shell_home/.local/bin ]]
 
 legacy_root="$shell_home/.local/share/monarch"
 mkdir -p "$legacy_root/default/"{bash,shells,zsh}
@@ -63,11 +63,11 @@ touch "$legacy_root/default/bash/"{shell,completions} \
 for shell_rc in bash zsh; do
   recovered=$(HOME="$shell_home" MONARCH_RUNTIME_ROOT="$packaged_runtime" MONARCH_PATH= PATH=/usr/bin \
     bash -c 'unset MONARCH_PATH; . "$1"; command -v monarch' sh "$ROOT/default/$shell_rc/rc")
-  [[ $recovered == "$legacy_root/bin/monarch" ]]
+  [[ $recovered == $legacy_root/bin/monarch ]]
 done
 
 checkout="$shell_home/checkout"
 override_path=$(HOME="$shell_home" MONARCH_PATH="$checkout" PATH=/usr/bin bash -c '. "$1"; . "$1"; printf "%s" "$PATH"' sh "$ROOT/default/shells/envs")
-[[ $override_path == "$checkout/bin:/usr/bin:$shell_home/.local/share/mise/shims:$shell_home/.local/bin" ]]
+[[ $override_path == $checkout/bin:/usr/bin:$shell_home/.local/share/mise/shims:$shell_home/.local/bin ]]
 
 echo "All development environment tests passed."

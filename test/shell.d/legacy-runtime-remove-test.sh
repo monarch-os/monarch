@@ -32,8 +32,18 @@ HOME="$home" MONARCH_RUNTIME_ROOT="$runtime" PATH="$test_tmp/bin:/usr/bin" \
 [[ -d $home/.local/share/monarch-v4 ]] || fail "cancelled cleanup removed the archive"
 grep -qF -- '--default=false' "$TEST_GUM_LOG" || fail "destructive cleanup defaults to confirmation"
 
+printf '%s\n' 3 >"$home/.local/state/monarch/schema"
+HOME="$home" MONARCH_RUNTIME_ROOT="$runtime" PATH="$test_tmp/bin:/usr/bin" \
+  bash "$ROOT/bin/monarch-remove-legacy-runtime"
+[[ -d $home/.local/share/monarch-v4 ]] || fail "future reconciliation schema rejected the archive"
+
 TEST_CONFIRM=true HOME="$home" MONARCH_RUNTIME_ROOT="$runtime" PATH="$test_tmp/bin:/usr/bin" \
   bash "$ROOT/bin/monarch-remove-legacy-runtime"
 [[ ! -e $home/.local/share/monarch-v4 ]] || fail "confirmed cleanup kept the archive"
+
+mkdir -p "$home/.local/share/monarch-v4/user-config/noctalia"
+TEST_CONFIRM=true HOME="$home" MONARCH_RUNTIME_ROOT="$runtime" PATH="$test_tmp/bin:/usr/bin" \
+  bash "$ROOT/bin/monarch-remove-legacy-runtime"
+[[ ! -e $home/.local/share/monarch-v4 ]] || fail "confirmed cleanup kept an archived V4 configuration"
 
 pass "legacy runtime cleanup is explicit and guarded"

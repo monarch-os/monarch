@@ -1,5 +1,5 @@
-# Monarch core package list installed by the ISO orchestrator.
-# This file is also used by the ISO builder when determining needs
+# The ISO installs both sections; reconciliation restores only required packages.
+# monarch-preinstalls.packages defines the default subset managed as one bundle.
 
 # required
 alsa-utils
@@ -123,7 +123,7 @@ zsh-history-substring-search
 zsh-syntax-highlighting
 zsh-theme-powerlevel10k
 
-# preinstalled
+# default
 alacritty
 bettercap
 binwalk

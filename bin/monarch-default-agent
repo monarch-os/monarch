@@ -11,6 +11,10 @@ if (($# == 0)); then
     read -r agent <"$agent_file"
   fi
 
+  if [[ $agent == "gemini" || $agent == "gemini-cli" ]]; then
+    agent=agy
+  fi
+
   # Silent when unset rather than defaulting: Monarch picks no agent for you, so
   # the menu leaves every entry unchecked until one is chosen.
   [[ -n ${agent:-} ]] && echo "$agent"
