@@ -60,6 +60,7 @@ test/shell.d/security-fido2-remove-test.sh	security	high	isolated
 test/shell.d/security-fido2-test.sh	security	high	isolated
 test/shell.d/setup-form-test.sh	installer	medium	isolated
 test/shell.d/shell-init-login-test.sh	shell	medium	isolated
+test/shell.d/system-power-test.sh	power	high	isolated
 test/shell.d/update-guardrails-test.sh	updates	high	isolated
 test/shell.d/update-pacman-guard-test.sh	updates	high	isolated
 test/shell.d/workspace-names-test.sh	workspaces	low	isolated
