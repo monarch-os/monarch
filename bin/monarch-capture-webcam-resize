@@ -1,0 +1,174 @@
+#!/bin/bash
+
+# monarch:summary=Resize the active webcam recording overlay
+# monarch:group=capture
+# monarch:args=<smaller|larger|reset|small|medium|large>
+# monarch:examples=monarch capture webcam resize smaller | monarch capture webcam resize reset
+
+set -euo pipefail
+
+readonly MARGIN=40
+readonly STATE_FILE="${XDG_RUNTIME_DIR:-/tmp}/monarch-screenrecord-webcam-$UID.json"
+
+usage() {
+  echo "Usage: monarch capture webcam resize <smaller|larger|reset|small|medium|large>" >&2
+  exit 1
+}
+
+action=${1:-}
+case $action in
+smaller | larger | reset | small | medium | large) ;;
+*) usage ;;
+esac
+
+[[ -f $STATE_FILE ]] || exit 0
+
+state=$(jq -cer '.' "$STATE_FILE" 2>/dev/null) || exit 0
+target=$(jq -r '.target // "portal"' <<<"$state")
+shape=$(jq -r '.shape // "circle"' <<<"$state")
+webcam_pid=$(jq -r '.pid // empty' <<<"$state")
+app_id=$(jq -r '.app_id // empty' <<<"$state")
+[[ $webcam_pid =~ ^[0-9]+$ ]] || exit 0
+[[ $app_id == "org.monarch.webcam-overlay.$shape" ]] || exit 0
+
+window=""
+for ((attempt = 0; attempt < 60; attempt++)); do
+  window=$(niri msg --json windows 2>/dev/null | jq -cer --arg app_id "$app_id" --argjson pid "$webcam_pid" '
+    first(.[] | select(.app_id == $app_id and .pid == $pid)) // empty' 2>/dev/null) || true
+  [[ -n $window ]] && break
+  sleep 0.05
+done
+[[ -n $window ]] || exit 1
+
+read -r window_id current_width current_height < <(
+  jq -r '[.id, .layout.window_size[0], .layout.window_size[1]] | @tsv' <<<"$window"
+)
+[[ $window_id =~ ^[0-9]+$ && $current_width =~ ^[0-9]+$ && $current_height =~ ^[0-9]+$ ]] || exit 1
+
+outputs=$(niri msg --json outputs 2>/dev/null)
+monitor=""
+anchor_x=0
+anchor_y=0
+anchor_width=0
+anchor_height=0
+
+if [[ $target == region:* && ${target#region:} =~ ^([0-9]+)x([0-9]+)\+(-?[0-9]+)\+(-?[0-9]+)$ ]]; then
+  anchor_width=${BASH_REMATCH[1]}
+  anchor_height=${BASH_REMATCH[2]}
+  region_x=${BASH_REMATCH[3]}
+  region_y=${BASH_REMATCH[4]}
+  center_x=$((region_x + anchor_width / 2))
+  center_y=$((region_y + anchor_height / 2))
+  output=$(jq -cer --argjson x "$center_x" --argjson y "$center_y" '
+    first(to_entries[] | .value |
+      select(.logical != null) |
+      select($x >= .logical.x and $x < (.logical.x + .logical.width)) |
+      select($y >= .logical.y and $y < (.logical.y + .logical.height)))' <<<"$outputs" 2>/dev/null) || true
+  if [[ -n $output ]]; then
+    monitor=$(jq -r '.name' <<<"$output")
+    output_x=$(jq -r '.logical.x' <<<"$output")
+    output_y=$(jq -r '.logical.y' <<<"$output")
+    anchor_x=$((region_x - output_x))
+    anchor_y=$((region_y - output_y))
+  fi
+elif [[ $target == monitor:* ]]; then
+  monitor=${target#monitor:}
+  output=$(jq -cer --arg monitor "$monitor" 'first(to_entries[] | .value | select(.name == $monitor))' <<<"$outputs" 2>/dev/null) || true
+  if [[ -n $output ]]; then
+    anchor_width=$(jq -r '.logical.width' <<<"$output")
+    anchor_height=$(jq -r '.logical.height' <<<"$output")
+  fi
+fi
+
+if [[ -z $monitor ]]; then
+  output=$(niri msg --json focused-output 2>/dev/null)
+  monitor=$(jq -r '.name // empty' <<<"$output")
+  anchor_width=$(jq -r '.logical.width // 0' <<<"$output")
+  anchor_height=$(jq -r '.logical.height // 0' <<<"$output")
+  anchor_x=0
+  anchor_y=0
+fi
+
+[[ -n $monitor ]] || exit 1
+((anchor_width > 0 && anchor_height > 0)) || exit 1
+
+scale_height=$anchor_height
+available_width=$((anchor_width - 2 * MARGIN))
+((available_width > 0)) || exit 1
+
+if [[ $shape == "circle" ]]; then
+  ((scale_height > available_width)) && scale_height=$available_width
+  small_height=$(((scale_height * 9 + 25) / 50))
+  medium_height=$(((scale_height + 2) / 4))
+  large_height=$(((scale_height * 27 + 40) / 80))
+  small_width=$small_height
+  medium_width=$medium_height
+  large_width=$large_height
+else
+  ((scale_height * 3 / 10 > available_width)) && scale_height=$((available_width * 10 / 3))
+  small_height=$(((scale_height * 9 + 25) / 50))
+  medium_height=$(((scale_height + 2) / 4))
+  large_height=$(((scale_height * 27 + 40) / 80))
+  small_width=$(((small_height * 8 + 4) / 9))
+  medium_width=$(((medium_height * 8 + 4) / 9))
+  large_width=$(((large_height * 8 + 4) / 9))
+fi
+
+target_width=$current_width
+target_height=$current_height
+case $action in
+small) target_width=$small_width target_height=$small_height ;;
+medium | reset) target_width=$medium_width target_height=$medium_height ;;
+large) target_width=$large_width target_height=$large_height ;;
+smaller)
+  if ((large_width < current_width)); then
+    target_width=$large_width target_height=$large_height
+  elif ((medium_width < current_width)); then
+    target_width=$medium_width target_height=$medium_height
+  elif ((small_width < current_width)); then
+    target_width=$small_width target_height=$small_height
+  fi
+  ;;
+larger)
+  if ((small_width > current_width)); then
+    target_width=$small_width target_height=$small_height
+  elif ((medium_width > current_width)); then
+    target_width=$medium_width target_height=$medium_height
+  elif ((large_width > current_width)); then
+    target_width=$large_width target_height=$large_height
+  fi
+  ;;
+esac
+
+target_x=$((anchor_x + anchor_width - target_width - MARGIN))
+target_y=$((anchor_y + anchor_height - target_height - MARGIN))
+((target_x < anchor_x + MARGIN)) && target_x=$((anchor_x + MARGIN))
+((target_y < anchor_y + MARGIN)) && target_y=$((anchor_y + MARGIN))
+
+niri msg action move-window-to-monitor --id "$window_id" "$monitor" >/dev/null
+niri msg action set-window-width --id "$window_id" "$target_width" >/dev/null
+niri msg action set-window-height --id "$window_id" "$target_height" >/dev/null
+niri_x=$target_x
+niri_y=$target_y
+niri msg action move-floating-window --id "$window_id" --x "$niri_x" --y "$niri_y" >/dev/null
+
+stable=0
+for ((attempt = 0; attempt < 40; attempt++)); do
+  read -r width height x y < <(niri msg --json windows 2>/dev/null | jq -r --argjson id "$window_id" '
+    first(.[] | select(.id == $id)) |
+    [.layout.window_size[0], .layout.window_size[1], .layout.tile_pos_in_workspace_view[0], .layout.tile_pos_in_workspace_view[1]] |
+    map(floor) | @tsv' 2>/dev/null)
+  if [[ $width == "$target_width" && $height == "$target_height" && $x == "$target_x" && $y == "$target_y" ]]; then
+    ((++stable >= 3)) && exit 0
+  else
+    stable=0
+    if [[ $x =~ ^-?[0-9]+$ && $y =~ ^-?[0-9]+$ ]]; then
+      niri_x=$((niri_x + target_x - x))
+      niri_y=$((niri_y + target_y - y))
+      niri msg action move-floating-window --id "$window_id" --x "$niri_x" --y "$niri_y" >/dev/null
+    fi
+  fi
+  sleep 0.05
+done
+
+exit 1

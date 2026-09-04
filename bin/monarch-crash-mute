@@ -1,0 +1,85 @@
+#!/bin/bash
+
+# monarch:summary=Control crash notifications for one program
+# monarch:args=[<program> [on|off|toggle|status]]
+# monarch:examples=monarch crash mute | monarch crash mute niri | monarch crash mute /usr/bin/niri off | monarch crash mute niri status
+
+set -euo pipefail
+
+readonly mute_dir="$HOME/.local/state/monarch/toggles/crash-ignore"
+readonly program_pattern='^[[:alnum:]_.+@][[:alnum:]_.+@ -]*$'
+
+usage() {
+  echo "Usage: monarch crash mute [<program> [on|off|toggle|status]]" >&2
+}
+
+list() {
+  local entry found=0
+
+  for entry in "$mute_dir"/* "$mute_dir"/.*; do
+    [[ -f $entry ]] || continue
+    printf '%s\n' "${entry##*/}"
+    found=1
+  done
+
+  ((found)) || echo "No programs muted. Crashes all notify."
+}
+
+if (($# == 0)); then
+  list
+  exit 0
+fi
+
+if (($# > 2)); then
+  usage
+  exit 1
+fi
+
+input=$1
+program=${input##*/}
+action=${2:-on}
+
+if [[ ! $program =~ $program_pattern || $program == "." || $program == ".." || $program == -* ]]; then
+  echo "Not a program name: $input" >&2
+  usage
+  exit 1
+fi
+
+case $action in
+  on|off|toggle|status) ;;
+  *)
+    echo "Not an action: $action" >&2
+    usage
+    exit 1
+    ;;
+esac
+
+flag="$mute_dir/$program"
+
+case $action in
+  on)
+    mkdir -p "$mute_dir"
+    install -m 600 /dev/null "$flag"
+    ;;
+  off)
+    rm -f "$flag"
+    ;;
+  toggle)
+    if [[ -f $flag ]]; then
+      rm -f "$flag"
+    else
+      mkdir -p "$mute_dir"
+      install -m 600 /dev/null "$flag"
+    fi
+    ;;
+esac
+
+if [[ -f $flag ]]; then
+  echo "Crash notifications for $program are muted."
+  exit 0
+else
+  echo "Crash notifications for $program are enabled."
+  [[ $action == "status" ]] && exit 1
+fi
+
+exit 0

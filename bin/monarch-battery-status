@@ -1,27 +1,131 @@
 #!/bin/bash
 
-# monarch:summary=Returns a formatted battery status string with percentage and power draw/charge.
+# monarch:summary=Print the battery state, as a line to read or as fields to parse
+# monarch:group=battery
+# monarch:args=[--shell]
+# monarch:examples=monarch battery status | monarch battery status --shell
 
-battery_info=$(upower -i $(upower -e | grep BAT))
+# LC_ALL=C: upower localises its separator, and 15,059 W reaches awk as 15.
 
-percentage=$(echo "$battery_info" | awk '/percentage/ {
-    print int($2)
-    exit
+set -uo pipefail
+
+POWER_SUPPLY=${MONARCH_POWER_SUPPLY_PATH:-/sys/class/power_supply}
+
+shell_output=false
+case "${1:-}" in
+  "") ;;
+  --shell) shell_output=true ;;
+  *)
+    echo "Usage: monarch-battery-status [--shell]" >&2
+    exit 2
+    ;;
+esac
+
+# BAT* is a guess at the firmware's name; CMB0 ships on real hardware.
+device=$(LC_ALL=C upower -e 2>/dev/null | grep -m 1 '/battery_')
+[[ -n $device ]] || exit 0
+
+info=$(LC_ALL=C upower -i "$device" 2>/dev/null)
+[[ -n $info ]] || exit 0
+
+percentage=$(awk '/percentage:/ { print int($2); exit }' <<<"$info")
+capacity=$(awk '/energy-full:/ { printf "%d", $2; exit }' <<<"$info")
+state=$(awk '/state:/ { print $2; exit }' <<<"$info")
+native_path=$(awk '/native-path:/ { print $2; exit }' <<<"$info")
+cycles=$(awk '/charge-cycles:/ { print int($2); exit }' <<<"$info")
+
+time_remaining=$(awk '/time to (empty|full)/ {
+  value = $4
+  unit = $5
+  if (unit ~ /^minute/) {
+    printf "%dm", int(value)
+  } else {
+    hours = int(value)
+    minutes = int((value - hours) * 60)
+    if (minutes > 0) {
+      printf "%dh %dm", hours, minutes
+    } else {
+      printf "%dh", hours
+    }
+  }
+  exit
+}' <<<"$info")
+
+# upower's energy-rate lags the kernel by tens of seconds; sysfs does not.
+rate_raw=$(awk '/energy-rate:/ { print $2; exit }' <<<"$info")
+battery_path="$POWER_SUPPLY/$native_path"
+
+if [[ -r $battery_path/power_now ]]; then
+  rate_raw=$(awk -v microwatts="$(<"$battery_path/power_now")" 'BEGIN { print microwatts / 1000000 }')
+elif [[ -r $battery_path/current_now && -r $battery_path/voltage_now ]]; then
+  rate_raw=$(awk \
+    -v microamps="$(<"$battery_path/current_now")" \
+    -v microvolts="$(<"$battery_path/voltage_now")" \
+    'BEGIN { print microamps * microvolts / 1000000000000 }')
+fi
+
+rate=$(awk -v value="${rate_raw:-0}" 'BEGIN {
+  if (value < 0) value = -value
+  rounded = sprintf("%.1f", value)
+  sub(/\.0$/, "", rounded)
+  print rounded
 }')
 
-power_rate=$(echo "$battery_info" | awk '/energy-rate/ {
-    rounded = sprintf("%.1f", $2)
-    sub(/\.0$/, "", rounded)
-    print rounded
-    exit
-}')
+# Fallback, not source: sysfs reads 0 and 100 where upower has the real pair.
+threshold_start=$(awk '/charge-start-threshold:/ { gsub(/%/, "", $2); print int($2); exit }' <<<"$info")
+threshold_end=$(awk '/charge-end-threshold:/ { gsub(/%/, "", $2); print int($2); exit }' <<<"$info")
+[[ -n $threshold_end ]] || threshold_end=$(cat "$battery_path/charge_control_end_threshold" 2>/dev/null)
+[[ -n $threshold_start ]] || threshold_start=$(cat "$battery_path/charge_control_start_threshold" 2>/dev/null)
 
-state=$(echo "$battery_info" | awk '/state/ { print $2; exit }')
-time_remaining=$(monarch-battery-remaining-time)
-capacity=$(monarch-battery-capacity)
+ac_online=false
+for supply in "$POWER_SUPPLY"/*; do
+  [[ -r $supply/type && -r $supply/online ]] || continue
+  [[ $(<"$supply/type") == "Mains" ]] || continue
+  [[ $(<"$supply/online") == "1" ]] && ac_online=true && break
+done
 
-if [[ $state == "charging" ]]; then
-    echo "󰁹    Battery ${percentage}%  ·  ${time_remaining} to full  ·   ${power_rate}W / ${capacity}Wh"
+# On mains, not charging, not full: what a charge limit produces and nothing
+# reports. Read wrong it looks like a battery refusing to charge.
+charge_holding=false
+if [[ $ac_online == true && -n $threshold_end ]]; then
+  idle=$(awk -v value="${rate_raw:-0}" 'BEGIN { print (value <= 0.2) ? "yes" : "no" }')
+  if [[ $state == "pending-charge" ]]; then
+    charge_holding=true
+  elif [[ $state == "fully-charged" ]] && ((percentage < 99)); then
+    charge_holding=true
+  elif [[ $state == "charging" && $idle == yes ]] && ((threshold_end < 99 && percentage >= threshold_end)); then
+    charge_holding=true
+  fi
+fi
+
+threshold_label=""
+if [[ -n $threshold_end ]]; then
+  if [[ -n $threshold_start && $threshold_start != "$threshold_end" ]]; then
+    threshold_label="${threshold_start}-${threshold_end}%"
+  else
+    threshold_label="${threshold_end}%"
+  fi
+fi
+
+if [[ $shell_output == true ]]; then
+  printf 'percentage\t%s\n' "$percentage"
+  printf 'state\t%s\n' "$([[ $charge_holding == true ]] && echo holding || echo "$state")"
+  printf 'rate\t%s\n' "$rate"
+  [[ -n $capacity && $capacity != 0 ]] && printf 'size\t%s\n' "$capacity"
+  [[ -n $time_remaining ]] && printf 'time\t%s\n' "$time_remaining"
+  [[ -n $cycles ]] && printf 'cycles\t%s\n' "$cycles"
+  [[ -n $threshold_label ]] && printf 'threshold\t%s\n' "$threshold_label"
+  printf 'ac\t%s\n' "$ac_online"
+  exit 0
+fi
+
+draw="${rate}W"
+[[ -n $capacity && $capacity != 0 ]] && draw="${rate}W / ${capacity}Wh"
+
+if [[ $charge_holding == true ]]; then
+  echo "󰁹    Battery ${percentage}%  ·  Holding at ${threshold_label}  ·  ${draw}"
+elif [[ $state == "charging" ]]; then
+  echo "󰁹    Battery ${percentage}%  ·  ${time_remaining} to full  ·  ${draw}"
 else
-    echo "󰁹    Battery ${percentage}%  ·  ${time_remaining} left  ·   ${power_rate}W / ${capacity}Wh"
+  echo "󰁹    Battery ${percentage}%  ·  ${time_remaining} left  ·  ${draw}"
 fi

@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# monarch:summary=Remove the ChatGPT desktop app and its local data
+# monarch:requires-sudo=true
+
+set -e
+
+monarch-pkg-drop openai-codex-desktop
+
+rm -rf \
+  "$HOME/.config/Codex" \
+  "$HOME/.cache/Codex"
+
+echo ""
+echo "ChatGPT has been removed."

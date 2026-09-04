@@ -1,0 +1,65 @@
+#!/bin/bash
+
+# monarch:summary=Prevent direct pacman system upgrades from bypassing Monarch update
+# monarch:hidden=true
+
+set -euo pipefail
+
+if [[ ${MONARCH_UPDATE_PACMAN:-} == "1" || ${MONARCH_ALLOW_DIRECT_PACMAN:-} == "1" ]]; then
+  exit 0
+fi
+
+pacman_args=()
+if [[ -n ${MONARCH_PACMAN_CMDLINE:-} ]]; then
+  read -r -a pacman_args <<<"$MONARCH_PACMAN_CMDLINE"
+elif [[ -r /proc/$PPID/cmdline ]]; then
+  mapfile -d '' -t pacman_args <"/proc/$PPID/cmdline" || true
+fi
+
+has_sync=0
+has_sysupgrade=0
+parse_options=1
+
+for arg in "${pacman_args[@]}"; do
+  if (( ! parse_options )); then
+    continue
+  fi
+
+  case "$arg" in
+    --)
+      parse_options=0
+      ;;
+    --sync)
+      has_sync=1
+      ;;
+    --sysupgrade)
+      has_sysupgrade=1
+      ;;
+    --*)
+      ;;
+    -*)
+      [[ $arg == *S* ]] && has_sync=1
+      [[ $arg == *u* ]] && has_sysupgrade=1
+      ;;
+  esac
+done
+
+(( has_sync && has_sysupgrade )) || exit 0
+
+cat >&2 <<'MESSAGE'
+
+This looks like a direct pacman system upgrade. Monarch updates should normally
+run through:
+
+  monarch update
+
+That path keeps the update log, snapshot, keyrings, package upgrade, reconciliation,
+post-update hooks and restart checks together.
+
+To deliberately bypass Monarch for this transaction, rerun pacman with:
+
+  sudo env MONARCH_ALLOW_DIRECT_PACMAN=1 pacman -Syu
+
+MESSAGE
+
+exit 1

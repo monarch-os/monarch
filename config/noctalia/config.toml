@@ -1,0 +1,267 @@
+# Monarch defaults for Noctalia v5. Override via the Settings UI or by adding
+# another *.toml here — v5 merges every .toml in ~/.config/noctalia/ and keeps
+# its own mutable state in ~/.local/state/noctalia/settings.toml.
+#
+# Ported from the v4 settings.json against a running v5.0.0-beta.8; every key
+# below is checked with `noctalia config validate`. What the port changed:
+#   - keys are snake_case, sections regrouped (general/ui -> shell)
+#   - bars are named and plural: bar.widgets.{left,center,right} became
+#     bar.<name>.{start,center,end}
+#   - the palette moved to palettes/Monarch.json (same JSON format as v4)
+#   - catalog templates are selected by id; user templates live in overlays
+
+[theme]
+# palettes/Monarch.json is seeded to ~/.config/noctalia/palettes/. The file
+# keeps the v4 schema (mPrimary… plus the terminal block) — only its location
+# changed. `source = "custom"` makes custom_palette win over the builtin,
+# community and wallpaper sources.
+source = "custom"
+custom_palette = "Monarch"
+mode = "dark"
+
+[theme.templates]
+# Monarch's neovim, obsidian, fuzzel and zed templates exist in Noctalia's
+# community catalog, so they are enabled by id rather than shipped. Apps absent
+# from the catalogs can use `[theme.templates.user.<id>]` in a separate user
+# overlay. See config/noctalia/user-templates.toml.example.
+#
+# sddm and herdr have no catalog entry and need none on this hook. herdr reads the
+# terminal palette over OSC, so its own config follows the scheme unaided. sddm
+# ships a static theme.conf that only `monarch refresh sddm` re-tints, so it does
+# not follow a scheme change yet.
+# The v4 equivalent of these two lists was templates.activeTemplates, which
+# named nine ids: alacritty, kitty, foot, ghostty, btop, helix, niri, code and
+# starship. Eight of them are v5 builtins; `code` is now the community `vscode`.
+# The enable_* switches below are only master toggles — an id absent from these
+# arrays is never rendered, however true they are.
+#
+# A template whose client is not installed is skipped silently, so listing all
+# of them is safe on any machine.
+builtin_ids = [
+  "alacritty",
+  "kitty",
+  "foot",
+  "ghostty",
+  "btop",
+  "helix",
+  "niri",
+  "starship",
+]
+community_ids = ["fuzzel", "neovim", "obsidian", "zed", "vscode"]
+enable_community_templates = true
+enable_builtin_templates = true
+
+[hooks]
+# v4's hooks.colorGeneration. Fires on every palette regeneration — where
+# monarch-theme-apply re-applies what Noctalia cannot reach itself.
+colors_changed = ["monarch-theme-apply"]
+
+[bar]
+order = ["default"]
+
+  [bar.default]
+  position = "top"
+  capsule = false
+  # v5 ships a floating bar (ends_margin 100, 12px corners); v4's bar ran edge
+  # to edge, so all four corners and both margins go to zero.
+  margin_ends = 0
+  margin_edge = 0
+  radius = 0
+  radius_top_left = 0
+  radius_top_right = 0
+  radius_bottom_left = 0
+  radius_bottom_right = 0
+  thickness = 26
+  padding = 6
+  widget_spacing = 2
+  start = ["control-center", "workspaces", "media"]
+  center = [
+    "clock",
+    "monarch/indicators:screen-recording",
+    "privacy",
+    "monarch/indicators:monarch-update",
+    "monarch/indicators:voxtype",
+    "monarch/indicators:dnd",
+    "monarch/indicators:caffeine",
+    "monarch/indicators:nightlight",
+  ]
+  end = [
+    "tray",
+    "monarch/agents:usage",
+    "monarch/indicators:lazyvpn",
+    "monarch/indicators:todo",
+    "monarch/network:network",
+    "bluetooth",
+    "volume",
+    "monarch/display:display",
+    "battery",
+  ]
+  # monarch/display:display stands in for the stock `brightness` widget: its
+  # panel carries a brightness slider per screen, and the per-output scale,
+  # on-off and text size that exist nowhere in v5. Scroll-to-dim is re-bound in
+  # the plugin, so the swap costs nothing.
+  #
+  # monarch/network:network stands in for the stock `network` widget: same pill,
+  # plus the Wi-Fi band, and its panel carries the band, the DNS provider and
+  # the network list where the stock one has only the list. Noctalia's own
+  # network page stays one right click away — see the plugin's network.luau.
+  #
+  # The five monarch/indicators entries replace v4's CustomButton widgets, and
+  # monarch/agents:usage replaces the QML plugin of the same name (both under
+  # default/noctalia/plugins/). Each hides itself when it has nothing to report,
+  # so they can all sit in the default layout — including lazyvpn and todo,
+  # whose packages are install-on-demand.
+  #
+  # dnd / caffeine / nightlight sit in the centre next to the other indicators,
+  # matching Omarchy quattro's single indicator cluster, and each is hidden
+  # unless its state is actually on. They are Monarch plugin entries rather than
+  # the stock v5 `notifications` / `caffeine` / `nightlight` widgets, which are
+  # always visible and accept no settings at all — `noctalia config validate`
+  # rejects every hide_when_* key on them. See the plugin's plugin.toml.
+  #
+  # v5 has no density preset; these dimensions reproduce v4's compact bar.
+
+# Per-widget settings live in top-level [widget.<id>] sections, NOT inline in
+# the lane arrays and not under [bar.<name>] — the lanes only ever hold plain
+# strings. An inline table there is accepted by the TOML validator but silently
+# drops the widget at load time.
+[widget.control-center]
+# v4: ControlCenter { useDistroLogo = false, icon = "crown" }. v5 names the
+# glyph key `glyph`; `custom_image` takes an image path instead.
+glyph = "crown"
+
+[widget.workspaces]
+# v4: Workspace { hideUnoccupied = true, labelMode = "name" }. Without these v5
+# renders all twelve workspaces whether or not they hold windows.
+hide_when_empty = true
+labels_only_when_occupied = true
+pill_scale = 0.75
+active_pill_size = 1.8
+inactive_pill_size = 1.0
+capsule_radius = 3
+
+[widget.clock]
+# v4: Clock { formatHorizontal = "ddd dd MMM  HH:mm" }, restated as strftime.
+format = "%a %d %b  %H:%M"
+vertical_format = "{:%H\n%M}"
+
+# Icon-only status widgets: drop the text label next to the glyph, so the
+# network widget shows the connection icon rather than "enp0s3" and the rest
+# stay symmetrical with it. `show_label` is the generic label toggle and exists
+# only on these five — media has no label setting at all (see below), and
+# clock/workspaces/tray/control-center are label-less by nature.
+[widget.network]
+show_label = false
+
+[widget.bluetooth]
+show_label = false
+
+[widget.volume]
+show_label = false
+
+[widget.battery]
+show_label = false
+
+[widget.battery.actions]
+right = "exec monarch-toggle-battery-percentage"
+
+[widget.media]
+# Collapse the pill when no MPRIS player is active, instead of leaving a
+# permanent "Nothing playing".
+hide_when_no_media = true
+
+[widget.privacy]
+hide_inactive = true
+
+# Noctalia talks to external monitors over DDC/CI, but only when asked: the
+# default is off, so the brightness pill and the control center's Monitor tab
+# reached the laptop panel and silently nothing else. Access needs nothing from
+# us — ddcutil is in monarch-base.packages and its own 60-ddcutil-i2c.rules
+# hands the active session an ACL on every i2c bus behind a display controller.
+[brightness]
+enable_ddcutil = true
+
+[control_center]
+# The stock shortcut row is wifi / bluetooth / caffeine / nightlight /
+# notification / power_profile. The three that Monarch owns as toggles —
+# caffeine, night light and notification (do-not-disturb) — are dropped, so
+# every path to them goes through the matching monarch-toggle-* command: the
+# keybindings (Mod+Ctrl+I / Mod+Ctrl+N / Mod+Ctrl+Comma), `monarch menu toggle`,
+# and the bar indicator itself while it is on.
+#
+# For caffeine and night light this is a correctness requirement, not tidiness:
+# those commands own state v5 will not let anything read back, so a toggle from
+# the control center would silently desync the bar indicator until the next
+# monarch-toggle-* call. DND could not drift — the indicator reads
+# notification-dnd-status — and is dropped for consistency alone.
+#
+# Notification *history* is unaffected: it lives in the control center's own
+# sidebar tab, not in this shortcut row.
+#
+# The whole array is restated because arrays are replaced across .toml files
+# rather than merged — the same rule as the bar lanes.
+[[control_center.shortcuts]]
+type = "wifi"
+
+[[control_center.shortcuts]]
+type = "bluetooth"
+
+[[control_center.shortcuts]]
+type = "power_profile"
+
+[shell]
+# v4 kept these under general/ui, which no longer exist as sections.
+corner_radius_scale = 1.0
+clipboard_enabled = true
+clipboard_history_max_entries = 500
+telemetry_enabled = false
+setup_wizard_enabled = false
+
+# The authentication dialog for pkexec and anything else that asks polkit. v5
+# registers its own agent (/org/noctalia/PolkitAuthenticationAgent) and draws the
+# prompt in the Monarch theme, but ships it disabled — this key is what retires
+# the GTK polkit-gnome agent niri used to spawn. Only one agent can hold a
+# session, so the two must never both run; see default/niri/autostart.kdl.
+polkit_agent = true
+
+  [shell.panel]
+  # The network and bluetooth widgets both open the control center. It is
+  # already "attached", but v5 anchors it to the bar centre unless told to
+  # follow the click — so a right-hand widget opened a centred panel.
+  open_near_click_control_center = true
+# v4's ui.fontFixed = "JetBrainsMono Nerd Font Mono" is dropped: v5 exposes a
+# single font_family for the shell, with no separate monospace slot.
+
+[wallpaper]
+enabled = true
+# A fixed Monarch-owned symlink farm, not a real wallpaper folder: v5 exposes no
+# IPC to move wallpaper.directory per scheme, so monarch-theme-apply rebuilds
+# this directory on every color hook to union the active scheme's shipped
+# (themes/<scheme>/) and user (~/.config/monarch/backgrounds/<scheme>/)
+# backgrounds. The path stays put; only its contents follow the theme.
+directory = "~/.config/monarch/backgrounds/current"
+transition_duration = 1500
+
+[idle]
+# Named behaviours run in this order as the idle duration crosses each timeout.
+behavior_order = ["screensaver", "lock", "screen-off"]
+
+  [idle.behavior.screensaver]
+  action = "command"
+  enabled = true
+  timeout = 150.0
+  command = "monarch-launch-screensaver"
+  resume_command = "pkill -f '[o]rg.monarch.screensaver'"
+
+  [idle.behavior.lock]
+  action = "lock"
+  enabled = true
+  timeout = 300.0
+  command = "MONARCH_LOCK_ONLY=true monarch-system-lock"
+
+  [idle.behavior.screen-off]
+  action = "screen_off"
+  enabled = true
+  timeout = 330.0
+  command = "monarch-brightness-keyboard off"
+  resume_command = "monarch-system-wake"

@@ -1,0 +1,86 @@
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  "logo": {
+    "type": "none",
+  },
+  "display": {
+    "separator": "  ",
+  },
+  "modules": [
+    {
+      "type": "command",
+      "key": " Monarch",
+      "keyColor": "blue",
+      "text": "monarch-version",
+    },
+    {
+      "type": "host",
+      "key": " Device",
+      "keyColor": "green",
+    },
+    {
+      "type": "cpu",
+      "key": " CPU",
+      "showPeCoreCount": true,
+      "keyColor": "green",
+    },
+    {
+      "type": "gpu",
+      "key": " GPU",
+      "detectionMethod": "pci",
+      "keyColor": "green",
+    },
+    {
+      "type": "memory",
+      "key": " Memory",
+      "keyColor": "green",
+    },
+    {
+      "type": "disk",
+      "key": "󰋊 Disk",
+      "keyColor": "green",
+    },
+    {
+      "type": "display",
+      "key": "󱄄 Display",
+      "keyColor": "green",
+    },
+    {
+      "type": "kernel",
+      "key": " Kernel",
+      "keyColor": "blue",
+    },
+    {
+      "type": "wm",
+      "key": " Desktop",
+      "keyColor": "blue",
+    },
+    {
+      "type": "terminal",
+      "key": " Terminal",
+      "keyColor": "blue",
+    },
+    {
+      "type": "packages",
+      "key": "󰏖 Packages",
+      "keyColor": "blue",
+    },
+    {
+      "type": "command",
+      "key": "󰸌 Theme",
+      "keyColor": "blue",
+      "text": "theme=$(noctalia msg color-scheme-get 2>/dev/null | cut -d' ' -f2-); echo \"${theme:-Monarch}\"",
+    },
+    {
+      "type": "uptime",
+      "key": "󱫐 Uptime",
+      "keyColor": "magenta",
+    },
+    {
+      "type": "command",
+      "key": " Updated",
+      "keyColor": "magenta",
+      "text": "updated=$(monarch-version-pkgs); echo \"$updated\"",
+    },
+  ],
+}

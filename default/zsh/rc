@@ -1,6 +1,14 @@
-source ~/.local/share/monarch/default/zsh/shell
-source ~/.local/share/monarch/default/zsh/inputrc
-source ~/.local/share/monarch/default/shells/init
-source ~/.local/share/monarch/default/shells/aliases
-source ~/.local/share/monarch/default/shells/functions
-source ~/.local/share/monarch/default/shells/envs
+if [[ -z ${MONARCH_PATH:-} ]]; then
+  if [[ -x ${MONARCH_RUNTIME_ROOT:-/usr/share/monarch}/bin/monarch ]]; then
+    export MONARCH_PATH=${MONARCH_RUNTIME_ROOT:-/usr/share/monarch}
+  else
+    export MONARCH_PATH=$HOME/.local/share/monarch
+  fi
+fi
+
+source "$MONARCH_PATH/default/zsh/shell"
+source "$MONARCH_PATH/default/zsh/inputrc"
+source "$MONARCH_PATH/default/shells/init"
+source "$MONARCH_PATH/default/shells/aliases"
+source "$MONARCH_PATH/default/shells/functions"
+source "$MONARCH_PATH/default/shells/envs"

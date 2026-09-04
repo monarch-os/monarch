@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# monarch:summary=Return true when a fingerprint reader is present
+# monarch:hidden=true
+
+fingerprint_vendors=" 27c6 138a 06cb 08ff 1c7a 147e "
+usb_devices_path="${MONARCH_USB_DEVICES_PATH:-/sys/bus/usb/devices}"
+
+has_kernel_driver() {
+  local intf driver
+
+  for intf in "$1"/*:*; do
+    [[ -e $intf/driver ]] || continue
+    driver=$(readlink -f "$intf/driver")
+    [[ ${driver##*/} == "usbfs" ]] || return 0
+  done
+
+  return 1
+}
+
+for dev in "$usb_devices_path"/*; do
+  if [[ -r $dev/product ]]; then
+    product=$(<"$dev/product")
+    product=${product,,}
+    [[ $product == *fingerprint* || $product == *biometric* || $product == *elan:arm-m4* || $product == "fpc "* ]] && exit 0
+  fi
+
+  if [[ -r $dev/idVendor ]]; then
+    vendor=$(<"$dev/idVendor")
+    [[ $fingerprint_vendors == *" $vendor "* ]] && ! has_kernel_driver "$dev" && exit 0
+  fi
+done
+
+exit 1

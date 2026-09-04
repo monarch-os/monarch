@@ -1,0 +1,73 @@
+#!/bin/bash
+
+# monarch:summary=List backgrounds available to the active theme
+# monarch:group=theme
+# monarch:name=background-list
+# monarch:examples=monarch theme background-list
+
+set -euo pipefail
+
+farm="$HOME/.config/monarch/backgrounds/current"
+cache="$HOME/.cache/monarch/background-thumbnails"
+monarch_root="${MONARCH_PATH:-/usr/share/monarch}"
+current=$(noctalia msg wallpaper-get 2>/dev/null || true)
+current=$(readlink -f "$current" 2>/dev/null || true)
+scheme=$(noctalia msg color-scheme-get 2>/dev/null | cut -d' ' -f2-)
+folder=${scheme,,}
+folder=${folder// /-}
+case $folder in
+rosé-pine | rosepine) folder="rose-pine" ;;
+esac
+user_dir=$(readlink -f "$HOME/.config/monarch/backgrounds/$folder" 2>/dev/null || true)
+shipped_dir="$monarch_root/themes/$folder"
+
+[[ -d $farm ]] || exit 0
+mkdir -p "$cache"
+exec 9>"$cache.lock"
+flock 9
+
+mapfile -d '' -t links < <(find -L "$farm" -maxdepth 1 -type f \
+  \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \
+  -o -iname '*.gif' -o -iname '*.bmp' -o -iname '*.webp' \) \
+  -print0 2>/dev/null | sort -z)
+
+declare -a paths thumbnails
+running=0
+for index in "${!links[@]}"; do
+  link=${links[index]}
+  path=$(readlink -f "$link" 2>/dev/null || true)
+  paths[index]=$path
+  signature=$(stat -Lc '%s:%Y' "$path" 2>/dev/null || true)
+  hash=$(printf '%s\t%s' "$path" "$signature" | md5sum | cut -d ' ' -f 1)
+  thumbnail="$cache/$hash.jpg"
+  thumbnails[index]=$thumbnail
+  if [[ -f $path && ! -f $thumbnail ]] && command -v magick >/dev/null 2>&1; then
+    (
+      tmp="$thumbnail.$$.tmp.jpg"
+      if magick "${path}[0]" -auto-orient -resize '1280x720^' -gravity center -extent 1280x720 -strip -quality 82 "$tmp" 2>/dev/null; then
+        mv -f "$tmp" "$thumbnail"
+      else
+        rm -f "$tmp" "$thumbnail"
+      fi
+    ) &
+    ((running += 1))
+    if ((running >= 4)); then
+      wait -n || true
+      ((running -= 1))
+    fi
+  fi
+done
+wait || true
+
+for index in "${!links[@]}"; do
+  link=${links[index]}
+  path=${paths[index]}
+  [[ -f $path ]] || continue
+  active=false
+  [[ -n $current && $path == "$current" ]] && active=true
+  removable=false
+  [[ -n $user_dir && ${path%/*} == "$user_dir" && ! -f $shipped_dir/${path##*/} ]] && removable=true
+  thumbnail=${thumbnails[index]}
+  [[ -f $thumbnail ]] || thumbnail=$path
+  printf '%s\t%s\t%s\t%s\t%s\n' "$active" "${link##*/}" "$path" "$thumbnail" "$removable"
+done

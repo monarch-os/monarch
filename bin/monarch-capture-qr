@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# monarch:summary=Decode a QR code from a screenshot region
+# monarch:group=capture
+# monarch:examples=monarch capture qr
+
+# Kill hyprpicker only after grim has captured, so the shot sees the frozen
+# overlay rather than content shifting during teardown.
+cleanup_freeze() {
+  [[ -n $PID ]] && kill $PID 2>/dev/null
+}
+trap cleanup_freeze EXIT
+
+hyprpicker -r -z >/dev/null 2>&1 &
+PID=$!
+sleep .1
+SELECTION=$(slurp 2>/dev/null)
+
+[[ -z $SELECTION ]] && exit 0
+
+# QR only: left scanning for everything, zbarimg reads dense screen content as a
+# stray EAN or Code 39 barcode and hands that over instead.
+RESULT=$(grim -g "$SELECTION" - | zbarimg -q --raw -Sdisable -Sqrcode.enable - 2>/dev/null)
+
+if [[ -z $RESULT ]]; then
+  monarch-notification-send -g 󰐲 "No QR code found" "Select a region containing a QR code" -u critical
+  exit 1
+fi
+
+# QR codes carry secrets (otpauth:// enrollment URIs), so the value goes to the
+# clipboard and nowhere else; --sensitive keeps it out of clipboard history.
+printf '%s' "$RESULT" | wl-copy --sensitive
+monarch-notification-send -g 󰐲 "QR code copied to clipboard"

@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# monarch:summary=Watch for process crashes and offer an AI diagnosis
+# monarch:hidden=true
+
+set -uo pipefail
+
+readonly COREDUMP_MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1
+readonly CRASH_GLYPH=$'\U000f16a1'
+readonly dedupe_seconds=${MONARCH_CRASH_DEDUPE_SECONDS:-60}
+readonly ignore_pattern=${MONARCH_CRASH_IGNORE:-}
+readonly program_pattern='^[[:alnum:]_.+@][[:alnum:]_.+@ -]*$'
+
+MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}
+PATH="$PATH:$MONARCH_PATH/bin"
+
+declare -A last_notified
+
+announce() {
+  local comm=$1 pid=$2 exe=$3 signal=$4
+
+  monarch-notification-wait || return 1
+  monarch-notification-send -u critical -t 0 -g "$CRASH_GLYPH" \
+    "Process crashed: $comm" \
+    "Click to diagnose with AI. Nothing is sent automatically." \
+    --action "Diagnose" \
+    monarch-agent-crash "$pid" "$comm" "$exe" "$signal"
+}
+
+journalctl -f -n 0 -o json "MESSAGE_ID=$COREDUMP_MESSAGE_ID" 2>/dev/null |
+  while IFS= read -r entry; do
+    IFS=$'\t' read -r uid comm pid exe signal < <(
+      jq -r 'def field: if . == null or . == "" then "-" else . end;
+             [(._UID | field),
+              (.COREDUMP_COMM | field),
+              (.COREDUMP_PID | field),
+              (.COREDUMP_EXE | field),
+              (.COREDUMP_SIGNAL_NAME | field)] | @tsv' <<<"$entry" 2>/dev/null
+    )
+
+    [[ $pid =~ ^[0-9]+$ ]] || continue
+    [[ -n $(monarch-default-agent) ]] || continue
+    [[ $uid =~ ^[0-9]+$ ]] || continue
+    ((uid == UID)) || continue
+
+    name=$comm
+    [[ $exe == /* ]] && name=${exe##*/}
+    name=${name##*/}
+    [[ $name =~ $program_pattern && $name != "." && $name != ".." ]] || name=unknown
+
+    [[ -n $ignore_pattern && $name =~ $ignore_pattern ]] && continue
+    [[ $name == monarch-crash-* || $name == monarch-agent-* ]] && continue
+    monarch-toggle-enabled "crash-ignore/$name" && continue
+
+    now=$EPOCHSECONDS
+    (((now - ${last_notified[$name]:-0}) < dedupe_seconds)) && continue
+
+    announce "$name" "$pid" "$exe" "$signal" && last_notified[$name]=$now
+  done

@@ -1,0 +1,6 @@
+# Two properties make this safe, and both are load-bearing: the path is
+# root-owned, so nothing running as the user can rewrite what it authorises;
+# and the arguments are fixed, so there is nothing to inject.
+#
+# Custom is deliberately absent — it takes servers from the caller.
+%wheel ALL=(root) NOPASSWD: /usr/bin/monarch-dns Cloudflare, /usr/bin/monarch-dns Google, /usr/bin/monarch-dns DHCP

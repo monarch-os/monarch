@@ -1,0 +1,71 @@
+# The Monarch menu, as a panel.
+#
+# The tree is data — default/monarch/monarch-menu.jsonc, overlaid by the user's
+# ~/.config/monarch/extensions/monarch-menu.jsonc — and this plugin renders it.
+# bin/monarch-menu is the CLI face and only sends IPC.
+#
+#   model.luau  parsing, merging, routes, guard batching (no UI, no shell)
+#   panel.luau  the panel itself
+#
+# The shell runs without Monarch's bin on PATH, so actions and guards are
+# launched through a shell with that directory prepended — see monarchShell in
+# panel.luau.
+
+id          = "monarch/menu"
+name        = "Monarch Menu"
+version     = "1.0.0"
+# 22 is the floor for relative `require()` of a .luau module, and the ceiling
+# this shell accepts is 23 (v5.0.0-beta.8 supports 3-23 despite the docs
+# advertising 3-27). capture_keys needs >= 13, keyboard_focus >= 10, so the
+# keyboard-driven list is comfortably inside that window.
+plugin_api  = 22
+author      = "monarch"
+license     = "MIT"
+description = "The Monarch menu: system, style, setup, install and remove, driven from the keyboard."
+icon        = "menu-2"
+
+[[panel]]
+id     = "panel"
+entry  = "panel.luau"
+width  = 520
+height = 560
+placement = "floating"
+position  = "center"
+# The panel owns the keyboard while it is open: the search field takes text, and
+# these chords drive the list without reaching the focused input.
+keyboard_focus = "on_demand"
+capture_keys   = ["up", "down", "left", "right", "return", "escape", "ctrl+j", "ctrl+k"]
+dismiss_on_outside_click = true
+
+[[panel]]
+id     = "select"
+entry  = "panel.luau"
+width  = 520
+height = 320
+placement = "floating"
+position  = "center"
+keyboard_focus = "on_demand"
+capture_keys   = ["up", "down", "return", "escape", "ctrl+j", "ctrl+k"]
+dismiss_on_outside_click = true
+
+[[panel]]
+id     = "input"
+entry  = "panel.luau"
+width  = 520
+height = 150
+placement = "floating"
+position  = "center"
+keyboard_focus = "on_demand"
+capture_keys   = ["return", "escape"]
+dismiss_on_outside_click = true
+
+# The same tree, reachable from Mod+Space: `mm` lists every menu action, and
+# picking one runs it without the panel opening. Kept out of the global result
+# set — the launcher already lists applications, and 200 menu rows would drown
+# them.
+[[launcher_provider]]
+id     = "launcher"
+entry  = "launcher.luau"
+prefix = "mm"
+glyph  = "menu-2"
+include_in_global_search = false

@@ -61,6 +61,23 @@ window-rule {
     border { off; }
 }
 
+// Webcam preview used while recording. It must be in the captured scene before
+// the recorder starts, without stealing focus or entering the scrolling layout.
+window-rule {
+    match app-id=r#"^org\.monarch\.webcam-overlay\.(circle|rectangle)$"#
+    open-floating true
+    open-focused false
+    opacity 1.0
+    border { off; }
+    shadow { off; }
+}
+
+window-rule {
+    match app-id="org.monarch.webcam-overlay.circle"
+    geometry-corner-radius 9999
+    clip-to-geometry true
+}
+
 // Calculator.
 window-rule {
     match app-id="org.gnome.Calculator"
@@ -69,18 +86,16 @@ window-rule {
 
 // Floating helper apps (TUIs, image viewers, etc.).
 window-rule {
-    match app-id=r#"^(org\.monarch\.(nmtui|wiremix|btop|terminal|bash)|org\.codeberg\.dnkl\.foot|org\.gnome\.NautilusPreviewer|org\.gnome\.Evince|com\.gabm\.satty|Monarch|About|TUI\.float|imv|mpv)$"#
+    match app-id=r#"^(org\.monarch\.(nmtui|wiremix|btop|terminal|bash)|org\.codeberg\.dnkl\.foot|org\.gnome\.NautilusPreviewer|org\.gnome\.Evince|Monarch|About|TUI\.float|imv|mpv)$"#
     open-floating true
     default-column-width { fixed 875; }
 }
 
-// Welcome / onboarding wizard. Own app-id so it gets a fitted size instead of
-// the tall, mostly-empty float the shared org.monarch.terminal rule would give.
 window-rule {
-    match app-id="org.monarch.welcome"
+    match app-id="org.monarch.about"
     open-floating true
-    default-column-width { fixed 760; }
-    default-window-height { fixed 600; }
+    default-column-width { fixed 1100; }
+    default-window-height { fixed 580; }
 }
 
 // Pentest env manager (monarch-menu-pentestenv/exegol/rfswift). Its own app-id
@@ -181,4 +196,3 @@ window-rule {
         inactive-color "#7d0d2d"
     }
 }
-

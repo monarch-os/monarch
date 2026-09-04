@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# monarch:summary=Wait for the desktop notification server
+# monarch:args=[timeout-seconds]
+# monarch:hidden=true
+
+set -uo pipefail
+
+timeout=${1:-10}
+attempts=$((timeout * 10))
+
+while ((attempts > 0)); do
+  if busctl --user call \
+    org.freedesktop.Notifications \
+    /org/freedesktop/Notifications \
+    org.freedesktop.Notifications \
+    GetServerInformation >/dev/null 2>&1; then
+    exit 0
+  fi
+
+  attempts=$((attempts - 1))
+  sleep 0.1
+done
+
+exit 1

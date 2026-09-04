@@ -1,0 +1,41 @@
+id          = "monarch/theme"
+name        = "Monarch Theme"
+version     = "1.0.0"
+plugin_api  = 22
+author      = "monarch"
+license     = "MIT"
+description = "Visual selectors for Monarch desktop and unlock themes."
+icon        = "color-swatch"
+
+[[panel]]
+id     = "theme"
+entry  = "theme.luau"
+width  = 920
+height = 650
+placement = "floating"
+position  = "center"
+keyboard_focus = "on_demand"
+capture_keys = ["up", "down", "return", "home", "end", "delete", "escape", "ctrl+i", "ctrl+j", "ctrl+k"]
+dismiss_on_outside_click = true
+
+[[panel]]
+id     = "unlock"
+entry  = "unlock.luau"
+width  = 920
+height = 650
+placement = "floating"
+position  = "center"
+keyboard_focus = "on_demand"
+capture_keys = ["up", "down", "return", "home", "end", "escape", "ctrl+j", "ctrl+k"]
+dismiss_on_outside_click = true
+
+[[panel]]
+id     = "background"
+entry  = "background.luau"
+width  = 920
+height = 650
+placement = "floating"
+position  = "center"
+keyboard_focus = "on_demand"
+capture_keys = ["up", "down", "return", "home", "end", "escape", "ctrl+j", "ctrl+k"]
+dismiss_on_outside_click = true

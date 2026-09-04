@@ -5,8 +5,8 @@
 # monarch:examples=monarch install browser firefox | monarch install browser brave
 
 setup_policy_directory() {
-  sudo mkdir -p "$1"
-  sudo chmod a+rw "$1"
+  source "${MONARCH_PATH:-/usr/share/monarch}/install/helpers/browser-policy.sh"
+  browser_policy_setup_dir "$1"
 }
 
 announce_browser_installed() {
@@ -16,14 +16,14 @@ announce_browser_installed() {
 
 copy_chromium_flags() {
   mkdir -p ~/.config
-  cp -f "${MONARCH_PATH:-$HOME/.local/share/monarch}/config/chromium-flags.conf" "$1"
+  cp -f "${MONARCH_PATH:-/usr/share/monarch}/config/chromium-flags.conf" "$1"
 }
 
 setup_firefox_preferences() {
   local distribution_dir="$1"
 
-  setup_policy_directory "$distribution_dir"
-  sudo cp -f "$MONARCH_PATH/default/firefox/policies.json" "$distribution_dir/policies.json"
+  source "${MONARCH_PATH:-/usr/share/monarch}/install/helpers/browser-policy.sh"
+  browser_policy_setup_firefox "$distribution_dir"
 }
 
 setup_firefox_wayland() {
@@ -66,7 +66,7 @@ brave-origin)
   setup_policy_directory /etc/brave/policies/managed
   mkdir -p ~/.config
   # FIXME: Use normal chromium flags when Brave Origin wrapper has been fixed
-  echo "--load-extension=~/.local/share/monarch/default/chromium/extensions/copy-url" > ~/.config/brave-origin-beta-flags.conf
+  echo "--load-extension=${MONARCH_PATH:-/usr/share/monarch}/default/chromium/extensions/copy-url" > ~/.config/brave-origin-beta-flags.conf
   monarch-theme-apply
   announce_browser_installed "Brave Origin"
   ;;

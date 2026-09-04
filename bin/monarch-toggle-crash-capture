@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# monarch:summary=Toggle crash capture notifications
+
+set -uo pipefail
+
+readonly CRASH_GLYPH=$'\U000f16a1'
+
+monarch-toggle crash-capture-off
+
+if monarch-toggle-enabled crash-capture-off; then
+  systemctl --user stop monarch-crash-watch.service
+  monarch-notification-send -g "$CRASH_GLYPH" "Crash capture disabled"
+else
+  systemctl --user start monarch-crash-watch.service
+  monarch-notification-send -g "$CRASH_GLYPH" "Crash capture enabled"
+fi

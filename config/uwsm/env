@@ -1,14 +1,11 @@
 # Changes require a restart to take effect.
 
 # Ensure Monarch bins are in the path
-export MONARCH_PATH=$HOME/.local/share/monarch
-export PATH=$MONARCH_PATH/bin:$PATH:$HOME/.local/bin
+export MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}
+export PATH=$MONARCH_PATH/bin:$PATH:$HOME/.local/share/mise/shims:$HOME/.local/bin
 
 # SSH agent (graphical session only, not shell rc — keeps agent forwarding intact)
 export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"
 
 # Set default terminal and editor
 source ~/.config/uwsm/default
-
-# Activate mise if present on the system
-monarch-cmd-present mise && eval "$(mise activate bash --shims)"

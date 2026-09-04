@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# monarch:summary=Install Emacs and start its user daemon
+
+echo "Installing Emacs..."
+monarch-pkg-add emacs-wayland && systemctl --user enable --now emacs.service

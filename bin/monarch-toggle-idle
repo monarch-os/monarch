@@ -1,24 +1,104 @@
 #!/bin/bash
 
-# monarch:summary=Toggle idle locking (Noctalia IdleService)
+# monarch:summary=Toggle idle locking (Noctalia caffeine)
+# monarch:args=[toggle|on|off|status|claim <owner>|release <owner>]
+# monarch:examples=monarch toggle idle | monarch toggle idle status
 
-# Idle handling (screensaver / lock / DPMS) lives in Noctalia's IdleService,
-# driven by `idle.enabled` in settings.json (hot-reloaded). Lid-close lock is
-# handled separately by niri switch-events and is unaffected by this toggle.
+# v4 flipped `idle.enabled` in settings.json. v5 has no such switch — inhibiting
+# idle is caffeine, and the shell owns it: the toggle raises its own "Caffeine
+# On/Off" OSD, so the hand-rolled notify-send this script used to print is gone.
+#
+# Lid-close lock is handled separately by niri switch-events and is unaffected.
+#
+# This command also owns the *state*, following the omarchy-toggle-idle shape:
+# subcommands to set it either way and a `status` that prints JSON, which is the
+# only thing the bar indicator talks to. Monarch has to keep the state itself
+# because v5 exposes no way to read caffeine back — there is no `caffeine-status`
+# IPC, nothing is written to ~/.local/state/noctalia/settings.toml, and
+# `caffeine-enable` takes the wayland idle-inhibit path rather than logind, so it
+# does not even appear in `systemd-inhibit --list`.
+#
+# The flag lives in the runtime dir rather than ~/.local/state/monarch/toggles/
+# (monarch-toggle) on purpose: those flags are user preferences that must survive
+# a reboot, while this one mirrors live shell state and has to die with the
+# session — a fresh shell always comes up with caffeine off.
+# monarch-restart-noctalia clears it for the same reason.
+#
+# caffeine-enable / caffeine-disable are idempotent setters, so the flag stays
+# authoritative instead of the two drifting apart the way a blind toggle would.
 
-cfg="$HOME/.config/noctalia/settings.json"
-[[ -f $cfg ]] || { mkdir -p "$(dirname "$cfg")"; echo '{}' >"$cfg"; }
+STATE_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/monarch/caffeine"
 
-tmp=$(mktemp)
-if jq '.idle = (.idle // {}) | (.idle.enabled | not) as $new | .idle.enabled = $new' "$cfg" >"$tmp"; then
-  mv "$tmp" "$cfg"
-  if jq -e '.idle.enabled' "$cfg" >/dev/null; then
-    notify-send -u low "󱫖    Now locking computer when idle"
+caffeine_enabled() {
+  [[ -f $STATE_FILE ]]
+}
+
+apply_state() {
+  local owner="${2:-user}"
+
+  case "$1" in
+    on)
+      mkdir -p "$(dirname "$STATE_FILE")"
+      if caffeine_enabled; then
+        printf '%s\n' "$owner" >"$STATE_FILE"
+        return
+      fi
+      printf '%s\n' "$owner" >"$STATE_FILE"
+      if ! noctalia msg caffeine-enable >/dev/null 2>&1; then
+        [[ $(<"$STATE_FILE") != $owner ]] || rm -f "$STATE_FILE"
+        return 1
+      fi
+      ;;
+    off)
+      noctalia msg caffeine-disable >/dev/null 2>&1 || return 1
+      rm -f "$STATE_FILE"
+      ;;
+  esac
+}
+
+print_status() {
+  if caffeine_enabled; then
+    printf '{"enabled":true,"tooltip":"Caffeine on - allow idle lock"}\n'
   else
-    notify-send -u low "󱫖    Stop locking computer when idle"
+    printf '{"enabled":false,"tooltip":"Stay awake"}\n'
   fi
-else
-  rm -f "$tmp"
-  echo "monarch-toggle-idle: could not update $cfg" >&2
-  exit 1
-fi
+}
+
+case "${1:-toggle}" in
+  toggle)
+    if caffeine_enabled; then
+      apply_state off
+    else
+      apply_state on
+    fi
+    ;;
+  on | stay-awake)
+    apply_state on user
+    ;;
+  off | allow-idle)
+    apply_state off
+    ;;
+  claim)
+    owner="${2:-}"
+    [[ $owner =~ ^[A-Za-z0-9:._-]+$ ]] || { echo "Invalid Caffeine owner" >&2; exit 2; }
+    if ! caffeine_enabled; then
+      apply_state on "$owner"
+    else
+      exit 1
+    fi
+    ;;
+  release)
+    owner="${2:-}"
+    [[ $owner =~ ^[A-Za-z0-9:._-]+$ ]] || { echo "Invalid Caffeine owner" >&2; exit 2; }
+    if [[ -f $STATE_FILE && $(<"$STATE_FILE") == $owner ]]; then
+      apply_state off
+    fi
+    ;;
+  status | --status)
+    print_status
+    ;;
+  *)
+    echo "Usage: $0 [toggle|on|off|status|claim <owner>|release <owner>]" >&2
+    exit 1
+    ;;
+esac
