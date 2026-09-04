@@ -9,6 +9,7 @@ trap 'rm -rf "$TMP_ROOT"' EXIT
 export HOME="$TMP_ROOT/home"
 export MONARCH_PATH="$ROOT"
 export MONARCH_UNLOCK_TEST_ROOT="$TMP_ROOT/system"
+export MONARCH_UNLOCK_TEST_MAX_ASSET_SIZE=$((256 * 1024))
 export PATH="$TMP_ROOT/bin:$ROOT/bin:/usr/bin:/bin"
 
 mkdir -p \
@@ -42,9 +43,13 @@ printf '%s\n' "$*" >"$HOME/limine-call"
 EOF
 cat >"$TMP_ROOT/bin/magick" <<'EOF'
 #!/bin/bash
-exit 0
+cat
 EOF
-cp "$TMP_ROOT/bin/magick" "$MONARCH_UNLOCK_TEST_ROOT/usr/bin/magick"
+cat >"$MONARCH_UNLOCK_TEST_ROOT/usr/bin/magick" <<'EOF'
+#!/bin/bash
+printf '%s\n' "$*" >>"$HOME/magick-calls"
+cat
+EOF
 chmod +x "$TMP_ROOT/bin/monarch-theme-colors" "$TMP_ROOT/bin/sudo" \
   "$TMP_ROOT/bin/plymouth-set-default-theme" "$TMP_ROOT/bin/limine-mkinitcpio" \
   "$TMP_ROOT/bin/magick" "$MONARCH_UNLOCK_TEST_ROOT/usr/bin/magick"
@@ -84,11 +89,53 @@ done
 grep -qx 'mPrimary=#010203' "$sddm/theme.conf" || fail "writes the primary color"
 grep -qx 'mSurface=#191a1b' "$sddm/theme.conf" || fail "writes the surface color"
 [[ $(wc -l <"$sddm/theme.conf") == 15 ]] || fail "writes the complete SDDM palette"
+grep -qx 'Window.SetBackgroundTopColor(0.098, 0.102, 0.106);' \
+  "$plymouth/monarch.script" || fail "writes the Plymouth top background"
+grep -qx 'Window.SetBackgroundBottomColor(0.098, 0.102, 0.106);' \
+  "$plymouth/monarch.script" || fail "writes the Plymouth bottom background"
+grep -qx 'ConsoleLogBackgroundColor=0x191a1b' "$plymouth/monarch.plymouth" ||
+  fail "writes the Plymouth console background"
+expected_magick_calls=$(cat <<'EOF'
+png:- -channel RGB +level-colors #1c1d1e,#1c1d1e png:-
+png:- -channel RGB +level-colors #1c1d1e,#1c1d1e png:-
+png:- -channel RGB +level-colors #1c1d1e,#1c1d1e png:-
+png:- -channel RGB +level-colors #010203,#010203 png:-
+png:- -channel RGB +level-colors #010203,#010203 png:-
+png:- -channel RGB +level-colors #010203,#010203 png:-
+EOF
+)
+[[ $(<"$HOME/magick-calls") == "$expected_magick_calls" ]] ||
+  fail "uses the exact Plymouth and SDDM recoloring operations"
 [[ $(<"$HOME/.local/state/monarch/unlock-theme") == "Monarch" ]] ||
   fail "records the selected unlock theme"
 [[ $(<"$HOME/plymouth-call") == "monarch" ]] || fail "activates the Plymouth theme"
 [[ -f $HOME/limine-call ]] || fail "rebuilds the initramfs"
 pass "theme apply keeps the palette and boot-image behavior"
+
+: >"$HOME/magick-calls"
+rm -f "$HOME/plymouth-call" "$HOME/limine-call"
+"$ROOT/bin/monarch-sddm-apply" Monarch >/dev/null
+[[ $(<"$HOME/magick-calls") == \
+  'png:- -channel RGB +level-colors #010203,#010203 png:-' ]] ||
+  fail "SDDM-only apply does not use the expected isolated recoloring"
+[[ ! -e $HOME/plymouth-call && ! -e $HOME/limine-call ]] ||
+  fail "SDDM-only apply rebuilds the boot image"
+pass "SDDM-only apply isolates its single recoloring operation"
+
+cp "$MONARCH_UNLOCK_TEST_ROOT/usr/bin/magick" "$TMP_ROOT/magick.good"
+cat >"$MONARCH_UNLOCK_TEST_ROOT/usr/bin/magick" <<'EOF'
+#!/bin/bash
+head -c "$((MONARCH_UNLOCK_TEST_MAX_ASSET_SIZE * 2))" /dev/zero
+EOF
+chmod +x "$MONARCH_UNLOCK_TEST_ROOT/usr/bin/magick"
+before=$(sha256sum "$plymouth/monarch.script" "$plymouth/bullet.png" "$sddm/logo.png")
+if "$ROOT/bin/monarch-plymouth-apply" Monarch >/dev/null 2>&1; then
+  fail "publication accepts renderer output beyond its write-time limit"
+fi
+after=$(sha256sum "$plymouth/monarch.script" "$plymouth/bullet.png" "$sddm/logo.png")
+[[ $before == "$after" ]] || fail "oversized rendering published a partial theme"
+mv "$TMP_ROOT/magick.good" "$MONARCH_UNLOCK_TEST_ROOT/usr/bin/magick"
+pass "renderer resource limits prevent oversized partial publication"
 
 plymouth_assets=(
   bullet.png entry.png lock.png logo.png monarch.plymouth monarch.script

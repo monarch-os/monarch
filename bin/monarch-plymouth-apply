@@ -85,7 +85,8 @@ sudo /bin/bash -c '
   mode=$1
   shift
   colors=("$@")
-  max_asset_size=$((64 * 1024 * 1024))
+  default_max_asset_size=$((64 * 1024 * 1024))
+  max_asset_size=$default_max_asset_size
 
   if ((EUID == 0)); then
     system_root=
@@ -95,7 +96,12 @@ sudo /bin/bash -c '
     [[ $system_root == /* && -d $system_root && ! -L $system_root ]]
     system_root=$(realpath -e -- "$system_root")
     test_mode=true
-    PATH=$system_root/usr/bin:/usr/bin:/bin
+    if [[ -n ${MONARCH_UNLOCK_TEST_MAX_ASSET_SIZE:-} ]]; then
+      [[ $MONARCH_UNLOCK_TEST_MAX_ASSET_SIZE =~ ^[0-9]+$ ]]
+      ((MONARCH_UNLOCK_TEST_MAX_ASSET_SIZE > 0))
+      ((MONARCH_UNLOCK_TEST_MAX_ASSET_SIZE <= default_max_asset_size))
+      max_asset_size=$MONARCH_UNLOCK_TEST_MAX_ASSET_SIZE
+    fi
   fi
 
   source_root=$system_root/usr/share/monarch
@@ -199,6 +205,64 @@ sudo /bin/bash -c '
     fi
   }
 
+  validate_staged_file() {
+    local source=$1 canonical uid file_mode size
+
+    failure_context="staged source $source"
+    [[ $source == "$staging_dir/"* && -f $source && ! -L $source ]]
+    canonical=$(realpath -e -- "$source")
+    [[ $canonical == "$source" ]]
+    uid=$(stat -c %u -- "$source")
+    file_mode=$(stat -c %a -- "$source")
+    size=$(stat -c %s -- "$source")
+    $test_mode || ((uid == 0))
+    (((8#$file_mode & 0022) == 0))
+    ((size > 0 && size <= max_asset_size))
+  }
+
+  render_file() {
+    local source=$1 rendered command_path rendered_size
+    shift
+
+    failure_context="unprivileged rendering of $source"
+    validate_staged_file "$source"
+    rendered=$(mktemp "$staging_dir/rendered.XXXXXXXX")
+    command_path=$1
+    if $test_mode; then
+      if [[ $command_path == "/usr/bin/magick" ]]; then
+        command_path=$system_root/usr/bin/magick
+      fi
+      /usr/bin/prlimit --core=0 --fsize="$max_asset_size" --cpu=5 \
+        --as=$((512 * 1024 * 1024)) -- \
+        "$command_path" "${@:2}" <"$source" >"$rendered"
+    else
+      [[ -x /usr/bin/prlimit && -x /usr/bin/setpriv && -x $command_path ]]
+      /usr/bin/prlimit --core=0 --fsize="$max_asset_size" --cpu=30 \
+        --as=$((2 * 1024 * 1024 * 1024)) -- \
+        /usr/bin/env -i HOME=/ PATH=/usr/bin:/bin LC_ALL=C \
+        /usr/bin/setpriv --reuid 65534 --regid 65534 --clear-groups \
+        --no-new-privs -- "$command_path" "${@:2}" <"$source" >"$rendered"
+    fi
+    rendered_size=$(stat -c %s -- "$rendered")
+    ((rendered_size > 0 && rendered_size <= max_asset_size))
+    if ! $test_mode; then
+      chown 0:0 -- "$rendered"
+    fi
+    chmod 0600 -- "$rendered"
+    mv -fT -- "$rendered" "$source"
+  }
+
+  normalize_component() {
+    local byte=$1 destination=$2 scaled
+
+    scaled=$(((byte * 1000 + 127) / 255))
+    if ((scaled == 1000)); then
+      printf -v "$destination" "1.000"
+    else
+      printf -v "$destination" "0.%03d" "$scaled"
+    fi
+  }
+
   plymouth_assets=()
   sddm_assets=()
   case "$mode" in
@@ -231,26 +295,28 @@ sudo /bin/bash -c '
     accent_hex=${accent_hex#\#}
 
     if [[ $mode == "apply" ]]; then
-      bg_r=$(awk -v n=$((16#${bg_hex:0:2})) "BEGIN{printf \"%.3f\", n/255}")
-      bg_g=$(awk -v n=$((16#${bg_hex:2:2})) "BEGIN{printf \"%.3f\", n/255}")
-      bg_b=$(awk -v n=$((16#${bg_hex:4:2})) "BEGIN{printf \"%.3f\", n/255}")
-      sed -i \
+      normalize_component "$((16#${bg_hex:0:2}))" bg_r
+      normalize_component "$((16#${bg_hex:2:2}))" bg_g
+      normalize_component "$((16#${bg_hex:4:2}))" bg_b
+      render_file "$plymouth_stage/monarch.script" /usr/bin/sed \
         -e "s/^Window.SetBackgroundTopColor.*/Window.SetBackgroundTopColor($bg_r, $bg_g, $bg_b);/" \
-        -e "s/^Window.SetBackgroundBottomColor.*/Window.SetBackgroundBottomColor($bg_r, $bg_g, $bg_b);/" \
-        "$plymouth_stage/monarch.script"
-      sed -i "s/^ConsoleLogBackgroundColor=.*/ConsoleLogBackgroundColor=0x$bg_hex/" \
-        "$plymouth_stage/monarch.plymouth"
+        -e "s/^Window.SetBackgroundBottomColor.*/Window.SetBackgroundBottomColor($bg_r, $bg_g, $bg_b);/"
+      render_file "$plymouth_stage/monarch.plymouth" /usr/bin/sed \
+        -e "s/^ConsoleLogBackgroundColor=.*/ConsoleLogBackgroundColor=0x$bg_hex/"
 
       for asset in bullet.png entry.png lock.png; do
-        magick "$plymouth_stage/$asset" -channel RGB +level-colors "#$fg_hex","#$fg_hex" "$plymouth_stage/$asset"
+        render_file "$plymouth_stage/$asset" /usr/bin/magick \
+          png:- -channel RGB +level-colors "#$fg_hex","#$fg_hex" png:-
       done
       for asset in logo.png progress_bar.png; do
-        magick "$plymouth_stage/$asset" -channel RGB +level-colors "#$accent_hex","#$accent_hex" "$plymouth_stage/$asset"
+        render_file "$plymouth_stage/$asset" /usr/bin/magick \
+          png:- -channel RGB +level-colors "#$accent_hex","#$accent_hex" png:-
       done
     fi
 
     copy_source "$source_root/default/sddm/monarch/logo.png" "$sddm_stage/logo.png"
-    magick "$sddm_stage/logo.png" -channel RGB +level-colors "#$accent_hex","#$accent_hex" "$sddm_stage/logo.png"
+    render_file "$sddm_stage/logo.png" /usr/bin/magick \
+      png:- -channel RGB +level-colors "#$accent_hex","#$accent_hex" png:-
     color_keys=(
       mPrimary mOnPrimary mSecondary mOnSecondary mTertiary mOnTertiary
       mError mOnError mSurface mOnSurface mSurfaceVariant mOnSurfaceVariant
