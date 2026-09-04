@@ -4,78 +4,319 @@
 # monarch:args=[name]
 # monarch:requires-sudo=true
 
-# Unlock theming is manual: the Plymouth assets live inside the initramfs, so a
-# change forces one rebuild. The same selection colors SDDM after that rebuild.
-#
-# Colors come from `monarch theme colors`, resolving the selected custom theme.
-#   mSurface  -> background gradient
-#   mOnSurface-> foreground assets (unlock prompt: lock/entry/bullet)
-#   mPrimary  -> logo + progress bar
-#
-# Counterpart: `monarch plymouth reset` restores the shipped default splash.
-
-set -uo pipefail
+set -euo pipefail
 
 MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
-PLYMOUTH_SRC="$MONARCH_ROOT/default/plymouth"
-PLYMOUTH_DEST="/usr/share/plymouth/themes/monarch"
 
-command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 1; }
-command -v magick >/dev/null 2>&1 || { echo "imagemagick (magick) is required" >&2; exit 1; }
+usage() {
+  echo "Usage: monarch-plymouth-apply [name]" >&2
+  exit 2
+}
 
-theme=${1:-}
-colors=$(monarch-theme-colors "$theme") || exit 1
+mode=apply
+requested=
+case $# in
+0) ;;
+1)
+  case "$1" in
+  --refresh-default) mode=refresh-plymouth ;;
+  --refresh-sddm-default) mode=refresh-sddm ;;
+  *) requested=$1 ;;
+  esac
+  ;;
+2)
+  [[ $1 == "--sddm" ]] || usage
+  mode=apply-sddm
+  requested=$2
+  ;;
+*) usage ;;
+esac
 
-bg_hex=$(jq -r '.mSurface // empty' <<<"$colors")
-fg_hex=$(jq -r '.mOnSurface // .mPrimary // empty' <<<"$colors")
-accent_hex=$(jq -r '.mPrimary // empty' <<<"$colors")
-
-bg_hex=${bg_hex#\#}; fg_hex=${fg_hex#\#}; accent_hex=${accent_hex#\#}
-for c in "$bg_hex" "$fg_hex" "$accent_hex"; do
-  [[ $c =~ ^[0-9a-fA-F]{6}$ ]] || { echo "Invalid or missing color in the active palette" >&2; exit 1; }
-done
-
-# Plymouth's gradient wants 0..1 floats (bash hex -> awk float, as the old script did).
-bg_r=$(awk -v n=$((16#${bg_hex:0:2})) 'BEGIN{printf "%.3f", n/255}')
-bg_g=$(awk -v n=$((16#${bg_hex:2:2})) 'BEGIN{printf "%.3f", n/255}')
-bg_b=$(awk -v n=$((16#${bg_hex:4:2})) 'BEGIN{printf "%.3f", n/255}')
-
-# Tint a monochrome asset to a solid color, preserving alpha.
-tint() { magick "$1" -channel RGB +level-colors "#$2","#$2" "$1"; }
-
-# --- Stage + recolor ---------------------------------------------------------
-stage=$(mktemp -d) || exit 1
-trap 'rm -rf "$stage"' EXIT
-cp -a "$PLYMOUTH_SRC/." "$stage/"
-
-sed -i \
-  -e "s/^Window.SetBackgroundTopColor.*/Window.SetBackgroundTopColor($bg_r, $bg_g, $bg_b);/" \
-  -e "s/^Window.SetBackgroundBottomColor.*/Window.SetBackgroundBottomColor($bg_r, $bg_g, $bg_b);/" \
-  "$stage/monarch.script"
-sed -i "s/^ConsoleLogBackgroundColor=.*/ConsoleLogBackgroundColor=0x$bg_hex/" "$stage/monarch.plymouth"
-
-for a in bullet.png entry.png lock.png; do
-  [[ -f $stage/$a ]] && tint "$stage/$a" "$fg_hex"
-done
-[[ -f $stage/logo.png ]] && tint "$stage/logo.png" "$accent_hex"
-[[ -f $stage/progress_bar.png ]] && tint "$stage/progress_bar.png" "$accent_hex"
-
-# --- Commit (sudo) -----------------------------------------------------------
-sudo mkdir -p "$PLYMOUTH_DEST" || exit 1
-sudo cp -a "$stage/." "$PLYMOUTH_DEST/" || exit 1
-sudo plymouth-set-default-theme monarch || exit 1
-
-# The splash lives in the initramfs — this rebuild is the one unavoidable cost.
-if command -v limine-mkinitcpio >/dev/null 2>&1; then
-  sudo limine-mkinitcpio || exit 1
-else
-  sudo mkinitcpio -P || exit 1
+if ((EUID == 0)) && [[ $mode == "apply" || $mode == "apply-sddm" ]]; then
+  echo "Run monarch-plymouth-apply as your user, not under sudo." >&2
+  exit 1
 fi
 
-monarch-sddm-apply "$theme" || exit 1
+palette_values=()
+if [[ $mode == "apply" || $mode == "apply-sddm" ]]; then
+  monarch-cmd-present jq || { echo "jq is required" >&2; exit 1; }
+  monarch-cmd-present magick || { echo "imagemagick (magick) is required" >&2; exit 1; }
 
-state="$HOME/.local/state/monarch/unlock-theme"
-mkdir -p "${state%/*}"
-printf '%s\n' "${theme:-active}" >"$state"
+  palette=$(monarch-theme-colors "$requested" 2>/dev/null) || {
+    [[ -z $requested ]] && exit 0
+    echo "Could not resolve the $requested palette for the unlock screens" >&2
+    exit 1
+  }
+  palette=$(jq -cer '
+    ["mPrimary", "mOnPrimary", "mSecondary", "mOnSecondary",
+     "mTertiary", "mOnTertiary", "mError", "mOnError", "mSurface",
+     "mOnSurface", "mSurfaceVariant", "mOnSurfaceVariant", "mOutline",
+     "mShadow"] as $keys |
+    [$keys[] as $key | .[$key]] as $values |
+    if ($values | all(.[]; type == "string" and test("^#[0-9A-Fa-f]{6}$")))
+    then . else error("invalid palette") end
+  ' <<<"$palette") || {
+    [[ -z $requested ]] && exit 0
+    echo "The $requested palette is invalid for the unlock screens" >&2
+    exit 1
+  }
+  mapfile -t palette_values < <(jq -r '
+    ["mPrimary", "mOnPrimary", "mSecondary", "mOnSecondary",
+     "mTertiary", "mOnTertiary", "mError", "mOnError", "mSurface",
+     "mOnSurface", "mSurfaceVariant", "mOnSurfaceVariant", "mOutline",
+     "mShadow"][] as $key | .[$key]
+  ' <<<"$palette")
+fi
 
-echo "Applied ${theme:-the active theme} to Plymouth and SDDM."
+sudo /bin/bash -c '
+  set -eEuo pipefail
+  PATH=/usr/bin:/bin
+  LC_ALL=C
+  export PATH LC_ALL
+  umask 077
+
+  failure_context="the privileged unlock-theme transaction"
+  report_failure() {
+    printf "monarch-plymouth-apply: refusing to publish: %s failed validation\n" \
+      "$failure_context" >&2
+  }
+  trap report_failure ERR
+
+  mode=$1
+  shift
+  colors=("$@")
+  max_asset_size=$((64 * 1024 * 1024))
+
+  if ((EUID == 0)); then
+    system_root=
+    test_mode=false
+  else
+    system_root=${MONARCH_UNLOCK_TEST_ROOT:-}
+    [[ $system_root == /* && -d $system_root && ! -L $system_root ]]
+    system_root=$(realpath -e -- "$system_root")
+    test_mode=true
+  fi
+
+  source_root=$system_root/usr/share/monarch
+  plymouth_dir=$system_root/usr/share/plymouth/themes/monarch
+  sddm_dir=$system_root/usr/share/sddm/themes/monarch
+
+  failure_context="the transaction arguments"
+  [[ $mode == "apply" || $mode == "apply-sddm" ||
+    $mode == "refresh-plymouth" || $mode == "refresh-sddm" ]]
+  if [[ $mode == "apply" || $mode == "apply-sddm" ]]; then
+    ((${#colors[@]} == 14))
+    for color in "${colors[@]}"; do
+      [[ $color =~ ^#[0-9A-Fa-f]{6}$ ]]
+    done
+  else
+    ((${#colors[@]} == 0))
+  fi
+
+  validate_directory() {
+    local directory=$1 canonical uid directory_mode stop
+
+    failure_context="directory $directory"
+    canonical=$(realpath -e -- "$directory")
+    [[ $canonical == "$directory" && -d $directory && ! -L $directory ]]
+    stop=/
+    $test_mode && stop=$system_root
+
+    while :; do
+      uid=$(stat -c %u -- "$directory")
+      directory_mode=$(stat -c %a -- "$directory")
+      $test_mode || ((uid == 0))
+      (((8#$directory_mode & 0022) == 0))
+      [[ $directory == "$stop" ]] && break
+      directory=${directory%/*}
+      [[ -n $directory ]] || directory=/
+    done
+  }
+
+  validate_source() {
+    local source=$1 canonical uid file_mode size
+
+    failure_context="packaged source $source"
+    [[ -f $source && ! -L $source ]]
+    canonical=$(realpath -e -- "$source")
+    [[ $canonical == "$source" ]]
+    validate_directory "${source%/*}"
+    uid=$(stat -c %u -- "$source")
+    file_mode=$(stat -c %a -- "$source")
+    size=$(stat -c %s -- "$source")
+    $test_mode || ((uid == 0))
+    (((8#$file_mode & 0022) == 0))
+    ((size > 0 && size <= max_asset_size))
+  }
+
+  prepare_destination() {
+    local directory=$1 parent=${1%/*}
+
+    failure_context="destination directory $directory"
+    validate_directory "$parent"
+    if [[ -e $directory || -L $directory ]]; then
+      validate_directory "$directory"
+    elif $test_mode; then
+      install -d -m 0755 -- "$directory"
+    else
+      install -d -o 0 -g 0 -m 0755 -- "$directory"
+    fi
+  }
+
+  failure_context="the private root staging directory"
+  staging_dir=$(mktemp -d "$system_root/tmp/monarch-unlock.XXXXXXXX")
+  temporary=
+  cleanup() {
+    [[ -z $temporary ]] || rm -f -- "$temporary"
+    rm -rf -- "$staging_dir"
+  }
+  trap cleanup EXIT HUP INT TERM
+  chmod 0700 -- "$staging_dir"
+
+  plymouth_stage=$staging_dir/plymouth
+  sddm_stage=$staging_dir/sddm
+  mkdir -m 0700 -p -- "$plymouth_stage/logos" "$sddm_stage"
+
+  plymouth_theme_assets=(
+    bullet.png entry.png lock.png logo.png monarch.plymouth monarch.script
+    preview-unlock.png progress_bar.png progress_box.png
+  )
+  plymouth_default_assets=("${plymouth_theme_assets[@]}" logos/oma.png)
+  sddm_default_assets=(
+    Main.qml bullet.png entry-failed.png entry.png lock-failed.png lock.png
+    logo.png metadata.desktop theme.conf
+  )
+
+  copy_source() {
+    local source=$1 destination=$2
+
+    validate_source "$source"
+    if $test_mode; then
+      install -m 0600 -- "$source" "$destination"
+    else
+      install -o 0 -g 0 -m 0600 -- "$source" "$destination"
+    fi
+  }
+
+  plymouth_assets=()
+  sddm_assets=()
+  case "$mode" in
+  apply)
+    plymouth_assets=("${plymouth_theme_assets[@]}")
+    sddm_assets=(theme.conf logo.png)
+    ;;
+  apply-sddm)
+    sddm_assets=(theme.conf logo.png)
+    ;;
+  refresh-plymouth) plymouth_assets=("${plymouth_default_assets[@]}") ;;
+  refresh-sddm) sddm_assets=("${sddm_default_assets[@]}") ;;
+  esac
+
+  for asset in "${plymouth_assets[@]}"; do
+    copy_source "$source_root/default/plymouth/$asset" "$plymouth_stage/$asset"
+  done
+
+  if [[ $mode == "refresh-sddm" ]]; then
+    for asset in "${sddm_assets[@]}"; do
+      copy_source "$source_root/default/sddm/monarch/$asset" "$sddm_stage/$asset"
+    done
+  elif [[ $mode == "apply" || $mode == "apply-sddm" ]]; then
+    failure_context="the selected palette"
+    accent_hex=${colors[0]}
+    bg_hex=${colors[8]}
+    fg_hex=${colors[9]}
+    bg_hex=${bg_hex#\#}
+    fg_hex=${fg_hex#\#}
+    accent_hex=${accent_hex#\#}
+
+    if [[ $mode == "apply" ]]; then
+      bg_r=$(awk -v n=$((16#${bg_hex:0:2})) "BEGIN{printf \"%.3f\", n/255}")
+      bg_g=$(awk -v n=$((16#${bg_hex:2:2})) "BEGIN{printf \"%.3f\", n/255}")
+      bg_b=$(awk -v n=$((16#${bg_hex:4:2})) "BEGIN{printf \"%.3f\", n/255}")
+      sed -i \
+        -e "s/^Window.SetBackgroundTopColor.*/Window.SetBackgroundTopColor($bg_r, $bg_g, $bg_b);/" \
+        -e "s/^Window.SetBackgroundBottomColor.*/Window.SetBackgroundBottomColor($bg_r, $bg_g, $bg_b);/" \
+        "$plymouth_stage/monarch.script"
+      sed -i "s/^ConsoleLogBackgroundColor=.*/ConsoleLogBackgroundColor=0x$bg_hex/" \
+        "$plymouth_stage/monarch.plymouth"
+
+      for asset in bullet.png entry.png lock.png; do
+        magick "$plymouth_stage/$asset" -channel RGB +level-colors "#$fg_hex","#$fg_hex" "$plymouth_stage/$asset"
+      done
+      for asset in logo.png progress_bar.png; do
+        magick "$plymouth_stage/$asset" -channel RGB +level-colors "#$accent_hex","#$accent_hex" "$plymouth_stage/$asset"
+      done
+    fi
+
+    copy_source "$source_root/default/sddm/monarch/logo.png" "$sddm_stage/logo.png"
+    magick "$sddm_stage/logo.png" -channel RGB +level-colors "#$accent_hex","#$accent_hex" "$sddm_stage/logo.png"
+    color_keys=(
+      mPrimary mOnPrimary mSecondary mOnSecondary mTertiary mOnTertiary
+      mError mOnError mSurface mOnSurface mSurfaceVariant mOnSurfaceVariant
+      mOutline mShadow
+    )
+    {
+      printf "[General]\n"
+      for index in "${!color_keys[@]}"; do
+        printf "%s=%s\n" "${color_keys[$index]}" "${colors[$index]}"
+      done
+    } >"$sddm_stage/theme.conf"
+    chmod 0600 -- "$sddm_stage/theme.conf" "$sddm_stage/logo.png"
+  fi
+
+  if ((${#plymouth_assets[@]})); then
+    prepare_destination "$plymouth_dir"
+    [[ $mode != "refresh-plymouth" ]] || prepare_destination "$plymouth_dir/logos"
+  fi
+  if ((${#sddm_assets[@]})); then
+    prepare_destination "$sddm_dir"
+  fi
+
+  publish() {
+    local source=$1 destination=$2 parent filename source_size copied_size
+
+    failure_context="destination $destination"
+    [[ -f $source && ! -L $source ]]
+    source_size=$(stat -c %s -- "$source")
+    ((source_size > 0 && source_size <= max_asset_size))
+    parent=${destination%/*}
+    filename=${destination##*/}
+    validate_directory "$parent"
+
+    temporary=$(mktemp --tmpdir="$parent" ".$filename.monarch-new.XXXXXXXX")
+    if $test_mode; then
+      install -m 0644 -- "$source" "$temporary"
+    else
+      install -o 0 -g 0 -m 0644 -- "$source" "$temporary"
+    fi
+    copied_size=$(stat -c %s -- "$temporary")
+    ((copied_size == source_size))
+    cmp -s -- "$source" "$temporary"
+    sync -f -- "$temporary"
+    mv --no-copy -fT -- "$temporary" "$destination"
+    temporary=
+  }
+
+  for asset in "${plymouth_assets[@]}"; do
+    publish "$plymouth_stage/$asset" "$plymouth_dir/$asset"
+  done
+  for asset in "${sddm_assets[@]}"; do
+    publish "$sddm_stage/$asset" "$sddm_dir/$asset"
+  done
+' bash "$mode" "${palette_values[@]}"
+
+if [[ $mode == "apply" || $mode == "refresh-plymouth" ]]; then
+  sudo plymouth-set-default-theme monarch
+  if monarch-cmd-present limine-mkinitcpio; then
+    sudo limine-mkinitcpio
+  else
+    sudo mkinitcpio -P
+  fi
+fi
+
+if [[ $mode == "apply" ]]; then
+  state="$HOME/.local/state/monarch/unlock-theme"
+  mkdir -p "${state%/*}"
+  printf '%s\n' "${requested:-active}" >"$state"
+  echo "Applied ${requested:-the active theme} to Plymouth and SDDM."
+fi

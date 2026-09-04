@@ -791,8 +791,9 @@ Monarch interactions; do not assume the replacement should be a standalone TUI.
 ### Q21 — Quattro 4.0.0–4.0.2 release-gap closure
 
 - **Status:** audited against `origin/noctalia-v5@ff9f94293`, Quattro v4.0.0
-  `f0020448c`, v4.0.1 `13f18b2cb` and v4.0.2 `346e69e1c`; implementation not
-  started.
+  `f0020448c`, v4.0.1 `13f18b2cb` and v4.0.2 `346e69e1c`; implementation in
+  progress. Plymouth/SDDM publication is hardened and validated in a clean VM;
+  the remaining items below are pending.
 - **Scope:** close security and correctness gaps first, repair accidental
   regressions, then make explicit product decisions for optional Quattro
   features. Current Quattro head `f99d33a8d` is included so this does not become
@@ -805,9 +806,10 @@ Monarch interactions; do not assume the replacement should be a standalone TUI.
 - Remove `monarch-sudo-reset`. Quattro v4.0.1 removed the same flow; Monarch
   still interpolates caller-controlled `$USER` into `su -c` and preserves a
   privilege-reset command that should not exist.
-- Publish Plymouth and SDDM inputs through root-owned staging. Do not let an
-  unprivileged user replace or rewrite a file between validation and privileged
-  copy, and remove the world-writable SDDM theme/logo path.
+- **Done:** publish Plymouth and SDDM inputs through root-owned staging with a
+  fixed allowlist, validated sources and atomic replacement. Destination files
+  are now `root:root 0644`; hostile source/destination symlinks and writable
+  destination parents are covered by regression tests.
 - Rework SSH setup as a validated, idempotent drop-in: disable password login,
   verify the effective OpenSSH configuration, and reconcile existing installs.
 - Stop granting `input` by default and replace the blanket wheel-wide
