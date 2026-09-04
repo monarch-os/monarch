@@ -95,6 +95,7 @@ sudo /bin/bash -c '
     [[ $system_root == /* && -d $system_root && ! -L $system_root ]]
     system_root=$(realpath -e -- "$system_root")
     test_mode=true
+    PATH=$system_root/usr/bin:/usr/bin:/bin
   fi
 
   source_root=$system_root/usr/share/monarch

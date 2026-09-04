@@ -15,6 +15,7 @@ mkdir -p \
   "$HOME" \
   "$TMP_ROOT/bin" \
   "$MONARCH_UNLOCK_TEST_ROOT/tmp" \
+  "$MONARCH_UNLOCK_TEST_ROOT/usr/bin" \
   "$MONARCH_UNLOCK_TEST_ROOT/usr/share/monarch/default" \
   "$MONARCH_UNLOCK_TEST_ROOT/usr/share/plymouth/themes/monarch/logos" \
   "$MONARCH_UNLOCK_TEST_ROOT/usr/share/sddm/themes/monarch"
@@ -43,9 +44,10 @@ cat >"$TMP_ROOT/bin/magick" <<'EOF'
 #!/bin/bash
 exit 0
 EOF
+cp "$TMP_ROOT/bin/magick" "$MONARCH_UNLOCK_TEST_ROOT/usr/bin/magick"
 chmod +x "$TMP_ROOT/bin/monarch-theme-colors" "$TMP_ROOT/bin/sudo" \
   "$TMP_ROOT/bin/plymouth-set-default-theme" "$TMP_ROOT/bin/limine-mkinitcpio" \
-  "$TMP_ROOT/bin/magick"
+  "$TMP_ROOT/bin/magick" "$MONARCH_UNLOCK_TEST_ROOT/usr/bin/magick"
 
 fail() {
   echo "not ok - $1" >&2
