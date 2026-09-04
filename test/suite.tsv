@@ -3,6 +3,7 @@ test/monarch-about-test.sh	about	low	isolated
 test/monarch-agent-usage-codex-test.sh	agent-usage	medium	isolated
 test/monarch-bar-position-test.sh	desktop-bar	medium	isolated
 test/shell.d/browser-policy-hardening-test.sh	browser-security	high	isolated
+test/shell.d/brightness-display-apple-test.sh	display-security	high	isolated
 test/monarch-cli-test.sh	cli-routing	high	isolated
 test/monarch-crash-capture-test.sh	crash-reporting	high	isolated
 test/monarch-dev-env-test.sh	developer-environment	medium	isolated
@@ -44,6 +45,7 @@ test/monarch-windows-key-test.sh	windows	low	isolated
 test/shell.d/dns-security-test.sh	dns	medium	isolated
 test/shell.d/factory-reset-esp-test.sh	factory-reset	high	isolated
 test/shell.d/install-keyring-test.sh	installer	high	isolated
+test/shell.d/input-group-hardening-test.sh	security	high	isolated
 test/shell.d/legacy-agent-reconcile-test.sh	updates	high	isolated
 test/shell.d/legacy-alacritty-reconcile-test.sh	updates	high	isolated
 test/shell.d/legacy-docker-firewall-test.sh	security	high	isolated

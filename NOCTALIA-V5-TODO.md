@@ -816,8 +816,10 @@ Monarch interactions; do not assume the replacement should be a standalone TUI.
   settings are validated before startup; reconciliation is limited to
   Monarch-marked, single-login-identity servers and leaves administrator setups
   intact whenever key-only access cannot be proven without a lockout.
-- Stop granting `input` by default and replace the blanket wheel-wide
-  `NOPASSWD: /usr/bin/asdcontrol` rule with the narrowest workable boundary.
+- **Done:** stop granting `input` by default and remove both blanket
+  `asdcontrol` sudoers rules. The package now grants active-seat access only to
+  supported Apple display `hiddev` nodes through a device-specific udev rule;
+  the brightness wrapper runs unprivileged and validates its device cache.
 - Disable automatic remote printer discovery. If `cups-browsed` remains an
   option, ship a hardened opt-in configuration instead of
   `CreateRemotePrinters Yes`.
