@@ -39,8 +39,13 @@ cat >"$TMP_ROOT/bin/limine-mkinitcpio" <<'EOF'
 #!/bin/bash
 printf '%s\n' "$*" >"$HOME/limine-call"
 EOF
+cat >"$TMP_ROOT/bin/magick" <<'EOF'
+#!/bin/bash
+exit 0
+EOF
 chmod +x "$TMP_ROOT/bin/monarch-theme-colors" "$TMP_ROOT/bin/sudo" \
-  "$TMP_ROOT/bin/plymouth-set-default-theme" "$TMP_ROOT/bin/limine-mkinitcpio"
+  "$TMP_ROOT/bin/plymouth-set-default-theme" "$TMP_ROOT/bin/limine-mkinitcpio" \
+  "$TMP_ROOT/bin/magick"
 
 fail() {
   echo "not ok - $1" >&2
