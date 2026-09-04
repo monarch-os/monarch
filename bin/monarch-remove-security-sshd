@@ -29,4 +29,5 @@ if [[ -s $AUTHORIZED_KEYS ]]; then
 fi
 
 echo -e "\e[32m\nThe SSH server has been disabled and its firewall port closed.\e[0m"
+echo "The key-only SSH policy remains installed; run monarch setup security sshd before re-enabling the server."
 echo "The openssh package remains installed because it also provides the SSH client."

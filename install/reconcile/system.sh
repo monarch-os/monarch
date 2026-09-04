@@ -5,6 +5,7 @@ echo "Reconcile Monarch system state"
 sudo bash "$MONARCH_PATH/install/config/enable-services.sh"
 sudo bash "$MONARCH_PATH/install/config/ssh-command-path.sh"
 sudo bash "$MONARCH_PATH/install/reconcile/browser-policy.sh" "$MONARCH_PATH"
+bash "$MONARCH_PATH/install/reconcile/sshd-hardening.sh"
 
 if [[ -f /etc/pam.d/noctalia ]]; then
   sudo rm -f /etc/pam.d/noctalia
