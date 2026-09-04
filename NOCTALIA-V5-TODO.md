@@ -811,8 +811,11 @@ Monarch interactions; do not assume the replacement should be a standalone TUI.
   fixed allowlist, validated sources and atomic replacement. Destination files
   are now `root:root 0644`; hostile source/destination symlinks and writable
   destination parents are covered by regression tests.
-- Rework SSH setup as a validated, idempotent drop-in: disable password login,
-  verify the effective OpenSSH configuration, and reconcile existing installs.
+- **Done:** SSH setup now authorizes and verifies a usable key before publishing
+  a key-only drop-in or exposing the daemon. Global and owner-context OpenSSH
+  settings are validated before startup; reconciliation is limited to
+  Monarch-marked, single-login-identity servers and leaves administrator setups
+  intact whenever key-only access cannot be proven without a lockout.
 - Stop granting `input` by default and replace the blanket wheel-wide
   `NOPASSWD: /usr/bin/asdcontrol` rule with the narrowest workable boundary.
 - Disable automatic remote printer discovery. If `cups-browsed` remains an

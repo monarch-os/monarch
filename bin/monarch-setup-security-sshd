@@ -5,11 +5,14 @@
 # monarch:examples=monarch setup security sshd | monarch setup security sshd --gh-keys y0no
 # monarch:requires-sudo=true
 
-set -e
+set -euo pipefail
 
 AUTHORIZED_KEYS="$HOME/.ssh/authorized_keys"
 KEY=""
 GITHUB_USER=""
+MONARCH_ROOT=${MONARCH_PATH:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}
+
+source "$MONARCH_ROOT/install/helpers/sshd-hardening.sh"
 
 require_github_user() {
   if [[ -z $1 || $1 == -* ]]; then
@@ -50,12 +53,12 @@ if [[ -n $KEY && -n $GITHUB_USER ]]; then
 fi
 
 setup_sshd() {
-  echo "Installing and starting the OpenSSH server..."
+  echo "Installing the OpenSSH server..."
   monarch-pkg-add openssh
-  sudo systemctl enable --now sshd.service
+  sudo systemctl start sshdgenkeys.service
 }
 
-open_firewall() {
+require_firewall() {
   if monarch-cmd-missing ufw; then
     echo -e "\e[31mUFW is not installed; refusing to start an unfiltered SSH server.\e[0m" >&2
     return 1
@@ -67,6 +70,9 @@ open_firewall() {
     return 1
   fi
 
+}
+
+open_firewall() {
   echo "Opening the SSH port in the firewall with rate limiting..."
   sudo ufw --force delete allow 22 >/dev/null 2>&1 || true
   sudo ufw --force delete allow 22/tcp >/dev/null 2>&1 || true
@@ -92,14 +98,15 @@ authorize_key() {
   fi
 
   mkdir -p "$HOME/.ssh"
-  chmod 700 "$HOME/.ssh"
-  touch "$AUTHORIZED_KEYS"
-  chmod 600 "$AUTHORIZED_KEYS"
+  chmod 700 "$HOME/.ssh" || return 1
+  touch "$AUTHORIZED_KEYS" || return 1
+  chmod 600 "$AUTHORIZED_KEYS" || return 1
 
   if grep -qxF "$key" "$AUTHORIZED_KEYS"; then
     echo "Key already authorized: $(ssh-keygen -lf /dev/stdin <<<"$key")"
   else
-    echo "$key" >>"$AUTHORIZED_KEYS"
+    printf '%s\n' "$key" >>"$AUTHORIZED_KEYS" || return 1
+    grep -qxF "$key" "$AUTHORIZED_KEYS" || return 1
     echo "Authorized key: $(ssh-keygen -lf /dev/stdin <<<"$key")"
   fi
 }
@@ -141,7 +148,7 @@ authorize_pasted_key() {
 }
 
 echo -e "\e[32mSetting up SSH server access with key-based authentication.\n\e[0m"
-open_firewall
+require_firewall
 setup_sshd
 
 echo
@@ -157,5 +164,29 @@ else
   esac
 fi
 
-echo -e "\e[32m\nThe SSH server is running and your key is authorized.\e[0m"
-echo "You can now connect with: ssh $USER@$(hostname)"
+user=$(id -un)
+user_id=$(id -u)
+if ! monarch_sshd_has_usable_key "$AUTHORIZED_KEYS" "$user" ||
+  ! monarch_sshd_key_paths_safe "$HOME" "$AUTHORIZED_KEYS" "$user_id" ||
+  ! monarch_sshd_context_supports_user_key "$user" "$HOME"; then
+  echo -e "\e[31mThe authorized key path is not usable by sshd; the server was not started.\e[0m" >&2
+  exit 1
+fi
+
+echo "Disabling SSH password authentication..."
+monarch_sshd_install_hardening "$user" "$HOME"
+
+if systemctl is-active --quiet sshd.service; then
+  sudo systemctl reload sshd.service
+fi
+
+open_firewall
+
+if systemctl is-active --quiet sshd.service; then
+  sudo systemctl enable sshd.service
+else
+  sudo systemctl enable --now sshd.service
+fi
+
+echo -e "\e[32m\nThe SSH server is running with key-only authentication.\e[0m"
+echo "You can now connect with: ssh $user@$(hostname)"

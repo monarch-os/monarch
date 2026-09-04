@@ -26,6 +26,7 @@ test/monarch-preinstalls-test.sh	package-install	medium	isolated
 test/monarch-screensaver-idle-test.sh	idle	medium	isolated
 test/monarch-sddm-test.sh	login-screen	high	isolated
 test/monarch-sshd-menu-test.sh	remote-access	high	isolated
+test/shell.d/sshd-hardening-test.sh	remote-access	high	isolated
 test/monarch-sudo-passwordless-test.sh	security	high	isolated
 test/monarch-tailscale-lifecycle-test.sh	tailscale	medium	isolated
 test/monarch-tailscale-receive-test.sh	tailscale	medium	isolated
