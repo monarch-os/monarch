@@ -322,6 +322,9 @@ sanitize_factory_baseline() {
   local factory="$1" user
   btrfs property set -ts "$factory" ro false
 
+  retire_factory_privilege_grants "$factory"
+  stage_current_apple_display_access "$factory"
+
   for user in $(awk -F: '$3 >= 1000 && $3 < 60000 { print $1 }' "$factory/etc/passwd"); do
     userdel --root "$factory" "$user" 2>>"$LOG_FILE" || true
     rm -rf "${factory:?}/home/$user"
@@ -336,12 +339,104 @@ sanitize_factory_baseline() {
   btrfs property set -ts "$factory" ro true
 }
 
+retire_factory_privilege_grants() {
+  local root="$1" file groups="$1$PROVISIONING_DIR/groups"
+
+  for file in "$root/etc/sudoers.d/asdcontrol" \
+    "$root/etc/sudoers.d/monarch-asdcontrol"; do
+    if [[ -L $file ]]; then
+      rm -f -- "$file"
+      continue
+    fi
+    [[ ! -d $file ]] || fail "legacy asdcontrol sudoers path is a directory: $file"
+    rm -f -- "$file"
+  done
+
+  if [[ -L $groups ]]; then
+    rm -f -- "$groups"
+  elif [[ -f $groups ]]; then
+    sed -i '/^input$/d' "$groups"
+  elif [[ -e $groups ]]; then
+    fail "invalid provisioning groups path: $groups"
+  fi
+}
+
+apple_display_rule_valid() {
+  local rule="$1" id active expected
+
+  [[ -f $rule && ! -L $rule ]] || return 1
+  active=$(grep -cvE '^[[:space:]]*(#|$)' "$rule" || true)
+  ((active == 4)) || return 1
+  for id in 1114 1116 1118 9243; do
+    printf -v expected '%s' \
+      "SUBSYSTEM==\"usbmisc\", KERNEL==\"hiddev*\", ATTRS{idVendor}==\"05ac\", " \
+      "ATTRS{idProduct}==\"$id\", TAG+=\"uaccess\""
+    grep -qxF "$expected" "$rule" || return 1
+  done
+}
+
+asdcontrol_install_script() {
+  local root="$1"
+  local -a candidates=()
+
+  shopt -s nullglob
+  candidates=("$root"/var/lib/pacman/local/asdcontrol-*/install)
+  shopt -u nullglob
+  ((${#candidates[@]} == 1)) || return 1
+  [[ -f ${candidates[0]} && ! -L ${candidates[0]} &&
+    ! -L ${candidates[0]%/install} ]] || return 1
+  printf '%s\n' "${candidates[0]}"
+}
+
+stage_current_apple_display_access() {
+  local root="$1"
+  local wrapper_source="${2:-$MONARCH_PATH/bin/monarch-brightness-display-apple}"
+  local rule_source="${3:-/usr/lib/udev/rules.d/70-asdcontrol.rules}"
+  local lifecycle_source="${4:-}"
+  local wrapper_dir="$root/usr/share/monarch/bin"
+  local rule_dir="$root/etc/udev/rules.d"
+  local lifecycle_target
+
+  [[ -f $wrapper_source && ! -L $wrapper_source && -x $wrapper_source ]] ||
+    fail "the current Apple display wrapper is not a trusted package file"
+  apple_display_rule_valid "$rule_source" ||
+    fail "update the asdcontrol package before staging a factory reset"
+  if [[ -z $lifecycle_source ]]; then
+    lifecycle_source=$(asdcontrol_install_script "") ||
+      fail "the current asdcontrol package lifecycle is unavailable"
+  fi
+  lifecycle_target=$(asdcontrol_install_script "$root") ||
+    fail "the factory asdcontrol package metadata is unavailable"
+  [[ -f $lifecycle_source && ! -L $lifecycle_source ]] ||
+    fail "the current asdcontrol package lifecycle is invalid"
+  grep -qF 'ASDCONTROL_FACTORY_RULE=/etc/udev/rules.d/70-monarch-asdcontrol.rules' \
+    "$lifecycle_source" &&
+    grep -qF 'remove_factory_fallback' "$lifecycle_source" &&
+    grep -qF 'supported_hiddev_nodes' "$lifecycle_source" ||
+    fail "update the asdcontrol package before staging a factory reset"
+  [[ -d $wrapper_dir && ! -L $wrapper_dir ]] ||
+    fail "the factory runtime directory is invalid: $wrapper_dir"
+  [[ ! -L $rule_dir && ( ! -e $rule_dir || -d $rule_dir ) ]] ||
+    fail "the factory udev directory is invalid: $rule_dir"
+
+  install -d -m 0755 "$rule_dir"
+  rm -f -- "$wrapper_dir/monarch-brightness-display-apple" \
+    "$rule_dir/70-monarch-asdcontrol.rules"
+  install -m 0755 -T "$wrapper_source" \
+    "$wrapper_dir/monarch-brightness-display-apple"
+  install -m 0644 -T "$rule_source" \
+    "$rule_dir/70-monarch-asdcontrol.rules"
+  install -m 0644 -T "$lifecycle_source" "$lifecycle_target"
+}
+
 stage_full_reset() {
   local top="$TOP_MNT" next="$TOP_MNT/$NEXT_NAME"
 
   log "Cloning the factory snapshot"
   [[ -d $next ]] && btrfs subvolume delete --recursive "$next" >/dev/null
   btrfs subvolume snapshot "$top/@factory" "$next" >>"$LOG_FILE"
+  retire_factory_privilege_grants "$next"
+  stage_current_apple_display_access "$next"
 
   local unit_src="$next/usr/share/monarch/install/provisioning"
   [[ -f $unit_src/monarch-provision-owner.service && -x $next/usr/bin/monarch-provision-owner ]] ||

@@ -1,59 +1,38 @@
 #!/bin/bash
-#
-# The install scripts that grant group memberships must record them in the provisioning
-# groups file (for first-boot user creation and factory reset) and only call
-# usermod when the install user actually exists.
-#
-# Docker is deliberately excluded: the docker group is root-equivalent, so it is
-# no longer granted at install time (opt in with monarch-setup-security-sudoless-docker).
 
 set -euo pipefail
 
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 
-TMPDIR=$(mktemp -d)
-trap 'rm -rf "$TMPDIR"' EXIT
+test_root=$(mktemp -d)
+trap 'rm -rf "$test_root"' EXIT
+mkdir -p "$test_root/bin" "$test_root/provisioning"
 
-export MONARCH_PROVISIONING_DIR="$TMPDIR/provisioning"
-
-# Stub getent/usermod: the fake system knows only the user "existing".
-mkdir -p "$TMPDIR/bin"
-cat >"$TMPDIR/bin/getent" <<'STUB'
+cat >"$test_root/bin/getent" <<'STUB'
 #!/bin/bash
-[[ $1 == passwd && $2 == existing ]] && { echo "existing:x:1000:1000::/home/existing:/bin/bash"; exit 0; }
-exit 2
+[[ $1 == group && $2 =~ ^(audio|input)$ ]]
 STUB
-cat >"$TMPDIR/bin/usermod" <<STUB
+cat >"$test_root/bin/pacman" <<'STUB'
 #!/bin/bash
-echo "\$@" >>"$TMPDIR/usermod.calls"
+[[ $1 == -Qq && $2 == ydotool && ${TEST_YDOTOOL:-false} == true ]]
 STUB
-chmod +x "$TMPDIR/bin/getent" "$TMPDIR/bin/usermod"
-export PATH="$TMPDIR/bin:$PATH"
+chmod +x "$test_root/bin/"*
 
-# No install user (deferred-provisioning install): input recorded, usermod not called.
-MONARCH_INSTALL_USER="" bash -eE "$ROOT/install/hardware/input-group.sh"
+PATH="$test_root/bin:$PATH"
+PROVISIONING_DIR="$test_root/provisioning"
+eval "$(sed -n '/^user_groups() {/,/^}/p' "$ROOT/bin/monarch-provision-owner")"
 
-[[ -f $MONARCH_PROVISIONING_DIR/groups ]] || fail "groups file written without an install user"
-grep -qxF input "$MONARCH_PROVISIONING_DIR/groups" || fail "input group recorded"
-[[ ! -f $TMPDIR/usermod.calls ]] || fail "usermod not called without an install user"
-pass "deferred provisioning records groups without calling usermod"
+printf '%s\n' input docker audio >"$PROVISIONING_DIR/groups"
+[[ $(user_groups) == wheel,audio ]] || fail "stale privileged groups were replayed"
+pass "deferred provisioning filters stale privileged defaults"
 
-# The docker group is root-equivalent and must never be granted automatically.
-! grep -qxF docker "$MONARCH_PROVISIONING_DIR/groups" || fail "docker group must not be recorded"
-pass "docker group is not recorded at install"
+TEST_YDOTOOL=true
+export TEST_YDOTOOL
+[[ $(user_groups) == wheel,input,audio ]] || fail "ydotool input access was discarded"
+pass "deferred provisioning preserves the explicit ydotool opt-in"
 
-# Missing user (defensive): no usermod either.
-MONARCH_INSTALL_USER=ghost bash -eE "$ROOT/install/hardware/input-group.sh"
-[[ ! -f $TMPDIR/usermod.calls ]] || fail "usermod not called for a missing user"
-pass "missing install user defers group grants"
-
-# Re-running never duplicates entries.
-MONARCH_INSTALL_USER="" bash -eE "$ROOT/install/hardware/input-group.sh"
-[[ $(grep -cxF input "$MONARCH_PROVISIONING_DIR/groups") == 1 ]] || fail "input group recorded once"
-pass "group recording is idempotent"
-
-# Existing user: usermod applies the recorded groups, and docker is never among them.
-MONARCH_INSTALL_USER=existing bash -eE "$ROOT/install/hardware/input-group.sh"
-grep -qx -- "-aG input existing" "$TMPDIR/usermod.calls" || fail "usermod grants input to the install user"
-! grep -q -- "docker" "$TMPDIR/usermod.calls" || fail "usermod must not grant docker to the install user"
-pass "existing install user gets input but never docker"
+if grep -qF 'hardware/input-group.sh' "$ROOT/install/hardware/all.sh" ||
+  [[ -e $ROOT/install/hardware/input-group.sh ]]; then
+  fail "default hardware setup still owns an input-group grant"
+fi
+pass "default installation records no input-group grant"

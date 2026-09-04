@@ -4,7 +4,6 @@ run_logged "$MONARCH_INSTALL/hardware/dell-xps-touchpad-haptics.sh"
 run_logged "$MONARCH_INSTALL/hardware/surface.sh"
 
 run_logged "$MONARCH_INSTALL/hardware/network.sh"
-run_logged "$MONARCH_INSTALL/hardware/input-group.sh"
 run_logged "$MONARCH_INSTALL/hardware/set-wireless-regdom.sh"
 run_logged "$MONARCH_INSTALL/hardware/fix-fkeys.sh"
 run_logged "$MONARCH_INSTALL/hardware/fix-synaptic-touchpad.sh"

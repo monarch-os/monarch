@@ -232,6 +232,11 @@ cat >"$TEST_ROOT/bin/sudo" <<'EOF'
 exec "$@"
 EOF
 
+cat >"$TEST_ROOT/bin/id" <<'EOF'
+#!/bin/bash
+printf '%s\n' wheel
+EOF
+
 chmod +x "$TEST_ROOT/bin/"*
 
 system_transition="$TEST_ROOT/system-transition"
