@@ -89,7 +89,7 @@ réparent pas une transaction légitime bloquée par un vestige non possédé.
 | Mises à jour transactionnelles | `55590ba42` et `e7c00ab34` portent garde Pacman, verrou, espace libre, prune avant snapshot et cycle d'inhibition. |
 | Themes Quattro et bundles distants | Les palettes sont dans `config/noctalia/palettes`; `ba2cc50fc` ajoute des bundles schema-1, sans code, sans symlink, validés puis publiés atomiquement. `bin/monarch-theme-bundle` refuse options et transport helpers exécutables avant `git clone`. |
 | Application templates | Noctalia rend les catalogues builtin/community; `ab04cf5bb` documente les templates locaux natifs. Monarch ne doit pas restaurer le renderer Quattro. |
-| Windows VM de base | Installation, lancement RDP, attente du boot courant, contournement Kerberos et adaptation de l'échelle Niri sont présents dans `bin/monarch-windows-vm`; le durcissement 4.0.2 reste manquant. |
+| Windows VM de base | Installation, lancement RDP, attente du boot courant, contournement Kerberos, adaptation de l'échelle Niri et frontière de montage protégée sont présents dans `bin/monarch-windows-vm`. |
 | Factory reset et provisionnement différé | `bin/monarch-system-factory-reset*`, `monarch-provision-owner` et `install/provisioning/` conservent ce flux, avec une architecture propre à l'ISO Monarch. |
 | NVIDIA KMS | `etc/mkinitcpio.conf.d/monarch_hooks.conf` reprend la suppression conservatrice de `kms` uniquement sur une machine NVIDIA-only avec early KMS, issue de `ecd57bcee`. |
 
@@ -175,7 +175,6 @@ réparent pas une transaction légitime bloquée par un vestige non possédé.
 | Sudoers `asdcontrol` | `ff4cf8afb`, suppression de `etc/sudoers.d/omarchy-asdcontrol` | **Couvert avec `monarch-pkgs`** : les deux sudoers sans contrainte sont retirés. Le paquet accorde `uaccess` uniquement aux quatre produits Apple supportés sur leur nœud `hiddev`; le helper reste non privilégié. | Fusionner et publier le changement `asdcontrol` coordonné avant de déclarer la frontière déployée. |
 | `cups-browsed` | `51af7bf79`, puis retrait final `a73a312e1` | **Couvert** : le paquet, le service et l'override invalide sortent du défaut. La reconciliation arrête le daemon avant de nettoyer prudemment les queues `implicitclass`, conserve les queues manuelles ou occupées et protège un opt-in administrateur ultérieur par un marqueur machine. | — |
 | Webapps | `be730884f`, `7678e5b0d`, `f8e35ec65` | `monarch-webapp-install` accepte tout schéma explicite, les `/` dans le nom, interpole directement les champs Desktop Entry et compose `Exec` comme source textuelle. L'icône téléchargée n'est pas vérifiée MIME. Remove reconstruit les chemins à partir du label. | Limiter à HTTP(S), valider le nom/path, sérialiser les valeurs Desktop Entry, préserver URL/argv, vérifier l'image et indexer le launcher réellement créé. |
-| Windows VM mount boundary | `2421e76fb`, `bin/omarchy-windows-vm` et tests dédiés | Compose mutable dans `$HOME`, credentials extraits au grep, mounts directs, options faiblement validées, suppression récursive et absence de verrou. | Porter l'ensemble des propriétés 4.0.2 : résolution fiable du propriétaire, staging/config protégés, validation YAML/credentials, mounts bornés, sérialisation et migrations. |
 | Quoting des install helpers | `47ce81ebc` | `monarch-install-app` et `monarch-install-and-launch` réinjectent encore `${packages}` brut dans une commande shell. | Découper la liste puis `%q` chaque argv, comme Quattro; appliquer aussi au nom/message. |
 | Apple Display | `9c1ec524c` | **Partiellement couvert** : cache privé validé, contrôle du character device, retry après hotplug et lecture courante sont portés sans privilège. Noctalia v5 n'expose pas de commande permettant d'afficher son OSD sans modifier le backlight qu'il gère. | Traiter l'OSD séparément si Noctalia expose une API d'affichage externe. |
 | Acceptance sécurité et scanner privilégié | `cf3d69c38`, `6f8b62f04`, `f802ae107` | Les commits Monarch `8b36b9a3d` à `ff9f94293` nettoient les artefacts historiques, mais la suite ne contient ni scanner de heredocs privilégiés ni acceptance de l'arbre installé couvrant owners/modes/sudoers/services. | Ajouter les deux gardes. Exécuter l'acceptance sur ISO/VM installé, pas seulement contre le checkout. |
@@ -191,6 +190,7 @@ réparent pas une transaction légitime bloquée par un vestige non possédé.
 | Codex usage 0.149 (`880605f22`) | **Couvert** par `3e1d8f4bb`. |
 | Nettoyage des fichiers privilégiés historiques (`cf3d69c38`) | **Couvert fonctionnellement** par la chaîne Monarch `8b36b9a3d`, `164e50c3a`, `50ee0c758`, `823488f46`, `147a0bbdd`, `ff9f94293`. Monarch adopte les fichiers runtime possédés puis retire sudoers/udev/restes v4 avec des gardes de type et provenance. |
 | Noms de thèmes interprétés par le shell (`521779b11`) | **Plus strict** pour les bundles : id, nom, chemins, type MIME, contenu et modes sont validés avant publication; aucun hook distant n'est autorisé. |
+| Windows VM mount boundary (`2421e76fb`) | **Couvert et renforcé** : compose root-owned atomique, actions et valeurs privilégiées allowlistées, sources caller-owned épinglées par FD derrière des anchors protégés, empreintes persistantes, migrations exactes, verrou stable et suppression bornée après preuve d'identité et d'absence d'alias. Les credentials RDP privés restent hors argv. |
 
 ### Non applicables ou délibérés
 
@@ -223,7 +223,7 @@ porter les **invariants**, pas les fichiers de migration :
 | SSHD existant durci sans lockout | Manquant. |
 | `cups-browsed` retiré et queues implicites nettoyées | Couvert. |
 | Ancien masque `wpa_supplicant` retiré | Manquant. |
-| Config Windows VM ancienne migrée vers une frontière protégée | Manquant. |
+| Config Windows VM ancienne migrée vers une frontière protégée | Couvert. |
 | Publication Plymouth/SDDM sans source utilisateur privilégiée | Manquant. |
 
 ## Découpage recommandé

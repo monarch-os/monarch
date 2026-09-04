@@ -5,15 +5,21 @@
 
 set -euo pipefail
 
-MSDM=${MONARCH_MSDM_PATH:-/sys/firmware/acpi/tables/MSDM}
+DEFAULT_MSDM=/sys/firmware/acpi/tables/MSDM
+MSDM=${MONARCH_MSDM_PATH:-$DEFAULT_MSDM}
 
 if [[ ! -e $MSDM ]]; then
   echo "No Windows license key found in firmware." >&2
   exit 1
 fi
 
+if [[ $MSDM != "$DEFAULT_MSDM" && ! -r $MSDM ]]; then
+  echo "Refusing to elevate a custom Windows license path." >&2
+  exit 1
+fi
+
 read_msdm() {
-  if [[ -r $MSDM ]]; then
+  if [[ $MSDM != "$DEFAULT_MSDM" || -r $MSDM ]]; then
     "$@" "$MSDM"
   else
     sudo "$@" "$MSDM"
