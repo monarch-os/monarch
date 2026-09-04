@@ -820,9 +820,10 @@ Monarch interactions; do not assume the replacement should be a standalone TUI.
   `asdcontrol` sudoers rules. The package now grants active-seat access only to
   supported Apple display `hiddev` nodes through a device-specific udev rule;
   the brightness wrapper runs unprivileged and validates its device cache.
-- Disable automatic remote printer discovery. If `cups-browsed` remains an
-  option, ship a hardened opt-in configuration instead of
-  `CreateRemotePrinters Yes`.
+- **Done:** disable automatic remote printer discovery. Fresh installs no
+  longer install or enable `cups-browsed`; reconciliation stops the daemon,
+  removes idle generated queues and retires the package once per machine while
+  preserving CUPS, Print Settings, manual queues and later administrator opt-in.
 - Harden Windows VM storage and launch handling: validate all user-supplied
   values, keep host mounts behind an explicit protected boundary, pin immutable
   inputs where practical, and make cleanup operate only on resolved VM-owned

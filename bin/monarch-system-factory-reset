@@ -323,6 +323,7 @@ sanitize_factory_baseline() {
   btrfs property set -ts "$factory" ro false
 
   retire_factory_privilege_grants "$factory"
+  retire_factory_printer_discovery "$factory"
   stage_current_apple_display_access "$factory"
 
   for user in $(awk -F: '$3 >= 1000 && $3 < 60000 { print $1 }' "$factory/etc/passwd"); do
@@ -359,6 +360,52 @@ retire_factory_privilege_grants() {
   elif [[ -e $groups ]]; then
     fail "invalid provisioning groups path: $groups"
   fi
+}
+
+retire_factory_printer_discovery() {
+  local root="$1" pacman_bin="${2:-/usr/bin/pacman}"
+  local unit_link="$root/etc/systemd/system/multi-user.target.wants/cups-browsed.service"
+  local marker_dir="$root/var/lib/monarch/reconcile"
+  local marker="$marker_dir/cups-browsed-removed"
+  local package_installed=false query_output query_status
+
+  if [[ -f $root/etc/cups/printers.conf ]] &&
+    grep -qE '^[[:space:]]*DeviceURI[[:space:]]+implicitclass:' \
+      "$root/etc/cups/printers.conf"; then
+    fail "the factory snapshot contains generated printer queues"
+  fi
+
+  if [[ -L $unit_link ]]; then
+    rm -f -- "$unit_link"
+  elif [[ -e $unit_link ]]; then
+    fail "invalid factory cups-browsed enablement path: $unit_link"
+  fi
+
+  if query_output=$(LC_ALL=C "$pacman_bin" --root "$root" -Qq cups-browsed 2>&1); then
+    [[ $query_output == cups-browsed ]] ||
+      fail "unexpected factory cups-browsed package query result: $query_output"
+    package_installed=true
+  else
+    query_status=$?
+    if ((query_status != 1)) ||
+      [[ $query_output != "error: package 'cups-browsed' was not found" ]]; then
+      fail "could not query factory cups-browsed package state: $query_output"
+    fi
+  fi
+
+  if [[ $package_installed == true ]]; then
+    "$pacman_bin" --root "$root" -R --print cups-browsed >/dev/null 2>&1 ||
+      fail "the factory cups-browsed package cannot be removed"
+    "$pacman_bin" --root "$root" -R --noconfirm cups-browsed >>"$LOG_FILE" 2>&1 ||
+      fail "could not remove cups-browsed from the factory system"
+  fi
+
+  [[ ! -L $marker_dir && ( ! -e $marker_dir || -d $marker_dir ) ]] ||
+    fail "invalid factory reconciliation directory: $marker_dir"
+  [[ ! -L $marker && ( ! -e $marker || -f $marker ) ]] ||
+    fail "invalid factory cups-browsed retirement marker: $marker"
+  install -d -m 0755 "$marker_dir"
+  install -m 0644 /dev/null "$marker"
 }
 
 apple_display_rule_valid() {
@@ -436,6 +483,7 @@ stage_full_reset() {
   [[ -d $next ]] && btrfs subvolume delete --recursive "$next" >/dev/null
   btrfs subvolume snapshot "$top/@factory" "$next" >>"$LOG_FILE"
   retire_factory_privilege_grants "$next"
+  retire_factory_printer_discovery "$next"
   stage_current_apple_display_access "$next"
 
   local unit_src="$next/usr/share/monarch/install/provisioning"

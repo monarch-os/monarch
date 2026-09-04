@@ -43,6 +43,11 @@ for package in firefox obsidian signal-desktop; do
   [[ -v default_packages[$package] ]] || fail "$package is a default package"
 done
 
+[[ -v required_packages[cups] ]] || fail "CUPS is a required package"
+[[ -v required_packages[cups-filters] ]] || fail "CUPS filters are required"
+[[ -v required_packages[system-config-printer] ]] || fail "Print Settings is required"
+[[ ! -v all_packages[cups-browsed] ]] || fail "automatic printer discovery is not a default package"
+
 for package in claude-code opencode; do
   [[ ! -v all_packages[$package] ]] || fail "$package is mise-managed, not a pacman base package"
 done
