@@ -803,9 +803,10 @@ Monarch interactions; do not assume the replacement should be a standalone TUI.
 
 #### P0 — privileged boundaries and remotely influenced input
 
-- Remove `monarch-sudo-reset`. Quattro v4.0.1 removed the same flow; Monarch
-  still interpolates caller-controlled `$USER` into `su -c` and preserves a
-  privilege-reset command that should not exist.
+- **Done:** remove `monarch-sudo-reset`. The command interpolated
+  caller-controlled `$USER` into `su -c`; package upgrades now retire both the
+  runtime file and its `/usr/bin` symlink, and regression coverage keeps the
+  source and dispatcher route absent.
 - **Done:** publish Plymouth and SDDM inputs through root-owned staging with a
   fixed allowlist, validated sources and atomic replacement. Destination files
   are now `root:root 0644`; hostile source/destination symlinks and writable
