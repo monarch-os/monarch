@@ -69,9 +69,15 @@ for command in monarch-theme-apply monarch-theme-bundle monarch-theme-list; do
 done
 grep -qF '$HOME/.config/monarch/themes' "$ROOT/default/monarch/monarch-menu.jsonc" ||
   fail "the menu does not discover user themes under ~/.config/monarch"
-[[ ! -e $ROOT/bin/monarch-reinstall-git ]] ||
-  fail "the package runtime still exposes the checkout reinstaller"
-pass "user themes and reinstall workflows no longer depend on a source checkout"
+for retired_command in monarch-reinstall-git monarch-sudo-reset; do
+  [[ ! -e $ROOT/bin/$retired_command ]] ||
+    fail "the package runtime still exposes $retired_command"
+done
+if "$ROOT/bin/monarch" commands --all --json |
+  jq -e '.commands[] | select(.binary == "monarch-sudo-reset" or .route == "monarch sudo reset")' >/dev/null; then
+  fail "the command router still exposes the retired sudo reset command"
+fi
+pass "retired checkout and sudo reset commands are absent from the package runtime"
 
 runtime_commands=(
   monarch-install-tailscale
