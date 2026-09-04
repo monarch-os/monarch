@@ -5,10 +5,4 @@
 
 MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
 
-sudo rm -rf /usr/share/sddm/themes/monarch || exit 1
-sudo cp -r "$MONARCH_ROOT/default/sddm/monarch" /usr/share/sddm/themes/monarch || exit 1
-
-# Unlock themes are applied interactively as the user, so their two generated
-# outputs must remain writable without sudo.
-sudo chmod 666 /usr/share/sddm/themes/monarch/theme.conf \
-  /usr/share/sddm/themes/monarch/logo.png || exit 1
+exec "$MONARCH_ROOT/bin/monarch-plymouth-apply" --refresh-sddm-default

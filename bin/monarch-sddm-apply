@@ -4,46 +4,9 @@
 # monarch:hidden=true
 
 MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
-THEME_DIR="${MONARCH_SDDM_THEME_DIR:-/usr/share/sddm/themes/monarch}"
-THEME_DEST="$THEME_DIR/theme.conf"
-LOGO_MASTER="$MONARCH_ROOT/default/sddm/monarch/logo.png"
-LOGO_DEST="$THEME_DIR/logo.png"
 
-if ! command -v jq >/dev/null 2>&1; then
-  [[ -z ${1:-} ]] && exit 0
-  echo "jq is required" >&2
-  exit 1
+if (($#)); then
+  exec "$MONARCH_ROOT/bin/monarch-plymouth-apply" --sddm "$1"
+else
+  exec "$MONARCH_ROOT/bin/monarch-plymouth-apply" --sddm ""
 fi
-
-requested=${1:-}
-colors=$(monarch-theme-colors "$requested" 2>/dev/null) || {
-  [[ -z $requested ]] && exit 0
-  echo "Could not resolve the $requested palette for SDDM" >&2
-  exit 1
-}
-theme=$(jq -er '
-  . as $colors |
-  ["mPrimary", "mOnPrimary", "mSecondary", "mOnSecondary",
-   "mTertiary", "mOnTertiary", "mError", "mOnError", "mSurface",
-   "mOnSurface", "mSurfaceVariant", "mOnSurfaceVariant", "mOutline",
-   "mShadow"] as $keys |
-  [$keys[] as $key | $colors[$key]] as $values |
-  if ($values | all(.[]; type == "string" and test("^#[0-9A-Fa-f]{6}$"))) then
-    "[General]\n" + ($keys | map(. + "=" + $colors[.]) | join("\n"))
-  else
-    error("invalid palette")
-  end
-' <<<"$colors" 2>/dev/null) || {
-  [[ -z $requested ]] && exit 0
-  echo "The $requested palette is invalid for SDDM" >&2
-  exit 1
-}
-
-[[ -w $THEME_DEST ]] || { echo "SDDM theme is not writable: $THEME_DEST" >&2; exit 1; }
-printf '%s\n' "$theme" >"$THEME_DEST"
-
-accent=$(jq -r '.mPrimary' <<<"$colors")
-accent=${accent#\#}
-command -v magick >/dev/null 2>&1 || { echo "imagemagick (magick) is required" >&2; exit 1; }
-[[ -f $LOGO_MASTER && -w $LOGO_DEST ]] || { echo "SDDM logo is not writable: $LOGO_DEST" >&2; exit 1; }
-magick "$LOGO_MASTER" -channel RGB +level-colors "#$accent","#$accent" "$LOGO_DEST"
