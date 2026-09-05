@@ -71,4 +71,15 @@ fi
 assert_equals "reports firmware without a table" "$err" \
   "No Windows license key found in firmware."
 
+write_msdm "$TMP/unreadable" "$KEY"
+chmod 000 "$TMP/unreadable"
+if err=$(MONARCH_MSDM_PATH="$TMP/unreadable" "$KEY_CMD" 2>&1 >/dev/null); then
+  fail "elevates an unreadable custom MSDM path"
+fi
+assert_equals "custom unreadable paths never reach sudo" "$err" \
+  "Refusing to elevate a custom Windows license path."
+grep -qF 'if [[ $MSDM != "$DEFAULT_MSDM" || -r $MSDM ]]; then' "$KEY_CMD" ||
+  fail "custom MSDM reads can fall through to sudo after validation"
+pass "custom MSDM paths cannot race into the sudo branch"
+
 printf '\nAll windows key tests passed.\n'

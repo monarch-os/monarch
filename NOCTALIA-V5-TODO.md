@@ -824,10 +824,12 @@ Monarch interactions; do not assume the replacement should be a standalone TUI.
   longer install or enable `cups-browsed`; reconciliation stops the daemon,
   removes idle generated queues and retires the package once per machine while
   preserving CUPS, Print Settings, manual queues and later administrator opt-in.
-- Harden Windows VM storage and launch handling: validate all user-supplied
-  values, keep host mounts behind an explicit protected boundary, pin immutable
-  inputs where practical, and make cleanup operate only on resolved VM-owned
-  paths.
+- **Done:** harden Windows VM storage and launch handling. Privileged input is
+  allowlisted and revalidated; compose and host-mount anchors live below a
+  root-owned runtime, caller directories are pinned by descriptor, fixed Docker
+  capabilities and endpoints cannot be overridden, and persistent source
+  fingerprints ensure cleanup deletes only the recorded VM storage tree while
+  preserving shared data.
 - Validate web-app names, URLs and icon media; reject path separators and
   non-HTTP(S) URLs, escape Desktop Entry values, and remove from recorded paths
   rather than reconstructing paths from the display name. Apply the same
