@@ -829,7 +829,10 @@ Monarch interactions; do not assume the replacement should be a standalone TUI.
   root-owned runtime, caller directories are pinned by descriptor, fixed Docker
   capabilities and endpoints cannot be overridden, and persistent source
   fingerprints ensure cleanup deletes only the recorded VM storage tree while
-  preserving shared data.
+  preserving shared data. System reconciliation migrates existing configurations
+  and containers, disables automatic restart before convergence, and recreates
+  active VMs gracefully without booting stopped VMs. Unrecognized containers
+  fail closed; failed convergence retains the legacy compose for retry.
 - Validate web-app names, URLs and icon media; reject path separators and
   non-HTTP(S) URLs, escape Desktop Entry values, and remove from recorded paths
   rather than reconstructing paths from the display name. Apply the same

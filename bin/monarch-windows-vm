@@ -51,11 +51,15 @@ priv_target() {
 priv() {
   local action="$1"
   shift
-  if [[ $action != write_compose && $action != remove ]] && ! docker_needs_sudo; then
+  if [[ ${WINDOWS_VM_USE_SUDO:-false} != true && $action != write_compose &&
+    $action != remove && $action != reconcile && $action != prepare_reconcile &&
+    ! -e $RUNTIME_DIR/reconcile-pending && ! -L $RUNTIME_DIR/reconcile-pending ]] && ! docker_needs_sudo; then
     # Recreating bind anchors after reboot still requires elevation.
     if [[ -d $VM_LOCK_DIR && ! -L $VM_LOCK_DIR && -r $VM_LOCK_DIR && -x $VM_LOCK_DIR ]] && {
       [[ $action != up && $action != up_wait ]] || {
-        ! compose_needs_security_migration && mounts_ready >/dev/null 2>&1
+        ! compose_needs_security_migration && mounts_ready >/dev/null 2>&1 &&
+          load_vm_container && assert_vm_container_owned &&
+          [[ -z $VM_REPLACEMENT_ID ]] && { [[ -z $VM_CONTAINER_ID ]] || vm_container_hardened; }
       }
     }; then
       with_vm_lock "__priv_$action" "$@"
@@ -67,10 +71,17 @@ priv() {
     echo "monarch-windows-vm: refusing to run a non-root-owned command as root" >&2
     return 1
   }
-  pkexec "$target" __priv "$action" "$@"
+  if [[ ${WINDOWS_VM_USE_SUDO:-false} == true ]]; then
+    sudo "$target" __priv "$action" "$@"
+  else
+    pkexec "$target" __priv "$action" "$@"
+  fi
 }
 
-dc() { docker-compose -f "$COMPOSE_FILE" "$@"; }
+dc() (
+  cd -- "$RUNTIME_DIR" || return 1
+  docker-compose --project-name windows --env-file /dev/null -f "$COMPOSE_FILE" "$@"
+)
 
 with_vm_lock() {
   local fd rc=0
@@ -104,21 +115,22 @@ valid_source_fingerprint() { [[ $1 =~ ^[0-9a-f]{64}$ ]]; }
 # Reject path-like action names before privileged function dispatch.
 valid_priv_action() {
   case "$1" in
-  write_compose | up | up_wait | down | status | remove) return 0 ;;
+  write_compose | up | up_wait | down | status | remove | prepare_reconcile | reconcile) return 0 ;;
   *) return 1 ;;
   esac
 }
 
-# Derive the caller from PKEXEC_UID; never trust privileged HOME or mount paths.
+# Derive the authorized caller from pkexec or sudo, never privileged HOME.
 resolve_caller() {
-  local entry canonical parent owner mode
+  local entry canonical parent owner mode authorized_uid
 
   if ((EUID == 0)); then
-    [[ ${PKEXEC_UID:-} =~ ^[0-9]{1,10}$ ]] && ((10#$PKEXEC_UID > 0)) || {
+    authorized_uid=${PKEXEC_UID-${SUDO_UID:-}}
+    [[ $authorized_uid =~ ^[0-9]{1,10}$ ]] && ((10#$authorized_uid > 0)) || {
       echo "monarch-windows-vm: cannot identify the user who authorized this action" >&2
       return 1
     }
-    CALLER_UID=$((10#$PKEXEC_UID))
+    CALLER_UID=$((10#$authorized_uid))
   else
     CALLER_UID=$(id -u)
   fi
@@ -782,7 +794,7 @@ compose_needs_security_migration() {
     return 0
   fi
   [[ $storage == "$EXPECTED_STORAGE" && $shared == "$EXPECTED_SHARED" ]] || return 1
-  ! compose_web_protected || ! compose_source_identities_valid
+  ! compose_web_protected || ! compose_restart_disabled || ! compose_source_identities_valid
 }
 
 compose_mount_pair_is_migratable() {
@@ -801,6 +813,11 @@ compose_web_protected() {
     $(sed -n 's/^[[:space:]]*PROTECT:[[:space:]]*"Y"[[:space:]]*$/x/p' "$COMPOSE_FILE" | wc -l) == 1 ]]
 }
 
+compose_restart_disabled() {
+  [[ $(sed -n 's/^[[:space:]]*restart:.*$/x/p' "$COMPOSE_FILE" | wc -l) == 1 &&
+    $(sed -n 's/^    restart:[[:space:]]*"no"[[:space:]]*$/x/p' "$COMPOSE_FILE" | wc -l) == 1 ]]
+}
+
 rewrite_compose_security() {
   local storage_fingerprint="$1" shared_fingerprint="$2" tmp
   valid_source_fingerprint "$storage_fingerprint" &&
@@ -815,6 +832,8 @@ rewrite_compose_security() {
       print ""
     }
     /^x-monarch-(storage|shared)-fingerprint:/ { next }
+    /^  windows:$/ { print; print "    restart: \"no\""; next }
+    /^[[:space:]]+restart:/ { next }
     /^    environment:$/ { print; print "      PROTECT: \"Y\""; next }
     /^[[:space:]]+PROTECT:/ { next }
     /^[[:space:]]*-[[:space:]]*\/[^:]*:\/storage$/ { print "      - " storage ":/storage"; next }
@@ -823,6 +842,7 @@ rewrite_compose_security() {
   ' "$COMPOSE_FILE" >"$tmp" || { rm -f "$tmp"; return 1; }
   [[ $(sed -n 's/^[[:space:]]*PROTECT:.*$/x/p' "$tmp" | wc -l) == 1 &&
     $(sed -n 's/^[[:space:]]*PROTECT:[[:space:]]*"Y"[[:space:]]*$/x/p' "$tmp" | wc -l) == 1 &&
+    $(sed -n 's/^    restart: "no"$/x/p' "$tmp" | wc -l) == 1 &&
     $(sed -n 's/^x-monarch-storage-fingerprint:.*$/x/p' "$tmp" | wc -l) == 1 &&
     $(sed -n 's/^x-monarch-shared-fingerprint:.*$/x/p' "$tmp" | wc -l) == 1 ]] || {
     rm -f "$tmp"
@@ -888,7 +908,7 @@ assert_mounts_safe() {
     return 1
   fi
 
-  if ! compose_web_protected; then
+  if ! compose_web_protected || ! compose_restart_disabled; then
     needs_rewrite=1
   fi
 
@@ -915,18 +935,225 @@ assert_mounts_safe() {
   }
 }
 
-__priv_up() { assert_mounts_safe launch && dc up -d; }
+read_vm_transition() {
+  local path="$RUNTIME_DIR/reconcile-pending" uid extra mode lines=()
+  VM_TRANSITION_ID=""
+  VM_TRANSITION_START=""
+  [[ -e $path || -L $path ]] || return 0
+  assert_boundary_dir "$RUNTIME_DIR" "$(boundary_owner)" &&
+    [[ -f $path && ! -L $path && $(stat -Lc '%u' "$path") == "$(boundary_owner)" ]] || return 1
+  mode=$(stat -Lc '%a' "$path") || return 1
+  ! ((8#$mode & 022)) || return 1
+  mapfile -t lines <"$path" || return 1
+  ((${#lines[@]} == 1)) || return 1
+  read -r uid VM_TRANSITION_ID VM_TRANSITION_START extra <<<"${lines[0]}" || return 1
+  [[ $uid == "$CALLER_UID" && $VM_TRANSITION_ID =~ ^[0-9a-f]{64}$ && -z $extra &&
+    ( $VM_TRANSITION_START == "true" || $VM_TRANSITION_START == "false" ) ]]
+}
 
-__priv_down() { dc down; }
+write_vm_transition() {
+  local start="$1" tmp
+  [[ -n $VM_TRANSITION_ID ]] && return 0
+  assert_boundary_dir "$RUNTIME_DIR" "$(boundary_owner)" || return 1
+  tmp=$(mktemp "$RUNTIME_DIR/.reconcile-pending.XXXXXX") || return 1
+  if ! printf '%s %s %s\n' "$CALLER_UID" "$VM_CONTAINER_ID" "$start" >"$tmp" ||
+    ! chmod 0600 "$tmp" || ! mv -fT -- "$tmp" "$RUNTIME_DIR/reconcile-pending"; then
+    rm -f -- "$tmp"
+    return 1
+  fi
+  VM_TRANSITION_ID=$VM_CONTAINER_ID
+  VM_TRANSITION_START=$start
+}
+
+load_vm_container() {
+  local service_ids id found=0
+  VM_CONTAINER_ID=""
+  VM_CONTAINER_JSON=""
+  VM_REPLACEMENT_ID=""
+  VM_REPLACEMENT_JSON=""
+  VM_CONTAINER_ID=$(docker container ls --all --no-trunc \
+    --filter "name=^/$CONTAINER$" --format '{{.ID}}') || return 1
+  service_ids=$(docker container ls --all --no-trunc \
+    --filter label=com.docker.compose.project=windows \
+    --filter label=com.docker.compose.service=windows --format '{{.ID}}') || return 1
+  [[ -z $VM_CONTAINER_ID || $VM_CONTAINER_ID =~ ^[0-9a-f]{64}$ ]] || return 1
+  if [[ -n $service_ids ]]; then
+    while IFS= read -r id; do
+      [[ $id =~ ^[0-9a-f]{64}$ ]] || return 1
+      if [[ $id == "$VM_CONTAINER_ID" && $found == 0 ]]; then
+        found=1
+        VM_CONTAINER_JSON=$(docker container inspect "$id") || return 1
+        jq -e --arg id "$id" 'type == "array" and length == 1 and .[0].Id == $id' \
+          <<<"$VM_CONTAINER_JSON" >/dev/null || return 1
+      elif [[ -z $VM_REPLACEMENT_ID ]]; then
+        VM_REPLACEMENT_ID=$id
+        VM_REPLACEMENT_JSON=$(docker container inspect "$id") || return 1
+        jq -e --arg id "$id" 'type == "array" and length == 1 and .[0].Id == $id' \
+          <<<"$VM_REPLACEMENT_JSON" >/dev/null || return 1
+      else
+        echo "monarch-windows-vm: refusing multiple Windows replacement containers" >&2
+        return 1
+      fi
+    done <<<"$service_ids"
+  fi
+  [[ -z $VM_CONTAINER_ID || $found == 1 ]] || {
+    echo "monarch-windows-vm: refusing an unexpected Windows Compose service" >&2
+    return 1
+  }
+}
+
+assert_vm_container_owned() {
+  [[ -n $VM_CONTAINER_ID ]] || return 0
+  local canonical_storage canonical_shared
+  canonical_storage=$(realpath -e -- "$LEGACY_STORAGE") || return 1
+  canonical_shared=$(realpath -e -- "$LEGACY_SHARED") || return 1
+  jq -e --arg name "${1:-/$CONTAINER}" --arg image "$IMAGE" \
+    --arg runtime "$RUNTIME_DIR" --arg compose "$COMPOSE_FILE" \
+    --arg legacy_dir "$CALLER_HOME/.config/windows" \
+    --arg legacy_storage "$LEGACY_STORAGE" --arg legacy_shared "$LEGACY_SHARED" \
+    --arg canonical_storage "$canonical_storage" --arg canonical_shared "$canonical_shared" \
+    --arg storage "$EXPECTED_STORAGE" --arg shared "$EXPECTED_SHARED" \
+    --arg old_storage "$OLD_EXPECTED_STORAGE" --arg old_shared "$OLD_EXPECTED_SHARED" '
+    .[0] |
+    .Name == $name and (.Config.Image == $image or .Config.Image == ($image + ":latest")) and
+    .Config.Labels["com.docker.compose.project"] == "windows" and
+    .Config.Labels["com.docker.compose.service"] == "windows" and
+    ((.Config.Labels["com.docker.compose.project.working_dir"] == $runtime and
+      .Config.Labels["com.docker.compose.project.config_files"] == $compose) or
+     (.Config.Labels["com.docker.compose.project.working_dir"] == $legacy_dir and
+      .Config.Labels["com.docker.compose.project.config_files"] == ($legacy_dir + "/docker-compose.yml"))) and
+    (.Mounts | length == 2 and all(.[]; .Type == "bind" and .RW == true)) and
+    ([.Mounts[] | select(.Destination == "/storage") | .Source] as $s |
+     [.Mounts[] | select(.Destination == "/shared") | .Source] as $h |
+     ($s == [$legacy_storage] and $h == [$legacy_shared]) or
+     ($s == [$canonical_storage] and $h == [$canonical_shared]) or
+     ($s == [$storage] and $h == [$shared]) or
+     ($s == [$old_storage] and $h == [$old_shared]))
+  ' <<<"$VM_CONTAINER_JSON" >/dev/null || {
+    echo "monarch-windows-vm: refusing to modify an unrecognized Windows container" >&2
+    return 1
+  }
+}
+
+vm_container_hardened() {
+  [[ -n $VM_CONTAINER_ID ]] || return 1
+  jq -e --arg storage "$EXPECTED_STORAGE" --arg shared "$EXPECTED_SHARED" '
+    .[0] |
+    .HostConfig.RestartPolicy.Name == "no" and
+    ([.Config.Env[] | select(startswith("PROTECT="))] == ["PROTECT=Y"]) and
+    ([.Mounts[] | select(.Destination == "/storage") | .Source] == [$storage]) and
+    ([.Mounts[] | select(.Destination == "/shared") | .Source] == [$shared])
+  ' <<<"$VM_CONTAINER_JSON" >/dev/null
+}
+
+assert_vm_replacement_owned() (
+  [[ -n $VM_REPLACEMENT_ID ]] || return 0
+  local original_id=${VM_TRANSITION_ID:-$VM_CONTAINER_ID} name
+  [[ $original_id =~ ^[0-9a-f]{64}$ ]] || return 1
+  name="/${original_id:0:12}_$CONTAINER"
+  VM_CONTAINER_ID=$VM_REPLACEMENT_ID
+  VM_CONTAINER_JSON=$VM_REPLACEMENT_JSON
+  assert_vm_container_owned "$name" && vm_container_hardened &&
+    jq -e --arg runtime "$RUNTIME_DIR" --arg compose "$COMPOSE_FILE" --arg name "$CONTAINER" '
+      .[0] | .State.Status == "created" and .State.StartedAt == "0001-01-01T00:00:00Z" and
+      .Config.Labels["com.docker.compose.replace"] == $name and
+      .Config.Labels["com.docker.compose.project.working_dir"] == $runtime and
+      .Config.Labels["com.docker.compose.project.config_files"] == $compose
+    ' <<<"$VM_CONTAINER_JSON" >/dev/null
+)
+
+recover_vm_replacement() {
+  [[ -n $VM_REPLACEMENT_ID ]] || return 0
+  # Compose creates this never-started replacement before removing the old VM.
+  if [[ -n $VM_CONTAINER_ID ]]; then
+    docker container rm "$VM_REPLACEMENT_ID" >/dev/null || return 1
+  else
+    docker container rename "$VM_REPLACEMENT_ID" "$CONTAINER" || return 1
+  fi
+  load_vm_container && assert_vm_container_owned && [[ -z $VM_REPLACEMENT_ID ]]
+}
+
+disable_vm_restart() {
+  [[ -n $VM_CONTAINER_ID ]] || return 0
+  if ! jq -e '.[0].HostConfig.RestartPolicy.Name == "no"' \
+    <<<"$VM_CONTAINER_JSON" >/dev/null; then
+    docker container update --restart=no "$VM_CONTAINER_ID" >/dev/null || return 1
+  fi
+}
+
+__priv_prepare_reconcile() {
+  resolve_caller && read_vm_transition && load_vm_container && assert_vm_container_owned &&
+    assert_vm_replacement_owned && disable_vm_restart && recover_vm_replacement
+}
+
+sync_vm_container() {
+  local mode="$1" status force=() start=false
+  resolve_caller && read_vm_transition && load_vm_container && assert_vm_container_owned &&
+    assert_vm_replacement_owned && disable_vm_restart && recover_vm_replacement || return 1
+  if [[ -n $VM_CONTAINER_ID ]]; then
+    status=$(jq -er '.[0].State.Status' <<<"$VM_CONTAINER_JSON") || return 1
+    case "$status" in
+      running | restarting) start=true ;;
+      created | exited) ;;
+      *)
+        echo "monarch-windows-vm: cannot reconcile a VM in state $status; stop it first" >&2
+        return 1
+        ;;
+    esac
+    vm_container_hardened || force=(--force-recreate)
+  fi
+  assert_mounts_safe launch || return 1
+  if [[ $mode == "preserve" ]]; then
+    if [[ -n $VM_TRANSITION_ID ]]; then
+      start=$VM_TRANSITION_START
+    else
+      [[ -n $VM_CONTAINER_ID && ${#force[@]} != 0 ]] || return 0
+    fi
+  else
+    start=true
+  fi
+  if [[ -z $VM_TRANSITION_ID && -n $VM_CONTAINER_ID ]] &&
+    { [[ $mode == "preserve" ]] || ((${#force[@]})); }; then
+    write_vm_transition "$start" || return 1
+  fi
+
+  if [[ $start == "true" ]]; then
+    if ((${#force[@]})); then
+      echo "Recreating the Windows VM with verified mounts (graceful shutdown, up to 2 minutes)..."
+    fi
+    dc up -d --no-deps --timeout 120 "${force[@]}" windows || return 1
+  else
+    dc create --no-build --pull never "${force[@]}" windows || return 1
+  fi
+  load_vm_container && assert_vm_container_owned && [[ -z $VM_REPLACEMENT_ID ]] && vm_container_hardened || {
+    echo "monarch-windows-vm: Windows container did not converge to the protected configuration" >&2
+    return 1
+  }
+  status=$(jq -er '.[0].State.Status' <<<"$VM_CONTAINER_JSON") || return 1
+  if [[ $start == "true" ]]; then
+    [[ $status == "running" || $status == "restarting" ]] || return 1
+  else
+    [[ $status == "created" || $status == "exited" ]] || return 1
+  fi
+  [[ -z $VM_TRANSITION_ID ]] || rm -f -- "$RUNTIME_DIR/reconcile-pending"
+}
+
+__priv_up() { sync_vm_container start; }
+
+__priv_reconcile() { sync_vm_container preserve; }
+
+__priv_down() {
+  if [[ -e $RUNTIME_DIR/reconcile-pending || -L $RUNTIME_DIR/reconcile-pending ]]; then
+    resolve_caller && read_vm_transition || return 1
+    dc down && rm -f -- "$RUNTIME_DIR/reconcile-pending"
+  else
+    dc down
+  fi
+}
 
 # Keep readiness polling within the same authorized action as bring-up.
 __priv_up_wait() {
-  assert_mounts_safe launch || return 1
-  local status
-  status=$(docker inspect --format='{{.State.Status}}' "$CONTAINER" 2>/dev/null)
-  if [[ $status != "running" ]]; then
-    dc up -d || return 1
-  fi
+  __priv_up || return 1
 
   # Ignore matching logs from earlier container starts.
   local started_at count=0
@@ -985,7 +1212,7 @@ __priv_remove() {
   umount -- "$EXPECTED_SHARED" || return 1
   umount -- "$EXPECTED_STORAGE" || return 1
   docker rmi "$IMAGE" 2>/dev/null || true
-  rm -f "$COMPOSE_FILE"
+  rm -f "$COMPOSE_FILE" "$RUNTIME_DIR/reconcile-pending"
   rmdir -- "$EXPECTED_STORAGE" "$EXPECTED_SHARED" "$CALLER_DATA_ROOT" 2>/dev/null || true
 }
 
@@ -1184,7 +1411,7 @@ migrate_legacy_compose() {
     echo "Re-run: monarch-windows-vm install" >&2
     return 1
   fi
-  rm -f "$LEGACY_COMPOSE_FILE"
+  [[ ${1:-} == "defer" ]] || rm -f "$LEGACY_COMPOSE_FILE"
 }
 
 check_prerequisites() {
@@ -1601,7 +1828,9 @@ show_usage() {
   echo "  monarch-windows-vm stop              # Shut down the VM"
 }
 
-case "$1" in
+[[ ${BASH_SOURCE[0]} != "$0" ]] && return 0
+
+case "${1:-}" in
   __priv)
     ((EUID == 0)) || {
       echo "monarch-windows-vm __priv must run as root" >&2

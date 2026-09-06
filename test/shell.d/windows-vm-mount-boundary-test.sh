@@ -54,7 +54,7 @@ assert_no_runtime_mutation() {
     fail "$1 mutated the production runtime"
 }
 
-unset PKEXEC_UID
+unset PKEXEC_UID SUDO_UID
 resolve_caller 2>/dev/null && fail "root accepted missing PKEXEC_UID"
 assert_no_runtime_mutation "missing PKEXEC_UID"
 PKEXEC_UID=0
@@ -86,6 +86,21 @@ assert_no_runtime_mutation "symlinked home"
 TEST_PASSWD_HOME=/home/alice
 resolve_caller || fail "valid root PKEXEC_UID/home boundary was rejected"
 pass "root dispatch rejects missing/invalid uid, passwd, owner, symlink, and writable-parent boundaries without mutation"
+
+unset PKEXEC_UID
+SUDO_UID=1000
+resolve_caller || fail "valid sudo caller was rejected"
+[[ $CALLER_UID == 1000 && $CALLER_HOME == /home/alice ]] || fail "sudo used root HOME"
+PKEXEC_UID=0
+resolve_caller 2>/dev/null && fail "sudo fallback masked an invalid polkit caller"
+PKEXEC_UID=""
+resolve_caller 2>/dev/null && fail "sudo fallback masked an empty polkit caller"
+unset PKEXEC_UID
+SUDO_UID=invalid
+resolve_caller 2>/dev/null && fail "root accepted an invalid sudo caller"
+unset SUDO_UID
+PKEXEC_UID=1000
+pass "sudo caller fallback preserves the polkit authorization boundary"
 
 # Put each familiar source on its own filesystem. Both start with legacy 0755
 # permissions and world-readable payloads to prove migration hardens the leaves.
@@ -203,6 +218,47 @@ compose_needs_security_migration || fail "unprotected fixed-anchor compose was n
 with_vm_lock assert_mounts_safe || fail "root could not protect an existing fixed-anchor compose"
 grep -q 'PROTECT: "Y"' "$COMPOSE_FILE" || fail "fixed-anchor upgrade did not protect the web console"
 pass "existing fixed-anchor compose gains web-console authentication"
+
+sed -i 's/restart: "no"/restart: unless-stopped/' "$COMPOSE_FILE"
+compose_needs_security_migration || fail "legacy restart policy was not recognized for upgrade"
+with_vm_lock assert_mounts_safe || fail "root could not retire the legacy restart policy"
+compose_restart_disabled || fail "upgrade kept the legacy restart policy"
+sed -i '/restart: "no"/d' "$COMPOSE_FILE"
+with_vm_lock assert_mounts_safe || fail "root could not add the missing restart policy"
+compose_restart_disabled || fail "upgrade did not add restart=no"
+compose_needs_security_migration && fail "hardened compose still needs migration"
+compose_hash=$(sha256sum "$COMPOSE_FILE")
+with_vm_lock assert_mounts_safe || fail "second compose reconciliation failed"
+[[ $(sha256sum "$COMPOSE_FILE") == "$compose_hash" ]] || fail "second reconciliation rewrote a hardened compose"
+pass "compose reconciliation disables restart and converges without repeated rewrites"
+
+VM_CONTAINER_ID=$(printf '%064d' 1)
+VM_TRANSITION_ID=""
+write_vm_transition true || fail "root could not record pending VM activity"
+journal="$RUNTIME_DIR/reconcile-pending"
+[[ $(command stat -Lc '%u:%a' "$journal") == 0:600 ]] || fail "transition journal is not root-private"
+read_vm_transition || fail "valid transition journal was rejected"
+[[ $VM_TRANSITION_ID == "$VM_CONTAINER_ID" && $VM_TRANSITION_START == true ]] || fail "journal lost the original VM or activity state"
+chmod 0660 "$journal"
+read_vm_transition && fail "group-writable journal was accepted"
+chmod 0600 "$journal"
+chown 1000:1000 "$journal"
+read_vm_transition && fail "caller-owned journal was accepted as root"
+chown 0:0 "$journal"
+mv "$journal" "$journal.saved"
+ln -s "$journal.saved" "$journal"
+read_vm_transition && fail "symlinked journal was accepted"
+rm "$journal"
+mv "$journal.saved" "$journal"
+printf extra >>"$journal"
+read_vm_transition && fail "unterminated extra journal line was ignored"
+printf '1001 %s true\n' "$VM_CONTAINER_ID" >"$journal"
+read_vm_transition && fail "another caller's journal was accepted"
+printf '1000 %s arbitrary\n' "$VM_CONTAINER_ID" >"$journal"
+read_vm_transition && fail "invalid activity state was accepted"
+rm "$journal"
+read_vm_transition || fail "absent journal was rejected"
+pass "transition journal is root-private and rejects tampering, symlinks and malformed state"
 
 # Preflight both sources before either bind on a clean anchor pair.
 umount "$EXPECTED_SHARED"

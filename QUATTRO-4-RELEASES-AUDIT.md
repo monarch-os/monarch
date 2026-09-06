@@ -223,7 +223,7 @@ porter les **invariants**, pas les fichiers de migration :
 | SSHD existant durci sans lockout | Manquant. |
 | `cups-browsed` retiré et queues implicites nettoyées | Couvert. |
 | Ancien masque `wpa_supplicant` retiré | Manquant. |
-| Config Windows VM ancienne migrée vers une frontière protégée | Couvert. |
+| Config Windows VM ancienne migrée vers une frontière protégée | Couvert par la réconciliation système : compose et conteneur convergent, redémarrage automatique désactivé, VM active recréée gracieusement et VM arrêtée non démarrée. Les conteneurs non reconnus sont refusés et un échec conserve le compose historique pour réessayer. |
 | Publication Plymouth/SDDM sans source utilisateur privilégiée | Manquant. |
 
 ## Découpage recommandé

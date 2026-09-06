@@ -103,7 +103,7 @@ printf 'RAM=4G\nCORES=2\nDISK=64G\nUSERNAME=ok\nPASSWORD=p\nTZ=UTC\nPRODUCT_KEY=
 [[ ! -f $COMPOSE ]] || fail "invalid OEM key wrote compose"
 pass "password and a validated OEM key round-trip"
 
-for action in write_compose up up_wait down status remove; do
+for action in write_compose up up_wait down status remove prepare_reconcile reconcile; do
   valid_priv_action "$action" || fail "known action rejected: $action"
 done
 for action in '/../evil/x' bogus 'up;rm' '' '__priv_up'; do
@@ -250,6 +250,24 @@ pass "legitimate caller-owned symlinks remain in place"
 raced_shared="$HOME/Windows.before-race"
 shared_id_before_race=$(stat -Lc '%d:%i' "$external_shared2")
 race_ran=0
+docker() {
+  case "$1 ${2:-}" in
+    'container ls') printf '%064d\n' 1 ;;
+    'container inspect')
+      jq -n --arg id "$(printf '%064d' 1)" --arg runtime "$RUNTIME_DIR" \
+        --arg compose "$COMPOSE_FILE" --arg storage "$EXPECTED_STORAGE" --arg shared "$EXPECTED_SHARED" '
+        [{Id: $id, Name: "/monarch-windows", State: {Status: "running"},
+          Config: {Image: "dockurr/windows", Env: ["PROTECT=Y"], Labels: {
+            "com.docker.compose.project": "windows", "com.docker.compose.service": "windows",
+            "com.docker.compose.project.working_dir": $runtime,
+            "com.docker.compose.project.config_files": $compose}},
+          HostConfig: {RestartPolicy: {Name: "no"}}, Mounts: [
+            {Type: "bind", RW: true, Source: $storage, Destination: "/storage"},
+            {Type: "bind", RW: true, Source: $shared, Destination: "/shared"}]}]'
+      ;;
+    *) return 1 ;;
+  esac
+}
 dc() {
   [[ $1 == up && ${2:-} == -d ]] || return 1
   mv -T -- "$HOME/Windows" "$raced_shared"
@@ -317,7 +335,7 @@ for ((attempt = 0; attempt < 200; attempt++)); do
 done
 touch "$race_stop"
 wait "$racer_pid"
-unset -f dc
+unset -f dc docker
 if [[ -L $HOME/Windows ]]; then rm -f -- "$HOME/Windows"; fi
 if [[ ! -e $HOME/Windows && -d $race_source ]]; then mv -T -- "$race_source" "$HOME/Windows"; fi
 [[ -s $race_swaps ]] || fail "concurrent attacker never swapped the shared path"
