@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# monarch:summary=Install a packaged font and select its family
+# monarch:args=<display-name> <package> <font-family>
+# monarch:examples=monarch install font 'Cascadia Mono' ttf-cascadia-mono-nerd 'CaskaydiaMono Nerd Font'
+
+if (( $# != 3 )) || [[ -z $1 || -z $2 || -z $3 ]]; then
+  echo "Usage: monarch-install-font <display-name> <package> <font-family>" >&2
+  exit 1
+fi
+
+name="$1"
+package="$2"
+family="$3"
+
+MONARCH_ROOT=${MONARCH_PATH:-$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.." && pwd)}
+source "$MONARCH_ROOT/install/helpers/install-app.sh" || exit 1
+source "$MONARCH_ROOT/install/helpers/fonts.sh" || exit 1
+monarch_font_validate_family "$family" || exit 1
+
+if [[ $package == *[[:space:]]* ]]; then
+  echo "Exactly one package name is required." >&2
+  exit 1
+fi
+
+install_command=$(monarch_install_app_command "$name" "$package") || exit 1
+printf -v font_command '%q ' monarch-font-set "$family"
+
+exec monarch-launch-floating-terminal-with-presentation \
+  "$install_command && sleep 2 && $font_command"

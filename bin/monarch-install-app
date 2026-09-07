@@ -12,4 +12,8 @@ if [[ -z $name || -z $packages ]]; then
   exit 1
 fi
 
-exec monarch-launch-floating-terminal-with-presentation "echo 'Installing ${name}...'; monarch-pkg-add ${packages}"
+MONARCH_ROOT=${MONARCH_PATH:-$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.." && pwd)}
+source "$MONARCH_ROOT/install/helpers/install-app.sh" || exit 1
+install_command=$(monarch_install_app_command "$name" "$packages") || exit 1
+
+exec monarch-launch-floating-terminal-with-presentation "$install_command"

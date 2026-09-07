@@ -311,12 +311,12 @@
   "install.gaming.heroic": {"icon":"󱓟","label":"Heroic (Epic Games)","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-heroic","disabled":"monarch-pkg-present heroic-games-launcher-bin"},
 
   // Install > Font
-  "install.font.cascadia": {"icon":"","label":"Cascadia Mono","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Cascadia Mono...'; monarch-pkg-add ttf-cascadia-mono-nerd && sleep 2 && monarch-font-set 'CaskaydiaMono Nerd Font'\"","disabled":"monarch-pkg-present ttf-cascadia-mono-nerd"},
-  "install.font.meslo": {"icon":"","label":"Meslo LG Mono","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Meslo LG Mono...'; monarch-pkg-add ttf-meslo-nerd && sleep 2 && monarch-font-set 'MesloLGL Nerd Font'\"","disabled":"monarch-pkg-present ttf-meslo-nerd"},
-  "install.font.fira": {"icon":"","label":"Fira Code","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Fira Code...'; monarch-pkg-add ttf-firacode-nerd && sleep 2 && monarch-font-set 'FiraCode Nerd Font'\"","disabled":"monarch-pkg-present ttf-firacode-nerd"},
-  "install.font.victor": {"icon":"","label":"Victor Code","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Victor Code...'; monarch-pkg-add ttf-victor-mono-nerd && sleep 2 && monarch-font-set 'VictorMono Nerd Font'\"","disabled":"monarch-pkg-present ttf-victor-mono-nerd"},
-  "install.font.bitstream": {"icon":"","label":"Bitstream Vera Mono","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Bitstream Vera Code...'; monarch-pkg-add ttf-bitstream-vera-mono-nerd && sleep 2 && monarch-font-set 'BitstromWera Nerd Font'\"","disabled":"monarch-pkg-present ttf-bitstream-vera-mono-nerd"},
-  "install.font.iosevka": {"icon":"","label":"Iosevka","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Iosevka...'; monarch-pkg-add ttf-iosevka-nerd && sleep 2 && monarch-font-set 'Iosevka Nerd Font Mono'\"","disabled":"monarch-pkg-present ttf-iosevka-nerd"},
+  "install.font.cascadia": {"icon":"","label":"Cascadia Mono","action":"monarch-install-font 'Cascadia Mono' ttf-cascadia-mono-nerd 'CaskaydiaMono Nerd Font'","disabled":"monarch-pkg-present ttf-cascadia-mono-nerd"},
+  "install.font.meslo": {"icon":"","label":"Meslo LG Mono","action":"monarch-install-font 'Meslo LG Mono' ttf-meslo-nerd 'MesloLGL Nerd Font'","disabled":"monarch-pkg-present ttf-meslo-nerd"},
+  "install.font.fira": {"icon":"","label":"Fira Code","action":"monarch-install-font 'Fira Code' ttf-firacode-nerd 'FiraCode Nerd Font'","disabled":"monarch-pkg-present ttf-firacode-nerd"},
+  "install.font.victor": {"icon":"","label":"Victor Code","action":"monarch-install-font 'Victor Code' ttf-victor-mono-nerd 'VictorMono Nerd Font'","disabled":"monarch-pkg-present ttf-victor-mono-nerd"},
+  "install.font.bitstream": {"icon":"","label":"Bitstream Vera Mono","action":"monarch-install-font 'Bitstream Vera Code' ttf-bitstream-vera-mono-nerd 'BitstromWera Nerd Font'","disabled":"monarch-pkg-present ttf-bitstream-vera-mono-nerd"},
+  "install.font.iosevka": {"icon":"","label":"Iosevka","action":"monarch-install-font 'Iosevka' ttf-iosevka-nerd 'Iosevka Nerd Font Mono'","disabled":"monarch-pkg-present ttf-iosevka-nerd"},
 
   // Install > Development
   "install.development.rails": {"icon":"󰫏","label":"Ruby on Rails","action":"monarch-launch-floating-terminal-with-presentation \"monarch-install-dev-env ruby\"","disabled":"[[ -d $HOME/.local/share/mise/installs/ruby ]]"},
@@ -353,7 +353,7 @@
 
   // Remove
   "remove.package": {"icon":"󰣇","label":"Package","action":"xdg-terminal-exec --app-id=org.monarch.terminal monarch-pkg-remove"},
-  "remove.webapp": {"icon":"","label":"Web App","when":"grep -q '^Exec=.*monarch-launch-webapp' $HOME/.local/share/applications/*.desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-webapp-remove"},
+  "remove.webapp": {"icon":"","label":"Web App","when":"monarch-webapp-remove --check","action":"monarch-launch-floating-terminal-with-presentation monarch-webapp-remove"},
   "remove.tui": {"icon":"","label":"TUI","when":"grep -qE '^Exec=.*(\\$TERMINAL|xdg-terminal-exec).*-e' $HOME/.local/share/applications/*.desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-tui-remove"},
   "remove.theme": {"icon":"󰏘","label":"Theme","when":"compgen -G \"$HOME/.config/monarch/themes/*/provenance.json\"","action":"monarch-launch-floating-terminal-with-presentation monarch-theme-remove"},
   "remove.ai": {"icon":"󱚤","label":"AI","title":"Remove"},
