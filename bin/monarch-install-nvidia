@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-if ! lspci | grep -qi 'nvidia'; then
+if ! monarch-hw-nvidia; then
   echo "No NVIDIA GPU found." >&2
   exit 1
 fi
