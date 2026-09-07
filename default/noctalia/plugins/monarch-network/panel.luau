@@ -347,7 +347,7 @@ local function join(network)
   end
 
   local command = JOIN_CMD .. " " .. shared.shellQuote(network.ssid)
-  if not network.saved and shared.isSecured(network) and password ~= "" then
+  if not network.saved and shared.requiresCredentials(network) and password ~= "" then
     command ..= " " .. shared.shellQuote(password)
   end
   runAction("connect", network.ssid, command, fallback)
@@ -368,7 +368,7 @@ local function activate(network)
     return
   end
 
-  if network.saved or not shared.isSecured(network) then
+  if network.saved or not shared.requiresCredentials(network) then
     join(network)
     return
   end
