@@ -2,8 +2,30 @@
 
 # monarch:summary=Detect whether the system has an active hybrid GPU configuration
 
-if command -v supergfxctl &>/dev/null; then
-  supergfxctl -s 2>/dev/null | grep -qw Hybrid
+pci_devices_path="${MONARCH_PCI_DEVICES_PATH:-/sys/bus/pci/devices}"
+
+multiple_gpus() {
+  local count=0 device
+
+  shopt -s nullglob
+  for device in "$pci_devices_path"/*; do
+    [[ $(<"$device/class") == 0x03* ]] || continue
+    ((++count >= 2)) && return 0
+  done
+
+  return 1
+}
+
+if monarch-cmd-present supergfxctl; then
+  # This guard runs while the menu renders, so a wedged daemon must be bounded.
+  modes=$(timeout --kill-after=1s 1s supergfxctl -s 2>/dev/null)
+  status=$?
+
+  if ((status == 124 || status == 137)); then
+    multiple_gpus
+  else
+    grep -qw Hybrid <<<"$modes"
+  fi
 else
-  (($(lspci | grep -cE 'VGA|3D|Display') >= 2))
+  multiple_gpus
 fi
