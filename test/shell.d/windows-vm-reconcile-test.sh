@@ -18,8 +18,8 @@ source "$ROOT/bin/monarch-windows-vm" >/dev/null
 pass "the packaged Windows VM helper can be sourced without command arguments or dispatcher output"
 
 CALLER_HOME="$test_tmp/home/alice"
-CALLER_UID=1000
-CALLER_GID=1000
+CALLER_UID=$(id -u)
+CALLER_GID=$(id -g)
 CALLER_DATA_ROOT="$RUNTIME_DIR/mounts/users/$CALLER_UID"
 EXPECTED_STORAGE="$CALLER_DATA_ROOT/storage"
 EXPECTED_SHARED="$CALLER_DATA_ROOT/shared"
