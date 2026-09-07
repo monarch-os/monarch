@@ -36,6 +36,10 @@ unmount_all() {
 
 cleanup() {
   set +e
+  if [[ -n ${racer_pid:-} ]]; then
+    kill "$racer_pid" 2>/dev/null
+    wait "$racer_pid" 2>/dev/null
+  fi
   unmount_all
   rm -rf "$TMPDIR"
 }
@@ -284,10 +288,8 @@ mv -T -- "$raced_shared" "$HOME/Windows"
 unset -f dc
 pass "a post-validation path swap cannot redirect Docker away from the pinned shared inode"
 
-# Run the same attack as a genuinely concurrent process. A successful bring-up
-# deliberately waits inside the Docker boundary until the attacker has replaced
-# the familiar path with /, then verifies that the real bind anchor still names
-# the caller-owned directory that was pinned before the race.
+# Free-running swaps can fail preflight without ever reaching Docker.
+# Hold the substituted path until every mount assertion has completed.
 reset_case
 prepare_user_mount_sources
 touch "$HOME/Windows/safe-marker"
@@ -296,50 +298,43 @@ resolve_caller
 concurrent_shared_id=$(stat -Lc '%d:%i' "$HOME/Windows")
 host_root_id=$(stat -Lc '%d:%i' /)
 race_source="$HOME/Windows.race-source"
-race_stop="$TMPDIR/stop-concurrent-race"
-race_swaps="$TMPDIR/concurrent-race-swaps"
+mkfifo "$TMPDIR/race-command" "$TMPDIR/race-reply"
+exec {race_command_fd}<>"$TMPDIR/race-command"
+exec {race_reply_fd}<>"$TMPDIR/race-reply"
 (
-  set +e
-  while [[ ! -e $race_stop ]]; do
-    if [[ -d $HOME/Windows && ! -L $HOME/Windows ]] && mv -T -- "$HOME/Windows" "$race_source" 2>/dev/null; then
-      ln -s / "$HOME/Windows" 2>/dev/null || true
-      printf x >>"$race_swaps"
-      sleep 0.002
-    fi
-    if [[ -L $HOME/Windows ]]; then
-      rm -f -- "$HOME/Windows"
-      mv -T -- "$race_source" "$HOME/Windows" 2>/dev/null || true
-      sleep 0.005
-    fi
-  done
+  read -r -t 10 -u "$race_command_fd" command && [[ $command == "swap" ]] || exit 1
+  mv -T -- "$HOME/Windows" "$race_source"
+  ln -s / "$HOME/Windows"
+  printf 'swapped\n' >&"$race_reply_fd"
+  read -r -t 10 -u "$race_command_fd" command && [[ $command == "restore" ]] || exit 1
+  rm -- "$HOME/Windows"
+  mv -T -- "$race_source" "$HOME/Windows"
+  printf 'restored\n' >&"$race_reply_fd"
 ) &
 racer_pid=$!
 concurrent_dc_calls=0
 dc() {
-  local attempt
+  local reply
   [[ $1 == up && ${2:-} == -d ]] || return 1
-  for ((attempt = 0; attempt < 20000; attempt++)); do
-    if [[ -L $HOME/Windows && $(readlink "$HOME/Windows" 2>/dev/null) == / ]]; then
-      break
-    fi
-  done
+  printf 'swap\n' >&"$race_command_fd" || return 1
+  read -r -t 10 -u "$race_reply_fd" reply && [[ $reply == "swapped" ]] || return 1
   [[ -L $HOME/Windows && $(readlink "$HOME/Windows" 2>/dev/null) == / ]] || return 1
-  ((concurrent_dc_calls++))
+  ((++concurrent_dc_calls))
   [[ $(get_mount_source /shared) == "$EXPECTED_SHARED" ]] || return 1
   [[ $(stat -Lc '%d:%i' "$EXPECTED_SHARED") == "$concurrent_shared_id" ]] || return 1
   [[ $(stat -Lc '%d:%i' "$EXPECTED_SHARED") != "$host_root_id" ]] || return 1
-  [[ -f $EXPECTED_SHARED/safe-marker ]]
+  [[ -f $EXPECTED_SHARED/safe-marker ]] || return 1
+  printf 'restore\n' >&"$race_command_fd" || return 1
+  read -r -t 10 -u "$race_reply_fd" reply && [[ $reply == "restored" ]]
 }
-for ((attempt = 0; attempt < 200; attempt++)); do
-  if __priv_up 2>/dev/null; then break; fi
-done
-touch "$race_stop"
-wait "$racer_pid"
+__priv_up || fail "concurrent path swap failed to complete bring-up with the pinned mounts"
+wait "$racer_pid" || fail "concurrent attacker failed"
+racer_pid=""
+exec {race_command_fd}>&-
+exec {race_reply_fd}>&-
 unset -f dc docker
-if [[ -L $HOME/Windows ]]; then rm -f -- "$HOME/Windows"; fi
-if [[ ! -e $HOME/Windows && -d $race_source ]]; then mv -T -- "$race_source" "$HOME/Windows"; fi
-[[ -s $race_swaps ]] || fail "concurrent attacker never swapped the shared path"
-((concurrent_dc_calls > 0)) || fail "concurrent race never reached Docker while the familiar path named host root"
+((concurrent_dc_calls == 1)) || fail "concurrent race did not reach Docker exactly once while the familiar path named host root"
+[[ ! -L $HOME/Windows && $(stat -Lc '%d:%i' "$HOME/Windows") == "$concurrent_shared_id" ]] || fail "concurrent attacker did not restore the shared source"
 [[ $(stat -Lc '%d:%i' "$EXPECTED_SHARED") == "$concurrent_shared_id" ]] || fail "concurrent race changed the protected shared inode"
 pass "a concurrent home-path swap cannot redirect Docker away from the pinned shared inode"
 
