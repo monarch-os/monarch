@@ -1,92 +1,101 @@
 #!/bin/bash
 
 # monarch:summary=Create a desktop launcher for a web app
-# monarch:args=[name url icon [custom-exec] [mime-types]]
+# monarch:args=[name url icon-url-file-or-name [custom-exec] [mime-types]]
 
 set -e
+source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../install/helpers/webapps.sh"
 
-ICON_DIR="$HOME/.local/share/applications/icons"
-
-if (( $# < 3 )); then
-  echo -e "\e[32mLet's create a new web app you can start with the app launcher.\n\e[0m"
+if (( $# == 0 )); then
+  INTERACTIVE_MODE=true
   APP_NAME=$(gum input --prompt "Name> " --placeholder "My favorite web app")
   APP_URL=$(gum input --prompt "URL> " --placeholder "https://example.com")
-  if [[ ! $APP_URL =~ ^[a-zA-Z][a-zA-Z0-9+.-]*: ]]; then
-    APP_URL="https://$APP_URL"
-  fi
-
-  # Try to fetch favicon automatically first.
-  FAVICON_URL="https://www.google.com/s2/favicons?domain=${APP_URL}&sz=128"
-  mkdir -p "$ICON_DIR"
-  if curl -fsSL -o "$ICON_DIR/$APP_NAME.png" "$FAVICON_URL" && [[ -s $ICON_DIR/$APP_NAME.png ]]; then
-    ICON_REF="$APP_NAME.png"
-  else
-    ICON_REF=$(gum input --prompt "Icon URL> " --placeholder "Could not fetch favicon automatically. Enter PNG icon URL (see https://dashboardicons.com)")
-  fi
-
-  CUSTOM_EXEC=""
-  MIME_TYPES=""
-  INTERACTIVE_MODE=true
-else
-  APP_NAME="$1"
-  APP_URL="$2"
-  if [[ ! $APP_URL =~ ^[a-zA-Z][a-zA-Z0-9+.-]*: ]]; then
-    APP_URL="https://$APP_URL"
-  fi
-  ICON_REF="$3"
-  CUSTOM_EXEC="$4" # Optional custom exec command
-  MIME_TYPES="$5"  # Optional mime types
+  ICON_REF="" CUSTOM_EXEC="" MIME_TYPES=""
+elif (( $# >= 3 && $# <= 5 )); then
   INTERACTIVE_MODE=false
-fi
-
-# Ensure valid execution
-if [[ -z $APP_NAME || -z $APP_URL ]]; then
-  echo "You must set app name and app URL!"
+  APP_NAME=$1 APP_URL=$2 ICON_REF=$3 CUSTOM_EXEC=${4:-} MIME_TYPES=${5:-}
+else
+  webapp_error 'Usage: monarch-webapp-install [name url icon [custom-exec] [mime-types]]'
   exit 1
 fi
 
-# Resolve icon from URL or from a local icon name.
-mkdir -p "$ICON_DIR"
-
-if [[ -z $ICON_REF ]]; then
-  ICON_REF="https://www.google.com/s2/favicons?domain=${APP_URL}&sz=128"
-fi
-
-if [[ $ICON_REF =~ ^https?:// ]]; then
-  ICON_PATH="$ICON_DIR/$APP_NAME.png"
-  if ! curl -fsSL -o "$ICON_PATH" "$ICON_REF" || [[ ! -s $ICON_PATH ]]; then
-    echo "Error: Failed to download icon."
-    exit 1
-  fi
-else
-  ICON_PATH="$ICON_DIR/$ICON_REF"
-fi
-
-# Use custom exec if provided, otherwise default behavior
-EXEC_COMMAND="${CUSTOM_EXEC:-monarch-launch-webapp $APP_URL}"
-
-# Create application .desktop file
-DESKTOP_FILE="$HOME/.local/share/applications/$APP_NAME.desktop"
-
-cat >"$DESKTOP_FILE" <<EOF
-[Desktop Entry]
-Version=1.0
-Name=$APP_NAME
-Comment=$APP_NAME
-Exec=$EXEC_COMMAND
-Terminal=false
-Type=Application
-Icon=$ICON_PATH
-StartupNotify=true
-EOF
-
-# Add mime types if provided
+webapp_name_valid "$APP_NAME" || { webapp_error 'Invalid webapp name.'; exit 1; }
+APP_URL=$(webapp_url "$APP_URL") || { webapp_error 'Enter a non-empty HTTP(S) URL without whitespace.'; exit 1; }
+[[ ! $CUSTOM_EXEC =~ [[:cntrl:]] && ( -z $CUSTOM_EXEC || $CUSTOM_EXEC =~ [^[:space:]] ) ]] ||
+  { webapp_error 'Custom Exec must be a single command line.'; exit 1; }
 if [[ -n $MIME_TYPES ]]; then
-  echo "MimeType=$MIME_TYPES" >>"$DESKTOP_FILE"
+  [[ $MIME_TYPES =~ ^([a-zA-Z0-9][a-zA-Z0-9.+_-]*/[a-zA-Z0-9][a-zA-Z0-9.+_-]*\;)*[a-zA-Z0-9][a-zA-Z0-9.+_-]*/[a-zA-Z0-9][a-zA-Z0-9.+_-]*\;?$ ]] ||
+    { webapp_error 'Invalid MIME type list.'; exit 1; }
+  MIME_TYPES="${MIME_TYPES%;};"
 fi
 
-chmod +x "$DESKTOP_FILE"
+webapp_paths
+DESKTOP_FILE="$WEBAPP_DIR/$APP_NAME.desktop"
+OLD_ICON=""
+if [[ -e $DESKTOP_FILE || -L $DESKTOP_FILE ]]; then
+  webapp_read "$DESKTOP_FILE" && webapp_is_managed ||
+    { webapp_error 'Refusing to replace an unmanaged or symbolic launcher.'; exit 1; }
+  OLD_ICON=$(webapp_recorded_icon) || OLD_ICON=""
+fi
+
+webapp_icon_reference "$ICON_REF" || { webapp_error 'Enter an HTTP(S) icon URL, a valid local image, or an icon name.'; exit 1; }
+
+ICON_STAGE="" ICON_TEMP="" DESKTOP_TEMP="" OWNED_ICON=""
+trap '[[ -z $ICON_TEMP ]] || rm -f -- "$ICON_TEMP"; [[ -z $DESKTOP_TEMP ]] || rm -f -- "$DESKTOP_TEMP"; [[ -z $ICON_STAGE ]] || rm -rf -- "$ICON_STAGE"' EXIT
+mkdir -p -- "$WEBAPP_DIR"
+if [[ $WEBAPP_ICON_KIND != "theme" ]]; then
+  mkdir -p -- "$WEBAPP_THEME_ICON_DIR"
+  ICON_STAGE=$(mktemp -d "$WEBAPP_THEME_ICON_DIR/.monarch-webapp.XXXXXXXX")
+fi
+if [[ $WEBAPP_ICON_KIND == "auto" ]]; then
+  if webapp_fetch_site_icon "$ICON_STAGE" "$APP_URL"; then
+    WEBAPP_ICON_KIND=ready
+  else
+    [[ $INTERACTIVE_MODE == "true" ]] || { webapp_error 'Failed to find a valid site icon.'; exit 1; }
+    ICON_REF=$(gum input --prompt "Icon URL/file/name> " --placeholder "https://example.com/icon.png, /path/icon.png or icon-name")
+    [[ -n $ICON_REF ]] && webapp_icon_reference "$ICON_REF" || { webapp_error 'Invalid icon reference.'; exit 1; }
+  fi
+fi
+case $WEBAPP_ICON_KIND in
+  download)
+    webapp_download_icon "$ICON_STAGE" "$WEBAPP_ICON_SOURCE" || { webapp_error 'Failed to download a valid icon.'; exit 1; }
+    ;;
+  local)
+    cp -- "$WEBAPP_ICON_SOURCE" "$ICON_STAGE/source"
+    webapp_convert_icon "$ICON_STAGE/source" "$ICON_STAGE/icon.png" || { webapp_error 'Failed to decode the local image.'; exit 1; }
+    ;;
+esac
+if [[ $WEBAPP_ICON_KIND == "theme" ]]; then
+  ICON_VALUE=$WEBAPP_ICON_SOURCE
+else
+  ICON_TEMP=$(mktemp "$WEBAPP_THEME_ICON_DIR/monarch-webapp-XXXXXXXX.png")
+  mv -T -- "$ICON_STAGE/icon.png" "$ICON_TEMP"
+  chmod 644 "$ICON_TEMP"
+  OWNED_ICON=$ICON_TEMP
+  ICON_VALUE=${ICON_TEMP##*/}
+  ICON_VALUE=${ICON_VALUE%.png}
+fi
+
+EXEC_COMMAND=${CUSTOM_EXEC:-"monarch-launch-webapp $(webapp_exec_arg "$APP_URL")"}
+DESKTOP_TEMP=$(mktemp "$WEBAPP_DIR/.monarch-webapp.XXXXXXXX")
+{
+  printf '[Desktop Entry]\nVersion=1.0\nType=Application\nTerminal=false\nStartupNotify=true\nX-Monarch-WebApp=true\n'
+  printf 'Name=%s\nComment=%s\nExec=%s\nIcon=%s\n' \
+    "$(webapp_string "$APP_NAME")" "$(webapp_string "$APP_NAME")" \
+    "$(webapp_string "$EXEC_COMMAND")" "$(webapp_string "$ICON_VALUE")"
+  [[ -z $OWNED_ICON ]] || printf 'X-Monarch-WebApp-Icon=%s\n' "$(webapp_string "$OWNED_ICON")"
+  [[ -z $MIME_TYPES ]] || printf 'MimeType=%s\n' "$MIME_TYPES"
+} > "$DESKTOP_TEMP"
+chmod 755 "$DESKTOP_TEMP"
+mv -T -- "$DESKTOP_TEMP" "$DESKTOP_FILE"
+ICON_TEMP="" DESKTOP_TEMP=""
+if [[ -n $ICON_STAGE ]]; then
+  rm -rf -- "$ICON_STAGE"
+  ICON_STAGE=""
+fi
+[[ -z $OWNED_ICON ]] || webapp_refresh_icon_cache
+webapp_cleanup_icon "$OLD_ICON"
 
 if [[ $INTERACTIVE_MODE == "true" ]]; then
-  echo -e "You can now find $APP_NAME using the app launcher (SUPER + SPACE)\n"
+  printf 'You can now find %s using the app launcher (SUPER + SPACE)\n' "$APP_NAME"
 fi

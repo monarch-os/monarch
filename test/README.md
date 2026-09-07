@@ -18,6 +18,13 @@ and PyPI repositories. `TEST_JOBS` controls file-level parallelism and defaults
 to four. Tests own their temporary directories and must not depend on execution
 order or another test's fixtures.
 
+The webapp tests use ImageMagick, `desktop-file-validate`, Python GObject
+bindings, Gio/GTK introspection data and the hicolor icon theme. The font tests
+also need XMLStarlet, fontconfig and Python 3.11 or newer. On Ubuntu, install
+`desktop-file-utils python3-gi gir1.2-glib-2.0 gir1.2-gtk-3.0 libgtk-3-bin
+hicolor-icon-theme imagemagick xmlstarlet fontconfig`. These tests use isolated
+homes, temporary recorder stubs and no desktop/session-bus connection.
+
 ## Q18 baseline and decisions
 
 The initial inventory contained 50 executable tests. The GitHub workflow ran 10

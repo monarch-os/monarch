@@ -1,46 +1,41 @@
 #!/bin/bash
 
 # monarch:summary=Remove web app desktop launchers
-# monarch:args=[name...]
+# monarch:args=[--check | [--] name...]
 
 set -e
+source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../install/helpers/webapps.sh"
+webapp_paths
+webapp_index
 
-ICON_DIR="$HOME/.local/share/applications/icons"
-DESKTOP_DIR="$HOME/.local/share/applications/"
-
+if [[ ${1:-} == "--check" ]]; then
+  (( $# == 1 && ${#WEBAPP_FILES[@]} > 0 ))
+  exit
+fi
+[[ ${1:-} != "--" ]] || shift
 if (( $# == 0 )); then
-  # Find all web apps
-  while IFS= read -r -d '' file; do
-    if grep -q '^Exec=.*monarch-launch-webapp.*' "$file"; then
-      WEB_APPS+=("$(basename "${file%.desktop}")")
-    fi
-  done < <(find "$DESKTOP_DIR" -name '*.desktop' -print0)
-
-  if ((${#WEB_APPS[@]})); then
-    IFS=$'\n' SORTED_WEB_APPS=($(sort <<<"${WEB_APPS[*]}"))
-    unset IFS
-    APP_NAMES_STRING=$(gum choose --no-limit --header "Select web app to remove..." --selected-prefix="✗ " "${SORTED_WEB_APPS[@]}")
-    # Convert newline-separated string to array
-    APP_NAMES=()
-    while IFS= read -r line; do
-      [[ -n $line ]] && APP_NAMES+=("$line")
-    done <<< "$APP_NAMES_STRING"
-  else
-    echo "No web apps to remove."
-    exit 1
-  fi
+  (( ${#WEBAPP_FILES[@]} )) || { webapp_error 'No web apps to remove.'; exit 1; }
+  APP_NAMES_STRING=$(gum choose --no-limit --header 'Select web app to remove...' --selected-prefix='✗ ' -- "${WEBAPP_NAMES[@]}")
+  [[ -n $APP_NAMES_STRING ]] || exit 1
+  mapfile -t APP_NAMES <<< "$APP_NAMES_STRING"
 else
-  # Use array to preserve spaces in app names
   APP_NAMES=("$@")
 fi
 
-if (( ${#APP_NAMES[@]} == 0 )); then
-  echo "You must select at least one web app to remove."
-  exit 1
-fi
-
+SELECTED_FILES=()
+declare -A SELECTED=()
 for APP_NAME in "${APP_NAMES[@]}"; do
-  rm -f "$DESKTOP_DIR/$APP_NAME.desktop"
-  rm -f "$ICON_DIR/$APP_NAME.png"
-  echo "Removed $APP_NAME"
+  MATCHES=()
+  for i in "${!WEBAPP_NAMES[@]}"; do
+    [[ ${WEBAPP_NAMES[i]} != "$APP_NAME" ]] || MATCHES+=("${WEBAPP_FILES[i]}")
+  done
+  (( ${#MATCHES[@]} == 1 )) || { webapp_error "Webapp not found or ambiguous: $APP_NAME"; exit 1; }
+  [[ ! ${SELECTED[${MATCHES[0]}]+present} ]] || continue
+  SELECTED[${MATCHES[0]}]=1
+  SELECTED_FILES+=("${MATCHES[0]}")
+done
+
+for file in "${SELECTED_FILES[@]}"; do
+  webapp_remove_file "$file"
+  printf 'Removed %s\n' "${file##*/}"
 done
