@@ -31,6 +31,7 @@ LEGACY_COMPOSE_FILE="$CALLER_HOME/.config/windows/docker-compose.yml"
 CREDENTIALS_FILE="$CALLER_HOME/.config/windows/credentials"
 mkdir -p "$LEGACY_STORAGE" "$LEGACY_SHARED" "$EXPECTED_STORAGE" "$EXPECTED_SHARED" \
   "$OLD_EXPECTED_STORAGE" "$OLD_EXPECTED_SHARED" "$CALLER_HOME/.config/windows"
+chmod 0755 "$RUNTIME_DIR"
 
 fake_json="$test_tmp/container.json"
 fake_trace="$test_tmp/trace"
@@ -149,7 +150,7 @@ docker() {
   "container inspect")
     [[ $fake_failure != inspect ]] || return 1
     [[ $# == 3 ]] && jq -e --arg id "$3" 'any(.[]; .Id == $id)' "$fake_json" >/dev/null || return 1
-    if [[ $fake_failure == postinspect ]] && rg -q '^compose ' "$fake_mutations"; then
+    if [[ $fake_failure == postinspect ]] && grep -q '^compose ' "$fake_mutations"; then
       return 1
     fi
     if [[ $fake_failure == malformed ]]; then
@@ -257,7 +258,7 @@ assert_hardened() {
 }
 
 assert_mutation() {
-  rg -q -x -F -- "$1" "$fake_mutations" || fail "missing mutation: $1" "$(<"$fake_mutations")"
+  grep -q -x -F -- "$1" "$fake_mutations" || fail "missing mutation: $1" "$(<"$fake_mutations")"
 }
 
 assert_no_mutations() {
@@ -279,8 +280,8 @@ pass "running and restarting legacy containers are hardened before remaining act
 : >"$fake_mutations"
 __priv_reconcile || fail "second reconciliation failed"
 assert_hardened "second reconciliation"
-rg -q -- '--force-recreate' "$fake_mutations" && fail "second reconciliation forced another recreation"
-rg -q '^compose ' "$fake_mutations" && fail "second reconciliation invoked Compose despite unchanged security settings"
+grep -q -- '--force-recreate' "$fake_mutations" && fail "second reconciliation forced another recreation"
+grep -q '^compose ' "$fake_mutations" && fail "second reconciliation invoked Compose despite unchanged security settings"
 [[ $(jq -r '.[0].Id' "$fake_json") == "$fake_recreated_id" ]] || fail "second reconciliation changed the container ID"
 pass "repeated reconciliation preserves an already hardened container"
 
@@ -290,7 +291,7 @@ for state in created exited; do
   assert_hardened "$state legacy reconciliation"
   [[ $(jq -r '.[0].State.Running' "$fake_json") == false ]] || fail "$state VM was started by reconciliation"
   assert_mutation 'compose create --no-build --pull never --force-recreate windows'
-  rg -q '^compose up ' "$fake_mutations" && fail "$state reconciliation started the VM"
+  grep -q '^compose up ' "$fake_mutations" && fail "$state reconciliation started the VM"
 done
 pass "created and exited legacy containers are hardened without booting or pulling an image"
 
@@ -385,7 +386,7 @@ pass "daemon, discovery, and inspect failures remain retryable without Docker mu
 reset_case
 fake_failure=mounts
 __priv_reconcile >/dev/null 2>&1 && fail "mount verification failure was ignored"
-rg -q '^compose ' "$fake_mutations" && fail "Compose ran after mount verification failed"
+grep -q '^compose ' "$fake_mutations" && fail "Compose ran after mount verification failed"
 fake_failure=
 __priv_reconcile || fail "mount verification failure could not be retried"
 assert_hardened "mount verification retry"
@@ -394,7 +395,7 @@ pass "mount verification failure prevents Compose and succeeds on retry"
 reset_case
 fake_failure=update
 __priv_reconcile >/dev/null 2>&1 && fail "restart-policy update failure was ignored"
-rg -q '^compose ' "$fake_mutations" && fail "Compose ran after restart-policy update failed"
+grep -q '^compose ' "$fake_mutations" && fail "Compose ran after restart-policy update failed"
 fake_failure=
 __priv_reconcile || fail "restart-policy update failure could not be retried"
 assert_hardened "restart-policy retry"
@@ -464,7 +465,7 @@ for state in running exited; do
     assert_mutation 'compose up -d --no-deps --timeout 120 windows'
   else
     [[ $(jq -r '.[0].State.Running' "$fake_json") == false ]] || fail "orphan replacement retry booted a stopped VM"
-    rg -q '^compose up ' "$fake_mutations" && fail "stopped orphan recovery invoked Compose up"
+    grep -q '^compose up ' "$fake_mutations" && fail "stopped orphan recovery invoked Compose up"
   fi
 done
 pass "a verified orphan replacement is renamed and restores the activity state recorded before Compose failed"
@@ -550,7 +551,7 @@ for failure in remove_replacement rename_replacement; do
   fake_failure=$failure
   : >"$fake_mutations"
   __priv_reconcile >/dev/null 2>&1 && fail "$failure was ignored"
-  rg -q '^compose ' "$fake_mutations" && fail "Compose ran after $failure failed"
+  grep -q '^compose ' "$fake_mutations" && fail "Compose ran after $failure failed"
   [[ -f $RUNTIME_DIR/reconcile-pending ]] || fail "$failure removed the reconciliation journal"
   fake_failure=
   __priv_reconcile || fail "$failure could not be retried"
@@ -705,6 +706,6 @@ else
   done
   pass "system reconciliation propagates preparation, migration, and convergence failures and preserves configuration for retry"
 fi
-rg -q -F 'bash "$MONARCH_PATH/install/reconcile/windows-vm.sh"' "$ROOT/install/reconcile/system.sh" ||
+grep -q -F 'bash "$MONARCH_PATH/install/reconcile/windows-vm.sh"' "$ROOT/install/reconcile/system.sh" ||
   fail "system reconciliation does not run the Windows VM helper"
 pass "system reconciliation runs the Windows VM leaf"
