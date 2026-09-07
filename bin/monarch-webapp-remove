@@ -35,7 +35,4 @@ for APP_NAME in "${APP_NAMES[@]}"; do
   SELECTED_FILES+=("${MATCHES[0]}")
 done
 
-for file in "${SELECTED_FILES[@]}"; do
-  webapp_remove_file "$file"
-  printf 'Removed %s\n' "${file##*/}"
-done
+webapp_remove_files "${SELECTED_FILES[@]}"

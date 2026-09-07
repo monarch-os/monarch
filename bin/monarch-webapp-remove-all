@@ -9,10 +9,7 @@ source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../install/helpers/webapps.
 webapp_paths
 webapp_index "${1:-$WEBAPP_DIR}"
 
-for file in "${WEBAPP_FILES[@]}"; do
-  webapp_remove_file "$file"
-  printf 'Removed %s\n' "${file##*/}"
-done
+webapp_remove_files "${WEBAPP_FILES[@]}"
 
 if monarch-cmd-present update-desktop-database && [[ -d $WEBAPP_DIR ]]; then
   update-desktop-database "$WEBAPP_DIR" &>/dev/null || true

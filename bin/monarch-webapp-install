@@ -34,7 +34,7 @@ DESKTOP_FILE="$WEBAPP_DIR/$APP_NAME.desktop"
 OLD_ICON=""
 if [[ -e $DESKTOP_FILE || -L $DESKTOP_FILE ]]; then
   webapp_read "$DESKTOP_FILE" && webapp_is_managed ||
-    { webapp_error 'Refusing to replace an unmanaged or symbolic launcher.'; exit 1; }
+    { webapp_error 'Refusing to replace an unmanaged or symbolic launcher. Recreate the webapp with a different name to keep the existing launcher.'; exit 1; }
   OLD_ICON=$(webapp_recorded_icon) || OLD_ICON=""
 fi
 
@@ -93,8 +93,10 @@ if [[ -n $ICON_STAGE ]]; then
   rm -rf -- "$ICON_STAGE"
   ICON_STAGE=""
 fi
-[[ -z $OWNED_ICON ]] || webapp_refresh_icon_cache
-webapp_cleanup_icon "$OLD_ICON"
+CLEANUP_STATUS=0
+webapp_cleanup_icons "$OLD_ICON" || CLEANUP_STATUS=$?
+[[ -z $OWNED_ICON && -z $OLD_ICON ]] || webapp_refresh_icon_cache
+(( CLEANUP_STATUS == 0 )) || exit "$CLEANUP_STATUS"
 
 if [[ $INTERACTIVE_MODE == "true" ]]; then
   printf 'You can now find %s using the app launcher (SUPER + SPACE)\n' "$APP_NAME"

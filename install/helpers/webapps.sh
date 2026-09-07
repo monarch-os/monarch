@@ -133,14 +133,18 @@ webapp_index() {
   done
 }
 
-webapp_cleanup_icon() {
-  local icon=$1 path line reference name
+webapp_cleanup_icons() {
+  local icon path line reference name identity status=0
   local -a paths=()
-  webapp_owned_icon_valid "$icon" || return 0
-  [[ -f $icon && ! -L $icon ]] || return 0
-  name=${icon##*/}
-  [[ ${icon%/*} != "$WEBAPP_THEME_ICON_DIR" ]] || name=${name%.png}
-  # Local/legacy icons are borrowed. Even a generated icon may have been reused elsewhere.
+  local -A owned=() references=() identities=()
+  for icon in "$@"; do
+    webapp_owned_icon_valid "$icon" || continue
+    [[ -f $icon && ! -L $icon ]] || continue
+    identity=$(stat -Lc '%d:%i' -- "$icon") || return 0
+    owned["$icon"]=$identity
+  done
+  (( ${#owned[@]} )) || return 0
+
   mapfile -d '' -t paths < <(find "$WEBAPP_DIR" -name '*.desktop' -print0)
   wait "$!" || return 0
   for path in "${paths[@]}"; do
@@ -149,24 +153,35 @@ webapp_cleanup_icon() {
       line=${line%$'\r'}
       [[ $line =~ ^[[:blank:]]*(Icon|X-Monarch-WebApp-Icon)[[:blank:]]*=[[:blank:]]*(.*)$ ]] || continue
       reference=$(webapp_unescape "${BASH_REMATCH[2]}") || return 0
-      [[ $reference != "$icon" && $reference != "$name" && ! $reference -ef $icon ]] || return 0
+      [[ -n $reference ]] || continue
+      references["$reference"]=1
+      if [[ -e $reference ]]; then
+        identity=$(stat -Lc '%d:%i' -- "$reference") || return 0
+        identities["$identity"]=1
+      fi
     done < "$path" || return 0
   done
-  rm -f -- "$icon"
-  [[ ${icon%/*} != "$WEBAPP_THEME_ICON_DIR" ]] || webapp_refresh_icon_cache
+
+  for icon in "${!owned[@]}"; do
+    name=${icon##*/}
+    identity=${owned[$icon]}
+    [[ ! ${references[$icon]+present} && ! ${references[${name%.png}]+present} && ! ${identities[$identity]+present} ]] || continue
+    [[ -f $icon && ! -L $icon ]] || continue
+    [[ $(stat -Lc '%d:%i' -- "$icon") == "$identity" ]] || continue
+    rm -f -- "$icon" || status=1
+  done
+  return "$status"
 }
 
 webapp_owned_icon_valid() {
   local icon=$1
-  [[ -n $icon && ( ( ${icon%/*} == "$WEBAPP_ICON_DIR" && ${icon##*/} == monarch-webapp.* ) ||
-    ( ${icon%/*} == "$WEBAPP_THEME_ICON_DIR" && ${icon##*/} =~ ^monarch-webapp-[a-zA-Z0-9]+\.png$ ) ) ]]
+  [[ ${icon%/*} == "$WEBAPP_THEME_ICON_DIR" && ${icon##*/} =~ ^monarch-webapp-[a-zA-Z0-9]+\.png$ ]]
 }
 
 webapp_recorded_icon() {
   local name=${WEBAPP_OWNED_ICON##*/}
   [[ $WEBAPP_MARKER == "true" ]] && webapp_owned_icon_valid "$WEBAPP_OWNED_ICON" || return 1
-  if [[ $WEBAPP_ICON == "$WEBAPP_OWNED_ICON" ||
-    ( ${WEBAPP_OWNED_ICON%/*} == "$WEBAPP_THEME_ICON_DIR" && $WEBAPP_ICON == "${name%.png}" ) ]]; then
+  if [[ $WEBAPP_ICON == "$WEBAPP_OWNED_ICON" || $WEBAPP_ICON == "${name%.png}" ]]; then
     printf '%s' "$WEBAPP_OWNED_ICON"
   else
     return 1
@@ -183,22 +198,49 @@ webapp_refresh_icon_cache() {
   fi
 }
 
-webapp_remove_file() {
-  local path=$1 icon=""
-  webapp_read "$path" && webapp_is_managed || { webapp_error "Webapp changed: $path"; return 1; }
-  icon=$(webapp_recorded_icon) || icon=""
-  rm -- "$path"
-  webapp_cleanup_icon "$icon"
+webapp_remove_files() {
+  local path icon status=0
+  local -a icons=() removed=()
+  for path in "$@"; do
+    if ! webapp_read "$path" || ! webapp_is_managed; then
+      webapp_error "Webapp changed: $path" || true
+      status=1
+      break
+    fi
+    icon=$(webapp_recorded_icon) || icon=""
+    if ! rm -- "$path"; then
+      status=1
+      break
+    fi
+    [[ -z $icon ]] || icons+=("$icon")
+    removed+=("${path##*/}")
+  done
+  if (( ${#icons[@]} )); then
+    webapp_cleanup_icons "${icons[@]}" || status=1
+    webapp_refresh_icon_cache
+  fi
+  if (( ${#removed[@]} )); then
+    printf 'Removed %s\n' "${removed[@]}" || status=1
+  fi
+  return "$status"
 }
 
-webapp_image_valid() {
-  local path=$1 size mime
+webapp_image_coder() {
+  local path=$1 size mime coder
   [[ -f $path && ! -L $path ]] || return 1
   size=$(stat -c %s -- "$path") || return 1
   (( size > 0 && size <= 5242880 )) || return 1
   mime=$(file --brief --mime-type -- "$path") || return 1
-  case $mime in image/png|image/jpeg|image/gif|image/webp|image/bmp|image/x-icon|image/vnd.microsoft.icon) return 0 ;; esac
-  return 1
+  case $mime in
+    image/png) coder=PNG ;;
+    image/jpeg) coder=JPEG ;;
+    image/gif) coder=GIF ;;
+    image/webp) coder=WEBP ;;
+    image/bmp) coder=BMP ;;
+    image/x-icon|image/vnd.microsoft.icon) coder=ICO ;;
+    *) return 1 ;;
+  esac
+  printf '%s' "$coder"
 }
 
 webapp_timeout() {
@@ -221,25 +263,15 @@ webapp_download() {
 }
 
 webapp_convert_icon() {
-  local source=$1 destination=$2 converter=magick mime coder duration
-  webapp_image_valid "$source" || return 1
-  mime=$(file --brief --mime-type -- "$source") || return 1
-  case $mime in
-    image/png) coder=PNG ;;
-    image/jpeg) coder=JPEG ;;
-    image/gif) coder=GIF ;;
-    image/webp) coder=WEBP ;;
-    image/bmp) coder=BMP ;;
-    image/x-icon|image/vnd.microsoft.icon) coder=ICO ;;
-    *) return 1 ;;
-  esac
+  local source=$1 destination=$2 converter=magick coder duration
+  coder=$(webapp_image_coder "$source") || return 1
   monarch-cmd-present magick || converter=convert
   duration=$(webapp_timeout 10) || return 1
   timeout "${duration}s" prlimit --core=0 --fsize=5242880 --cpu=8 --as=536870912 -- \
     "$converter" -limit thread 1 -limit memory 64MiB -limit map 0 -limit disk 0 \
     -limit width 8192 -limit height 8192 "$coder:${source}[0]" \
     -thumbnail 256x256 -background none -gravity center -extent 256x256 -strip "PNG:$destination" \
-    >/dev/null 2>&1 && webapp_image_valid "$destination"
+    >/dev/null 2>&1 && webapp_image_coder "$destination" >/dev/null
 }
 
 webapp_download_icon() {
@@ -257,10 +289,10 @@ webapp_icon_reference() {
     WEBAPP_ICON_SOURCE=$(webapp_url "$reference") || return 1
     WEBAPP_ICON_KIND=download
   elif [[ $reference != */* && ( -e $WEBAPP_ICON_DIR/$reference || -L $WEBAPP_ICON_DIR/$reference ) ]]; then
-    webapp_image_valid "$WEBAPP_ICON_DIR/$reference" || return 1
+    webapp_image_coder "$WEBAPP_ICON_DIR/$reference" >/dev/null || return 1
     WEBAPP_ICON_KIND=local WEBAPP_ICON_SOURCE="$WEBAPP_ICON_DIR/$reference"
   elif [[ -e $reference || -L $reference ]]; then
-    webapp_image_valid "$reference" || return 1
+    webapp_image_coder "$reference" >/dev/null || return 1
     WEBAPP_ICON_SOURCE=$(realpath -e -- "$reference") || return 1
     WEBAPP_ICON_KIND=local
   else
@@ -273,7 +305,9 @@ webapp_icon_reference() {
 
 webapp_fetch_site_icon() {
   local directory=$1 site_url=$2 effective_url authority origin candidate candidates
-  local WEBAPP_FETCH_DEADLINE=$((SECONDS + 30))
+  local deadline=$((SECONDS + 30))
+  # Reserve five seconds for each fallback, including image decoding.
+  local WEBAPP_FETCH_DEADLINE=$((deadline - 10))
   effective_url=$(webapp_download "$directory/page.html" "$site_url" 524288 5 --write-out '%{url_effective}') || effective_url=""
   if effective_url=$(webapp_url "$effective_url"); then
     candidates=$(timeout 5s python3 "$(dirname "${BASH_SOURCE[0]}")/webapp-icon-links.py" "$directory/page.html" "$effective_url") || candidates=""
@@ -287,7 +321,9 @@ webapp_fetch_site_icon() {
   authority=${effective_url#*://}
   authority=${authority%%[/?#]*}
   origin="${effective_url%%://*}://$authority"
-  webapp_download_icon "$directory" "$origin/apple-touch-icon.png" ||
-    webapp_download_icon "$directory" 'https://www.google.com/s2/favicons' \
-      --get --data-urlencode "domain=$site_url" --data-urlencode 'sz=256'
+  WEBAPP_FETCH_DEADLINE=$((deadline - 5))
+  if webapp_download_icon "$directory" "$origin/apple-touch-icon.png"; then return 0; fi
+  WEBAPP_FETCH_DEADLINE=$deadline
+  webapp_download_icon "$directory" 'https://www.google.com/s2/favicons' \
+    --get --data-urlencode "domain=$site_url" --data-urlencode 'sz=256'
 }

@@ -24,6 +24,10 @@ test/monarch-npx-install-test.sh	package-install	medium	isolated
 test/monarch-install-helpers-test.sh	package-install	high	isolated
 test/monarch-font-set-test.sh	fonts	high	isolated
 test/monarch-webapp-test.sh	webapps	high	isolated
+test/monarch-webapp-cleanup-test.sh	webapps	high	isolated
+test/monarch-webapp-fetch-budget-test.sh	webapps	high	isolated
+test/monarch-webapp-image-test.sh	webapps	high	isolated
+test/monarch-webapp-legacy-test.sh	webapps	high	isolated
 test/monarch-webapp-icon-links-test.sh	webapps	high	isolated
 test/monarch-webapp-desktop-test.sh	webapps	high	isolated
 test/monarch-obsidian-theme-test.sh	theming	medium	isolated
