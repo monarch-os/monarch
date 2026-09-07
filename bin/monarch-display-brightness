@@ -33,6 +33,16 @@ connected_outputs() {
   done
 }
 
+internal_output() {
+  local connector
+  while IFS= read -r connector; do
+    monarch-hw-display-internal "$connector" || continue
+    printf '%s\n' "$connector"
+    return
+  done < <(connected_outputs)
+  return 1
+}
+
 # Noctalia's own rule: exact DRM match first, raw over platform over firmware,
 # nvidia and acpi_video losing ties. Wrong here drives the panel that is not lit.
 type_rank() {
@@ -81,7 +91,7 @@ backlight_candidates() {
     # Hardware that hangs the backlight off the GPU rather than the connector
     # still has one internal panel to mean. Loses every tie to an exact match.
     if [[ -z $connector ]]; then
-      connector=$(connected_outputs | grep -m 1 '^eDP') || continue
+      connector=$(internal_output) || continue
       rank="1$(type_rank "$type")$(name_penalty "$name")"
     fi
 

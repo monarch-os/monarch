@@ -7,25 +7,34 @@
 # transform/position), so we can't reproduce the Hyprland `monitor=…,mirror,eDP`
 # line. The niri-documented approach is wl-mirror: it screencopies a source
 # output into a client window which we send fullscreen onto a target output. The
-# source is always the internal eDP panel (the "presentation mode" the old
+# source is always the internal panel (the "presentation mode" the old
 # SUPER+CTRL+ALT+Delete gave us); the targets are the external monitor(s).
 #
 # Scope (second arg, default "all"):
-#   all     mirror the eDP onto every connected external — one wl-mirror each.
+#   all     mirror the panel onto every connected external — one wl-mirror each.
 #   single  mirror onto a single external: the currently focused output when it
 #           is external, else the first external. So focusing the monitor you
 #           want before triggering picks the target, instead of an arbitrary one.
 #
 #   https://niri-wm.github.io/niri/Screencasting.html#screen-mirroring
 
-# Internal panel connector (eDP), read live from niri so a rename can't break us.
-# niri exposes connector names as the wl_output names wl-mirror expects for both
-# the source arg and --fullscreen-output.
-INTERNAL=$(niri msg --json outputs 2>/dev/null | jq -r 'to_entries[] | select(.key | test("eDP")) | .key' | head -n1)
+internal_output() {
+  local output
+  while IFS= read -r output; do
+    monarch-hw-display-internal "$output" || continue
+    printf '%s\n' "$output"
+    return
+  done < <(niri msg --json outputs 2>/dev/null | jq -r 'to_entries[].key')
+  return 1
+}
 
-# All non-eDP outputs, one per line.
+INTERNAL=$(internal_output)
+
 externals() {
-  niri msg --json outputs 2>/dev/null | jq -r 'to_entries[] | select(.key | test("eDP") | not) | .key'
+  local output
+  while IFS= read -r output; do
+    monarch-hw-display-internal "$output" || printf '%s\n' "$output"
+  done < <(niri msg --json outputs 2>/dev/null | jq -r 'to_entries[].key')
 }
 
 # Target for single-display mode: the focused output if it is external (lets the
@@ -33,7 +42,7 @@ externals() {
 single_target() {
   local focused
   focused=$(niri msg --json focused-output 2>/dev/null | jq -r '.name // empty')
-  if [[ -n $focused && $focused != *eDP* ]]; then
+  if [[ -n $focused ]] && ! monarch-hw-display-internal "$focused"; then
     printf '%s\n' "$focused"
     return
   fi
@@ -66,7 +75,7 @@ enable() {
     exit 1
   fi
 
-  # Mirroring screencopies the eDP buffer, so the panel must be on — re-enable it
+  # Mirroring screencopies the internal buffer, so the panel must be on — re-enable it
   # in case monarch-niri-monitor-internal had turned it off.
   niri msg output "$INTERNAL" on >/dev/null 2>&1
 
