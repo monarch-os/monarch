@@ -9,6 +9,7 @@ test/monarch-cli-test.sh	cli-routing	high	isolated
 test/monarch-crash-capture-test.sh	crash-reporting	high	isolated
 test/monarch-dev-env-test.sh	developer-environment	medium	isolated
 test/monarch-display-test.sh	displays	high	isolated
+test/monarch-drive-password-test.sh	drive-encryption	high	isolated
 test/monarch-hardware-menu-test.sh	hardware-menu	medium	isolated
 test/monarch-kernel-headers-test.sh	kernel-packages	high	isolated
 test/monarch-menu-test.sh	menu	medium	isolated
