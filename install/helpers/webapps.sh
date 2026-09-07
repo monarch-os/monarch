@@ -109,7 +109,6 @@ webapp_read() {
 webapp_is_managed() {
   [[ $WEBAPP_TYPE == "Application" && -n $WEBAPP_EXEC ]] || return 1
   [[ $WEBAPP_MARKER == "true" ]] && return 0
-  # Old launchers have no marker; only the executable, not an argument, identifies them.
   [[ $WEBAPP_EXEC =~ ^(monarch-launch-webapp|monarch-webapp-handler-zoom)([[:space:]]|$) ||
     $WEBAPP_EXEC =~ ^\"(monarch-launch-webapp|monarch-webapp-handler-zoom)\"([[:space:]]|$) ]]
 }
@@ -306,7 +305,6 @@ webapp_icon_reference() {
 webapp_fetch_site_icon() {
   local directory=$1 site_url=$2 effective_url authority origin candidate candidates
   local deadline=$((SECONDS + 30))
-  # Reserve five seconds for each fallback, including image decoding.
   local WEBAPP_FETCH_DEADLINE=$((deadline - 10))
   effective_url=$(webapp_download "$directory/page.html" "$site_url" 524288 5 --write-out '%{url_effective}') || effective_url=""
   if effective_url=$(webapp_url "$effective_url"); then
