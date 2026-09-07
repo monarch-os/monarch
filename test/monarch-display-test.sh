@@ -463,6 +463,18 @@ assert_equals "and loses the tie to the one that matched exactly" \
   "$(backlight_only eDP-1)" "60"
 rm -rf "$TMP/sys/backlight/odd_bl"
 
+echo disconnected >"$TMP/sys/drm/card1-eDP-1/status"
+mkdir -p "$TMP/sys/drm/card1-LVDS-1" "$TMP/sys/backlight/lvds_bl" "$TMP/sys/elsewhere"
+echo connected >"$TMP/sys/drm/card1-LVDS-1/status"
+printf '25\n' >"$TMP/sys/backlight/lvds_bl/brightness"
+printf '100\n' >"$TMP/sys/backlight/lvds_bl/max_brightness"
+printf 'raw\n' >"$TMP/sys/backlight/lvds_bl/type"
+ln -sfn "$TMP/sys/elsewhere" "$TMP/sys/backlight/lvds_bl/device"
+assert_equals "an unmatched backlight also falls back to an LVDS panel" \
+  "$(backlight_only LVDS-1)" "25"
+rm -rf "$TMP/sys/drm/card1-LVDS-1" "$TMP/sys/backlight/lvds_bl"
+echo connected >"$TMP/sys/drm/card1-eDP-1/status"
+
 # ── The brightness over DDC/CI ───────────────────────────────────────────────
 
 rm -rf "$TMP/cache"
