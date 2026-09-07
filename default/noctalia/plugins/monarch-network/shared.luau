@@ -112,6 +112,11 @@ function M.isSecured(network: Network): boolean
   return network.security ~= "" and network.security ~= "open"
 end
 
+-- OWE encrypts the link but has no user credentials to request.
+function M.requiresCredentials(network: Network): boolean
+  return M.isSecured(network) and network.security:find("OWE", 1, true) == nil
+end
+
 -- nmcli concatenates the security flags it finds, so an enterprise AP reads
 -- "WPA2 802.1X". Plain find, not a pattern: the dot would otherwise match the
 -- separator in anything shaped like it.

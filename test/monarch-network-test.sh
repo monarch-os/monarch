@@ -10,10 +10,12 @@ ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 STATUS="$ROOT/bin/monarch-network-status"
 LIST="$ROOT/bin/monarch-wifi-list"
 JOIN="$ROOT/bin/monarch-wifi-join"
+CONNECT="$ROOT/bin/monarch-wifi-connect"
 FORGET="$ROOT/bin/monarch-wifi-forget"
 RADIO="$ROOT/bin/monarch-toggle-wifi"
 CHOOSER="$ROOT/bin/monarch-setup-dns"
 PANEL="$ROOT/default/noctalia/plugins/monarch-network/panel.luau"
+SHARED="$ROOT/default/noctalia/plugins/monarch-network/shared.luau"
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -53,6 +55,7 @@ case "$*" in
     printf 'GENERAL.STATE:%s\nGENERAL.CONNECTION:%s\n' "$NM_STATE" "$NM_CONN" ;;
   *"IN-USE,SIGNAL dev wifi list"*) printf '*:%s\n' "$NM_SIGNAL" ;;
   *"IN-USE,SIGNAL,SECURITY,SSID dev wifi list"*) printf '%s' "$NM_SCAN" ;;
+  *"SIGNAL,SECURITY,SSID dev wifi list"*) printf '%s' "${NM_CONNECT_SCAN:-}" ;;
   *"DEVICE,TYPE device status"*) printf '%s\n' "${NM_DEVICES-wlan0:wifi}" ;;
   *"DEVICE,TYPE,STATE device status"*) printf 'wlan0:wifi:connected\n' ;;
   *"-g NAME connection show"*) printf '%s' "$NM_SAVED" ;;
@@ -190,7 +193,7 @@ pass "the panel keeps Custom off the passwordless path"
 # ── The network list ─────────────────────────────────────────────────────────
 
 export NM_SAVED=$'Cafe\nHome\n'
-export NM_SCAN=$'*:90:WPA2:Cafe\n:70:WPA2:Home\n:55::Open Net\n:40:WPA2:Cafe\n'
+export NM_SCAN=$'*:90:WPA2:Cafe\n:70:WPA2:Home\n:60:OWE:Encrypted Guest\n:55::Open Net\n:40:WPA2:Cafe\n'
 
 list=$("$LIST")
 assert_equals "marks the network in use" \
@@ -201,8 +204,10 @@ assert_equals "an unknown network is not saved" \
   "$(awk -F'\t' '$5=="Open Net" {print $4}' <<<"$list")" "no"
 assert_equals "an empty security field reads as open" \
   "$(awk -F'\t' '$5=="Open Net" {print $2}' <<<"$list")" "open"
+assert_equals "preserves OWE as encrypted" \
+  "$(awk -F'\t' '$5=="Encrypted Guest" {print $2}' <<<"$list")" "OWE"
 assert_equals "one row per name, strongest first" \
-  "$(grep -c . <<<"$list")" "3"
+  "$(grep -c . <<<"$list")" "4"
 assert_equals "keeps the strongest of a repeated name" \
   "$(awk -F'\t' '$5=="Cafe" {print $1}' <<<"$list")" "90"
 
@@ -243,6 +248,50 @@ assert_equals "a join without one leaves the saved secret alone" \
 
 NM_JOIN_STATUS=1 "$JOIN" "Cafe" 2>"$TMP/err" && fail "a failed join exits non-zero"
 pass "a failed join exits non-zero"
+
+grep -Fq 'function M.requiresCredentials(network: Network): boolean' "$SHARED" ||
+  fail "the plugin separates credentials from encryption"
+grep -Fq 'network.security:find("OWE", 1, true) == nil' "$SHARED" ||
+  fail "the plugin treats OWE as passwordless"
+assert_equals "the panel uses credential requirements only for prompting" \
+  "$(grep -c 'shared.requiresCredentials(network)' "$PANEL")" "2"
+grep -Fq 'elseif shared.isSecured(network) then' "$PANEL" ||
+  fail "OWE keeps the encrypted-network indicator"
+pass "the plugin treats OWE as encrypted but passwordless"
+
+cat >"$TMP/bin/gum" <<'STUB'
+#!/bin/bash
+case "$1" in
+  choose) awk -v choice="$GUM_CHOICE" 'index($0, choice) { print; exit }' ;;
+  input)
+    printf 'called\n' >>"$GUM_INPUT_CALLS"
+    printf 'hunter2\n'
+    ;;
+  spin)
+    while (($#)) && [[ $1 != "--" ]]; do shift; done
+    shift
+    "$@"
+    ;;
+  confirm) exit 1 ;;
+esac
+STUB
+chmod +x "$TMP/bin/gum"
+export GUM_INPUT_CALLS="$TMP/gum-input"
+: >"$GUM_INPUT_CALLS"
+: >"$NM_CALLS"
+GUM_CHOICE="OWE Cafe" NM_CONNECT_SCAN=$'80:OWE:OWE Cafe\n' NM_SAVED= "$CONNECT" >/dev/null
+assert_equals "the terminal connector does not prompt for OWE" \
+  "$(grep -c . "$GUM_INPUT_CALLS" || true)" "0"
+assert_equals "the terminal connector lets nmcli negotiate OWE" \
+  "$(grep -c 'dev wifi connect OWE Cafe$' "$NM_CALLS")" "1"
+
+: >"$GUM_INPUT_CALLS"
+: >"$NM_CALLS"
+GUM_CHOICE="Secure Cafe" NM_CONNECT_SCAN=$'80:WPA2:Secure Cafe\n' NM_SAVED= "$CONNECT" >/dev/null
+assert_equals "the terminal connector still prompts for WPA" \
+  "$(grep -c . "$GUM_INPUT_CALLS")" "1"
+assert_equals "the terminal connector still passes the WPA password" \
+  "$(grep -c 'dev wifi connect Secure Cafe password hunter2$' "$NM_CALLS")" "1"
 
 if "$FORGET" "Unknown" 2>"$TMP/err"; then
   fail "forgetting an unsaved network is refused"
