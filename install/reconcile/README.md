@@ -30,3 +30,15 @@ deleted.
 
 A bump is not required for an additive managed file, a newly seeded file, or an
 idempotent invariant that works for every supported schema.
+
+`windows-vm.sh` owns Windows VM detection, migration orchestration and legacy
+cleanup. It runs as the login user and uses the shared operations in
+`monarch-windows-vm`, elevating only the verified packaged helper. The helper
+recognizes that user's stock Compose container, disables
+automatic restart, migrates the protected compose and verifies the live mounts
+and web protection. An active VM may restart with a two-minute graceful shutdown;
+a stopped or absent container stays stopped or absent. Custom containers are
+left untouched with an error, and failed convergence retains the legacy compose
+for retry. A protected journal preserves the intended activity state across a
+partial replacement; an explicit stop cancels it. Disks, shared files and
+legitimate source symlinks are preserved.
