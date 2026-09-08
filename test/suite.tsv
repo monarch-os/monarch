@@ -82,4 +82,5 @@ test/shell.d/update-pacman-guard-test.sh	updates	high	isolated
 test/shell.d/windows-vm-compose-test.sh	virtualization-security	high	isolated
 test/shell.d/windows-vm-mount-boundary-test.sh	virtualization-security	high	isolated
 test/shell.d/windows-vm-reconcile-test.sh	virtualization-security	high	isolated
+test/shell.d/wpa-supplicant-reconcile-test.sh	network	high	isolated
 test/shell.d/workspace-names-test.sh	workspaces	low	isolated
