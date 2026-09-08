@@ -18,6 +18,7 @@ set -uo pipefail
 direction=${1:-}
 seconds=${2:-10}
 probe=${MONARCH_NETWORK_PROBE:-1.1.1.1}
+SYS_NET=${MONARCH_SYS_NET:-/sys/class/net}
 parallel=8
 url_count=3
 
@@ -35,7 +36,7 @@ if [[ ! $seconds =~ ^[0-9]+$ ]] || ((seconds < 1)); then
 fi
 
 format_mbps() {
-  awk -v value="$1" 'BEGIN {
+  LC_ALL=C awk -v value="$1" 'BEGIN {
     if (value <= 0) print "0.0"
     else if (value < 10) printf "%.1f\n", value
     else printf "%.0f\n", value
@@ -45,7 +46,7 @@ format_mbps() {
 iface=$(ip route get "$probe" 2>/dev/null |
   awk '{ for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit } }')
 
-if [[ -z $iface || ! -r /sys/class/net/$iface/statistics/rx_bytes ]]; then
+if [[ -z $iface || ! -r $SYS_NET/$iface/statistics/rx_bytes ]]; then
   echo "No active network interface" >&2
   exit 1
 fi
@@ -106,7 +107,7 @@ done
 
 counter=rx_bytes
 [[ $direction == "up" ]] && counter=tx_bytes
-before=$(<"/sys/class/net/$iface/statistics/$counter")
+before=$(<"$SYS_NET/$iface/statistics/$counter")
 
 any_alive() {
   local pid
@@ -120,7 +121,7 @@ any_alive() {
 for ((elapsed = 0; elapsed < seconds; elapsed++)); do
   any_alive || break
   sleep 1
-  after=$(<"/sys/class/net/$iface/statistics/$counter")
-  format_mbps "$(awk -v b="$before" -v a="$after" 'BEGIN { print (a < b) ? 0 : (a - b) * 8 / 1000000 }')"
+  after=$(<"$SYS_NET/$iface/statistics/$counter")
+  format_mbps "$(LC_ALL=C awk -v b="$before" -v a="$after" 'BEGIN { print (a < b) ? 0 : (a - b) * 8 / 1000000 }')"
   before=$after
 done

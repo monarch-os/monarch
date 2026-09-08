@@ -20,6 +20,7 @@ test/monarch-reconcile-test.sh	updates	high	isolated
 test/shell.d/packaged-runtime-bootstrap-test.sh	updates	high	isolated
 test/shell.d/retired-sudoers-reconcile-test.sh	security	high	isolated
 test/monarch-network-test.sh	network	medium	isolated
+test/monarch-network-speedtest-test.sh	network	medium	isolated
 test/monarch-niri-socket-test.sh	display-recovery	high	isolated
 test/monarch-noctalia-config-test.sh	desktop-shell	medium	isolated
 test/monarch-notification-test.sh	notifications	medium	isolated
