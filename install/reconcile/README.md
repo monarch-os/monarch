@@ -71,6 +71,11 @@ JSON strings, preserving other modules and comments. Changed app files get a
 `.bak.monarch-v5` original before atomic replacement. Existing app symlinks are
 left alone and reported for manual adaptation; missing configs are seeded.
 
+Adopting stock V4 initramfs hooks rebuilds through `limine-mkinitcpio` when
+available, otherwise `mkinitcpio -P`. A failed rebuild keeps the `.pacnew` for
+retry; a Limine failure never falls back to a classic image that would leave
+its boot entries stale. Customized hooks remain untouched for manual review.
+
 `windows-vm.sh` owns Windows VM detection, migration orchestration and legacy
 cleanup. It runs as the login user and uses the shared operations in
 `monarch-windows-vm`, elevating only the verified packaged helper. The helper

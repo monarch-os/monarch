@@ -22,9 +22,14 @@ reconcile_legacy_pacnew() {
   rm -f "$pacnew"
 }
 
+initramfs_command=(mkinitcpio -P)
+if command -v limine-mkinitcpio >/dev/null 2>&1; then
+  initramfs_command=(limine-mkinitcpio)
+fi
+
 reconcile_legacy_pacnew etc/mkinitcpio.conf.d/monarch_hooks.conf \
   e05dd59ad52a2edc41076123f53f8784fdcbf90124321b66498f801f27028242 \
-  mkinitcpio -P
+  "${initramfs_command[@]}"
 
 reconcile_legacy_pacnew etc/systemd/resolved.conf.d/10-disable-multicast.conf \
   9e1d19e154bb15464e64c6e3c8be80f39323cefd60124df033fdc6895537be1b \
