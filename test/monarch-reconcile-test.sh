@@ -247,7 +247,7 @@ printf '%s\n' true >"$system_transition/install/reconcile/schema/1-to-2/legacy-u
 printf '%s\n' true >"$system_transition/install/reconcile/schema/1-to-2/legacy-settings-pacnew.sh"
 MONARCH_PATH="$system_transition" bash "$ROOT/install/reconcile/schema/1-to-2/system.sh"
 
-printf '%s\n' legacy-settings >"$HOME/.config/noctalia/settings.json"
+printf '%s\n' '{"fixture":"legacy-settings"}' >"$HOME/.config/noctalia/settings.json"
 printf '%s\n' legacy-settings-backup >"$HOME/.config/noctalia/settings.json.bak.1"
 printf '%s\n' legacy-plugins >"$HOME/.config/noctalia/plugins.json"
 printf '%s\n' user-palette >"$HOME/.config/noctalia/colorschemes/User/palette.json"
@@ -290,7 +290,7 @@ bash "$ROOT/install/reconcile/user.sh"
 
 grep -qx 'monarch-pkg-drop noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"
 grep -qx 'monarch-pkg-drop claude-code openai-codex opencode' "$TEST_LOG"
-grep -qx 'monarch-refresh-config fastfetch/config.jsonc' "$TEST_LOG"
+cmp "$ROOT/config/fastfetch/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
 if grep -qx 'monarch-provision-first-run' "$TEST_LOG"; then
   echo "First-run provisioning ran before Noctalia became ready" >&2
   exit 1
@@ -302,7 +302,7 @@ fi
 [[ ! -e $HOME/.config/noctalia/colorschemes ]]
 [[ ! -e $HOME/.config/noctalia/plugins ]]
 legacy_noctalia_archive="$HOME/.local/state/monarch/reconcile/1-to-2/legacy-noctalia-config"
-[[ $(<"$legacy_noctalia_archive/settings.json") == "legacy-settings" ]]
+[[ $(<"$legacy_noctalia_archive/settings.json") == '{"fixture":"legacy-settings"}' ]]
 [[ $(<"$legacy_noctalia_archive/settings.json.bak.1") == "legacy-settings-backup" ]]
 [[ $(<"$legacy_noctalia_archive/user-templates.toml") == "legacy" ]]
 [[ $(<"$legacy_noctalia_archive/colorschemes/User/palette.json") == "user-palette" ]]
@@ -393,7 +393,7 @@ if bash "$runtime_hook"; then
 fi
 [[ ! -e $HOME/.local/share/monarch ]]
 [[ -d $HOME/.local/share/monarch-v4/.git ]]
-[[ $(<"$HOME/.local/share/monarch-v4/user-config/noctalia/settings.json") == "legacy-settings" ]]
+[[ $(<"$HOME/.local/share/monarch-v4/user-config/noctalia/settings.json") == '{"fixture":"legacy-settings"}' ]]
 [[ $(<"$HOME/.local/share/monarch-v4/user-config/noctalia/user-templates.toml") == "legacy" ]]
 [[ $(<"$HOME/.local/share/monarch-v4/user-config/noctalia/colorschemes/User/palette.json") == "user-palette" ]]
 [[ $(<"$HOME/.local/share/monarch-v4/user-config/noctalia/plugins/user/plugin.qml") == "user-plugin" ]]

@@ -38,12 +38,10 @@ done
 
 state_dir=~/.local/state/monarch
 FIRST_RUN_DONE="first-run-user"
-if monarch-done check "$FIRST_RUN_DONE" && (( force == 0 )); then
+if monarch-done check "$FIRST_RUN_DONE" && monarch-done check finalize-user && (( force == 0 )); then
   echo "First-run already complete (rerun with --force to refresh)."
   exit 0
 fi
-
-monarch-provision-user "${finalize_user_args[@]}" || true
 
 mkdir -p "$state_dir"
 
@@ -68,6 +66,9 @@ run_first_run_step() {
   fi
 }
 
+run_first_run_step "finalize user setup" \
+  monarch-provision-user "${finalize_user_args[@]}"
+
 run_first_run_step "install Voxtype post-update hook" \
   monarch-hook-install post-update "$MONARCH_PATH/install/user/first-run/install-voxtype.hook"
 run_first_run_step "install fingerprint setup post-update hook" \
@@ -91,4 +92,6 @@ if (( first_run_failed == 0 )); then
   monarch-done mark "$FIRST_RUN_DONE"
 else
   log_first_run "One or more first-run steps failed; first-run will retry next login"
+  rm -f "$state_dir/done/$FIRST_RUN_DONE"
+  exit 1
 fi
