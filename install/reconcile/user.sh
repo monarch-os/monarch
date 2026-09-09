@@ -3,6 +3,7 @@ set -euo pipefail
 echo "Reconcile Monarch user state"
 
 source "$MONARCH_PATH/install/reconcile/config-files.sh"
+source "$MONARCH_PATH/install/reconcile/noctalia-activation.sh"
 
 monarch_reconcile_seeded_file \
   "$MONARCH_PATH/config/alacritty/monarch-text-size.toml" \
@@ -31,11 +32,9 @@ defer_plugin_activation() {
   trap - EXIT
 }
 
-if noctalia msg status >/dev/null 2>&1; then
+if monarch_noctalia_wait 1; then
   plugins_ready=true
-  for plugin in monarch/indicators monarch/agents monarch/menu monarch/wifi-qr monarch/network monarch/display monarch/theme; do
-    noctalia msg plugins enable "$plugin" >/dev/null 2>&1 || plugins_ready=false
-  done
+  monarch_noctalia_enable_plugins >/dev/null 2>&1 || plugins_ready=false
   monarch-theme-apply >/dev/null 2>&1 || true
   if [[ $plugins_ready == "true" ]]; then
     rm -f "$plugin_hook"

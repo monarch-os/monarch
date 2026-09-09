@@ -17,6 +17,9 @@ test/monarch-kernel-headers-test.sh	kernel-packages	high	isolated
 test/monarch-menu-test.sh	menu	medium	isolated
 test/monarch-mise-agent-test.sh	developer-agents	medium	isolated
 test/monarch-reconcile-test.sh	updates	high	isolated
+test/shell.d/legacy-noctalia-config-test.sh	updates	high	isolated
+test/shell.d/managed-tree-test.sh	updates	medium	isolated
+test/shell.d/noctalia-activation-test.sh	desktop-shell	high	isolated
 test/shell.d/packaged-runtime-bootstrap-test.sh	updates	high	isolated
 test/shell.d/retired-sudoers-reconcile-test.sh	security	high	isolated
 test/monarch-network-test.sh	network	medium	isolated
@@ -71,6 +74,7 @@ test/shell.d/package-manifest-test.sh	package-install	high	isolated
 test/shell.d/packaged-runtime-path-test.sh	package-runtime	high	isolated
 test/shell.d/provision-owner-branding-test.sh	provisioning	low	isolated
 test/shell.d/provision-user-test.sh	provisioning	high	isolated
+test/shell.d/provision-first-run-test.sh	provisioning	high	isolated
 test/shell.d/provisioning-groups-test.sh	provisioning	medium	isolated
 test/shell.d/runtime-split-test.sh	package-runtime	high	isolated
 test/shell.d/security-fido2-remove-test.sh	security	high	isolated

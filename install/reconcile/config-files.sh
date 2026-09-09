@@ -39,6 +39,13 @@ monarch_reconcile_managed_tree() {
     return 1
   }
 
+  if [[ -d $target && ! -L $target ]] &&
+    diff -qr --no-dereference "$source" "$target" >/dev/null 2>&1 &&
+    cmp -s <(find "$source" -printf '%m %y %P\0' | LC_ALL=C sort -z) \
+      <(find "$target" -printf '%m %y %P\0' | LC_ALL=C sort -z); then
+    return 0
+  fi
+
   parent=$(dirname "$target")
   name=$(basename "$target")
   mkdir -p "$parent"
