@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# monarch:summary=Open a terminal whose command has authenticated Docker access
+# monarch:args=[--app-id=<id>] [--title=<title>] <command> [args...]
+# monarch:hidden=true
+
+set -euo pipefail
+
+app_id=""
+title=""
+
+while (( $# > 0 )); do
+  case "$1" in
+    --app-id=*) app_id="${1#--app-id=}" ;;
+    --title=*) title="${1#--title=}" ;;
+    --*)
+      echo "monarch-launch-docker-terminal: unknown option: $1" >&2
+      exit 2
+      ;;
+    *) break ;;
+  esac
+  shift
+done
+
+if (( $# == 0 )); then
+  echo "Usage: monarch-launch-docker-terminal [--app-id=<id>] [--title=<title>] <command> [args...]" >&2
+  exit 2
+fi
+
+systemd_run=$(type -P systemd-run)
+terminal=$(type -P xdg-terminal-exec)
+session=$(type -P monarch-launch-docker-session)
+terminal_args=()
+[[ -n $app_id ]] && terminal_args+=("--app-id=$app_id")
+[[ -n $title ]] && terminal_args+=("--title=$title")
+
+exec "$systemd_run" --user --scope --slice=app-graphical.slice --quiet --collect \
+  --same-dir --expand-environment=no -- \
+  "$terminal" "${terminal_args[@]}" -e "$session" "$@"

@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# monarch:summary=Run a command with authenticated, session-scoped Docker access
+# monarch:args=<command> [args...]
+# monarch:hidden=true
+
+set -euo pipefail
+
+if (( $# == 0 )); then
+  echo "Usage: monarch-launch-docker-session <command> [args...]" >&2
+  exit 2
+fi
+
+target=$(type -P -- "$1") || {
+  echo "monarch-launch-docker-session: command not found: $1" >&2
+  exit 127
+}
+shift
+
+if ! monarch-sudo-docker; then
+  exec "$target" "$@"
+fi
+
+docker_group=$(getent group docker) || {
+  echo "monarch-launch-docker-session: the docker group is unavailable" >&2
+  exit 1
+}
+
+docker_socket="${MONARCH_DOCKER_SOCKET:-/var/run/docker.sock}"
+account=$(/usr/bin/id -un)
+uid=$(/usr/bin/id -u)
+gid=$(/usr/bin/id -g)
+docker_gid=$(cut -d: -f3 <<<"$docker_group")
+groups=$(/usr/bin/id -G "$account" | tr ' ' ',')
+[[ ,$groups, == *,$docker_gid,* ]] || groups+=",$docker_gid"
+
+if [[ ! -e $docker_socket ]]; then
+  echo "Starting the Docker socket..."
+  sudo /usr/bin/systemctl start docker.socket
+fi
+
+environment=(
+  "HOME=$HOME"
+  "USER=$account"
+  "LOGNAME=$account"
+  "PATH=$PATH"
+  "DOCKER_HOST=unix://$docker_socket"
+)
+
+for name in SHELL TERM COLORTERM DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR \
+  XDG_CONFIG_HOME XDG_DATA_HOME XDG_STATE_HOME XDG_CACHE_HOME \
+  XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE \
+  DBUS_SESSION_BUS_ADDRESS NIRI_SOCKET XAUTHORITY SSH_AUTH_SOCK \
+  LANG LC_ALL LC_CTYPE LC_MESSAGES MONARCH_PATH; do
+  [[ -v $name ]] && environment+=("$name=${!name}")
+done
+
+echo "Docker requires authentication for this session."
+exec sudo -- /usr/bin/setpriv --reuid="$uid" --regid="$gid" --groups="$groups" \
+  --inh-caps=-all /usr/bin/env -u DOCKER_CONTEXT "${environment[@]}" "$target" "$@"
