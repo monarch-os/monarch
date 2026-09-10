@@ -23,7 +23,7 @@ binds {
     Alt+Shift+W hotkey-overlay-title="Browser (private)" { spawn "monarch-launch-browser" "--private"; }
     Mod+Shift+M hotkey-overlay-title="Music" { spawn "monarch-launch-or-focus" "deezer-desktop"; }
     Mod+Shift+N hotkey-overlay-title="Editor" { spawn "monarch-launch-editor"; }
-    Mod+Shift+D hotkey-overlay-title="Docker (lazydocker)" { spawn "monarch-launch-tui" "lazydocker"; }
+    Mod+Shift+D hotkey-overlay-title="Docker (lazydocker)" { spawn "monarch-launch-tui" "monarch-launch-docker-tui"; }
     Mod+Shift+O hotkey-overlay-title="Obsidian" { spawn "monarch-launch-or-focus" "^obsidian$" "uwsm-app -- obsidian"; }
     Mod+Shift+E hotkey-overlay-title="Email (Outlook)" { spawn "monarch-launch-or-focus-webapp" "Outlook" "https://outlook.office.com"; }
     Mod+Shift+C hotkey-overlay-title="Cyberchef" { spawn "monarch-launch-webapp" "Cyberchef" "https://gchq.github.io/CyberChef/"; }

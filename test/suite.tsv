@@ -45,6 +45,7 @@ test/monarch-screensaver-idle-test.sh	idle	medium	isolated
 test/monarch-sddm-test.sh	login-screen	high	isolated
 test/monarch-sshd-menu-test.sh	remote-access	high	isolated
 test/shell.d/sshd-hardening-test.sh	remote-access	high	isolated
+test/shell.d/sudoless-docker-toggle-test.sh	docker-security	high	isolated
 test/monarch-sudo-passwordless-test.sh	security	high	isolated
 test/monarch-tailscale-lifecycle-test.sh	tailscale	medium	isolated
 test/monarch-tailscale-receive-test.sh	tailscale	medium	isolated
@@ -60,6 +61,7 @@ test/monarch-wifi-band-test.sh	wifi	medium	isolated
 test/monarch-wifi-qr-test.sh	wifi	medium	isolated
 test/monarch-windows-key-test.sh	windows	low	isolated
 test/shell.d/dns-security-test.sh	dns	medium	isolated
+test/shell.d/docker-access-test.sh	docker-security	high	isolated
 test/shell.d/factory-reset-esp-test.sh	factory-reset	high	isolated
 test/shell.d/install-keyring-test.sh	installer	high	isolated
 test/shell.d/input-group-hardening-test.sh	security	high	isolated
@@ -72,6 +74,7 @@ test/shell.d/legacy-settings-pacnew-test.sh	updates	high	isolated
 test/shell.d/legacy-runtime-remove-test.sh	updates	high	isolated
 test/shell.d/package-manifest-test.sh	package-install	high	isolated
 test/shell.d/packaged-runtime-path-test.sh	package-runtime	high	isolated
+test/shell.d/pentest-docker-access-test.sh	docker-security	high	isolated
 test/shell.d/provision-owner-branding-test.sh	provisioning	low	isolated
 test/shell.d/provision-user-test.sh	provisioning	high	isolated
 test/shell.d/provision-first-run-test.sh	provisioning	high	isolated

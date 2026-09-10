@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# monarch:summary=Enable persistent passwordless Docker access (root-equivalent)
+# monarch:requires-sudo=true
+
+set -euo pipefail
+
+account=$(/usr/bin/id -un)
+
+if ! monarch-sudo-docker --configured; then
+  echo "Sudoless Docker is already enabled for $account."
+  echo "Disable it with: monarch remove security sudoless-docker"
+  exit 0
+fi
+
+if ! getent group docker >/dev/null; then
+  echo "The docker group is unavailable; Docker may not be installed." >&2
+  exit 1
+fi
+
+echo
+echo "⚠️  Enabling sudoless Docker grants persistent root-equivalent access."
+echo
+echo "Any process running as $account could control the root Docker daemon"
+echo "without authentication, mount the host filesystem, and take over the machine."
+echo "Monarch normally grants this access only to an authenticated Docker session."
+echo
+
+if ! gum confirm "Enable sudoless Docker? This gives your whole session passwordless root-equivalent access."; then
+  echo "Aborted. Docker access still requires authentication."
+  exit 0
+fi
+
+sudo /usr/bin/usermod -aG docker "$account"
+monarch-state set reboot-required
+
+echo
+echo "Sudoless Docker enabled. It takes effect after a reboot."
+echo "Disable it from Remove > Security > Sudoless Docker."
+
+if [[ -z ${MONARCH_DEFER_REBOOT:-} ]] && gum confirm "Reboot now to apply?"; then
+  monarch-system-reboot
+fi

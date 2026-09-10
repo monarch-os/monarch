@@ -182,6 +182,7 @@
   "setup.security.fingerprint": {"icon":"󰈷","label":"Fingerprint","when":"monarch-hw-fingerprint","checked":"[[ -f $HOME/.local/state/monarch/fingerprint-enabled ]]","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-fingerprint"},
   "setup.security.fido2": {"icon":"","label":"FIDO2","checked":"[[ -s /etc/fido2/fido2 ]] && grep -q pam_u2f.so /etc/pam.d/sudo","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-fido2"},
   "setup.security.sshd": {"icon":"󰣀","label":"SSH Server","description":"Enable SSH access or authorize another key","checked":"systemctl is-enabled --quiet sshd","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-sshd"},
+  "setup.security.sudoless-docker": {"icon":"󰡨","label":"Sudoless Docker","description":"Grant persistent root-equivalent Docker access","when":"monarch-sudo-docker --configured","action":"monarch-launch-floating-terminal-with-presentation monarch-setup-security-sudoless-docker"},
   "setup.factory-reset": {"icon":"󰑐","label":"Factory Reset","description":"Restore the read-only factory snapshot and provision a new owner","action":"monarch-launch-floating-terminal-with-presentation sudo monarch-system-factory-reset"},
   "setup.network.dns.dhcp": {"icon":"󰩟","label":"DHCP","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"DHCP\" ]]","action":"/usr/bin/monarch-dns DHCP"},
   "setup.network.dns.cloudflare": {"icon":"󰅟","label":"Cloudflare","checked":"[[ \"$(/usr/bin/monarch-dns)\" == \"Cloudflare\" ]]","action":"/usr/bin/monarch-dns Cloudflare"},
@@ -382,6 +383,7 @@
   "remove.security.fingerprint": {"icon":"󰈷","label":"Fingerprint","when":"[[ -f $HOME/.local/state/monarch/fingerprint-enabled ]]","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-security-fingerprint"},
   "remove.security.fido2": {"icon":"","label":"FIDO2","when":"[[ -s /etc/fido2/fido2 ]] && grep -q pam_u2f.so /etc/pam.d/sudo","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-security-fido2"},
   "remove.security.sshd": {"icon":"󰣀","label":"SSHD","when":"systemctl is-enabled --quiet sshd","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-security-sshd"},
+  "remove.security.sudoless-docker": {"icon":"󰡨","label":"Sudoless Docker","when":"! monarch-sudo-docker --configured","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-security-sudoless-docker"},
 
   // Remove > Browser
   "remove.browser.chrome": {"icon":"","label":"Chrome","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-browser chrome\"","when":"monarch-pkg-present google-chrome"},

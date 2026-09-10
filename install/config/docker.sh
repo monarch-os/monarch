@@ -4,10 +4,10 @@
 # the install user to the docker group by default, so a single rogue process
 # running as the user cannot silently escalate to root.
 #
-# The daemon is still enabled (docker.socket, in enable-services.sh) for system
-# use. The Docker TUI (Super + Shift + D) and the Windows VM reach it through a
-# polkit prompt, and the plain `docker` CLI runs under sudo. Users who want the
-# convenience back can opt in, behind a warning, with:
+# The daemon is still enabled (docker.socket, in enable-services.sh). Lazydocker,
+# Exegol and RF Swift receive docker-group access only for their authenticated
+# process tree; the Windows VM uses its root-owned polkit boundary. Users who
+# accept root-equivalent access for their whole session can opt in with:
 #
 #   monarch-setup-security-sudoless-docker   (Setup > Security > Sudoless Docker)
 #
