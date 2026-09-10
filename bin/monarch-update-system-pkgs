@@ -3,7 +3,34 @@
 # monarch:summary=Update system packages with pacman
 # monarch:requires-sudo=true
 
-set -e
+set -euo pipefail
 
 echo -e "\e[32m\nUpdate system packages\e[0m"
-sudo env MONARCH_UPDATE_PACMAN=1 pacman -Syyu --noconfirm
+
+errors=$(mktemp)
+trap 'rm -f "$errors"' EXIT
+
+if sudo /usr/bin/env LC_ALL=C MONARCH_UPDATE_PACMAN=1 /usr/bin/pacman \
+  -Syyu --noconfirm 2>"$errors"; then
+  update_status=0
+else
+  update_status=$?
+fi
+cat "$errors" >&2
+
+(( update_status != 0 )) || exit 0
+
+# A package replacement is a user decision. Filesystem conflicts remain
+# untouched: Pacman's report is not authority to move live system state.
+if grep -q 'unresolvable package conflicts detected' "$errors"; then
+  if [[ ${MONARCH_UPDATE_UNATTENDED:-} == "1" || ! -t 0 || ! -t 2 ]]; then
+    echo -e "\e[33m\nThis upgrade needs an answer. Run monarch update interactively to give it.\e[0m" >&2
+    exit "$update_status"
+  fi
+
+  echo -e "\e[33m\nA package conflict stopped this upgrade. Running it again so you can answer:\e[0m"
+  sudo /usr/bin/env MONARCH_UPDATE_PACMAN=1 /usr/bin/pacman -Su
+  exit $?
+fi
+
+exit "$update_status"

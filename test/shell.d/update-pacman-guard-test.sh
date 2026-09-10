@@ -56,7 +56,7 @@ grep -Fxq 'Exec = /usr/bin/monarch-update-pacman-guard' "$hook" ||
   fail "pacman guard hook uses the packaged command"
 
 for command in monarch-update-system-pkgs monarch-refresh-pacman monarch-reinstall-pkgs; do
-  grep -Fq 'MONARCH_UPDATE_PACMAN=1 pacman -S' "$ROOT/bin/$command" ||
+  grep -Eq 'MONARCH_UPDATE_PACMAN=1 (/usr/bin/)?pacman' "$ROOT/bin/$command" ||
     fail "$command marks its system upgrades as Monarch-owned"
 done
 pass "every Monarch-owned system-upgrade path opts into the guard"
