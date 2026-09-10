@@ -4,6 +4,7 @@ echo "Reconcile Monarch user state"
 
 source "$MONARCH_PATH/install/reconcile/config-files.sh"
 source "$MONARCH_PATH/install/reconcile/noctalia-activation.sh"
+source "$MONARCH_PATH/install/reconcile/chromium-flags.sh"
 
 monarch_reconcile_seeded_file \
   "$MONARCH_PATH/config/alacritty/monarch-text-size.toml" \
