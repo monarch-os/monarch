@@ -3,7 +3,7 @@ source "$MONARCH_PATH/install/helpers/browser-policy.sh"
 
 for dir in "${BROWSER_POLICY_MANAGED_DIRS[@]}"; do
   [[ -e $dir || -L $dir ]] || continue
-  browser_policy_setup_dir "$dir"
+  browser_policy_setup_chromium "$dir"
 done
 
 for dir in "${BROWSER_POLICY_FIREFOX_DIRS[@]}"; do

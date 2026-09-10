@@ -4,6 +4,9 @@ for browser_flags in \
   "$HOME/.config/chrome-flags.conf" \
   "$HOME/.config/microsoft-edge-stable-flags.conf"; do
   [[ -f $browser_flags ]] || continue
+  if [[ ! -L $browser_flags ]] && grep -qxF -- '--disable-features=Translate' "$browser_flags"; then
+    sed -i '\|^--disable-features=Translate$|d' "$browser_flags"
+  fi
   grep -Eq '^[[:space:]]*--password-store(=|[[:space:]])' "$browser_flags" && continue
 
   [[ -z $(tail -c1 "$browser_flags") ]] || printf '\n' >>"$browser_flags"

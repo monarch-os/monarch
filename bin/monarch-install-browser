@@ -6,7 +6,7 @@
 
 setup_policy_directory() {
   source "${MONARCH_PATH:-/usr/share/monarch}/install/helpers/browser-policy.sh"
-  browser_policy_setup_dir "$1"
+  browser_policy_setup_chromium "$1"
 }
 
 announce_browser_installed() {

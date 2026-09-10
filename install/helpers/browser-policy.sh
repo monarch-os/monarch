@@ -59,6 +59,14 @@ browser_policy_setup_dir() {
   browser_policy_purge_untrusted "$dir"
 }
 
+browser_policy_setup_chromium() {
+  local dir="$1"
+  local policies="${2:-${MONARCH_PATH:-/usr/share/monarch}/default/chromium/policies.json}"
+
+  browser_policy_setup_dir "$dir"
+  as_root install -m 0644 -o root -g root -T "$policies" "$dir/monarch.json"
+}
+
 browser_policy_file_trusted() {
   local file="$1" mode
 

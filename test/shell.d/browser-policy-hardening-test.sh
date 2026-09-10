@@ -41,7 +41,7 @@ grep -qF 'browser_policy_file_trusted "$entry" || as_root rm -rf -- "$entry"' \
 grep -qF '/usr/bin/monarch-theme-set-browser-policy [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]' "$sudoers"
 
 ! rg -q 'chmod (a\+rw|77[0-9])' "$ROOT/install" "$ROOT/bin"
-grep -qF 'browser_policy_setup_dir /etc/chromium/policies/managed' \
+grep -qF 'browser_policy_setup_chromium /etc/chromium/policies/managed' \
   "$ROOT/install/config/browser-policy.sh"
 grep -qF 'install/reconcile/browser-policy.sh' "$ROOT/install/reconcile/system.sh"
 grep -qF '"$MONARCH_ROOT/bin/monarch-theme-set-browser-policy" "${hex,,}"' \
