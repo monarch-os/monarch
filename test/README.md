@@ -26,12 +26,11 @@ code, so privileged assertions cannot accidentally validate development files.
 to `MONARCH_ACCEPTANCE_DIR`.
 
 For a headless Niri VM, run it from `monarch-iso` with virgl and test-only
-autologin; the legacy Hyprland shortcut smoke phase is intentionally skipped on
-this path:
+autologin:
 
 ```bash
 ./bin/monarch-iso-test release/monarch.iso \
-  --sync-monarch ../monarch --skip-shortcuts --acceptance-autologin
+  --sync-monarch ../monarch --acceptance-autologin
 ```
 
 The webapp tests use ImageMagick, `desktop-file-validate`, Python GObject
