@@ -89,6 +89,7 @@ current_provider() {
 
 write_nm_dns() {
   install -d -m 0755 "$(dirname "$NM_DNS_CONF")"
+  # monarch:heredoc-expands paths=none -- $1 is a normalized single-line DNS list.
   cat >"$NM_DNS_CONF" <<EOF
 # Managed by monarch-dns. Remove this file, or run \`monarch-dns DHCP\`, to take
 # the DNS servers from DHCP again.
@@ -138,6 +139,7 @@ split_by_family() {
 }
 
 write_resolved() {
+  # monarch:heredoc-expands paths=none -- $1 is a normalized DNS list and $FALLBACK is fixed.
   cat >"$RESOLVED_CONF" <<EOF
 [Resolve]
 DNS=$1

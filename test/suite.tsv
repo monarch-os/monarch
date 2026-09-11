@@ -1,4 +1,5 @@
 path	feature	risk	environment
+test/shell.d/acceptance-target-test.sh	acceptance-security	high	isolated
 test/monarch-about-test.sh	about	low	isolated
 test/monarch-agent-usage-codex-test.sh	agent-usage	medium	isolated
 test/monarch-bar-position-test.sh	desktop-bar	medium	isolated
@@ -81,6 +82,7 @@ test/shell.d/provision-owner-branding-test.sh	provisioning	low	isolated
 test/shell.d/provision-user-test.sh	provisioning	high	isolated
 test/shell.d/provision-first-run-test.sh	provisioning	high	isolated
 test/shell.d/provisioning-groups-test.sh	provisioning	medium	isolated
+test/shell.d/privileged-heredoc-test.sh	security	high	isolated
 test/shell.d/runtime-split-test.sh	package-runtime	high	isolated
 test/shell.d/security-fido2-remove-test.sh	security	high	isolated
 test/shell.d/security-fido2-test.sh	security	high	isolated
