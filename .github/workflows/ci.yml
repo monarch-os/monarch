@@ -45,5 +45,5 @@ jobs:
           find install migrations -name '*.sh' \
             | xargs shellcheck --shell=bash --severity=error
 
-      - name: Lint test runner
-        run: shellcheck --severity=error test/run
+      - name: Lint test entry points
+        run: shellcheck --severity=error test/run test/acceptance test/acceptance.d/*.sh

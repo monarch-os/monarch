@@ -40,7 +40,9 @@ printf 'systemctl\t%s\n' "$*" >>"$CUPS_TEST_LOG"
 case $1 in
   show)
     [[ $CUPS_TEST_SYSTEMD_FAILS == false ]] || exit 1
-    if [[ $CUPS_TEST_ACTIVE == true || $CUPS_TEST_ENABLED == true ]]; then
+    if [[ $CUPS_TEST_CHROOTED == true ]]; then
+      echo "Running in chroot, ignoring command 'show'"
+    elif [[ $CUPS_TEST_ACTIVE == true || $CUPS_TEST_ENABLED == true ]]; then
       echo loaded
     else
       echo not-found
@@ -91,6 +93,7 @@ reset_case() {
   enabled=true
   active=true
   systemd_fails=false
+  chrooted=false
   lpstat_fails=false
   queues=""
   busy=""
@@ -109,6 +112,7 @@ run_retirement() {
     CUPS_TEST_ENABLED="$enabled" \
     CUPS_TEST_ACTIVE="$active" \
     CUPS_TEST_SYSTEMD_FAILS="$systemd_fails" \
+    CUPS_TEST_CHROOTED="$chrooted" \
     CUPS_TEST_LPSTAT_FAILS="$lpstat_fails" \
     CUPS_TEST_QUEUES="$queues" \
     CUPS_TEST_BUSY="$busy" \
@@ -170,6 +174,17 @@ grep -qxF $'lpadmin\t-x Orphan' "$log" ||
 [[ -f $marker ]] || fail "package-absent state was not recorded"
 ! grep -q $'pacman\t-R ' "$log" || fail "an absent package was removed again"
 pass "package-absent systems lose generated queues and stale enablement"
+
+reset_case
+installed=false
+enabled=false
+active=false
+chrooted=true
+run_retirement
+! grep -qF $'systemctl\tdisable --now cups-browsed.service' "$log" ||
+  fail "chroot reconciliation tried to stop a service manager that is not running"
+[[ -f $marker ]] || fail "fresh chroot retirement was not recorded"
+pass "fresh chroot installs accept systemctl's ignored show query"
 
 reset_case
 query_fails=true

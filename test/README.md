@@ -18,6 +18,22 @@ and PyPI repositories. `TEST_JOBS` controls file-level parallelism and defaults
 to four. Tests own their temporary directories and must not depend on execution
 order or another test's fixtures.
 
+`test/acceptance` runs inside an installed graphical Monarch system. It defaults
+`MONARCH_PATH` to `/usr/share/monarch`, while the checkout supplies only the test
+code, so privileged assertions cannot accidentally validate development files.
+`monarch-iso-test` runs it in a disposable VM overlay and supplies
+`MONARCH_ACCEPTANCE_SUDO_PASSWORD` for the SSH hardening exercise. Artifacts go
+to `MONARCH_ACCEPTANCE_DIR`.
+
+For a headless Niri VM, run it from `monarch-iso` with virgl and test-only
+autologin; the legacy Hyprland shortcut smoke phase is intentionally skipped on
+this path:
+
+```bash
+./bin/monarch-iso-test release/monarch.iso \
+  --sync-monarch ../monarch --skip-shortcuts --acceptance-autologin
+```
+
 The webapp tests use ImageMagick, `desktop-file-validate`, Python GObject
 bindings, Gio/GTK introspection data and the hicolor icon theme. The font tests
 also need XMLStarlet, fontconfig and Python 3.11 or newer. On Ubuntu, install

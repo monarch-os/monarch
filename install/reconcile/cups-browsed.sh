@@ -21,7 +21,7 @@ record_retirement() {
 stop_discovery() {
   local load_state
 
-  if ! load_state=$(systemctl show cups-browsed.service \
+  if ! load_state=$(LC_ALL=C systemctl show cups-browsed.service \
     --property=LoadState --value 2>&1); then
     printf '%s\n' "$load_state" >&2
     return 1
@@ -30,6 +30,7 @@ stop_discovery() {
   case $load_state in
     loaded | masked) systemctl disable --now cups-browsed.service >/dev/null ;;
     not-found) ;;
+    "Running in chroot, ignoring command 'show'") ;;
     *)
       echo "Unexpected cups-browsed service state: $load_state" >&2
       return 1
