@@ -8,6 +8,7 @@ set -euo pipefail
 
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 STATUS="$ROOT/bin/monarch-network-status"
+PORTAL="$ROOT/bin/monarch-network-captive-portal"
 LIST="$ROOT/bin/monarch-wifi-list"
 JOIN="$ROOT/bin/monarch-wifi-join"
 CONNECT="$ROOT/bin/monarch-wifi-connect"
@@ -51,6 +52,7 @@ cat >"$TMP/bin/nmcli" <<'STUB'
 #!/bin/bash
 printf '%s\n' "$*" >>"$NM_CALLS"
 case "$*" in
+  *"CONNECTIVITY general"*) printf '%s\n' "${NM_CONNECTIVITY:-full}" ;;
   *"GENERAL.STATE,GENERAL.CONNECTION dev show"*)
     printf 'GENERAL.STATE:%s\nGENERAL.CONNECTION:%s\n' "$NM_STATE" "$NM_CONN" ;;
   *"IN-USE,SIGNAL dev wifi list"*) printf '*:%s\n' "$NM_SIGNAL" ;;
@@ -105,6 +107,7 @@ printf '4096\n' >"$TMP/sys/eth0/statistics/rx_bytes"
 printf '2048\n' >"$TMP/sys/eth0/statistics/tx_bytes"
 
 export IP_DEV="" NM_STATE="100 (connected)" NM_CONN="Cafe" NM_SIGNAL="72"
+export NM_CONNECTIVITY="full"
 export IW_SSID="Cafe" IW_FREQ="5745.0"
 
 # ── The pill line ────────────────────────────────────────────────────────────
@@ -120,6 +123,8 @@ export MONARCH_RESOLVED_CONF="$TMP/resolved.conf"
 
 printf '[Resolve]\nDNS=1.1.1.1#cloudflare-dns.com 1.0.0.1\n' >"$MONARCH_RESOLVED_CONF"
 verbose=$("$STATUS" --verbose)
+assert_equals "reports NetworkManager connectivity" \
+  "$(awk '$1=="connectivity" {print $2}' <<<"$verbose")" "full"
 assert_equals "recognises the Cloudflare profile" \
   "$(awk '$1=="dns" {print $2}' <<<"$verbose")" "Cloudflare"
 assert_equals "reports the address" \
@@ -136,6 +141,33 @@ assert_equals "a device with no wireless directory reads as ethernet" \
   "$(awk '$1=="type" {print $2}' <<<"$verbose")" "ethernet"
 assert_equals "reports the negotiated ethernet speed" \
   "$(awk '$1=="speed" {print $2}' <<<"$verbose")" "11"
+
+portal_status=$(NM_CONNECTIVITY=portal "$STATUS" --verbose)
+assert_equals "reports a captive portal" \
+  "$(awk '$1=="connectivity" {print $2}' <<<"$portal_status")" "portal"
+unknown_status=$(NM_CONNECTIVITY=unexpected "$STATUS" --verbose)
+assert_equals "normalises an unknown connectivity response" \
+  "$(awk '$1=="connectivity" {print $2}' <<<"$unknown_status")" "unknown"
+
+cat >"$TMP/bin/monarch-launch-browser" <<'STUB'
+#!/bin/bash
+printf '%s\n' "$*" >"$BROWSER_CALL"
+STUB
+chmod +x "$TMP/bin/monarch-launch-browser"
+export BROWSER_CALL="$TMP/browser-call"
+"$PORTAL"
+assert_equals "captive sign-in opens only the fixed Arch HTTP probe" \
+  "$(<"$BROWSER_CALL")" "http://ping.archlinux.org/nm-check.txt"
+if "$PORTAL" https://example.test >/dev/null 2>&1; then
+  fail "captive sign-in accepted a caller-controlled URL"
+fi
+pass "captive sign-in rejects caller-controlled URLs"
+
+grep -Fq 'info.connectivity ~= "portal" and info.connectivity ~= "limited"' "$PANEL" ||
+  fail "the panel hides captive sign-in on full connectivity"
+grep -Fq 'noctalia.runAsync(PORTAL_CMD)' "$PANEL" ||
+  fail "the panel exposes captive sign-in as an explicit action"
+pass "the panel exposes captive sign-in only when NetworkManager requests it"
 
 wireless=$(IP_ROUTE_JSON='[{"dev":"wlan0","gateway":"10.0.0.1","prefsrc":"10.0.0.5"}]' "$STATUS" --verbose)
 assert_equals "a device with one takes the wireless branch" \

@@ -13,6 +13,7 @@ spawn-at-startup "uwsm-app" "--" "noctalia" "-d"
 spawn-at-startup "monarch-toggle-bar" "apply"
 
 spawn-at-startup "uwsm-app" "--" "fcitx5" "--disable" "notificationitem"
+spawn-at-startup "udiskie" "--automount" "--no-notify" "--no-tray"
 
 // Power management
 spawn-at-startup "monarch-powerprofiles-set"
