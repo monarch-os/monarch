@@ -12,7 +12,7 @@ evidence that its Hyprland implementation belongs in Monarch.
 | Candidate | Primary evidence and factual limit | P2 decision |
 | --- | --- | --- |
 | Niri window-layout save/restore | Niri exposes current windows and partial layout geometry, but window/workspace IDs last only for the current compositor lifetime. Its action API has no save/restore transaction; several column actions operate on focus, so replay is multi-step and race-prone. [`Window`](https://github.com/niri-wm/niri/blob/v26.04/niri-ipc/src/lib.rs#L1251), [`WindowLayout`](https://github.com/niri-wm/niri/blob/v26.04/niri-ipc/src/lib.rs#L1304), [`Workspace`](https://github.com/niri-wm/niri/blob/v26.04/niri-ipc/src/lib.rs#L1358), [requests/actions](https://github.com/niri-wm/niri/blob/v26.04/niri-ipc/src/lib.rs#L12) | **Do not ship generic persistence.** At most prototype an explicitly labelled, best-effort rearranger for windows that are already open. Revisit when Niri provides a stable session/layout contract. |
-| Keyboard screenshot targeting | Niri has an interactive screenshot UI and direct screen/window actions. The native UI accepts normal compositor move/resize actions, but it is a movable rectangular selection, not Quattro's Tab/arrow window cycler. `screenshot-window` can target a current window ID. [v25.05 notes](https://github.com/niri-wm/niri/discussions/1589), [v26.04](https://github.com/niri-wm/niri/releases/tag/v26.04), [IPC actions](https://github.com/niri-wm/niri/blob/v26.04/niri-ipc/src/lib.rs#L216) | **Accept through Niri-native interaction, not a Hyprland port.** Add a native keyboard route while retaining Monarch's explicit region/window/fullscreen and editor pipeline. An exact window list can later use a launcher plus `screenshot-window --id`. |
+| Keyboard screenshot targeting | Niri has an interactive screenshot UI and direct screen/window actions. The native UI accepts normal compositor move/resize actions, but it is a movable rectangular selection, not Quattro's Tab/arrow window cycler. `screenshot-window` can target a current window ID. [v25.05 notes](https://github.com/niri-wm/niri/discussions/1589), [v26.04](https://github.com/niri-wm/niri/releases/tag/v26.04), [IPC actions](https://github.com/niri-wm/niri/blob/v26.04/niri-ipc/src/lib.rs#L216) | **Do not add a separate default route.** It duplicates the existing capture workflow while bypassing Monarch's editor pipeline. The native action remains available for a user binding; an exact window list can later use a launcher plus `screenshot-window --id` if semantic targeting becomes necessary. |
 | Active-window bar item | Noctalia v5.1 already supplies `active_window`, showing the focused app icon/title on the current output. [documentation](https://docs.noctalia.dev/noctalia/bar/widgets/active-window/), [implementation](https://github.com/noctalia-dev/noctalia/blob/c7b9197af77ff22bfb9a83c52a95643a1d90ca86/src/shell/bar/widgets/active_window_widget.cpp) | **Available, off by default.** It adds persistent title noise and can expose private titles during sharing; users can enable the built-in without Monarch code. |
 | Weather | Noctalia v5.1 already has bar and desktop weather surfaces backed by its shared weather service; it is disabled by default and requires a position. Automatic location/geocoding uses `api.noctalia.dev`; manual coordinates avoid that step, while forecasts use Open-Meteo. [weather service](https://docs.noctalia.dev/noctalia/services/weather/), [location](https://docs.noctalia.dev/noctalia/services/location/), [implementation](https://github.com/noctalia-dev/noctalia/blob/c7b9197af77ff22bfb9a83c52a95643a1d90ca86/src/system/weather_service.cpp) | **Keep opt-in.** Prefer Noctalia's native service for users who enable weather; make automatic location an explicit privacy choice. |
 | Dedicated microphone widget | The native `volume` widget supports `device = "input"`, mute state, `hide_when_inactive`, and microphone IPC. The `privacy` widget already reports active microphone capture. [volume](https://docs.noctalia.dev/noctalia/bar/widgets/volume/), [privacy](https://docs.noctalia.dev/noctalia/bar/widgets/privacy/), [implementation](https://github.com/noctalia-dev/noctalia/blob/c7b9197af77ff22bfb9a83c52a95643a1d90ca86/src/shell/bar/widgets/volume_widget.cpp) | **No additional default item.** Existing privacy indication, mic keybind/OSD, and audio panel cover the default case. Document the built-in input-volume variant for users wanting a permanent control. |
@@ -76,11 +76,11 @@ keyboard window target selector. [Noctalia screenshot IPC](https://docs.noctalia
 
 ### Product conclusion
 
-Expose the native Niri route as the low-maintenance keyboard mode, while
-preserving Monarch's current explicit modes and post-capture editor behavior.
-Do not silently replace Print until the save/copy/editor behavior has an
-acceptance test. If semantic selection is later mandatory, a launcher listing
-current Niri windows is safer than emulating Hyprland's temporary input layer.
+Do not add a default shortcut for Niri's native UI. Its rectangular selector
+adds little beside Monarch's existing explicit modes and does not preserve the
+post-capture editor behavior. Users can bind the native action themselves. If
+semantic selection later becomes mandatory, a launcher listing current Niri
+windows is safer than emulating Hyprland's temporary input layer.
 
 ## Noctalia ownership boundary
 
@@ -118,7 +118,5 @@ autostart and launcher files above do. The resulting P2 package set is therefore
 - Require `udiskie` as a session service and install `dua-cli` by default, start one trayless `udiskie`
   daemon, and expose `dua` through a launcher entry that disappears when the
   command is absent.
-- Add a separate `Ctrl+Print` route to Niri's native keyboard-driven screenshot
-  UI without changing Monarch's existing `Print` editor workflow.
 - Implement captive-portal state and the explicit sign-in action separately in
   the existing Monarch network panel.

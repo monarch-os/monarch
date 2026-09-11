@@ -872,8 +872,8 @@ Monarch interactions; do not assume the replacement should be a standalone TUI.
 #### P2 — explicit product choices, not automatic parity work
 
 - The decisions are recorded in `Q21-P2-PRODUCT-DECISIONS.md`. Generic layout
-  restore is deferred because Niri has no stable session contract; its native
-  keyboard screenshot UI gets a separate route without replacing `Print`.
+  restore is deferred because Niri has no stable session contract. Niri's
+  native screenshot UI remains user-configurable but gets no default route.
 - Keep active-window and weather opt-in, avoid a second default microphone
   item, use Noctalia's native richer media surfaces, keep generic PiP, and do
   not add the Meet heuristic. Add captive-portal assistance to Monarch's

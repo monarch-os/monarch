@@ -245,10 +245,6 @@ assert_contains "keybindings list the close-window aliases together" "$output" \
   "SUPER + Q / SUPER SHIFT + Q"
 assert_equals "keybindings list close-window once" \
   "$(grep -Fc 'Close active window' <<<"$output")" "1"
-assert_contains "keybindings expose Niri's keyboard screenshot UI" "$output" \
-  "CTRL + Print"
-assert_contains "keyboard screenshot keeps its distinct description" "$output" \
-  "Keyboard-driven screenshot"
 
 # An exact id must beat an alias that names something else.
 cat >"$USER_MENU" <<'EOF'
