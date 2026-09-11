@@ -878,8 +878,9 @@ Monarch interactions; do not assume the replacement should be a standalone TUI.
   item, use Noctalia's native richer media surfaces, keep generic PiP, and do
   not add the Meet heuristic. Add captive-portal assistance to Monarch's
   network panel. Defer Fireworks usage and keep Hermes optional.
-- Add `mpv-mpris`, `udiskie`, and `dua-cli` with its launcher. Keep `yt-dlp` and
-  Docker multi-arch binfmt optional. Moonlight keeps its optional installer.
+- Add `mpv-mpris` and `dua-cli` with its launcher. Keep `udiskie`, `yt-dlp`, and
+  Docker multi-arch binfmt out of the default install. Moonlight keeps its
+  optional installer.
 - Keep Dropbox, ONCE and Sunshine under their existing decisions. Keep native
   Noctalia clipboard/history, themes, panels and plugin lifecycle instead of
   porting Quattro's QML/Hyprland implementation details.

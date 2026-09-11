@@ -35,7 +35,7 @@ for package in "${all[@]}"; do
   all_packages[$package]=true
 done
 
-for package in chromium fuzzel gpu-screen-recorder grim localsend mpv mpv-mpris neovim niri noctalia networkmanager sddm slurp udiskie uwsm yay zbar; do
+for package in chromium fuzzel gpu-screen-recorder grim localsend mpv mpv-mpris neovim niri noctalia networkmanager sddm slurp uwsm yay zbar; do
   [[ -v required_packages[$package] ]] || fail "$package is a required package"
 done
 
@@ -50,9 +50,6 @@ grep -qF 'Exec=monarch-launch-tui --app-id=org.monarch.disk-usage dua interactiv
   fail "Disk Usage launches dua interactively"
 grep -qF 'match app-id="org.monarch.disk-usage"' "$ROOT/default/niri/windows.kdl" ||
   fail "Disk Usage has a dedicated Niri window rule"
-grep -qF 'spawn-at-startup "udiskie" "--automount" "--no-notify" "--no-tray"' \
-  "$ROOT/default/niri/autostart.kdl" || fail "udiskie starts once per Niri session"
-
 [[ -v required_packages[cups] ]] || fail "CUPS is a required package"
 [[ -v required_packages[cups-filters] ]] || fail "CUPS filters are required"
 [[ -v required_packages[system-config-printer] ]] || fail "Print Settings is required"
