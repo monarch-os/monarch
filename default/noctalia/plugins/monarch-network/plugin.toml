@@ -16,7 +16,7 @@ version     = "1.0.0"
 plugin_api  = 22
 author      = "monarch"
 license     = "MIT"
-description = "Connection state, Wi-Fi band, DNS, network list and speed tests."
+description = "Connection state, captive sign-in, Wi-Fi band, DNS, network list and speed tests."
 icon        = "wifi"
 
 [[widget]]

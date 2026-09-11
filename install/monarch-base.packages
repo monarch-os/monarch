@@ -62,6 +62,7 @@ mise
 monarch-keyring
 monarch-nvim
 mpv
+mpv-mpris
 neovim
 networkmanager
 niri
@@ -130,6 +131,7 @@ bore
 caido-desktop
 clang
 deezer
+dua-cli
 evince
 exfatprogs
 fabric-ai-bin

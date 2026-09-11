@@ -871,15 +871,16 @@ Monarch interactions; do not assume the replacement should be a standalone TUI.
 
 #### P2 — explicit product choices, not automatic parity work
 
-- Evaluate a Niri-native window layout save/restore flow and keyboard-driven
-  screenshot target selection.
-- Decide whether the default product wants active-window, weather, dedicated
-  microphone and richer media widgets; Fireworks usage and Google Meet picture-
-  in-picture; captive-portal handling; or Hermes integration.
-- Decide separately whether to add Quattro's small default utilities and
-  services (`udiskie`, `mpv-mpris`, `yt-dlp`, `dua-cli`, Docker multi-arch
-  binfmt). Moonlight already has an optional installer and need not become a
-  default merely for parity.
+- The decisions are recorded in `Q21-P2-PRODUCT-DECISIONS.md`. Generic layout
+  restore is deferred because Niri has no stable session contract. Niri's
+  native screenshot UI remains user-configurable but gets no default route.
+- Keep active-window and weather opt-in, avoid a second default microphone
+  item, use Noctalia's native richer media surfaces, keep generic PiP, and do
+  not add the Meet heuristic. Add captive-portal assistance to Monarch's
+  network panel. Defer Fireworks usage and keep Hermes optional.
+- Add `mpv-mpris` and `dua-cli` with its launcher. Keep `udiskie`, `yt-dlp`, and
+  Docker multi-arch binfmt out of the default install. Moonlight keeps its
+  optional installer.
 - Keep Dropbox, ONCE and Sunshine under their existing decisions. Keep native
   Noctalia clipboard/history, themes, panels and plugin lifecycle instead of
   porting Quattro's QML/Hyprland implementation details.

@@ -89,6 +89,17 @@ print_dns() {
   esac
 }
 
+print_connectivity() {
+  local state
+
+  state=$(LC_ALL=C nmcli -t -f CONNECTIVITY general 2>/dev/null)
+  case "$state" in
+    full | limited | portal | none | unknown) ;;
+    *) state=unknown ;;
+  esac
+  printf 'connectivity\t%s\n' "$state"
+}
+
 ping_latency_ms() {
   LC_ALL=C ping -n -c 1 -W 1 "$1" 2>/dev/null |
     awk -F'time[=<]' '/time[=<]/ { split($2, parts, " "); print parts[1]; exit }'
@@ -122,6 +133,7 @@ print_verbose() {
   local route iface gw src prefix link stats
 
   route=$(ip -j route get "$INTERNET_PROBE" 2>/dev/null)
+  print_connectivity
   print_dns
   [[ -n $route ]] || return 0
 

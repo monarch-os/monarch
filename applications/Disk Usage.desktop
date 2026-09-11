@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Disk Usage
+Comment=Inspect disk usage interactively
+TryExec=dua
+Exec=monarch-launch-tui --app-id=org.monarch.disk-usage dua interactive /
+Icon=Disk Usage
+Terminal=false
+Categories=System;Filesystem;

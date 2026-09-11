@@ -21,6 +21,7 @@ local FORGET_CMD = shared.bin("monarch-wifi-forget")
 local DISCONNECT_CMD = shared.bin("monarch-wifi-disconnect")
 local RADIO_CMD = shared.bin("monarch-toggle-wifi")
 local DNS_CMD = shared.bin("monarch-setup-dns")
+local PORTAL_CMD = shared.bin("monarch-network-captive-portal")
 local TERMINAL_CMD = shared.bin("monarch-launch-floating-terminal-with-presentation")
 -- The Monarch runtime installs this path root-owned, and monarch-settings
 -- grants the three fixed providers passwordless in etc/sudoers.d/monarch-dns.
@@ -485,6 +486,29 @@ local function hero(): any
   return ui.row({ key = "hero", align = "center", gap = 12 }, children)
 end
 
+local function captivePortal(): { any }
+  if info.connectivity ~= "portal" and info.connectivity ~= "limited" then
+    return {}
+  end
+
+  local title = info.connectivity == "portal" and "Sign-in required" or "Limited connectivity"
+  return {
+    ui.row({
+      key = "portal",
+      gap = 10,
+      align = "center",
+      paddingH = 10,
+      paddingV = 8,
+      radius = 8,
+      fill = "surface_variant",
+    }, {
+      ui.glyph({ key = "icon", name = "alert-triangle", color = "error" }),
+      ui.label({ key = "title", text = title, fontSize = 12, color = "on_surface", flexGrow = 1 }),
+      ui.button({ key = "open", text = "Sign in", controlSize = "sm", onClick = "onPortalClicked" }),
+    }),
+  }
+end
+
 local function shown(value: string?): string
   return (value ~= nil and value ~= "") and value or "—"
 end
@@ -783,6 +807,9 @@ end
 function render()
   local body = { hero() }
 
+  for _, node in ipairs(captivePortal()) do
+    table.insert(body, node)
+  end
   for _, node in ipairs(connectionBlock()) do
     table.insert(body, node)
   end
@@ -870,6 +897,10 @@ end
 
 function onSpeedTestClicked()
   noctalia.togglePanel("monarch/network:speedtest")
+end
+
+function onPortalClicked()
+  noctalia.runAsync(PORTAL_CMD)
 end
 
 function onRadioChanged(checked)
