@@ -6,8 +6,8 @@
     "color": { "1": "green" },
     "padding": {
       "top": 2,
-      "right": 6,
-      "left": 2,
+      "right": 0,
+      "left": 8,
     },
   },
   "modules": [
