@@ -15,6 +15,7 @@ test/monarch-display-test.sh	displays	high	isolated
 test/monarch-drive-password-test.sh	drive-encryption	high	isolated
 test/monarch-hardware-menu-test.sh	hardware-menu	medium	isolated
 test/monarch-internal-display-test.sh	displays	high	isolated
+test/shell.d/broadcom-driver-test.sh	hardware-detection	medium	isolated
 test/shell.d/hw-gpu-detection-test.sh	hardware-detection	medium	isolated
 test/monarch-kernel-headers-test.sh	kernel-packages	high	isolated
 test/monarch-menu-test.sh	menu	medium	isolated
@@ -70,6 +71,7 @@ test/shell.d/install-keyring-test.sh	installer	high	isolated
 test/shell.d/input-group-hardening-test.sh	security	high	isolated
 test/shell.d/legacy-agent-reconcile-test.sh	updates	high	isolated
 test/shell.d/legacy-alacritty-reconcile-test.sh	updates	high	isolated
+test/shell.d/legacy-kitty-reconcile-test.sh	updates	high	isolated
 test/shell.d/legacy-docker-firewall-test.sh	security	high	isolated
 test/shell.d/legacy-udev-reconcile-test.sh	security	high	isolated
 test/shell.d/legacy-user-files-test.sh	updates	high	isolated

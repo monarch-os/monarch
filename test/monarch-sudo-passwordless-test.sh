@@ -59,3 +59,45 @@ case $grant_path in
 esac
 
 echo "Passwordless sudo grants are cleared after a reboot"
+
+cat >"$TMP/bin/gum" <<'EOF'
+#!/bin/bash
+exit 0
+EOF
+
+cat >"$TMP/bin/sudo" <<'EOF'
+#!/bin/bash
+printf 'sudo %s\n' "$*" >>"$LOG"
+case $1 in
+  test)
+    exit 1
+    ;;
+  tee)
+    cat >"$TEST_GRANT"
+    ;;
+  chmod)
+    chmod "$2" "$TEST_GRANT"
+    ;;
+  systemd-run)
+    exit 1
+    ;;
+  rm)
+    rm -f "$TEST_GRANT"
+    ;;
+esac
+EOF
+chmod +x "$TMP/bin/gum" "$TMP/bin/sudo"
+
+TEST_GRANT="$TMP/grant"
+export TEST_GRANT
+if PATH="$TMP/bin:/usr/bin" USER=test \
+  "$ROOT/bin/monarch-sudo-passwordless" >/dev/null 2>&1; then
+  echo "Passwordless sudo reports success without an expiry timer" >&2
+  exit 1
+fi
+if [[ -e $TEST_GRANT ]]; then
+  echo "Passwordless sudo remains enabled without an expiry timer" >&2
+  exit 1
+fi
+
+echo "Passwordless sudo fails closed when expiry cannot be scheduled"
