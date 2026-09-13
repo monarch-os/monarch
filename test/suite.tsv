@@ -49,6 +49,7 @@ test/monarch-sddm-test.sh	login-screen	high	isolated
 test/monarch-sshd-menu-test.sh	remote-access	high	isolated
 test/shell.d/sshd-hardening-test.sh	remote-access	high	isolated
 test/shell.d/sudoless-docker-toggle-test.sh	docker-security	high	isolated
+test/shell.d/system-sleep-ownership-test.sh	security	high	isolated
 test/monarch-sudo-passwordless-test.sh	security	high	isolated
 test/monarch-tailscale-lifecycle-test.sh	tailscale	medium	isolated
 test/monarch-tailscale-receive-test.sh	tailscale	medium	isolated

@@ -4,6 +4,8 @@
 # monarch:requires-sudo=true
 # monarch:args=[--force] [--no-rebuild]
 
+source "$MONARCH_PATH/install/helpers/root-file.sh"
+
 FORCE=false
 NO_REBUILD=false
 for arg in "$@"; do
@@ -82,13 +84,16 @@ if ! swapon --show | grep -q "$SWAP_FILE"; then
   sudo swapon -p 0 "$SWAP_FILE"
 fi
 
+sudo install -d -m 0755 -o root -g root /usr/lib/systemd/system-sleep
+if ! monarch_install_root_file "$MONARCH_PATH/default/systemd/system-sleep/keyboard-backlight" /usr/lib/systemd/system-sleep/keyboard-backlight 0755; then
+  echo "Could not install the keyboard-backlight system-sleep hook" >&2
+  exit 1
+fi
+
 # Add resume hook to mkinitcpio
 sudo mkdir -p /etc/mkinitcpio.conf.d
 echo "Adding resume hook to $MKINITCPIO_CONF"
 echo "HOOKS+=(resume)" | sudo tee "$MKINITCPIO_CONF" >/dev/null
-
-# Ensure keyboard backlight doesn't prevent sleep
-sudo cp -p "$MONARCH_PATH/default/systemd/system-sleep/keyboard-backlight" /usr/lib/systemd/system-sleep/
 
 # Add resume= kernel parameters so the initramfs resume hook knows where to find the
 # hibernation image. Without these, resume happens late (after GPU drivers load) and fails.
