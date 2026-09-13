@@ -252,6 +252,11 @@ printf '%s\n' true >"$system_transition/install/reconcile/schema/1-to-2/legacy-u
 printf '%s\n' true >"$system_transition/install/reconcile/schema/1-to-2/legacy-settings-pacnew.sh"
 printf '%s\n' true >"$system_transition/install/reconcile/schema/1-to-2/system-sleep-ownership.sh"
 MONARCH_PATH="$system_transition" bash "$ROOT/install/reconcile/schema/1-to-2/system.sh"
+if [[ -f $TEST_LOG ]] &&
+  grep -qx 'monarch-pkg-drop noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"; then
+  echo "Legacy desktop packages were removed before user reconciliation" >&2
+  exit 1
+fi
 
 printf '%s\n' '{"fixture":"legacy-settings"}' >"$HOME/.config/noctalia/settings.json"
 printf '%s\n' legacy-settings-backup >"$HOME/.config/noctalia/settings.json.bak.1"
@@ -284,6 +289,11 @@ EOF
 printf '%s\n' gemini >"$HOME/.config/monarch/defaults/agent"
 
 bash "$ROOT/install/reconcile/schema/1-to-2/user.sh"
+if [[ -f $TEST_LOG ]] &&
+  grep -qx 'monarch-pkg-drop noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"; then
+  echo "Legacy desktop packages were removed before user reconciliation completed" >&2
+  exit 1
+fi
 
 runtime_hook="$HOME/.config/monarch/hooks/post-boot.d/packaged-runtime"
 [[ -x $runtime_hook ]]

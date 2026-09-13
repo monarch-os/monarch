@@ -1,5 +1,7 @@
 set -euo pipefail
 
+monarch-pkg-drop noctalia-shell polkit-gnome monarch-welcome
+
 retired_packages=()
 if [[ -f $HOME/.local/bin/claude && -x $HOME/.local/bin/claude ]]; then
   retired_packages+=(claude-code)

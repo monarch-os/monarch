@@ -216,7 +216,9 @@ Reconcilers must detect the state they own, tolerate repeated execution and
 stop before destructive cleanup if their replacement is unavailable. Remove a
 legacy branch once its source state falls outside the supported upgrade window.
 Use `$MONARCH_PATH` for the packaged runtime and `$MONARCH_SOURCE_ROOT` only when
-the checkout that bootstrapped the transition matters.
+the checkout that bootstrapped the transition matters. Privileged payloads may
+pin `/usr/share/monarch` when accepting `$MONARCH_PATH` would let user-owned code
+cross a root boundary.
 
 `~/.local/state/monarch/schema` records one installation schema, not individual
 changes. Bump it only for an architectural transition that needs a distinct

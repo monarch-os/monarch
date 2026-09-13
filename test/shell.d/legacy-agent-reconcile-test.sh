@@ -19,7 +19,10 @@ EOF
 cat >"$stub_bin/monarch-pkg-drop" <<'EOF'
 #!/bin/bash
 printf '%s\n' "$*" >>"$TEST_DROP_CALLS"
-exit "${TEST_DROP_STATUS:-0}"
+if [[ -n ${TEST_DROP_FAILURE:-} && $* == "$TEST_DROP_FAILURE" ]]; then
+  exit "${TEST_DROP_STATUS:-1}"
+fi
+exit 0
 EOF
 chmod +x "$stub_bin/mise" "$stub_bin/monarch-pkg-drop"
 
@@ -280,7 +283,8 @@ retirement_failure_home="$test_tmp/interrupted-package-retirement"
 prepare_home "$retirement_failure_home" claude
 HOME="$retirement_failure_home" bash "$agent_reconciler"
 : >"$TEST_DROP_CALLS"
-if TEST_DROP_STATUS=23 HOME="$retirement_failure_home" bash "$system_reconciler"; then
+if TEST_DROP_FAILURE='claude-code openai-codex opencode' TEST_DROP_STATUS=23 \
+  HOME="$retirement_failure_home" bash "$system_reconciler"; then
   fail "a failed packaged-agent retirement returned success"
 fi
 retirement_state="$retirement_failure_home/.local/state/monarch/reconcile/1-to-2/system-after-user"

@@ -4,6 +4,7 @@ echo "Reconcile Monarch system state"
 
 sudo bash "$MONARCH_PATH/install/reconcile/cups-browsed.sh"
 sudo bash "$MONARCH_PATH/install/reconcile/wpa-supplicant.sh"
+# Root-owned payloads stay pinned so MONARCH_PATH cannot select privileged code.
 sudo bash /usr/share/monarch/install/reconcile/system-sleep-ownership.sh
 sudo bash "$MONARCH_PATH/install/config/enable-services.sh"
 sudo bash "$MONARCH_PATH/install/config/ssh-command-path.sh"
