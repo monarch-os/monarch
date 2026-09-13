@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# monarch:summary=Join a WPA-Enterprise (802.1X) Wi-Fi network without prompting
+# monarch:group=wifi
+# monarch:args=<ssid> <identity> [password]
+# monarch:examples=monarch wifi enterprise eduroam you@univ.fr
+
+# PEAP with MSCHAPv2 — what eduroam and nearly every corporate WPA-EAP
+# deployment asks for. Certificates or another phase-2 still want nmcli by hand;
+# this covers the case the panel can ask two questions for.
+#
+# `connection add` has no way to take a secret, so the profile is created
+# without one and the passphrase goes in through the scriptable
+# `connection edit` on stdin. printf is a builtin, so it never reaches nmcli's
+# argv — the exposure that remains is this script's own, the same one
+# monarch-wifi-join documents for the pre-shared key.
+
+set -uo pipefail
+
+ssid=${1:-}
+identity=${2:-}
+password=${3:-}
+
+if [[ -z $ssid || -z $identity ]]; then
+  echo "Usage: monarch-wifi-enterprise <ssid> <identity> [password]" >&2
+  exit 2
+fi
+
+monarch-cmd-present nmcli || {
+  echo "Error: nmcli is required to join a network." >&2
+  exit 1
+}
+
+nmcli radio wifi on >/dev/null 2>&1 || true
+
+uuid=$(uuidgen 2>/dev/null) || {
+  echo "Error: uuidgen is required to name the profile." >&2
+  exit 1
+}
+
+if ! out=$(LC_ALL=C nmcli connection add type wifi con-name "$ssid" ssid "$ssid" \
+    connection.uuid "$uuid" \
+    wifi-sec.key-mgmt wpa-eap \
+    802-1x.eap peap \
+    802-1x.phase2-auth mschapv2 \
+    802-1x.identity "$identity" \
+    802-1x.auth-timeout 8 2>&1); then
+  printf '%s\n' "${out:-Could not create a profile for $ssid}" >&2
+  exit 1
+fi
+
+# A profile that never came up is worse than none: it shadows the SSID in the
+# saved list, so the next attempt would silently reuse the identity that just
+# failed instead of asking for another.
+discard_profile() {
+  nmcli connection delete uuid "$uuid" >/dev/null 2>&1
+}
+
+if [[ -n $password ]]; then
+  if ! printf 'set 802-1x.password %s\nsave\nquit\n' "$password" |
+      LC_ALL=C nmcli connection edit uuid "$uuid" >/dev/null 2>&1; then
+    discard_profile
+    echo "Could not set the passphrase for $ssid" >&2
+    exit 1
+  fi
+fi
+
+if out=$(LC_ALL=C nmcli connection up uuid "$uuid" 2>&1); then
+  exit 0
+fi
+
+discard_profile
+printf '%s\n' "${out:-Could not join $ssid}" >&2
+exit 1

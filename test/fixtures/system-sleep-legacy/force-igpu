@@ -1,0 +1,27 @@
+#!/bin/bash
+
+state_file=/run/monarch-force-igpu
+
+case "$1" in
+  pre)
+    /usr/bin/rm -f -- "$state_file"
+    if [[ $(/usr/bin/supergfxctl -g 2>/dev/null) == "Integrated" ]]; then
+      /usr/bin/install -m 0600 -o root -g root /dev/null "$state_file" || exit 1
+      if [[ $2 == "hibernate" ]]; then
+        if ! /usr/bin/supergfxctl -m Vfio; then
+          /usr/bin/rm -f -- "$state_file"
+          exit 1
+        fi
+        sleep 1
+      fi
+    fi
+    ;;
+  post)
+    [[ -f $state_file && ! -L $state_file ]] || exit 0
+    sleep 4
+    /usr/bin/supergfxctl -m Vfio || exit 1
+    sleep 1
+    /usr/bin/supergfxctl -m Integrated || exit 1
+    /usr/bin/rm -f -- "$state_file"
+    ;;
+esac

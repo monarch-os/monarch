@@ -4,46 +4,57 @@
 # monarch:args=<font-name>
 # monarch:examples=monarch font list | monarch font set "CaskaydiaMono Nerd Font"
 
-font_name="$1"
-
-if [[ -n $font_name ]]; then
-  if fc-list | grep -iq "$font_name"; then
-    if [[ -f ~/.config/alacritty/alacritty.toml ]]; then
-      sed -i "s/family = \".*\"/family = \"$font_name\"/g" ~/.config/alacritty/alacritty.toml
-    fi
-
-    if [[ -f ~/.config/kitty/kitty.conf ]]; then
-      sed -i "s/^font_family .*/font_family $font_name/g" ~/.config/kitty/kitty.conf
-      pkill -USR1 kitty
-    fi
-
-    if [[ -f ~/.config/ghostty/config ]]; then
-      sed -i "s/font-family = \".*\"/font-family = \"$font_name\"/g" ~/.config/ghostty/config
-      pkill -SIGUSR2 ghostty
-    fi
-
-    if [[ -f ~/.config/foot/foot.ini ]]; then
-      sed -i "s/^font=.*/font=$font_name:size=9/g" ~/.config/foot/foot.ini
-    fi
-
-    xmlstarlet ed -L \
-      -u '//match[@target="pattern"][test/string="monospace"]/edit[@name="family"]/string' \
-      -v "$font_name" \
-      ~/.config/fontconfig/fonts.conf
-
-    if pgrep -x ghostty; then
-      notify-send -u low "    You must restart Ghostty to see font change"
-    fi
-
-    if pgrep -x foot; then
-      notify-send -u low "    You must restart Foot to see font change"
-    fi
-
-    monarch-hook font-set "$font_name"
-  else
-    echo "Font '$font_name' not found."
-    exit 1
-  fi
-else
-  echo "Usage: monarch-font-set <font-name>"
+if (( $# != 1 )); then
+  echo "Usage: monarch-font-set <font-name>" >&2
+  exit 1
 fi
+
+font_name="$1"
+MONARCH_ROOT=${MONARCH_PATH:-$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.." && pwd)}
+source "$MONARCH_ROOT/install/helpers/fonts.sh" || exit 1
+monarch_font_validate_family "$font_name" || exit 1
+
+if ! fc-list | grep -Fqi -- "$font_name"; then
+  printf "Font '%s' not found.\n" "$font_name" >&2
+  exit 1
+fi
+
+font_replacement=$(monarch_font_sed_replacement "$font_name")
+
+if [[ -f ~/.config/alacritty/alacritty.toml ]]; then
+  toml_family=${font_name//\"/\\\"}
+  toml_replacement=$(monarch_font_sed_replacement "$toml_family")
+  sed -Ei "s|family = \"([^\"\\\\]\\|\\\\.)*\"|family = \"$toml_replacement\"|g" ~/.config/alacritty/alacritty.toml || exit 1
+fi
+
+if [[ -f ~/.config/kitty/kitty.conf ]]; then
+  sed -i "s|^font_family .*|font_family $font_replacement|g" ~/.config/kitty/kitty.conf || exit 1
+  pkill -USR1 kitty
+fi
+
+if [[ -f ~/.config/ghostty/config ]]; then
+  # Ghostty strips the outer quotes without unescaping the value inside them.
+  sed -i "s|^font-family = .*|font-family = \"$font_replacement\"|g" ~/.config/ghostty/config || exit 1
+  pkill -SIGUSR2 ghostty
+fi
+
+if [[ -f ~/.config/foot/foot.ini ]]; then
+  foot_family=${font_name//-/\\-}
+  foot_replacement=$(monarch_font_sed_replacement "$foot_family")
+  sed -i "s|^font=.*|font=$foot_replacement:size=9|g" ~/.config/foot/foot.ini || exit 1
+fi
+
+xmlstarlet ed -L \
+  -u '//match[@target="pattern"][test/string="monospace"]/edit[@name="family"]/string' \
+  -v "$font_name" \
+  ~/.config/fontconfig/fonts.conf || exit 1
+
+if pgrep -x ghostty; then
+  notify-send -u low "    You must restart Ghostty to see font change"
+fi
+
+if pgrep -x foot; then
+  notify-send -u low "    You must restart Foot to see font change"
+fi
+
+monarch-hook font-set "$font_name"

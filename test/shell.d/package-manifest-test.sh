@@ -1,0 +1,106 @@
+#!/bin/bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/base-test.sh"
+source "$ROOT/install/helpers/package-manifest.sh"
+
+TEST_ROOT=$(mktemp -d)
+trap 'rm -rf "$TEST_ROOT"' EXIT
+
+manifest="$ROOT/install/monarch-base.packages"
+required=()
+defaults=()
+all=()
+
+monarch_load_package_manifest required "$manifest" required
+monarch_load_package_manifest defaults "$manifest" default
+monarch_load_package_manifest all "$manifest"
+
+for path in \
+  etc/gnupg/dirmngr.conf \
+  etc/systemd/system.conf.d/10-faster-shutdown.conf \
+  etc/systemd/system/user@.service.d/10-faster-shutdown.conf; do
+  [[ -f $ROOT/$path ]] || fail "$path is shipped by the packaged runtime"
+done
+
+for path in \
+  default/gpg/dirmngr.conf \
+  default/systemd/faster-shutdown.conf \
+  default/systemd/user@.service.d/faster-shutdown.conf; do
+  [[ ! -e $ROOT/$path ]] || fail "$path duplicates a packaged system default"
+done
+
+((${#required[@]})) || fail "required package section is populated"
+((${#defaults[@]})) || fail "default package section is populated"
+((${#all[@]} == ${#required[@]} + ${#defaults[@]})) ||
+  fail "all packages combine both manifest sections"
+
+declare -A required_packages=()
+declare -A default_packages=()
+declare -A all_packages=()
+for package in "${required[@]}"; do
+  required_packages[$package]=true
+done
+for package in "${defaults[@]}"; do
+  default_packages[$package]=true
+done
+for package in "${all[@]}"; do
+  all_packages[$package]=true
+done
+
+for package in chromium fuzzel gpu-screen-recorder grim localsend mpv mpv-mpris neovim niri noctalia networkmanager sddm slurp uwsm yay zbar; do
+  [[ -v required_packages[$package] ]] || fail "$package is a required package"
+done
+
+for package in dua-cli firefox obsidian signal-desktop; do
+  [[ -v default_packages[$package] ]] || fail "$package is a default package"
+done
+
+disk_usage_desktop="$ROOT/applications/Disk Usage.desktop"
+desktop-file-validate "$disk_usage_desktop"
+grep -qFx 'TryExec=dua' "$disk_usage_desktop" || fail "Disk Usage hides when dua is absent"
+grep -qF 'Exec=monarch-launch-tui --app-id=org.monarch.disk-usage dua interactive /' "$disk_usage_desktop" ||
+  fail "Disk Usage launches dua interactively"
+grep -qF 'match app-id="org.monarch.disk-usage"' "$ROOT/default/niri/windows.kdl" ||
+  fail "Disk Usage has a dedicated Niri window rule"
+[[ -v required_packages[cups] ]] || fail "CUPS is a required package"
+[[ -v required_packages[cups-filters] ]] || fail "CUPS filters are required"
+[[ -v required_packages[system-config-printer] ]] || fail "Print Settings is required"
+[[ ! -v all_packages[cups-browsed] ]] || fail "automatic printer discovery is not a default package"
+
+for package in claude-code opencode; do
+  [[ ! -v all_packages[$package] ]] || fail "$package is mise-managed, not a pacman base package"
+done
+
+if ((${#all[@]} != $(printf '%s\n' "${all[@]}" | sort -u | wc -l))); then
+  fail "package manifest contains duplicate packages"
+fi
+
+invalid="$TEST_ROOT/package-manifest"
+printf '%s\n' orphan '# required' niri >"$invalid"
+if monarch_load_package_manifest all "$invalid" 2>/dev/null; then
+  fail "packages before the first section are rejected"
+fi
+
+printf '%s\n' '# required' niri >"$invalid"
+if monarch_load_package_manifest defaults "$invalid" default 2>/dev/null; then
+  fail "missing requested sections are rejected"
+fi
+
+mkdir -p "$TEST_ROOT/bin"
+cat >"$TEST_ROOT/bin/monarch-pkg-add" <<'EOF'
+#!/bin/bash
+printf '%s\n' "$@" >"$TEST_ROOT/installed-packages"
+EOF
+cat >"$TEST_ROOT/bin/pacman" <<'EOF'
+#!/bin/bash
+[[ $1 == "-Qq" ]]
+EOF
+chmod +x "$TEST_ROOT/bin/monarch-pkg-add" "$TEST_ROOT/bin/pacman"
+TEST_ROOT="$TEST_ROOT" MONARCH_PATH="$ROOT" PATH="$TEST_ROOT/bin:/usr/bin" \
+  bash "$ROOT/install/reconcile/required-packages.sh"
+mapfile -t installed <"$TEST_ROOT/installed-packages"
+[[ ${installed[*]} == ${required[*]} ]] || fail "reconciliation installs exactly the required packages"
+
+pass "package manifest sections are valid"

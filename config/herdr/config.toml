@@ -1,0 +1,34 @@
+# Monarch defaults for herdr, the agent-aware terminal multiplexer that replaced
+# tmux. Copied to ~/.config/herdr/config.toml on install; `monarch refresh herdr`
+# takes the shipped version again and reloads the running server.
+#
+# Nothing here needs to be re-rendered when the scheme changes. herdr asks the
+# terminal for its palette on startup — 256 OSC 4 queries plus OSC 10/11 for
+# foreground and background — so `theme = "terminal"` and colors named after ANSI
+# slots follow whatever Noctalia has themed the terminal to. This is how Omarchy
+# drives it too: not one of its dozen theme-set scripts touches herdr.
+#
+# herdr falls back to its built-in defaults for every key omitted here, so a
+# partial config is valid.
+
+[theme]
+name = "terminal"
+
+[theme.custom]
+# The active tab is drawn as panel_bg text on an accent background, so panel_bg
+# has to stay dark enough to read against it. An ANSI slot name, not a hex, so it
+# moves with the terminal.
+panel_bg = "black"
+
+[keys]
+# herdr's own default, set explicitly. The default prefix-mode actions already
+# mirror the old tmux binds closely: prefix+c new tab, prefix+x close pane,
+# prefix+v / prefix+minus split, prefix+n / prefix+p next/prev tab, prefix+1..9
+# select tab, prefix+h/j/k/l focus pane. herdr warns against direct (prefix-less)
+# alt and punctuation chords, so the defaults stand.
+prefix = "ctrl+b"
+
+[terminal]
+# Every split, tab and workspace opens where the current pane is, the way tmux
+# did with -c "#{pane_current_path}".
+new_cwd = "follow"

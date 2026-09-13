@@ -1,0 +1,12 @@
+{
+  "settings": {
+    "refresh-interval": {
+      "label": "Refresh interval",
+      "description": "Seconds between collector runs. Discovering newly configured agents stays on its own one-minute tick, so a new agent still appears promptly."
+    },
+    "warning-threshold": {
+      "label": "Warning threshold",
+      "description": "Fraction of an allowance past which the bar mark is tinted. The bar carries no number, so this is the only at-a-glance warning."
+    }
+  }
+}

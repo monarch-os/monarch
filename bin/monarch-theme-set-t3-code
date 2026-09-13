@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# monarch:summary=Sync the active Noctalia palette to T3 Code
+# monarch:args=<palette-json> <dark|light>
+# monarch:hidden=true
+
+set -euo pipefail
+
+palette=${1:?palette JSON is required}
+appearance=${2:?appearance is required}
+t3_home=${T3CODE_HOME:-$HOME/.t3}
+state_dir="$t3_home/userdata"
+theme="$state_dir/themes/monarch.json"
+
+[[ -d $state_dir ]] || exit 0
+[[ $appearance == dark || $appearance == light ]] || exit 0
+
+rendered=$(jq -cer --arg appearance "$appearance" '
+  .[$appearance] as $p |
+  {
+    name: "Monarch",
+    appearance: $appearance,
+    canvas: $p.mSurface,
+    accent: $p.mPrimary,
+    colors: {
+      chrome: $p.mSurface,
+      toolbar: $p.mSurface,
+      toolbarForeground: $p.mOnSurface,
+      toolbarBorder: $p.mOutline,
+      text: $p.mOnSurface,
+      border: $p.mOutline,
+      focus: $p.mPrimary,
+      sidebar: $p.mSurfaceVariant,
+      sidebarForeground: $p.mOnSurface,
+      sidebarBorder: $p.mOutline,
+      sidebarRowHover: $p.mSurfaceVariant,
+      sidebarRowActive: $p.mPrimary,
+      sidebarRowSelected: ($p.terminal.selectionBg // $p.mPrimary),
+      error: $p.mError,
+      warning: $p.terminal.normal.yellow,
+      codeBackground: $p.mSurfaceVariant,
+      codeForeground: $p.mOnSurface,
+      terminalBackground: ($p.terminal.background // $p.mSurface),
+      terminalForeground: ($p.terminal.foreground // $p.mOnSurface),
+      terminalCursor: ($p.terminal.bright.white // $p.mOnSurface),
+      terminalSelection: ($p.terminal.selectionBg // $p.mPrimary),
+      terminalScrollbar: $p.mOutline,
+      terminalScrollbarHover: $p.mOnSurface
+    }
+  } |
+  if ([.. | strings] | all(test("^#[0-9a-fA-F]{6}$") or . == "Monarch" or . == $appearance))
+  then . else error("invalid palette") end
+' "$palette" 2>/dev/null) || exit 0
+
+mkdir -p "${theme%/*}"
+temporary=$(mktemp "$theme.XXXXXX")
+trap 'rm -f "$temporary"' EXIT
+printf '%s\n' "$rendered" >"$temporary"
+mv -T "$temporary" "$theme"
+trap - EXIT

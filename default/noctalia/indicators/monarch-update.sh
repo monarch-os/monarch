@@ -1,14 +1,13 @@
 #!/bin/bash
 
-# Streaming text source for the Noctalia "monarch-update" CustomButton widget.
+# Streaming text source for the Noctalia "monarch-update" bar indicator.
 #
 # Faithful port of the old Waybar custom/update module (removed with the
 # Noctalia switchover): show a glyph when a newer Monarch release is available,
-# click to run the updater. CustomButton runs this in textStream mode and each
-# emitted line updates the widget. As with the screen-recording indicator,
-# visibility is driven by TEXT, not an icon (showIcon:false, hideMode
-# "expandWithOutput"), so an empty object collapses the widget when there is
-# nothing to update.
+# click to run the updater. The monarch-indicators plugin runs this through
+# indicator.luau's runStream and maps each emitted line onto the widget. As with
+# the screen-recording indicator, visibility is driven by TEXT: an empty object
+# hides the widget when there is nothing to update.
 #
 # Availability comes from monarch-update-available (live `git ls-remote` tag
 # compare, exit 0 = update available). Waybar polled this every 6h and relied

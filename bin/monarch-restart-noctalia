@@ -3,5 +3,14 @@
 # monarch:summary=Restart the Noctalia desktop shell.
 # monarch:examples=monarch restart noctalia
 
-pkill -f 'qs.*noctalia-shell' 2>/dev/null || true
-setsid uwsm-app -- qs -c noctalia-shell >/dev/null 2>&1 &
+pkill -x noctalia 2>/dev/null || true
+for (( attempt = 0; attempt < 30; attempt++ )); do
+  pgrep -x noctalia >/dev/null 2>&1 || break
+  sleep 0.1
+done
+
+# These flags mirror live shell state; a new shell has neither toggle enabled.
+rm -f "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/monarch/caffeine" \
+  "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/monarch/nightlight"
+
+setsid uwsm-app -- noctalia -d >/dev/null 2>&1 &

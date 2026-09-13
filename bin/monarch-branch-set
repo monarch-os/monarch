@@ -11,7 +11,15 @@ else
 fi
 
 case "$branch" in
-  "main") git -C $MONARCH_PATH switch main ;;
-  "dev") git -C $MONARCH_PATH switch dev ;;
+  "main")
+    [[ ! -d $MONARCH_PATH/.git ]] || git -C "$MONARCH_PATH" switch main
+    ;;
+  "dev")
+    if [[ ! -d $MONARCH_PATH/.git ]]; then
+      echo "The dev channel requires a Monarch source checkout." >&2
+      exit 1
+    fi
+    git -C "$MONARCH_PATH" switch dev
+    ;;
   *) echo "Unknown branch: $branch"; exit 1; ;;
 esac

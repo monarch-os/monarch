@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# monarch:summary=Restore the user-removable Monarch software bundle.
+# monarch:requires-sudo=true
+
+set -euo pipefail
+MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}
+
+if gum confirm "Are you sure you want to restore the user-removable Monarch software bundle?"; then
+  echo -e "Restoring the user-removable Monarch software bundle...\n"
+
+  monarch-refresh-applications
+
+  mapfile -t packages < <(grep -vE '^[[:space:]]*(#|$)' "$MONARCH_PATH/install/monarch-preinstalls.packages")
+  monarch-pkg-add "${packages[@]}"
+
+  monarch-restart-noctalia
+  monarch-state clear preinstalls-removed
+fi

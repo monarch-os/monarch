@@ -61,7 +61,7 @@ Do not define:
   false flags or empty args
 
 Examples:
-  # monarch:summary=Restart Walker and related user services
+  # monarch:summary=Restart Noctalia and related user services
 
   # monarch:summary=Take a screenshot
   # monarch:group=capture

@@ -3,10 +3,19 @@
 # monarch:summary=Launch the default browser as determined by xdg-settings.
 # monarch:args=[url]
 
-default_browser=$(xdg-settings get default-web-browser)
-browser_exec=$(sed -n 's/^Exec=\([^ ]*\).*/\1/p' {~/.local,~/.nix-profile,/usr}/share/applications/$default_browser 2>/dev/null | head -1)
+source "${MONARCH_PATH:-/usr/share/monarch}/install/helpers/default-browser.sh"
 
-if $browser_exec --help | grep -q MOZ_LOG; then
+if ! default_browser=$(monarch_browser_default_desktop); then
+  echo "No default browser is configured for HTTPS links" >&2
+  exit 1
+fi
+
+if ! browser_exec=$(monarch_browser_desktop_exec "$default_browser"); then
+  echo "The default browser '$default_browser' has no usable desktop launcher" >&2
+  exit 1
+fi
+
+if "$browser_exec" --help 2>/dev/null | grep -q MOZ_LOG; then
   private_flag="--private-window"
 elif [[ $browser_exec =~ edge ]]; then
   private_flag="--inprivate"

@@ -1,0 +1,63 @@
+# Monarch's bar indicators, ported from the v4 CustomButton widgets.
+#
+# v5 has no CustomButton: a bar entry that runs a command and renders its output
+# is now a plugin. The three shell scripts under default/noctalia/indicators/
+# are unchanged and still emit one JSON object per line — each entry below just
+# streams one of them and maps {text,tooltip,textColor} onto the barWidget
+# setters, so the indicator logic stays in bash and reviewable.
+#
+# Local plugins are discovered under ~/.local/share/noctalia/plugins/<plugin>/,
+# which is where install/ seeds this directory.
+
+id          = "monarch/indicators"
+name        = "Monarch Indicators"
+version     = "1.0.0"
+# 22 is the floor for relative `require()` of .luau modules, which the entries
+# use to share indicator.luau. Anything lower and the shared driver will not
+# load. v5.0.0-beta.8 accepts API levels 3-27.
+plugin_api  = 22
+author      = "monarch"
+license     = "MIT"
+description = "Status indicators for the Monarch bar, each shown only while it has something to report"
+icon        = "activity-heartbeat"
+
+[[widget]]
+id    = "screen-recording"
+entry = "screen-recording.luau"
+
+[[widget]]
+id    = "monarch-update"
+entry = "monarch-update.luau"
+
+[[widget]]
+id    = "voxtype"
+entry = "voxtype.luau"
+
+# The two install-on-demand widgets. Each hides itself when its package is
+# absent, so both can sit in the default bar layout unconditionally — unlike v4,
+# where monarch-install-lazyvpn / monarch-install-todo had to splice a
+# CustomButton into settings.json and their remove counterparts to strip it out.
+[[widget]]
+id    = "lazyvpn"
+entry = "lazyvpn.luau"
+
+[[widget]]
+id    = "todo"
+entry = "todo.luau"
+
+# The three shell-state toggles. v5 has stock `caffeine`, `nightlight` and
+# `notifications` widgets, but they are always visible and accept no settings, so
+# they cannot do the one thing wanted here: appear only while active. Each entry
+# below polls the `status` subcommand of the matching monarch-toggle-* command,
+# which is what owns the state — see bin/monarch-toggle-idle.
+[[widget]]
+id    = "dnd"
+entry = "dnd.luau"
+
+[[widget]]
+id    = "caffeine"
+entry = "caffeine.luau"
+
+[[widget]]
+id    = "nightlight"
+entry = "nightlight.luau"

@@ -1,0 +1,2 @@
+# Theme changes run without a terminal. This grant accepts one color and no path.
+%wheel ALL=(root) NOPASSWD: /usr/bin/monarch-theme-set-browser-policy [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]

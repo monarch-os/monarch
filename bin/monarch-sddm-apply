@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# monarch:summary=Apply the active or named Monarch color scheme to SDDM
+# monarch:hidden=true
+
+MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
+
+if (($#)); then
+  exec "$MONARCH_ROOT/bin/monarch-plymouth-apply" --sddm "$1"
+else
+  exec "$MONARCH_ROOT/bin/monarch-plymouth-apply" --sddm ""
+fi

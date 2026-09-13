@@ -181,11 +181,23 @@ parse_bindings() {
     }
 
     if (action != "") {
-        # Pad the key-combo into a fixed-width column so the arrows and
-        # descriptions line up in a second column. fuzzel renders with a
-        # monospace font, so char-count padding aligns visually; the window is
-        # widened via --width below so descriptions are not truncated.
-        printf "%-25s  →  %s\n", key_combo, action;
+        if (!(action in seen)) {
+            seen[action] = 1;
+            order[++count] = action;
+            combos[action] = key_combo;
+        } else if (index(" / " combos[action] " / ", " / " key_combo " / ") == 0) {
+            if (length(key_combo) < length(combos[action])) {
+                combos[action] = key_combo " / " combos[action];
+            } else {
+                combos[action] = combos[action] " / " key_combo;
+            }
+        }
+    }
+}
+END {
+    for (i = 1; i <= count; i++) {
+        action = order[i];
+        printf "%-25s  →  %s\n", combos[action], action;
     }
 }'
 }

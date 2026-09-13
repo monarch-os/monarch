@@ -3,6 +3,9 @@
 # monarch:summary=Toggle dedicated vs integrated GPU mode via supergfxd (for hybrid gpu laptops, like Asus G14).
 # monarch:requires-sudo=true
 
+unset MONARCH_ROOT_FILE_TEST_ROOT MONARCH_ROOT_FILE_TEST_RUNTIME
+source /usr/share/monarch/install/helpers/root-file.sh
+
 if monarch-cmd-missing supergfxctl; then
   monarch-pkg-add supergfxctl
 
@@ -27,32 +30,38 @@ gpu_mode=$(supergfxctl -g)
 case "$gpu_mode" in
 "Integrated")
   if gum confirm "Enable dedicated GPU and reboot?"; then
-    # Switch to hybrid mode
-    sudo sed -i "s/\"mode\": \".*\"/\"mode\": \"Hybrid\"/" /etc/supergfxd.conf
+    if ! monarch_root_file_can_remove force-igpu || ! monarch_root_file_can_remove delay-start; then
+      echo "Could not remove customized supergfxd support files" >&2
+      exit 1
+    fi
 
-    # Let hybrid mode be the default after system sleep
-    sudo rm -rf /usr/lib/systemd/system-sleep/force-igpu
+    if ! monarch_configure_supergfxd Hybrid; then
+      echo "Could not configure supergfxd for hybrid mode" >&2
+      exit 1
+    fi
 
-    # Remove the startup delay override (not needed for Hybrid mode)
-    sudo rm -rf /etc/systemd/system/supergfxd.service.d/delay-start.conf
+    monarch_remove_root_file force-igpu || exit 1
+    monarch_remove_root_file delay-start || exit 1
 
     monarch-system-reboot
   fi
   ;;
 "Hybrid")
   if gum confirm "Use only integrated GPU and reboot?"; then
-    # Switch to integrated mode and ensure vfio is enabled (needed for sleep/wake trick)
-    sudo sed -i "s/\"mode\": \".*\"/\"mode\": \"Integrated\"/" /etc/supergfxd.conf
-    sudo sed -i 's/"vfio_enable": false/"vfio_enable": true/' /etc/supergfxd.conf
+    if ! monarch_install_root_file delay-start; then
+      echo "Could not install the supergfxd startup-delay override" >&2
+      exit 1
+    fi
 
-    # Force igpu mode after system sleep (or dgpu could get activated)
-    sudo mkdir -p /usr/lib/systemd/system-sleep
-    sudo cp -p $MONARCH_PATH/default/systemd/system-sleep/force-igpu /usr/lib/systemd/system-sleep/
+    if ! monarch_install_root_file force-igpu; then
+      echo "Could not install the force-igpu system-sleep hook" >&2
+      exit 1
+    fi
 
-    # Delay supergfxd startup to avoid race condition with display manager
-    # that can cause system freeze when booting in Integrated mode
-    sudo mkdir -p /etc/systemd/system/supergfxd.service.d
-    sudo cp -p $MONARCH_PATH/default/systemd/system/supergfxd.service.d/delay-start.conf /etc/systemd/system/supergfxd.service.d/
+    if ! monarch_configure_supergfxd Integrated; then
+      echo "Could not configure supergfxd for integrated mode" >&2
+      exit 1
+    fi
 
     monarch-system-reboot
   fi

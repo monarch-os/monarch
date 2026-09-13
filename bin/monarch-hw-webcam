@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# monarch:summary=Check whether a capture-capable webcam is available
+
+devices_path="${MONARCH_VIDEO_DEVICES_PATH:-/dev}"
+
+for device in "$devices_path"/video*; do
+  [[ -e $device ]] || continue
+  v4l2-ctl --device "$device" --info 2>/dev/null | awk '
+    /^[[:space:]]*Device Caps[[:space:]]*:/ { inspect = 1; next }
+    inspect && /^[[:space:]]*Video Capture/ { found = 1 }
+    END { exit !found }
+  ' && exit 0
+done
+
+exit 1

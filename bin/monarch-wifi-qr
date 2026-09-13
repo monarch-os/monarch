@@ -1,0 +1,119 @@
+#!/bin/bash
+
+# monarch:summary=Show the connected Wi-Fi network as a scannable QR code
+# monarch:args=[--png|--payload|--password] [interface]
+# monarch:examples=monarch wifi qr | monarch wifi qr --payload | monarch wifi qr wlan0
+
+# The active connection as a WIFI: URI — the scheme both Android and iOS cameras
+# join a network from. --png writes the code under $XDG_RUNTIME_DIR for the
+# monarch/wifi-qr panel; --password prints the secret alone, which is what the
+# panel's deliberate reveal calls.
+#
+# The password reaches qrencode over a pipe, never as an argument, so it stays out
+# of /proc/<pid>/cmdline.
+#
+# NetworkManager only hands secrets to an active local session: over SSH polkit
+# refuses and nmcli returns an empty psk, which is what the password error below
+# is usually reporting.
+
+set -euo pipefail
+
+# Siblings are resolved from this script's own directory: neither the panel nor a
+# keybind can be relied on to have Monarch's bin on PATH.
+PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd):$PATH"
+
+mode="terminal"
+interface=""
+for arg in "$@"; do
+  case $arg in
+  --png) mode="png" ;;
+  --payload) mode="payload" ;;
+  --password) mode="password" ;;
+  -*)
+    echo "Usage: monarch-wifi-qr [--png|--payload|--password] [interface]" >&2
+    exit 1
+    ;;
+  *) interface=$arg ;;
+  esac
+done
+
+[[ -n $interface ]] || interface=$(monarch-wifi-device || true)
+[[ -n $interface ]] || { echo "No active Wi-Fi connection" >&2; exit 1; }
+
+uuid=$(nmcli --get-values GENERAL.CON-UUID device show "$interface" 2>/dev/null | head -n 1) || true
+[[ -n $uuid && $uuid != "--" ]] || { echo "No active Wi-Fi connection" >&2; exit 1; }
+
+mapfile -t fields < <(nmcli --show-secrets --escape no --get-values \
+  802-11-wireless.ssid,802-11-wireless-security.key-mgmt,802-11-wireless-security.psk,802-11-wireless.hidden,802-11-wireless-security.wep-key0 \
+  connection show uuid "$uuid")
+
+ssid=${fields[0]:-}
+key_management=${fields[1]:-}
+password=${fields[2]:-}
+hidden=${fields[3]:-no}
+wep_key=${fields[4]:-}
+
+[[ $key_management != *eap* && $key_management != *ieee8021x* ]] || {
+  echo "Enterprise Wi-Fi has no shareable password" >&2
+  exit 1
+}
+
+if [[ -n $key_management && $key_management != "none" ]]; then
+  security="WPA"
+elif [[ -n $wep_key ]]; then
+  # NetworkManager models WEP as key-mgmt "none" plus a wep-key. Encoding that as
+  # an open network produces a QR that silently fails to join.
+  password=$wep_key
+  security="WEP"
+else
+  security="nopass"
+fi
+
+if [[ $security != "nopass" && -z $password ]]; then
+  echo "Could not read the Wi-Fi password — NetworkManager only releases secrets to an active local session" >&2
+  exit 1
+fi
+
+if [[ $mode == "password" ]]; then
+  [[ $security != "nopass" ]] || { echo "This network has no password" >&2; exit 1; }
+  printf '%s\n' "$password"
+  exit 0
+fi
+
+[[ -n $ssid ]] || { echo "Could not read the Wi-Fi name" >&2; exit 1; }
+
+# The URI is semicolon-delimited and comma-separated inside a field, so those
+# characters must be escaped or a scanner reads a different network.
+escape() {
+  local v=$1
+  v=${v//\\/\\\\} v=${v//;/\\;} v=${v//,/\\,} v=${v//:/\\:}
+  printf '%s' "$v"
+}
+
+payload="WIFI:T:$security;S:$(escape "$ssid");P:$(escape "$password");"
+[[ $hidden == "yes" ]] && payload+="H:true;"
+payload+=";"
+
+case $mode in
+payload) printf '%s\n' "$payload" ;;
+png)
+  # A fresh filename per run: the shell caches textures by path, so a stable name
+  # would keep painting the previous network's code — and the file left behind
+  # carries the previous network's password.
+  umask 077
+  qr_dir="${XDG_RUNTIME_DIR:-/tmp}/monarch"
+  mkdir -p "$qr_dir"
+  rm -f "$qr_dir"/wifi-qr-*.png
+  png="$qr_dir/wifi-qr-$$-$(date +%s%N).png"
+  printf '%s' "$payload" | qrencode --size 10 --margin 4 --level M --output "$png"
+  # The SSID goes last: it is the only field that may contain a tab.
+  printf 'meta\t%s\t%s\t%s\t%s\n' "$interface" "$security" "$png" "$ssid"
+  ;;
+*)
+  # ANSIUTF8, not UTF8: the latter assumes a light terminal and comes out
+  # inverted — and unscannable — on Monarch's dark one.
+  printf '\n  %s\n\n' "$ssid"
+  printf '%s' "$payload" | qrencode --type ANSIUTF8 --margin 2 --level M --output -
+  printf '\n  Scan to join this network\n\n'
+  ;;
+esac

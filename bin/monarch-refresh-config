@@ -1,37 +1,39 @@
 #!/bin/bash
 
-# monarch:summary=Copies the named config from ~/.local/share/monarch/config/X/Y/Z -> ~/.config/X/Y/Z.
+# monarch:summary=Copy a packaged default config into the user's config with a backup.
 # monarch:args=<config-path>
 
-config_file=$1
+set -euo pipefail
+
+config_file=${1:-}
 
 if [[ -z $config_file ]]; then
   cat <<USAGE
   Usage: $0 [config_file]
 
   Must provide a file path from the .config directory to be refreshed.
-  To copy ~/.local/share/monarch/config/niri/user.kdl to ~/.config/niri/user.kdl
+  To copy /usr/share/monarch/config/niri/user.kdl to ~/.config/niri/user.kdl
 
     $0 niri/user.kdl
 USAGE
   exit 1
 fi
 
-# Backup the destination file (with timestamp) to avoid clobbering (Ex: config.kdl.bak.1753817951)
 user_config_file="${HOME}/.config/$config_file"
-default_config_file="${HOME}/.local/share/monarch/config/$config_file"
+default_config_file="${MONARCH_PATH:-/usr/share/monarch}/config/$config_file"
 backup_config_file="$user_config_file.bak.$(date +%s)"
 
 mkdir -p "$(dirname "$user_config_file")"
 
+if [[ ! -f $default_config_file ]]; then
+  echo "Packaged config does not exist: $default_config_file" >&2
+  exit 1
+fi
+
 if [[ -f $user_config_file ]]; then
-  # Create preliminary backup
-  cp -f "$user_config_file" "$backup_config_file" 2>/dev/null
+  cp -f "$user_config_file" "$backup_config_file"
+  cp -f "$default_config_file" "$user_config_file"
 
-  # Replace config with new default
-  cp -f "$default_config_file" "$user_config_file" 2>/dev/null
-
-  # Compare and delete/inform accordingly
   if cmp -s "$user_config_file" "$backup_config_file"; then
     rm "$backup_config_file"
   else
@@ -39,6 +41,5 @@ if [[ -f $user_config_file ]]; then
     diff "$user_config_file" "$backup_config_file" || true
   fi
 else
-  # Config file did not exist already
-  cp -f "$default_config_file" "$user_config_file" 2>/dev/null
+  cp -f "$default_config_file" "$user_config_file"
 fi

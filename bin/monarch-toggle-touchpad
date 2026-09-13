@@ -1,11 +1,20 @@
 #!/bin/bash
 
 # monarch:summary=Enable, disable, or toggle the touchpad
-# monarch:args=[on|off|toggle]
+# monarch:args=[on|off|toggle|status]
 
 if [[ -z "$(monarch-hw-touchpad)" ]]; then
   echo "No touchpad device found" >&2
   exit 1
+fi
+
+if [[ ${1:-toggle} == "status" || ${1:-toggle} == "--status" ]]; then
+  if grep -qF 'touchpad {' "${XDG_CONFIG_HOME:-$HOME/.config}/niri/runtime.kdl" 2>/dev/null; then
+    printf '{"enabled":false,"tooltip":"Touchpad disabled - enable it"}\n'
+  else
+    printf '{"enabled":true,"tooltip":"Touchpad enabled - disable it"}\n'
+  fi
+  exit 0
 fi
 
 # The toggle is driven through niri's own input config (see

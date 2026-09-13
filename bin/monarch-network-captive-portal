@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# monarch:summary=Open the fixed HTTP probe used to sign in to a captive network
+# monarch:group=network
+
+if (( $# > 0 )); then
+  echo "Usage: monarch-network-captive-portal" >&2
+  exit 2
+fi
+
+exec monarch-launch-browser http://ping.archlinux.org/nm-check.txt

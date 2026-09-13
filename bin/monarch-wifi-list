@@ -1,0 +1,71 @@
+#!/bin/bash
+
+# monarch:summary=List the Wi-Fi networks in range
+# monarch:group=wifi
+# monarch:args=[--rescan]
+# monarch:examples=monarch wifi list | monarch wifi list --rescan
+
+# signal<TAB>security<TAB>in-use<TAB>saved<TAB>ssid — the SSID goes last because
+# it is the only field that may contain a tab, so a reader splits on the first
+# four and takes the rest.
+#
+# --rescan asks the radio for a fresh sweep, which takes seconds; without it the
+# list is NetworkManager's cache and returns immediately. The panel opens on the
+# cache and rescans on demand, so it paints at once.
+
+set -uo pipefail
+
+rescan=no
+case "${1:-}" in
+  "") ;;
+  --rescan) rescan=yes ;;
+  *)
+    echo "Usage: monarch-wifi-list [--rescan]" >&2
+    exit 2
+    ;;
+esac
+
+device=$(monarch-wifi-device 2>/dev/null) || device=""
+
+# Without a connected device there may still be a radio to scan with: fall back
+# to the first managed wifi interface rather than printing nothing.
+if [[ -z $device ]]; then
+  device=$(LC_ALL=C nmcli -t -f DEVICE,TYPE device status 2>/dev/null |
+    awk -F: '$2 == "wifi" { print $1; exit }')
+fi
+[[ -n $device ]] || exit 0
+
+saved=$(LC_ALL=C nmcli -g NAME connection show 2>/dev/null)
+
+# `-e no` keeps SSIDs raw: -t otherwise escapes ':' and '\', and the escaped
+# name would not match the saved-profile list or what the user sees on the AP.
+LC_ALL=C nmcli -e no -t -f IN-USE,SIGNAL,SECURITY,SSID dev wifi list ifname "$device" --rescan "$rescan" 2>/dev/null |
+  saved="$saved" awk -F: '
+    BEGIN {
+      split(ENVIRON["saved"], lines, "\n")
+      for (i in lines) if (lines[i] != "") known[lines[i]] = 1
+    }
+    {
+      signal = $2
+      security = ($3 == "" || $3 == "--") ? "open" : $3
+      # SSID is last in -f order, so anything after field 3 is part of the name.
+      ssid = $4
+      for (i = 5; i <= NF; i++) ssid = ssid ":" $i
+      if (ssid == "") next
+      # nmcli lists one row per BSS; the list arrives signal-sorted, so the
+      # first row for a name is its strongest and the rest are the same network
+      # seen through a weaker radio. The in-use star, though, sits on the BSS we
+      # associated with, which a dual-band router under one name puts on a later
+      # row, so it is collected across all of them.
+      if ($1 == "*") in_use[ssid] = 1
+      if (seen[ssid]++) next
+      order[++rows] = ssid
+      strongest[ssid] = signal "\t" security
+    }
+    END {
+      for (i = 1; i <= rows; i++) {
+        ssid = order[i]
+        printf "%s\t%s\t%s\t%s\n", strongest[ssid], (ssid in in_use ? "yes" : "no"),
+          (ssid in known ? "yes" : "no"), ssid
+      }
+    }'

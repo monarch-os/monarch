@@ -2,4 +2,4 @@
 
 # monarch:summary=Open the Noctalia network panel (Wi-Fi controls).
 
-exec qs -c noctalia-shell ipc call network togglePanel
+exec noctalia msg panel-toggle control-center network

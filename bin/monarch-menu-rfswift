@@ -4,7 +4,7 @@
 
 export PATH="$HOME/.local/bin:$PATH"
 
-RFSWIFT_REPO="penthertz/rfswift_noble"
+RFSWIFT_REPO_PATTERN='penthertz/rfswift_(resolute|noble)'
 # rfswift has no config hook for the workspace root (its DefaultWorkspaceRoot()
 # is hardcoded to ~/rfswift-workspace), so we always pass --workspace explicitly.
 RFSWIFT_WORKSPACE_ROOT="$HOME/Work/rfswift"
@@ -38,7 +38,8 @@ pick_file() {
 # Backgrounded with detached fds so an fzf execute-silent caller (the Create
 # row) returns immediately and its +abort closes the picker right away.
 launch_in_terminal() {
-  setsid monarch-launch-floating-terminal-with-presentation monarch-menu-rfswift "$@" </dev/null >/dev/null 2>&1 &
+  setsid monarch-launch-docker-terminal --app-id=org.monarch.terminal --title=Monarch \
+    monarch-menu-rfswift "$@" </dev/null >/dev/null 2>&1 &
 }
 
 # Show container info (rendered as the fzf preview panel)
@@ -103,21 +104,25 @@ EOF
   [[ -n "$ports" ]] && echo "Ports       : $ports"
 }
 
-# Session actions (shell/start) open a dedicated tiled terminal via
-# xdg-terminal-exec + uwsm-app. No org.monarch.terminal app-id, so the session
-# escapes the floating window-rule and tiles like a normal terminal. Each
-# session is its own uwsm scope. Backgrounded with detached fds so fzf's
-# execute-silent returns immediately — otherwise its +abort (which closes this
-# menu) would only fire when the session terminal exits, not when it opens.
+# The caller-owned systemd scope preserves transient Docker access without the
+# floating app-id. Detached fds let fzf close as soon as the terminal opens.
 cmd_shell() {
   local name="$1"
-  setsid uwsm-app -- xdg-terminal-exec --title="RF Swift" -e bash -c "rfswift exec -c '$name' -e /bin/bash" </dev/null >/dev/null 2>&1 &
+  setsid monarch-launch-docker-terminal --title="RF Swift" \
+    rfswift exec -c "$name" -e /bin/bash </dev/null >/dev/null 2>&1 &
 }
 
 # Start a stopped container (rfswift has no resume command, fall back to docker start)
 cmd_start() {
   local name="$1"
-  setsid uwsm-app -- xdg-terminal-exec --title="RF Swift" -e bash -c "docker start '$name' && rfswift exec -c '$name' -e /bin/bash" </dev/null >/dev/null 2>&1 &
+  setsid monarch-launch-docker-terminal --title="RF Swift" \
+    monarch-menu-rfswift _start-session "$name" </dev/null >/dev/null 2>&1 &
+}
+
+cmd_start_session() {
+  local name="$1"
+  docker start "$name"
+  exec rfswift exec -c "$name" -e /bin/bash
 }
 
 # Transient ops: run in the foreground. The picker invokes these with fzf
@@ -155,19 +160,19 @@ cmd_create() {
   fi
 
   # Step 1: Select image
-  # Curated subset of useful images. Sizes are a 2026-04 snapshot from
-  # `rfswift images remote` (penthertz/rfswift_noble) — refresh manually.
+  # Curated subset of useful images. Sizes are a 2026-09 snapshot from
+  # `rfswift image remote` (penthertz/rfswift_resolute) — refresh manually.
   local all_images=("sdr_full" "sdr_light" "wifi" "bluetooth" "hardware" "reversing" "rfid" "automotive" "network")
   declare -A remote_sizes=(
-    [sdr_full]="15.6GB"
-    [sdr_light]="5.7GB"
-    [wifi]="14.6GB"
-    [bluetooth]="3.8GB"
-    [hardware]="9.0GB"
-    [reversing]="10.4GB"
-    [rfid]="2.4GB"
-    [automotive]="2.1GB"
-    [network]="13.1GB"
+    [sdr_full]="17.5GB"
+    [sdr_light]="6.5GB"
+    [wifi]="18.0GB"
+    [bluetooth]="4.3GB"
+    [hardware]="10.3GB"
+    [reversing]="11.1GB"
+    [rfid]="2.7GB"
+    [automotive]="2.2GB"
+    [network]="16.3GB"
   )
 
   # Local images: on-disk size from docker
@@ -176,7 +181,7 @@ cmd_create() {
   while IFS='|' read -r repotag size; do
     [[ -z "$repotag" ]] && continue
     sizes["${repotag##*:}"]="$size"
-  done < <(docker images --format '{{.Repository}}:{{.Tag}}|{{.Size}}' 2>/dev/null | grep "^${RFSWIFT_REPO}:")
+  done < <(docker images --format '{{.Repository}}:{{.Tag}}|{{.Size}}' 2>/dev/null | grep -E "^${RFSWIFT_REPO_PATTERN}:")
 
   for img in "${all_images[@]}"; do
     if [[ -n "${sizes[$img]:-}" ]]; then
@@ -277,7 +282,7 @@ cmd_list() {
   printf '%s\t%s\t%s\n' "__create__" "-" "  Create RF Swift workspace"
 
   docker ps -a --format '{{.Names}}|{{.State}}|{{.Image}}' 2>/dev/null |
-    grep "|${RFSWIFT_REPO}:" |
+    grep -E "\\|${RFSWIFT_REPO_PATTERN}:" |
     while IFS='|' read -r name state image; do
       [[ -z "$name" ]] && continue
       local tag="${image##*:}"
@@ -336,7 +341,8 @@ cmd_picker() {
 # window-rule so the picker + preview fill the window instead of a tall, mostly
 # empty float. The launcher re-invokes us as `_picker`, landing in cmd_picker.
 cmd_menu() {
-  exec monarch-launch-floating-terminal-with-presentation --app-id=org.monarch.pentest monarch-menu-rfswift _picker
+  exec monarch-launch-floating-terminal-with-presentation --app-id=org.monarch.pentest \
+    monarch-launch-docker-session monarch-menu-rfswift _picker
 }
 
 # Route sub-commands
@@ -351,5 +357,6 @@ case "${1:-}" in
   _picker)    cmd_picker ;;
   _list)      cmd_list ;;
   _enter)     cmd_enter "$2" "$3" ;;
+  _start-session) cmd_start_session "$2" ;;
   *)          cmd_menu ;;
 esac

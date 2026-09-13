@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# monarch:summary=List the Monarch themes available to the visual selector
+# monarch:hidden=true
+
+set -uo pipefail
+
+MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
+PALETTES_DIR="${MONARCH_THEME_PALETTES_DIR:-$HOME/.config/noctalia/palettes}"
+BUNDLES_DIR="${MONARCH_THEME_BUNDLES_DIR:-$HOME/.config/monarch/themes}"
+
+current=""
+if command -v noctalia >/dev/null 2>&1; then
+  scheme=$(noctalia msg color-scheme-get 2>/dev/null || true)
+  [[ $scheme == custom\ * ]] && current=${scheme#custom }
+fi
+
+for palette in "$PALETTES_DIR"/*.json; do
+  [[ -f $palette ]] || continue
+  name=${palette##*/}
+  name=${name%.json}
+  slug=${name,,}
+  slug=${slug// /-}
+  theme_dir="$MONARCH_ROOT/themes/$slug"
+  if [[ -f "$BUNDLES_DIR/$slug/provenance.json" ]]; then
+    theme_dir="$BUNDLES_DIR/$slug"
+  fi
+  [[ -d $theme_dir ]] || continue
+
+  preview=""
+  if [[ -f "$theme_dir/provenance.json" ]]; then
+    preview_path=$(jq -r '.preview // empty' "$theme_dir/provenance.json" 2>/dev/null)
+    [[ -n $preview_path ]] && preview="$theme_dir/$preview_path"
+    backgrounds_path=$(jq -r '.backgrounds // empty' "$theme_dir/provenance.json" 2>/dev/null)
+    search_dir="$theme_dir/$backgrounds_path"
+  else
+    preview="$theme_dir/preview.png"
+    search_dir="$theme_dir"
+  fi
+  if [[ ! -f $preview ]]; then
+    preview=$(find "$search_dir" -maxdepth 1 -type f \
+      \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) \
+      ! -name 'preview-unlock.png' -print -quit 2>/dev/null)
+  fi
+  [[ -n $preview ]] || continue
+
+  selected=false
+  [[ $name == "$current" ]] && selected=true
+  printf '%s\t%s\t%s\t%s\n' "$selected" "$name" "$slug" "$preview"
+done | sort -t $'\t' -k2,2f

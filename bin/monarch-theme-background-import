@@ -1,0 +1,91 @@
+#!/bin/bash
+
+# monarch:summary=Import an image into the active theme's wallpaper collection
+# monarch:group=theme
+# monarch:name=background-import
+# monarch:args=[path]
+# monarch:examples=monarch theme background-import | monarch theme background-import ~/Pictures/wallpaper.png
+
+set -euo pipefail
+
+notify_error() {
+  monarch-notification-send -g "" "Could not import background" "$1" -u critical 2>/dev/null || true
+  echo "monarch-theme-background-import: $1" >&2
+}
+
+source_path=${1:-}
+if [[ -z $source_path ]]; then
+  status=0
+  source_path=$(monarch-file-select --title "Import a background" --extensions "jpg jpeg png gif bmp webp") || status=$?
+  if ((status == 1)); then
+    exit 0
+  elif ((status > 1)); then
+    notify_error "The file chooser did not open"
+    exit 1
+  fi
+fi
+
+if [[ ! -f $source_path || ! -r $source_path ]]; then
+  notify_error "The selected file cannot be read"
+  exit 1
+fi
+
+extension=${source_path##*.}
+extension=${extension,,}
+case $extension in
+jpg | jpeg | png | gif | bmp | webp) ;;
+*)
+  notify_error "Unsupported image format: .$extension"
+  exit 1
+  ;;
+esac
+
+mime_type=$(file --brief --mime-type -- "$source_path" 2>/dev/null || true)
+case $mime_type in
+image/jpeg | image/png | image/gif | image/bmp | image/webp) ;;
+*)
+  notify_error "The selected file is not a supported image"
+  exit 1
+  ;;
+esac
+
+scheme=$(noctalia msg color-scheme-get 2>/dev/null | cut -d' ' -f2-)
+if [[ -z $scheme ]]; then
+  notify_error "The active theme could not be determined"
+  exit 1
+fi
+
+folder=${scheme,,}
+folder=${folder// /-}
+case $folder in
+rosé-pine | rosepine) folder="rose-pine" ;;
+esac
+
+destination_dir="$HOME/.config/monarch/backgrounds/$folder"
+monarch_root="${MONARCH_PATH:-/usr/share/monarch}"
+shipped_dir="$monarch_root/themes/$folder"
+filename=${source_path##*/}
+stem=${filename%.*}
+destination="$destination_dir/$filename"
+suffix=2
+
+mkdir -p "$destination_dir"
+while [[ -e $destination || -e $shipped_dir/${destination##*/} ]]; do
+  destination="$destination_dir/$stem-$suffix.$extension"
+  ((suffix++))
+done
+
+if ! cp -- "$source_path" "$destination"; then
+  notify_error "The image could not be copied"
+  exit 1
+fi
+
+if ! monarch-theme-apply >/dev/null 2>&1 || ! noctalia msg wallpaper-set "$destination" >/dev/null 2>&1; then
+  rm -f -- "$destination"
+  monarch-theme-apply >/dev/null 2>&1 || true
+  notify_error "Noctalia could not apply the imported background"
+  exit 1
+fi
+
+monarch-notification-send -g "" "Background imported" "$scheme · ${destination##*/}" 2>/dev/null || true
+printf '%s\n' "$destination"

@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# monarch:summary=Print the connected Wi-Fi interface
+# monarch:hidden=true
+
+# Shared by monarch-wifi-qr and the menu guard that hides the share row, so both
+# agree on which connection "the Wi-Fi" means. The default-route device wins —
+# that is the one the shell's network panel describes. nmcli localizes state
+# names, hence LC_ALL and the prefix match: "connected (externally)" counts.
+
+set -euo pipefail
+
+# `|| true` is load-bearing: under pipefail, a machine with no default route
+# would exit here instead of falling through to the nmcli lookup.
+route_device=$(ip route get 1.1.1.1 2>/dev/null |
+  awk '{ for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit } }') || true
+
+if [[ -n $route_device && -d /sys/class/net/$route_device/wireless ]]; then
+  printf '%s\n' "$route_device"
+  exit 0
+fi
+
+device=$(LC_ALL=C nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null |
+  awk -F: '$2 == "wifi" && $3 ~ /^connected/ { print $1; exit }') || true
+
+[[ -n $device ]] || exit 1
+printf '%s\n' "$device"

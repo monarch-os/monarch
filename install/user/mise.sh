@@ -1,0 +1,18 @@
+# Upgrades must not delete the version a running process is executing from:
+# mise up would prune the old install dir out from under a live session.
+mise settings set upgrade.auto_prune false
+
+monarch-mise-install codex
+monarch-mise-install claude
+monarch-mise-install crush
+monarch-mise-install antigravity-cli agy
+monarch-mise-install copilot
+monarch-mise-install opencode
+monarch-mise-install pi
+monarch-mise-install github:can1357/oh-my-pi omp
+monarch-mise-install npm:@xai-official/grok grok
+monarch-mise-install github:OpenRouterLabs/ori-releases ori
+monarch-mise-install cursor-agent
+monarch-mise-install "http:muse[url=https://api.meta.ai/muse-launcher.sh,bin=muse,version_list_url=https://api.meta.ai/muse-code/channels/muse-stable,version_json_path=.version]" muse
+monarch-mise-install npm:playwright playwright-cli playwright
+monarch-mise-install npm:@kitlangton/ghui ghui

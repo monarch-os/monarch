@@ -3,12 +3,9 @@
 # monarch:summary=Install displaylink drivers
 # monarch:requires-sudo=true
 
-# Install headers for every installed kernel (linux, linux-lts, linux-zen,
-# linux-cachyos, …) so evdi-dkms builds against each one — DisplayLink then
-# keeps working even after booting a fallback/LTS kernel. Each Arch kernel
-# package records its pkgbase here; fall back to stock linux if none is found.
-mapfile -t headers < <(cat /usr/lib/modules/*/pkgbase 2>/dev/null | sort -u | sed 's/$/-headers/')
-[[ ${#headers[@]} -eq 0 ]] && headers=(linux-headers)
+# Headers for every installed kernel, so evdi-dkms builds against each one and
+# DisplayLink survives booting a fallback kernel.
+mapfile -t headers < <(monarch-hw-kernel-headers)
 
 yay -S --noconfirm "${headers[@]}" evdi-dkms displaylink
 

@@ -1,0 +1,63 @@
+#!/bin/bash
+
+source "${BASH_SOURCE[0]%/*}/base-test.sh"
+
+apply_system="$ROOT/bin/monarch-apply-system"
+apply_hardware="$ROOT/bin/monarch-apply-hardware"
+user_stage="$ROOT/install/user/all.sh"
+root_stage="$ROOT/install/config/all.sh"
+
+for stage in config login post-install; do
+  grep -qF "source \"\$MONARCH_INSTALL/$stage/all.sh\"" "$apply_system" ||
+    fail "apply-system does not own the $stage root stage"
+done
+grep -qF 'monarch-apply-hardware --install-user "$install_user"' "$apply_system" ||
+  fail "apply-system does not invoke root hardware setup"
+pass "apply-system owns every root setup stage"
+
+if grep -qF 'login/limine-snapper.sh' "$ROOT/install/login/all.sh"; then
+  fail "login setup still invokes the legacy Limine/Snapper finalizer"
+fi
+grep -qE '^HOOKS=.*\bencrypt\b' "$ROOT/etc/mkinitcpio.conf.d/monarch_hooks.conf" ||
+  fail "the packaged initramfs configuration has no encrypt hook"
+pass "the package owns encrypted initramfs hooks without a login finalizer"
+
+grep -qF '"bip": "10.66.0.1/16"' "$ROOT/etc/docker/daemon.json" ||
+  fail "Docker does not use Monarch's dedicated bridge"
+grep -qF '"base":"10.67.0.0/16"' "$ROOT/etc/docker/daemon.json" ||
+  fail "Docker does not reserve Monarch's network pool"
+grep -qxF 'DNSStubListenerExtra=10.66.0.1' \
+  "$ROOT/etc/systemd/resolved.conf.d/20-docker-dns.conf" ||
+  fail "resolved does not listen on Monarch's Docker bridge"
+grep -qF 'from 10.66.0.0/15 to 10.66.0.1 port 53' "$ROOT/install/config/firewall.sh" ||
+  fail "UFW does not allow DNS from Monarch's Docker bridge"
+pass "Docker, resolved and UFW share Monarch's dedicated network"
+
+if grep -qF 'helpers/chroot.sh' "$apply_hardware"; then
+  fail "hardware apply still depends on the legacy chroot helper"
+fi
+pass "hardware setup uses direct service activation"
+
+if grep -qE 'input-group|docker|wireshark|kernel-modules|sudoers' "$user_stage"; then
+  fail "user setup still contains a root-owned script"
+fi
+pass "user setup excludes root-owned scripts"
+
+if grep -qF 'hardware/input-group.sh' "$ROOT/install/hardware/all.sh" ||
+  [[ -e $ROOT/install/hardware/input-group.sh ]]; then
+  fail "hardware setup still grants the input group"
+fi
+pass "hardware setup has no blanket input-group grant"
+
+test_tmp=$(mktemp -d)
+trap 'rm -rf "$test_tmp"' EXIT
+printf 'false\n' >"$test_tmp/fail.sh"
+: >"$test_tmp/install.log"
+if MONARCH_INSTALL_LOG_FILE="$test_tmp/install.log" bash -c \
+  'set -e; source "$1"; run_logged "$2"' bash \
+  "$ROOT/install/helpers/logging.sh" "$test_tmp/fail.sh"; then
+  fail "logging swallowed a failed setup script"
+fi
+grep -qF 'Failed:' "$test_tmp/install.log" ||
+  fail "logging lost the failed setup-script record"
+pass "logging records failures under errexit"

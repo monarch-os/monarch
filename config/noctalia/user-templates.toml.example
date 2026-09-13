@@ -1,0 +1,4 @@
+[theme.templates.user.my_app]
+enabled = false
+input_path = "$XDG_CONFIG_HOME/noctalia/templates/my-app.conf.tpl"
+output_path = "$XDG_CONFIG_HOME/my-app/theme.conf"

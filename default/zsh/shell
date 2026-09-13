@@ -16,7 +16,7 @@ select-word-style bash
 
 # Make Monarch's completion functions discoverable by compinit (now and on
 # any subsequent compinit calls from other tools, e.g. scw/kubectl/talosctl).
-fpath=(~/.local/share/monarch/default/zsh/functions $fpath)
+fpath=("${MONARCH_PATH:-/usr/share/monarch}/default/zsh/functions" $fpath)
 
 autoload -Uz compinit
 compinit

@@ -1,0 +1,24 @@
+# Port of quattro's standalone omarchy.wifiqr panel, kept a plugin of its own for
+# the same reason it is one upstream: nothing else opens it.
+
+id          = "monarch/wifi-qr"
+name        = "Wi-Fi QR"
+version     = "1.0.0"
+# 22 everywhere in Monarch, though this panel only needs 13 (capture_keys).
+plugin_api  = 22
+author      = "monarch"
+license     = "MIT"
+description = "Share the connected Wi-Fi network as a scannable QR code."
+icon        = "qrcode"
+
+[[panel]]
+id     = "panel"
+entry  = "panel.luau"
+width  = 400
+height = 560
+placement = "floating"
+position  = "center"
+# Escape is the only chord the card takes, and it needs the keyboard to get it.
+keyboard_focus = "on_demand"
+capture_keys   = ["escape"]
+dismiss_on_outside_click = true

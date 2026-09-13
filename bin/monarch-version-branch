@@ -2,4 +2,8 @@
 
 # monarch:summary=Print the current Monarch git branch
 
-echo $(git -C "$MONARCH_PATH" rev-parse --abbrev-ref HEAD)
+if [[ -d $MONARCH_PATH/.git ]]; then
+  git -C "$MONARCH_PATH" rev-parse --abbrev-ref HEAD
+else
+  echo "main"
+fi

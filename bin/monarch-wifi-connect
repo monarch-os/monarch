@@ -79,9 +79,9 @@ while true; do
   security=${NET_SEC[$sel]}
 
   args=(dev wifi connect "$ssid")
-  # Ask for a password only when the network is secured and we have no saved
-  # profile already (nmcli reuses stored credentials otherwise).
-  if [[ -n $security && $security != "--" ]] \
+  # OWE encrypts the link without a shared secret; nmcli negotiates it from the
+  # access point when called without a password.
+  if [[ -n $security && $security != "--" && $security != *"OWE"* ]] \
      && ! nmcli -g NAME connection show 2>/dev/null | grep -Fxq "$ssid"; then
     if have_gum; then
       pw=$(gum input --password --placeholder "Password for $ssid")

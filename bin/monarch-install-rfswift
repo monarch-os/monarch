@@ -3,9 +3,15 @@
 # monarch:summary=Install RFSwift to hack the radio planet.
 # monarch:requires-sudo=true
 
+set -euo pipefail
+
 echo "Retrieve RFSwift installer"
 
 curl -fsSL "https://raw.githubusercontent.com/PentHertz/RF-Swift/refs/heads/main/get_rfswift.sh" | sh
 
-# Init default config file
-yes | /usr/local/bin/rfswift -h > /dev/null
+rfswift=$(type -P rfswift) || {
+  echo "RF Swift installation completed without an rfswift command." >&2
+  exit 1
+}
+
+"$rfswift" -h </dev/null >/dev/null

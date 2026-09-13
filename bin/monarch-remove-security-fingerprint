@@ -7,42 +7,38 @@ set -e
 
 
 remove_pam_config() {
+  # The lid gate goes with pam_fprintd: on its own it would run a helper before
+  # every sudo to decide nothing. Matched on the helper name rather than on
+  # pam_exec, so an unrelated pam_exec line in the same stack survives.
   # Remove from sudo
-  if grep -q pam_fprintd.so /etc/pam.d/sudo; then
+  if grep -Eq 'pam_fprintd\.so|monarch-hw-laptop-closed' /etc/pam.d/sudo; then
     echo "Removing fingerprint authentication from sudo..."
-    sudo sed -i '/pam_fprintd\.so/d' /etc/pam.d/sudo
+    sudo sed -i -e '/pam_fprintd\.so/d' -e '/monarch-hw-laptop-closed/d' /etc/pam.d/sudo
   fi
 
   # Remove from polkit
-  if [[ -f /etc/pam.d/polkit-1 ]] && grep -Fq 'pam_fprintd.so' /etc/pam.d/polkit-1; then
+  if [[ -f /etc/pam.d/polkit-1 ]] && grep -Eq 'pam_fprintd\.so|monarch-hw-laptop-closed' /etc/pam.d/polkit-1; then
     echo "Removing fingerprint authentication from polkit..."
-    sudo sed -i '/pam_fprintd\.so/d' /etc/pam.d/polkit-1
+    sudo sed -i -e '/pam_fprintd\.so/d' -e '/monarch-hw-laptop-closed/d' /etc/pam.d/polkit-1
   fi
+
+  sudo rm -f /usr/local/bin/monarch-hw-laptop-closed
 }
 
 remove_noctalia_lockscreen() {
-  # Drop the dedicated PAM service and the env var that points Noctalia at it.
+  # Inert on v5, but installs set up before that still carry both.
   if [[ -f /etc/pam.d/noctalia ]]; then
-    echo "Removing Noctalia lock screen fingerprint configuration..."
+    echo "Removing the v4 lock-screen PAM service..."
     sudo rm -f /etc/pam.d/noctalia
   fi
 
   rm -f "$HOME/.config/environment.d/noctalia-fingerprint.conf"
 
-  # Restore the lock-screen auth defaults so it no longer waits on a sensor
-  # that is gone.
-  local cfg="$HOME/.config/noctalia/settings.json"
-  if command -v jq >/dev/null && [[ -f $cfg ]]; then
-    local tmp
-    tmp=$(mktemp)
-    if jq '.general = (.general // {})
-           | .general.autoStartAuth = false
-           | .general.allowPasswordWithFprintd = false' "$cfg" >"$tmp"; then
-      mv "$tmp" "$cfg"
-    else
-      rm -f "$tmp"
-    fi
-  fi
+  # Restore the lock-screen auth defaults so it no longer waits on a sensor that
+  # is gone. Dropping the file is the whole revert: lockscreen.fingerprint is
+  # only ever set there, so the merged config falls back to the v5 default.
+  rm -f "$HOME/.config/noctalia/monarch-fingerprint.toml"
+  noctalia msg config-reload >/dev/null 2>&1 || true
 }
 
 remove_fingerprint_marker() {

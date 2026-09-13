@@ -1,0 +1,67 @@
+#!/bin/bash
+
+set -euo pipefail
+
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+TEST_DIR="$ROOT/test/acceptance.d"
+
+export MONARCH_ACCEPTANCE_DIR="${MONARCH_ACCEPTANCE_DIR:-/tmp/monarch-acceptance}"
+export MONARCH_PATH="${MONARCH_PATH:-/usr/share/monarch}"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=$XDG_RUNTIME_DIR/bus}"
+export PATH="$MONARCH_PATH/bin:$PATH"
+
+mkdir -p "$MONARCH_ACCEPTANCE_DIR"
+
+[[ -x $MONARCH_PATH/bin/monarch ]] || {
+  echo "Installed Monarch runtime not found at $MONARCH_PATH" >&2
+  exit 1
+}
+
+session_deadline=$((SECONDS + ${MONARCH_ACCEPTANCE_BOOT_TIMEOUT:-300}))
+while true; do
+  NIRI_SOCKET=$(monarch-hw-niri-socket 2>/dev/null || true)
+  export NIRI_SOCKET
+  if [[ -n $NIRI_SOCKET ]] && niri msg --json outputs >/dev/null 2>&1; then
+    break
+  fi
+  if ((SECONDS >= session_deadline)); then
+    echo "Niri session never became ready" >&2
+    exit 1
+  fi
+  sleep 2
+done
+
+if [[ -z ${WAYLAND_DISPLAY:-} ]]; then
+  WAYLAND_DISPLAY=$(systemctl --user show-environment 2>/dev/null |
+    sed -n 's/^WAYLAND_DISPLAY=//p' | head -1)
+  export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
+fi
+
+shopt -s nullglob
+tests=("$TEST_DIR"/[0-9][0-9]-*.sh)
+shopt -u nullglob
+((${#tests[@]} > 0)) || {
+  echo "No acceptance tests found in $TEST_DIR" >&2
+  exit 1
+}
+
+status=0
+suite_started=$SECONDS
+for test_file in "${tests[@]}"; do
+  test_started=$SECONDS
+  printf '==> %s\n' "${test_file#$ROOT/}"
+  if ! timeout "${MONARCH_ACCEPTANCE_TEST_TIMEOUT:-420}" bash "$test_file"; then
+    status=1
+  fi
+  printf '    completed in %ss\n' "$((SECONDS - test_started))"
+done
+
+if ((status != 0)); then
+  printf 'not ok - acceptance suite failed in %ss (artifacts in %s)\n' \
+    "$((SECONDS - suite_started))" "$MONARCH_ACCEPTANCE_DIR" >&2
+  exit "$status"
+fi
+
+printf 'ok - acceptance suite passed in %ss (artifacts in %s)\n' \
+  "$((SECONDS - suite_started))" "$MONARCH_ACCEPTANCE_DIR"

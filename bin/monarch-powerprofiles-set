@@ -1,11 +1,73 @@
 #!/bin/bash
 
-# monarch:summary=Set the power profile to balanced, falling back to power-saver
+# monarch:summary=Set and remember the power profile, per power source
+# monarch:group=powerprofiles
+# monarch:args=[autodetect|ac|battery] [power-saver|balanced|performance]
+# monarch:examples=monarch powerprofiles set | monarch powerprofiles set battery power-saver
 
-mapfile -t profiles < <(powerprofilesctl list | awk '/^\s*[* ]\s*[a-zA-Z0-9\-]+:$/ { gsub(/^[*[:space:]]+|:$/,""); print }')
+# Remembered against the source it was chosen under. With no argument it
+# restores rather than chooses, which is what makes it right at every transition.
 
-if [[ " ${profiles[*]} " == *" balanced "* ]]; then
-  powerprofilesctl set balanced
-else
-  powerprofilesctl set power-saver
+set -uo pipefail
+
+STATE_DIR=${MONARCH_POWERPROFILES_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/monarch/powerprofiles}
+
+usage() {
+  echo "Usage: monarch-powerprofiles-set [autodetect|ac|battery] [power-saver|balanced|performance]" >&2
+  exit 2
+}
+
+(($# <= 2)) || usage
+
+source=${1:-autodetect}
+requested=${2:-}
+
+if [[ $source == autodetect ]]; then
+  if [[ $(busctl get-property org.freedesktop.UPower /org/freedesktop/UPower \
+      org.freedesktop.UPower OnBattery 2>/dev/null) == "b true" ]]; then
+    source=battery
+  else
+    source=ac
+  fi
+fi
+
+[[ $source == ac || $source == battery ]] || usage
+
+mapfile -t profiles < <(monarch-powerprofiles-list)
+((${#profiles[@]})) || {
+  echo "Error: power-profiles-daemon offers no profiles." >&2
+  exit 1
+}
+
+available() {
+  [[ " ${profiles[*]} " == *" $1 "* ]]
+}
+
+state_file="$STATE_DIR/$source"
+profile=""
+
+if [[ -n $requested ]]; then
+  available "$requested" || {
+    echo "Error: power profile is not available: $requested" >&2
+    exit 1
+  }
+  profile=$requested
+elif [[ -r $state_file ]]; then
+  profile=$(<"$state_file")
+fi
+
+if [[ -z $profile ]] || ! available "$profile"; then
+  if [[ $source == ac ]] && available performance; then
+    profile=performance
+  else
+    profile=balanced
+  fi
+fi
+
+powerprofilesctl set "$profile" || exit 1
+
+# Only an explicit choice, or every transition becomes a save.
+if [[ -n $requested ]]; then
+  mkdir -p "$STATE_DIR"
+  printf '%s\n' "$requested" >"$state_file"
 fi

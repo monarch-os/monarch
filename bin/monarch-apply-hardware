@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# monarch:summary=Apply Monarch hardware-specific packages and system configuration
+# monarch:group=apply
+# monarch:requires-sudo=true
+# monarch:examples=monarch apply hardware --install-user dhh
+# monarch:hidden=true
+
+set -euo pipefail
+
+usage() {
+  cat <<USAGE
+Usage: monarch apply hardware --install-user USER
+       monarch apply hardware --defer-provisioning
+
+Runs idempotent hardware detection/setup for the installed machine. This is
+called by monarch-apply-system during ISO finalization and can be rerun later
+for diagnostics or after hardware/package updates.
+
+--defer-provisioning runs without an install user (deferred-provisioning installs create the user at
+first boot); group grants are recorded in /var/lib/monarch/provisioning/groups.
+USAGE
+}
+
+install_user="${MONARCH_INSTALL_USER:-}"
+defer_provisioning=0
+while (($#)); do
+  case "$1" in
+    --install-user)
+      install_user="${2:-}"
+      shift 2
+      ;;
+    --defer-provisioning)
+      defer_provisioning=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+if (( EUID != 0 )); then
+  echo "Error: monarch-apply-hardware must run as root" >&2
+  exit 1
+fi
+
+if (( defer_provisioning )); then
+  install_user=""
+else
+  if [[ -z $install_user || $install_user == "root" ]]; then
+    echo "Error: --install-user must name the target non-root user" >&2
+    exit 1
+  fi
+
+  if ! getent passwd "$install_user" >/dev/null; then
+    echo "Error: user '$install_user' does not exist" >&2
+    exit 1
+  fi
+fi
+
+export MONARCH_INSTALL_USER="$install_user"
+export MONARCH_PATH="${MONARCH_PATH:-/usr/share/monarch}"
+export MONARCH_INSTALL="${MONARCH_INSTALL:-$MONARCH_PATH/install}"
+export MONARCH_INSTALL_LOG_FILE="${MONARCH_INSTALL_LOG_FILE:-/var/log/monarch-install.log}"
+export PATH="$MONARCH_PATH/bin:$PATH"
+
+source "$MONARCH_INSTALL/helpers/logging.sh"
+source "$MONARCH_INSTALL/hardware/all.sh"

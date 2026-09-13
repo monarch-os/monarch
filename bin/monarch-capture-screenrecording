@@ -2,7 +2,7 @@
 
 # monarch:summary=Start or stop screen recording
 # monarch:group=capture
-# monarch:args=[--with-desktop-audio] [--with-microphone-audio] [--with-webcam] [--webcam-device=<device>] [--resolution=<size>] [--stop-recording]
+# monarch:args=[--fullscreen] [--with-desktop-audio] [--with-microphone-audio] [--with-webcam] [--webcam-device=<device>] [--webcam-size=<small|medium|large>] [--webcam-shape=<circle|rectangle>] [--resolution=<size>] [--stop-recording]
 # monarch:examples=monarch screenrecord | monarch capture screenrecord --with-desktop-audio
 # monarch:aliases=monarch screenrecord
 #
@@ -30,9 +30,13 @@ DESKTOP_AUDIO="false"
 MICROPHONE_AUDIO="false"
 WEBCAM="false"
 WEBCAM_DEVICE=""
+WEBCAM_SIZE="medium"
+WEBCAM_SHAPE="circle"
 RESOLUTION=""
+FULLSCREEN="false"
 STOP_RECORDING="false"
 RECORDING_FILE="/tmp/monarch-screenrecord-filename"
+WEBCAM_STATE_FILE="${XDG_RUNTIME_DIR:-/tmp}/monarch-screenrecord-webcam-$UID.json"
 LOG_FILE=$([[ ${MONARCH_SCREENRECORD_DEBUG:-false} == "true" ]] && echo "/tmp/monarch-screenrecord.log" || echo "/dev/null")
 
 for arg in "$@"; do
@@ -41,12 +45,26 @@ for arg in "$@"; do
   --with-microphone-audio) MICROPHONE_AUDIO="true" ;;
   --with-webcam) WEBCAM="true" ;;
   --webcam-device=*) WEBCAM_DEVICE="${arg#*=}" ;;
+  --webcam-size=*) WEBCAM_SIZE="${arg#*=}" ;;
+  --webcam-shape=*) WEBCAM_SHAPE="${arg#*=}" ;;
   --resolution=*) RESOLUTION="${arg#*=}" ;;
+  --fullscreen) FULLSCREEN="true" ;;
   --stop-recording) STOP_RECORDING="true" ;;
   esac
 done
 
+case $WEBCAM_SIZE in
+small | medium | large) ;;
+*) echo "Invalid webcam size: $WEBCAM_SIZE (expected small, medium, or large)" >&2; exit 1 ;;
+esac
+
+case $WEBCAM_SHAPE in
+circle | rectangle) ;;
+*) echo "Invalid webcam shape: $WEBCAM_SHAPE (expected circle or rectangle)" >&2; exit 1 ;;
+esac
+
 start_webcam_overlay() {
+  local target=$1
   cleanup_webcam
 
   # Auto-detect first available webcam if none specified
@@ -58,41 +76,60 @@ start_webcam_overlay() {
     fi
   fi
 
-  # Get monitor scale
-  local scale=$(niri msg --json focused-output 2>/dev/null | jq -r '.logical.scale // 1')
-
-  # Target width (base 360px, scaled to monitor)
-  local target_width=$(awk "BEGIN {printf \"%.0f\", 360 * $scale}")
-
   # Try preferred 16:9 resolutions in order, use first available
   local preferred_resolutions=("640x360" "1280x720" "1920x1080")
-  local video_size_arg=""
+  local capture_options="framerate=30"
   local available_formats=$(v4l2-ctl --list-formats-ext -d "$WEBCAM_DEVICE" 2>/dev/null)
 
   for resolution in "${preferred_resolutions[@]}"; do
     if echo "$available_formats" | grep -q "$resolution"; then
-      video_size_arg="-video_size $resolution"
+      capture_options="video_size=$resolution,$capture_options"
       break
     fi
   done
 
-  ffplay -f v4l2 $video_size_arg -framerate 30 "$WEBCAM_DEVICE" \
-    -vf "crop=iw/2:ih,scale=${target_width}:-1" \
-    -window_title "WebcamOverlay" \
-    -noborder \
-    -fflags nobuffer -flags low_delay \
-    -probesize 32 -analyzeduration 0 \
-    -loglevel quiet &
-  sleep 1
+  local app_id="org.monarch.webcam-overlay.rectangle"
+  local video_filter="lavfi=[crop=ih*8/9:ih]"
+  if [[ $WEBCAM_SHAPE == "circle" ]]; then
+    app_id="org.monarch.webcam-overlay.circle"
+    video_filter="lavfi=[crop='min(iw,ih)':'min(iw,ih)']"
+  fi
+
+  mpv "av://v4l2:$WEBCAM_DEVICE" \
+    --profile=low-latency --untimed --no-cache \
+    --demuxer-lavf-o="$capture_options" \
+    --vf="$video_filter" \
+    --title="Monarch Webcam Overlay" --wayland-app-id="$app_id" \
+    --no-border --no-audio --no-osc --osd-level=0 --keepaspect-window=yes \
+    --really-quiet &>/dev/null &
+  local webcam_pid=$!
+
+  local state_tmp="$WEBCAM_STATE_FILE.$$"
+  jq -cn --arg target "$target" --arg shape "$WEBCAM_SHAPE" --arg app_id "$app_id" --argjson pid "$webcam_pid" \
+    '{target: $target, shape: $shape, app_id: $app_id, pid: $pid}' >"$state_tmp"
+  chmod 600 "$state_tmp"
+  mv "$state_tmp" "$WEBCAM_STATE_FILE"
+
+  if ! monarch-capture-webcam-resize "$WEBCAM_SIZE"; then
+    notify-send "Webcam overlay failed to open" -u critical -t 3000
+    cleanup_webcam
+    return 1
+  fi
 }
 
 cleanup_webcam() {
-  pkill -f "WebcamOverlay" 2>/dev/null
+  local webcam_pid
+  webcam_pid=$(jq -r '.pid // empty' "$WEBCAM_STATE_FILE" 2>/dev/null)
+  if [[ $webcam_pid =~ ^[0-9]+$ ]] && tr '\0' ' ' <"/proc/$webcam_pid/cmdline" 2>/dev/null | grep -Fq -- '--wayland-app-id=org.monarch.webcam-overlay.'; then
+    kill "$webcam_pid" 2>/dev/null || true
+  fi
+  rm -f "$WEBCAM_STATE_FILE"
 }
 
 default_resolution() {
   local width height
-  read -r width height < <(niri msg --json focused-output 2>/dev/null | jq -r '"\(.current_mode.width // 0) \(.current_mode.height // 0)"')
+  read -r width height < <(niri msg --json focused-output 2>/dev/null | jq -r '
+    .modes[.current_mode] // {} | "\(.width // 0) \(.height // 0)"')
   if ((width > 3840 || height > 2160)); then
     echo "3840x2160"
   else
@@ -171,7 +208,11 @@ start_screenrecording() {
   # the portal backend supports and the kms backend doesn't). Default flow uses
   # slurp + the kms backend, which avoids the EGL DMA-BUF modifier import
   # failures the portal path can hit on some configurations.
-  if [[ ${MONARCH_SCREENRECORD_USE_PORTAL:-false} == "true" ]]; then
+  if [[ $FULLSCREEN == "true" ]]; then
+    target="monitor:$(niri msg --json focused-output 2>/dev/null | jq -r '.name // empty')"
+    [[ $target != "monitor:" ]] || return 1
+    capture_args=(-w "${target#monitor:}" -s "${RESOLUTION:-$(default_resolution)}")
+  elif [[ ${MONARCH_SCREENRECORD_USE_PORTAL:-false} == "true" ]]; then
     target="portal"
     capture_args=(-w portal -s "${RESOLUTION:-$(default_resolution)}")
   else
@@ -188,7 +229,9 @@ start_screenrecording() {
     esac
   fi
 
-  [[ $WEBCAM == "true" ]] && start_webcam_overlay
+  if [[ $WEBCAM == "true" ]]; then
+    start_webcam_overlay "$target" || return 1
+  fi
 
   local filename="$OUTPUT_DIR/screenrecording-$(date +'%Y-%m-%d_%H-%M-%S').mp4"
   local audio_devices=""
@@ -214,6 +257,9 @@ start_screenrecording() {
 
   if kill -0 $pid 2>/dev/null; then
     echo "$filename" >"$RECORDING_FILE"
+  else
+    cleanup_webcam
+    return 1
   fi
 }
 
@@ -238,12 +284,14 @@ stop_screenrecording() {
     echo "$filename"
     local preview="${filename%.mp4}-preview.png"
 
-    # Generate a preview thumbnail from the first frame
     ffmpeg -y -i "$filename" -ss 00:00:00.1 -vframes 1 -q:v 2 "$preview" -loglevel quiet 2>/dev/null
 
+    monarch-notification-send -t 10000 --image "${preview:-$filename}" \
+      "Screen recording saved" "Open with Super + Alt + , (or click this)" \
+      --action "Open" mpv -- "$filename"
+
     (
-      ACTION=$(notify-send "Screen recording saved" "Open with Super + Alt + , (or click this)" -t 10000 -i "${preview:-$filename}" -A "default=open")
-      [[ $ACTION == "default" ]] && mpv "$filename"
+      sleep 2
       rm -f "$preview"
     ) &
   fi
@@ -289,5 +337,6 @@ if screenrecording_active; then
 elif [[ $STOP_RECORDING == "true" ]]; then
   exit 1
 else
+  trap 'cleanup_webcam; exit 130' INT TERM
   start_screenrecording || cleanup_webcam
 fi

@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# monarch:summary=Restore authenticated Docker access by leaving the docker group
+# monarch:requires-sudo=true
+
+set -euo pipefail
+
+account=$(/usr/bin/id -un)
+
+if monarch-sudo-docker --configured; then
+  echo "Sudoless Docker is already disabled for $account."
+  exit 0
+fi
+
+echo "Removing $account from the docker group..."
+sudo /usr/bin/gpasswd -d "$account" docker >/dev/null
+monarch-state set reboot-required
+
+echo
+echo "Sudoless Docker disabled. Authenticated Docker access resumes after reboot."
+
+if [[ -z ${MONARCH_DEFER_REBOOT:-} ]] && gum confirm "Reboot now to apply?"; then
+  monarch-system-reboot
+fi

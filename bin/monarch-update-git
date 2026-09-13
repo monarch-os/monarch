@@ -8,6 +8,11 @@ echo -e "\e[32mUpdate Monarch\e[0m"
 
 monarch-update-time
 
+if [[ ! -d $MONARCH_PATH/.git ]]; then
+  echo "Monarch is managed by pacman; skipping source update."
+  exit 0
+fi
+
 git -C $MONARCH_PATH pull --autostash
 git -C $MONARCH_PATH --no-pager diff --check || git -C $MONARCH_PATH reset --merge
 

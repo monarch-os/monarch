@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# monarch:summary=Exit 0 when a .desktop entry exists in any of the standard locations
+# monarch:args=<name.desktop>
+# monarch:examples=monarch desktop present firefox.desktop
+
+# The menu's Default Browser rows guard on this. Kept as a command rather than a
+# menu-local helper so the guard expressions in monarch-menu.jsonc stay short and
+# stay evaluable outside the menu.
+
+set -euo pipefail
+
+entry="${1:-}"
+[[ -z $entry ]] && exit 1
+
+for dir in "$HOME/.local/share/applications" "$HOME/.nix-profile/share/applications" /usr/share/applications; do
+  [[ -f "$dir/$entry" ]] && exit 0
+done
+
+exit 1

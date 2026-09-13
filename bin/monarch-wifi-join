@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# monarch:summary=Join a Wi-Fi network without prompting
+# monarch:group=wifi
+# monarch:args=<ssid> [password]
+# monarch:examples=monarch wifi join Cafe | monarch wifi join Cafe hunter2
+
+# The non-interactive half of monarch-wifi-connect, for callers with their own
+# UI: the shell's network panel asks for the passphrase in its own field and
+# hands it over here. The TUI stays where it is — it owns the picking, this owns
+# the joining.
+#
+# The password arrives as an argument, so it is visible in /proc/<pid>/cmdline
+# for the life of the call. nmcli offers no way to take it on stdin for
+# `dev wifi connect`, and this is the same exposure `nmcli dev wifi connect
+# … password …` has always had.
+
+set -uo pipefail
+
+ssid=${1:-}
+password=${2:-}
+
+if [[ -z $ssid ]]; then
+  echo "Usage: monarch-wifi-join <ssid> [password]" >&2
+  exit 2
+fi
+
+monarch-cmd-present nmcli || {
+  echo "Error: nmcli is required to join a network." >&2
+  exit 1
+}
+
+nmcli radio wifi on >/dev/null 2>&1 || true
+
+args=(device wifi connect "$ssid")
+[[ -n $password ]] && args+=(password "$password")
+
+# nmcli reuses a saved profile when no password is given, which is what makes a
+# bare join work on a known network.
+if out=$(LC_ALL=C nmcli "${args[@]}" 2>&1); then
+  exit 0
+fi
+
+# nmcli's own wording is the only thing that distinguishes "wrong passphrase"
+# from "out of range", and the panel shows it verbatim rather than guessing.
+printf '%s\n' "${out:-Could not join $ssid}" >&2
+exit 1

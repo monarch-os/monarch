@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# monarch:summary=Install and launch Signal
+# monarch:requires-sudo=true
+
+set -e
+
+echo "Installing Signal..."
+monarch-pkg-add signal-desktop
+
+echo "Opening Signal..."
+setsid uwsm-app -- /usr/bin/signal-desktop >/dev/null 2>&1 &
+
+echo ""
+echo "Signal has been installed."

@@ -3,8 +3,17 @@
 # monarch:summary=Enable, disable, or toggle the internal laptop display
 # monarch:args=[on|off|toggle]
 
-# Internal panel connector (eDP), read live from niri so a rename can't break us.
-INTERNAL=$(niri msg --json outputs 2>/dev/null | jq -r 'to_entries[] | select(.key | test("eDP")) | .key' | head -n1)
+internal_output() {
+  local output
+  while IFS= read -r output; do
+    monarch-hw-display-internal "$output" || continue
+    printf '%s\n' "$output"
+    return
+  done < <(niri msg --json outputs 2>/dev/null | jq -r 'to_entries[].key')
+  return 1
+}
+
+INTERNAL=$(internal_output)
 
 if [[ -z $INTERNAL ]]; then
   notify-send -u low "󰍹    No internal display found"

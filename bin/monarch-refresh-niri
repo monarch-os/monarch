@@ -6,14 +6,16 @@
 
 set -euo pipefail
 
-SOURCE="$HOME/.local/share/monarch/default/niri/config.kdl"
+MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
+MONARCH_PATH="$MONARCH_ROOT"
+SOURCE="$MONARCH_ROOT/default/niri/config.kdl"
 TARGET="$HOME/.config/niri/config.kdl"
 USER_OVERRIDE="$HOME/.config/niri/user.kdl"
-USER_DEFAULT_OVERRIDE="$HOME/.local/share/monarch/config/niri/user.kdl"
+USER_DEFAULT_OVERRIDE="$MONARCH_ROOT/config/niri/user.kdl"
 NOCTALIA_OVERRIDE="$HOME/.config/niri/noctalia.kdl"
-NOCTALIA_DEFAULT_OVERRIDE="$HOME/.local/share/monarch/config/niri/noctalia.kdl"
+NOCTALIA_DEFAULT_OVERRIDE="$MONARCH_ROOT/config/niri/noctalia.kdl"
 WS_NAMES="$HOME/.config/niri/workspaces.conf"
-WS_NAMES_DEFAULT="$HOME/.local/share/monarch/config/niri/workspaces.conf"
+WS_NAMES_DEFAULT="$MONARCH_ROOT/config/niri/workspaces.conf"
 WS_KDL="$HOME/.config/niri/workspaces.kdl"
 
 mkdir -p "$(dirname "$TARGET")"
@@ -27,20 +29,11 @@ mkdir -p "$(dirname "$TARGET")"
 generate_workspaces_kdl() {
   local out="$1" names_file="$2"
   local -a names=()
-  local line trimmed
-  if [[ -f $names_file ]]; then
-    while IFS= read -r line || [[ -n $line ]]; do
-      [[ $line =~ ^[[:space:]]*# ]] && continue
-      trimmed="${line#"${line%%[![:space:]]*}"}"
-      trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
-      [[ -z $trimmed ]] && continue
-      names+=("$trimmed")
-      [[ ${#names[@]} -ge 10 ]] && break
-    done <"$names_file"
-  fi
+  source "$MONARCH_ROOT/install/helpers/workspaces.sh"
+  monarch_read_workspace_names "$names_file" names
   # Fall back to a plain 1..10 model if the list is missing or empty, so the
   # include in config.kdl always resolves to a usable file.
-  [[ ${#names[@]} -eq 0 ]] && names=(1 2 3 4 5 6 7 8 9 10)
+  (( ${#names[@]} == 0 )) && names=(1 2 3 4 5 6 7 8 9 10)
 
   local i pos key name esc
   {
@@ -55,13 +48,13 @@ generate_workspaces_kdl() {
     echo
     echo "binds {"
     for i in "${!names[@]}"; do
-      pos=$((i + 1)); [[ $pos -eq 10 ]] && key="0" || key="$pos"
+      pos=$((i + 1)); (( pos == 10 )) && key="0" || key="$pos"
       esc="${names[i]//\\/\\\\}"; esc="${esc//\"/\\\"}"
       printf '    Mod+%s hotkey-overlay-title="Workspace %s" { focus-workspace "%s"; }\n' "$key" "$pos" "$esc"
     done
     echo
     for i in "${!names[@]}"; do
-      pos=$((i + 1)); [[ $pos -eq 10 ]] && key="0" || key="$pos"
+      pos=$((i + 1)); (( pos == 10 )) && key="0" || key="$pos"
       esc="${names[i]//\\/\\\\}"; esc="${esc//\"/\\\"}"
       printf '    Mod+Shift+%s hotkey-overlay-title="Move column to workspace %s" { move-column-to-workspace "%s"; }\n' "$key" "$pos" "$esc"
     done
@@ -107,16 +100,20 @@ fi
 rm -f "$HOME/.config/niri/monarch-input.kdl"
 
 # Back up an existing target before we overwrite it.
-if [[ -f $TARGET ]] && ! cmp -s "$SOURCE" "$TARGET"; then
+rendered_source="$(mktemp)"
+trap 'rm -f "$rendered_source"' EXIT
+sed "s|@MONARCH_PATH@|$MONARCH_ROOT|g" "$SOURCE" >"$rendered_source"
+
+if [[ -f $TARGET ]] && ! cmp -s "$rendered_source" "$TARGET"; then
   cp -f "$TARGET" "$TARGET.bak.$(date +%s)"
 fi
 
-cp -f "$SOURCE" "$TARGET"
+cp -f "$rendered_source" "$TARGET"
 
 # Refresh ~/.config/niri/keyboard.kdl BEFORE validating: it's part of the
 # include chain, so a broken keyboard.kdl would only surface here.
-if [[ -f $MONARCH_PATH/install/config/detect-keyboard-layout.sh ]]; then
-  bash "$MONARCH_PATH/install/config/detect-keyboard-layout.sh"
+if [[ -f $MONARCH_PATH/install/user/detect-keyboard-layout.sh ]]; then
+  bash "$MONARCH_PATH/install/user/detect-keyboard-layout.sh"
 fi
 
 # (Re)generate workspaces.kdl from the name list BEFORE validating — it's part

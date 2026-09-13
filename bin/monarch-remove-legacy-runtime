@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# monarch:summary=Remove archived Monarch V4 data after a successful V5 upgrade
+
+set -euo pipefail
+
+runtime=${MONARCH_RUNTIME_ROOT:-/usr/share/monarch}
+legacy="$HOME/.local/share/monarch"
+backup="$HOME/.local/share/monarch-v4"
+schema="$HOME/.local/state/monarch/schema"
+
+if [[ -e $legacy || -L $legacy || ! -x $runtime/bin/monarch ]]; then
+  echo "Refusing cleanup: the packaged Monarch runtime is not the only active runtime." >&2
+  exit 1
+fi
+
+if [[ ! -f $schema ]]; then
+  echo "Refusing cleanup: the Monarch V5 reconciliation is not complete." >&2
+  exit 1
+fi
+
+schema_value=$(<"$schema")
+if [[ ! $schema_value =~ ^[0-9]+$ ]] || ((10#$schema_value < 2)); then
+  echo "Refusing cleanup: the Monarch V5 reconciliation is not complete." >&2
+  exit 1
+fi
+
+if [[ ! -d $backup || -L $backup ]] ||
+  [[ ! -d $backup/.git && ! -d $backup/user-config/noctalia ]]; then
+  echo "Nothing to remove: $backup does not contain archived Monarch V4 data."
+  exit 0
+fi
+
+if gum confirm --default=false \
+  "Permanently remove $backup and any V4 source or user configuration it contains?"; then
+  rm -rf -- "$backup"
+  echo "Removed $backup."
+fi

@@ -16,7 +16,7 @@ fi
 
 pkill slurp && exit 0
 
-SCREENSHOT_EDITOR="${MONARCH_SCREENSHOT_EDITOR:-satty}"
+SCREENSHOT_EDITOR="${MONARCH_SCREENSHOT_EDITOR:-tensaku-edit}"
 
 # Parse --editor flag from any position
 ARGS=()
@@ -28,19 +28,6 @@ for arg in "$@"; do
   fi
 done
 set -- "${ARGS[@]}"
-
-open_editor() {
-  local filepath="$1"
-  if [[ $SCREENSHOT_EDITOR == "satty" ]]; then
-    satty --filename "$filepath" \
-      --output-filename "$filepath" \
-      --actions-on-enter save-to-clipboard \
-      --save-after-copy \
-      --copy-command 'wl-copy'
-  else
-    $SCREENSHOT_EDITOR "$filepath"
-  fi
-}
 
 MODE="${1:-smart}"
 PROCESSING="${2:-slurp}"
@@ -98,13 +85,13 @@ smart | *)
 
   # If the selection area is L * W < 20, we'll assume you were trying to select whichever
   # window or output it was inside of to prevent accidental 2px snapshots
-  if [[ $SELECTION =~ ^([0-9]+),([0-9]+)[[:space:]]([0-9]+)x([0-9]+)$ ]]; then
+  if [[ $SELECTION =~ ^(-?[0-9]+),(-?[0-9]+)[[:space:]]([0-9]+)x([0-9]+)$ ]]; then
     if ((${BASH_REMATCH[3]} * ${BASH_REMATCH[4]} < 20)); then
       click_x="${BASH_REMATCH[1]}"
       click_y="${BASH_REMATCH[2]}"
 
       while IFS= read -r rect; do
-        if [[ $rect =~ ^([0-9]+),([0-9]+)[[:space:]]([0-9]+)x([0-9]+) ]]; then
+        if [[ $rect =~ ^(-?[0-9]+),(-?[0-9]+)[[:space:]]([0-9]+)x([0-9]+) ]]; then
           rect_x="${BASH_REMATCH[1]}"
           rect_y="${BASH_REMATCH[2]}"
           rect_width="${BASH_REMATCH[3]}"
@@ -130,24 +117,22 @@ case "$PROCESSING" in
   slurp)
     grim -g "$SELECTION" "$FILEPATH" || exit 1
     echo "$FILEPATH"
-    wl-copy <"$FILEPATH"
+    wl-copy --type image/png <"$FILEPATH"
 
-    (
-      ACTION=$(notify-send "Screenshot saved to clipboard and file" "Click to edit" -t 10000 -i "$FILEPATH" -A "default=edit")
-      [[ $ACTION == "default" ]] && open_editor "$FILEPATH"
-    ) >/dev/null 2>&1 &
+    monarch-notification-send -t 10000 --image "$FILEPATH" \
+      "Screenshot saved to clipboard and file" "Click to edit" \
+      --action "Edit" "$SCREENSHOT_EDITOR" "$FILEPATH"
     ;;
   copy)
-    grim -g "$SELECTION" - | wl-copy
+    grim -g "$SELECTION" - | wl-copy --type image/png
     ;;
   save)
     grim -g "$SELECTION" "$FILEPATH" || exit 1
     echo "$FILEPATH"
     ;;
-  # Straight into the editor; satty writes back over the same file on save.
   edit)
     grim -g "$SELECTION" "$FILEPATH" || exit 1
     echo "$FILEPATH"
-    open_editor "$FILEPATH"
+    "$SCREENSHOT_EDITOR" "$FILEPATH"
     ;;
 esac

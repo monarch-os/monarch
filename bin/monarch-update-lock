@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# monarch:summary=Run a command while holding the Monarch update lock
+# monarch:args=<held|run> [command] [args...]
+# monarch:hidden=true
+
+set -e
+
+lock_dir="${XDG_RUNTIME_DIR:-/tmp/monarch-$UID}"
+lock_path="$lock_dir/monarch-update.lock"
+
+lock_is_held() {
+  [[ ${MONARCH_UPDATE_LOCKED:-} == "1" ]]
+}
+
+case "${1:-}" in
+  held)
+    lock_is_held
+    ;;
+  run)
+    shift
+    if (( $# == 0 )); then
+      echo "Usage: monarch-update-lock run <command> [args...]" >&2
+      exit 2
+    fi
+
+    mkdir -p "$lock_dir"
+    exec {MONARCH_UPDATE_LOCK_FD}>"$lock_path"
+    if ! flock -n "$MONARCH_UPDATE_LOCK_FD"; then
+      echo "A Monarch update is already running."
+      exit 1
+    fi
+
+    export MONARCH_UPDATE_LOCKED=1
+    "$@" {MONARCH_UPDATE_LOCK_FD}>&-
+    ;;
+  *)
+    echo "Usage: monarch-update-lock <held|run> [command] [args...]" >&2
+    exit 2
+    ;;
+esac

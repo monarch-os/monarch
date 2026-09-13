@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# monarch:summary=Print the headers package of every installed kernel, one per line.
+# monarch:examples=monarch hw kernel-headers | monarch pkg add $(monarch hw kernel-headers)
+
+# DKMS builds against each kernel that has headers, so a module wanted on the
+# running one must not be paired with another's. Every Arch kernel package
+# records its pkgbase here, which is what makes this work for linux-cachyos,
+# where matching on the package name silently finds nothing.
+MODULES=${MONARCH_MODULES_PATH:-/usr/lib/modules}
+
+mapfile -t headers < <(cat "$MODULES"/*/pkgbase 2>/dev/null | sort -u | sed 's/$/-headers/')
+((${#headers[@]})) || headers=(linux-headers)
+
+printf '%s\n' "${headers[@]}"

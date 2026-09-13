@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# monarch:summary=Overwrite the user herdr config with the Monarch default and reload herdr
+
+monarch-refresh-config herdr/config.toml
+monarch-restart-herdr

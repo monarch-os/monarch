@@ -1,134 +1,48 @@
-start_log_output() {
-  local ANSI_SAVE_CURSOR="\033[s"
-  local ANSI_RESTORE_CURSOR="\033[u"
-  local ANSI_CLEAR_LINE="\033[2K"
-  local ANSI_HIDE_CURSOR="\033[?25l"
-  local ANSI_RESET="\033[0m"
-  local ANSI_GRAY="\033[90m"
-
-  # Save cursor position and hide cursor
-  printf $ANSI_SAVE_CURSOR
-  printf $ANSI_HIDE_CURSOR
-
-  (
-    local log_lines=20
-    local max_line_width=$((LOGO_WIDTH - 4))
-
-    while true; do
-      # Read the last N lines into an array
-      mapfile -t current_lines < <(tail -n $log_lines "$MONARCH_INSTALL_LOG_FILE" 2>/dev/null)
-
-      # Build complete output buffer with escape sequences
-      output=""
-      for ((i = 0; i < log_lines; i++)); do
-        line="${current_lines[i]:-}"
-
-        # Truncate if needed
-        if (( ${#line} > max_line_width )); then
-          line="${line:0:$max_line_width}..."
-        fi
-
-        # Add clear line escape and formatted output for each line
-        if [[ -n $line ]]; then
-          output+="${ANSI_CLEAR_LINE}${ANSI_GRAY}${PADDING_LEFT_SPACES}  → ${line}${ANSI_RESET}\n"
-        else
-          output+="${ANSI_CLEAR_LINE}${PADDING_LEFT_SPACES}\n"
-        fi
-      done
-
-      printf "${ANSI_RESTORE_CURSOR}%b" "$output"
-
-      sleep 0.1
-    done
-  ) &
-  monitor_pid=$!
+monarch_log_to_stdout() {
+  [[ ${MONARCH_LOG_TO_STDOUT:-} == "1" || -z ${MONARCH_INSTALL_LOG_FILE:-} ]]
 }
 
-stop_log_output() {
-  if [[ -n ${monitor_pid:-} ]]; then
-    kill $monitor_pid 2>/dev/null || true
-    wait $monitor_pid 2>/dev/null || true
-    unset monitor_pid
-  fi
+monarch_log_line() {
+  if monarch_log_to_stdout; then echo "$1"; else echo "$1" >>"$MONARCH_INSTALL_LOG_FILE"; fi
 }
 
 start_install_log() {
-  sudo touch "$MONARCH_INSTALL_LOG_FILE"
-  sudo chmod 666 "$MONARCH_INSTALL_LOG_FILE"
-
-  export MONARCH_START_TIME=$(date '+%Y-%m-%d %H:%M:%S')
-
-  echo "=== Monarch Installation Started: $MONARCH_START_TIME ===" >>"$MONARCH_INSTALL_LOG_FILE"
-  start_log_output
+  if ! monarch_log_to_stdout; then
+    mkdir -p "$(dirname "$MONARCH_INSTALL_LOG_FILE")"
+    touch "$MONARCH_INSTALL_LOG_FILE"
+    chmod 666 "$MONARCH_INSTALL_LOG_FILE" 2>/dev/null || true
+  fi
+  export MONARCH_START_TIME="${MONARCH_START_TIME:-$(date '+%Y-%m-%d %H:%M:%S')}"
+  export MONARCH_START_EPOCH="${MONARCH_START_EPOCH:-$(date +%s)}"
+  monarch_log_line "=== Monarch Setup Started: $MONARCH_START_TIME ==="
 }
 
 stop_install_log() {
-  stop_log_output
-  show_cursor
-
-  if [[ -n ${MONARCH_INSTALL_LOG_FILE:-} ]]; then
-    MONARCH_END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "=== Monarch Installation Completed: $MONARCH_END_TIME ===" >>"$MONARCH_INSTALL_LOG_FILE"
-    echo "" >>"$MONARCH_INSTALL_LOG_FILE"
-    echo "=== Installation Time Summary ===" >>"$MONARCH_INSTALL_LOG_FILE"
-
-    if [[ -f "/var/log/archinstall/install.log" ]]; then
-      ARCHINSTALL_START=$(grep -m1 '^\[' /var/log/archinstall/install.log 2>/dev/null | sed 's/^\[\([^]]*\)\].*/\1/' || true)
-      ARCHINSTALL_END=$(grep 'Installation completed without any errors' /var/log/archinstall/install.log 2>/dev/null | sed 's/^\[\([^]]*\)\].*/\1/' || true)
-
-      if [[ -n $ARCHINSTALL_START ]] && [[ -n $ARCHINSTALL_END ]]; then
-        ARCH_START_EPOCH=$(date -d "$ARCHINSTALL_START" +%s)
-        ARCH_END_EPOCH=$(date -d "$ARCHINSTALL_END" +%s)
-        ARCH_DURATION=$((ARCH_END_EPOCH - ARCH_START_EPOCH))
-
-        ARCH_MINS=$((ARCH_DURATION / 60))
-        ARCH_SECS=$((ARCH_DURATION % 60))
-
-        echo "Archinstall: ${ARCH_MINS}m ${ARCH_SECS}s" >>"$MONARCH_INSTALL_LOG_FILE"
-      fi
-    fi
-
-    if [[ -n $MONARCH_START_TIME ]]; then
-      MONARCH_START_EPOCH=$(date -d "$MONARCH_START_TIME" +%s)
-      MONARCH_END_EPOCH=$(date -d "$MONARCH_END_TIME" +%s)
-      MONARCH_DURATION=$((MONARCH_END_EPOCH - MONARCH_START_EPOCH))
-
-      MONARCH_MINS=$((MONARCH_DURATION / 60))
-      MONARCH_SECS=$((MONARCH_DURATION % 60))
-
-      echo "Monarch:     ${MONARCH_MINS}m ${MONARCH_SECS}s" >>"$MONARCH_INSTALL_LOG_FILE"
-
-      if [[ -n $ARCH_DURATION ]]; then
-        TOTAL_DURATION=$((ARCH_DURATION + MONARCH_DURATION))
-        TOTAL_MINS=$((TOTAL_DURATION / 60))
-        TOTAL_SECS=$((TOTAL_DURATION % 60))
-        echo "Total:       ${TOTAL_MINS}m ${TOTAL_SECS}s" >>"$MONARCH_INSTALL_LOG_FILE"
-      fi
-    fi
-    echo "=================================" >>"$MONARCH_INSTALL_LOG_FILE"
-
-    echo "Rebooting system..." >>"$MONARCH_INSTALL_LOG_FILE"
+  local end_time end_epoch duration mins secs
+  end_time=$(date '+%Y-%m-%d %H:%M:%S'); end_epoch=$(date +%s)
+  monarch_log_line "=== Monarch Setup Completed: $end_time ==="
+  if [[ -n ${MONARCH_START_EPOCH:-} ]]; then
+    duration=$((end_epoch - MONARCH_START_EPOCH)); mins=$((duration / 60)); secs=$((duration % 60))
+    monarch_log_line "Monarch setup: ${mins}m ${secs}s"
   fi
 }
 
 run_logged() {
-  local script="$1"
-
-  export CURRENT_SCRIPT="$script"
-
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting: $script" >>"$MONARCH_INSTALL_LOG_FILE"
-
-  # Use bash -c to create a clean subshell
-  bash -c "source '$script'" </dev/null >>"$MONARCH_INSTALL_LOG_FILE" 2>&1
-
-  local exit_code=$?
-
-  if (( exit_code == 0 )); then
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Completed: $script" >>"$MONARCH_INSTALL_LOG_FILE"
-    unset CURRENT_SCRIPT
+  local script="$1" exit_code errexit_was_set=0
+  monarch_log_line "[$(date '+%Y-%m-%d %H:%M:%S')] Starting: $script"
+  case $- in *e*) errexit_was_set=1; set +e ;; esac
+  local runner=(bash -eE)
+  [[ ${MONARCH_INSTALL_DEBUG:-} == "1" ]] && runner=(bash -x -eE)
+  if monarch_log_to_stdout; then
+    PS4='+ ${BASH_SOURCE[0]##*/}:${LINENO}:${FUNCNAME[0]:-main}: ' "${runner[@]}" -c 'source "$1"' bash "$script" </dev/null 2>&1
   else
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Failed: $script (exit code: $exit_code)" >>"$MONARCH_INSTALL_LOG_FILE"
+    PS4='+ ${BASH_SOURCE[0]##*/}:${LINENO}:${FUNCNAME[0]:-main}: ' "${runner[@]}" -c 'source "$1"' bash "$script" </dev/null >>"$MONARCH_INSTALL_LOG_FILE" 2>&1
   fi
-
+  exit_code=$?; (( errexit_was_set )) && set -e
+  if (( exit_code == 0 )); then
+    monarch_log_line "[$(date '+%Y-%m-%d %H:%M:%S')] Completed: $script"
+  else
+    monarch_log_line "[$(date '+%Y-%m-%d %H:%M:%S')] Failed: $script (exit code: $exit_code)"
+  fi
   return $exit_code
 }
