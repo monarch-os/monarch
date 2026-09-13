@@ -40,6 +40,7 @@ test/monarch-noctalia-config-test.sh	desktop-shell	medium	isolated
 test/monarch-notification-test.sh	notifications	medium	isolated
 test/monarch-npx-install-test.sh	package-install	medium	isolated
 test/monarch-install-helpers-test.sh	package-install	high	isolated
+test/shell.d/pkg-drop-test.sh	package-install	high	isolated
 test/monarch-font-set-test.sh	fonts	high	isolated
 test/monarch-webapp-test.sh	webapps	high	isolated
 test/monarch-webapp-cleanup-test.sh	webapps	high	isolated
@@ -89,6 +90,7 @@ test/shell.d/legacy-settings-pacnew-test.sh	updates	high	isolated
 test/shell.d/legacy-runtime-remove-test.sh	updates	high	isolated
 test/shell.d/package-manifest-test.sh	package-install	high	isolated
 test/shell.d/packaged-runtime-path-test.sh	package-runtime	high	isolated
+test/shell.d/plymouth-theme-ownership-test.sh	package-runtime	high	isolated
 test/shell.d/pentest-docker-access-test.sh	docker-security	high	isolated
 test/shell.d/plocate-config-test.sh	package-runtime	medium	isolated
 test/shell.d/provision-owner-branding-test.sh	provisioning	low	isolated

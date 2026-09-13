@@ -6,13 +6,16 @@ state_dir="$HOME/.local/state/monarch/reconcile/1-to-2/legacy-user-files"
 
 file_matches() {
   local file="$1"
-  local expected_checksum="$2"
-  local checksum
+  local accepted="$2"
+  local checksum expected_checksum
 
   [[ -f $file && ! -L $file ]] || return 1
   checksum=$(sha256sum "$file")
   checksum=${checksum%% *}
-  [[ $checksum == $expected_checksum ]]
+  for expected_checksum in $accepted; do
+    [[ $checksum != $expected_checksum ]] || return 0
+  done
+  return 1
 }
 
 valid_enable_state() {
@@ -86,7 +89,7 @@ remove_legacy_file() {
 
 declare -A unit_checksums=(
   [monarch-recover-internal-monitor.service]=a60226f83b010601daa675cec6dd065851e3cf6cd66176cc5df687420bf0e1fc
-  [monarch-battery-monitor.service]=f8a2f9a09f9b189c1d49e39e00bd74e010b2f7323c27f451878d3ce581d66a1c
+  [monarch-battery-monitor.service]="f8a2f9a09f9b189c1d49e39e00bd74e010b2f7323c27f451878d3ce581d66a1c 78a95ab91da87c3a2a1eff296905b2acf29667797029dcf641fba19a7c8cca07"
   [monarch-battery-monitor.timer]=e073738fdaadb814f04fcf9be55ac99a167f6c863d494da5b67b65d87d209761
 )
 

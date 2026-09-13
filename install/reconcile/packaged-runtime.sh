@@ -15,6 +15,31 @@ if [[ $0 != $invitation && ! -f $transition_ready ]]; then
 fi
 
 if [[ -d $legacy && ! -L $legacy ]]; then
+  unit_dir="$HOME/.config/systemd/user"
+  stale_units=()
+  if [[ -d $unit_dir ]]; then
+    mapfile -t stale_units < <(
+      grep -REl \
+        --include='*.service' \
+        --include='*.socket' \
+        --include='*.timer' \
+        --include='*.path' \
+        --include='*.conf' \
+        '^[[:space:]]*[^#;].*\.local/share/monarch/' \
+        "$unit_dir" 2>/dev/null || true
+    )
+  fi
+  if (( ${#stale_units[@]} > 0 )); then
+    echo "Cannot archive $legacy: user services still reference the V4 runtime:" >&2
+    printf '  %s\n' "${stale_units[@]}" >&2
+    echo "Update them to use /usr/bin/monarch or /usr/bin/monarch-* commands, then run monarch-reconcile again." >&2
+    if monarch-notification-wait; then
+      monarch-notification-send -g "󰚌" \
+        "Monarch V5 upgrade paused" \
+        "A user service still uses the V4 runtime. Run monarch reconcile in a terminal for details."
+    fi
+    exit 1
+  fi
   if [[ -e $backup || -L $backup ]]; then
     echo "Cannot archive $legacy: $backup already exists" >&2
     exit 1
