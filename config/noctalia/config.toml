@@ -229,6 +229,10 @@ polkit_agent = true
   # already "attached", but v5 anchors it to the bar centre unless told to
   # follow the click — so a right-hand widget opened a centred panel.
   open_near_click_control_center = true
+  session_placement = "attached"
+
+  [shell.session]
+  show_shortcuts = false
 # v4's ui.fontFixed = "JetBrainsMono Nerd Font Mono" is dropped: v5 exposes a
 # single font_family for the shell, with no separate monospace slot.
 
