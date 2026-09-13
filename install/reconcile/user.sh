@@ -6,7 +6,6 @@ source "$MONARCH_PATH/install/reconcile/config-files.sh"
 source "$MONARCH_PATH/install/reconcile/noctalia-activation.sh"
 source "$MONARCH_PATH/install/reconcile/chromium-flags.sh"
 source "$MONARCH_PATH/install/reconcile/mise.sh"
-source "$MONARCH_PATH/install/user/mise.sh"
 
 monarch_reconcile_seeded_file \
   "$MONARCH_PATH/config/alacritty/monarch-text-size.toml" \

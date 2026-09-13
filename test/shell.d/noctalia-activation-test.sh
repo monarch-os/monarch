@@ -19,8 +19,6 @@ EOF
 printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/sleep"
 printf '#!/bin/bash\nprintf complete >"$TEST_ACTIVATION/completed"\n' >"$test_tmp/bin/complete"
 printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/monarch-theme-apply"
-printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/monarch-mise-install"
-printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/monarch-mise-ensure-cursor"
 chmod +x "$test_tmp/bin/"*
 export PATH="$test_tmp/bin:/usr/bin" MONARCH_RECONCILE_BIN="$test_tmp/bin/complete"
 

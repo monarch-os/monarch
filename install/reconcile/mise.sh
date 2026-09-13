@@ -12,5 +12,3 @@ for bundle in "$mise_data"/installs/cursor-agent/*; do
   mkdir -p "$bundle/bin"
   ln -s ../dist-package/cursor-agent "$bundle/bin/cursor-agent"
 done
-
-monarch-mise-ensure-cursor --if-supported

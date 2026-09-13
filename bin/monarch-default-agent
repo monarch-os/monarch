@@ -56,10 +56,6 @@ if [[ $installing == "false" ]] && ! mise where "$agent_package" &>/dev/null; th
   exec monarch-launch-floating-terminal-with-presentation monarch-default-agent --install "$agent"
 fi
 
-if [[ $agent == "cursor-agent" ]]; then
-  monarch-mise-ensure-cursor || exit 1
-fi
-
 if ! mise use -g "$agent_package"; then
   if [[ $installing == "true" ]]; then
     echo "Could not install $name with mise" >&2
