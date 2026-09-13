@@ -56,8 +56,8 @@ grep -Fxq 'Exec = /usr/bin/monarch-update-pacman-guard' "$hook" ||
   fail "pacman guard hook uses the packaged command"
 
 for command in monarch-update-system-pkgs monarch-refresh-pacman monarch-reinstall-pkgs; do
-  grep -Eq 'MONARCH_UPDATE_PACMAN=1 (/usr/bin/)?pacman' "$ROOT/bin/$command" ||
-    fail "$command marks its system upgrades as Monarch-owned"
+  grep -q 'monarch-update-pacman ' "$ROOT/bin/$command" ||
+    fail "$command uses the protected update executor"
 done
 pass "every Monarch-owned system-upgrade path opts into the guard"
 
@@ -74,7 +74,7 @@ def unmarked_upgrades(path, source):
   violations = []
 
   for segment in re.split(r"[;\n]", source):
-    for match in re.finditer(r"\bpacman\b[^|&]*", segment):
+    for match in re.finditer(r"(?<![\w-])pacman\b[^|&]*", segment):
       invocation = re.split(r"\s--\s", match.group(0), maxsplit=1)[0]
       options = re.findall(r"(?<!\S)(--[a-z-]+|-[A-Za-z]+)", invocation)
       has_sync = "--sync" in options or any(
@@ -108,6 +108,7 @@ for directory in (root / "bin", root / "install"):
       violations.extend(unmarked_upgrades(path.relative_to(root), source))
 
 assert unmarked_upgrades("fixture", "sudo pacman -Syu")
+assert not unmarked_upgrades("fixture", "monarch-update-pacman -Syu")
 assert unmarked_upgrades("fixture", "sudo pacman -S \\\n+  --sysupgrade")
 assert not unmarked_upgrades(
   "fixture", "sudo env MONARCH_UPDATE_PACMAN=1 pacman --sync --sysupgrade"

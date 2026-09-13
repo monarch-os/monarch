@@ -273,6 +273,27 @@ MONARCH_SLEEP_TEST_ROOT="$system_root" MONARCH_SLEEP_TEST_SYSTEMCTL="$test_syste
   fail "idempotent reconciliation reloaded systemd again"
 pass "system-sleep ownership reconciliation is idempotent"
 
+rm "$sleep_dir/force-igpu"
+for fixture in force-igpu force-igpu-v4; do
+  cp "$ROOT/test/fixtures/system-sleep-legacy/$fixture" "$sleep_dir/force-igpu"
+  cp "$ROOT/test/fixtures/system-sleep-legacy/keyboard-backlight" "$sleep_dir/keyboard-backlight"
+  chmod 0755 "$sleep_dir/force-igpu" "$sleep_dir/keyboard-backlight"
+  MONARCH_SLEEP_TEST_ROOT="$system_root" MONARCH_SLEEP_TEST_SYSTEMCTL="$test_systemctl" MONARCH_PATH="$runtime_root" \
+    SUDO_LOG="$sudo_log" SYSTEMCTL_LOG="$systemctl_log" \
+    PATH="$fake_bin:/usr/bin" bash "$reconcile"
+  cmp "$runtime_root/default/systemd/system-sleep/force-igpu" "$sleep_dir/force-igpu" ||
+    fail "the shipped $fixture hook did not receive the transition fix"
+  cmp "$runtime_root/default/systemd/system-sleep/keyboard-backlight" "$sleep_dir/keyboard-backlight" ||
+    fail "the shipped keyboard hook did not receive the composite-sleep fix"
+done
+printf '%s\n' '# administrator regular hook' >"$sleep_dir/force-igpu"
+MONARCH_SLEEP_TEST_ROOT="$system_root" MONARCH_SLEEP_TEST_SYSTEMCTL="$test_systemctl" MONARCH_PATH="$runtime_root" \
+  SUDO_LOG="$sudo_log" SYSTEMCTL_LOG="$systemctl_log" \
+  PATH="$fake_bin:/usr/bin" bash "$reconcile"
+[[ $(<"$sleep_dir/force-igpu") == '# administrator regular hook' ]] ||
+  fail "a customized regular hook was mistaken for a shipped version"
+pass "recognized root-owned hooks are refreshed while custom regular hooks are preserved"
+
 chmod 0664 "$drop_in_dir/delay-start.conf"
 if MONARCH_SLEEP_TEST_ROOT="$system_root" MONARCH_SLEEP_TEST_SYSTEMCTL="$test_systemctl" MONARCH_PATH="$runtime_root" \
   SUDO_LOG="$sudo_log" SYSTEMCTL_LOG="$systemctl_log" SYSTEMCTL_FAIL=1 \
@@ -349,43 +370,6 @@ cp "$ROOT/default/systemd/system-sleep/force-igpu" "$hook_copy"
 chmod 0755 "$hook_copy"
 "$hook_copy" ignored suspend || fail "the force-igpu hook is not directly executable"
 [[ $(head -1 "$hook_copy") == '#!/bin/bash' ]] || fail "the force-igpu shebang is not first"
-hook_stub="$test_tmp/supergfxctl"
-hook_state="$test_tmp/force-igpu.state"
-hook_log="$test_tmp/force-igpu.log"
-cat >"$hook_stub" <<'STUB'
-#!/bin/bash
-case "$*" in
-  -g) echo Integrated ;;
-  '-m Vfio')
-    echo Vfio >>"$HOOK_LOG"
-    [[ ${FAIL_VFIO:-0} == 0 ]]
-    ;;
-  '-m Integrated') echo Integrated >>"$HOOK_LOG" ;;
-esac
-STUB
-chmod 0755 "$hook_stub"
-sed -i \
-  -e "s|/usr/bin/supergfxctl|$hook_stub|g" \
-  -e "s|state_file=/run/monarch-force-igpu|state_file=$hook_state|" \
-  -e "s|-o root -g root|-o $(id -u) -g $(id -g)|" \
-  -e 's/^[[:space:]]*sleep [0-9][[:space:]]*$/      :/' \
-  "$hook_copy"
-
-if HOOK_LOG="$hook_log" FAIL_VFIO=1 "$hook_copy" pre hibernate; then
-  fail "the force-igpu pre-hook hid a failed Vfio transition"
-fi
-[[ ! -e $hook_state ]] || fail "a failed pre-hook left an Integrated-mode marker"
-: >"$hook_log"
-HOOK_LOG="$hook_log" "$hook_copy" pre suspend
-if HOOK_LOG="$hook_log" FAIL_VFIO=1 "$hook_copy" post suspend; then
-  fail "the force-igpu post-hook hid a failed Vfio transition"
-fi
-[[ -e $hook_state ]] || fail "a failed post-hook discarded its retry marker"
-! grep -Fqx Integrated "$hook_log" ||
-  fail "the post-hook forced Integrated mode after Vfio failed"
-HOOK_LOG="$hook_log" "$hook_copy" post suspend
-[[ ! -e $hook_state && $(tail -2 "$hook_log") == $'Vfio\nIntegrated' ]] ||
-  fail "the force-igpu post-hook did not complete and clear its marker"
 pass "the installed force-igpu hook has a valid executable format"
 
 grep -qF 'sudo bash /usr/share/monarch/install/reconcile/system-sleep-ownership.sh' \

@@ -1,6 +1,24 @@
 #!/bin/bash
 
-# monarch:summary=Display a "Done!" message with a spinner and wait for user to press any key.
+# monarch:summary=Display command success or failure and wait for a keypress
+# monarch:args=[exit-code]
 
-echo
-gum spin --spinner "globe" --title "Done! Press any key to close..." -- bash -c 'read -n 1 -s'
+code=${1:-0}
+if [[ ! $code =~ ^[0-9]{1,3}$ ]] || ((10#$code > 255)); then
+  echo "Expected an exit code from 0 to 255" >&2
+  exit 2
+fi
+code=$((10#$code))
+
+: 2>/dev/null <>/dev/tty || exit 0
+
+# Discard terminal query replies left by the command's interactive UI.
+while read -rsn 1 -t 0.1 _ </dev/tty; do :; done
+
+if ((code == 0)); then
+  printf '\n\033[32m● \033[0mDone! Press any key to close...' >/dev/tty
+else
+  printf '\n\033[31m● \033[0mFailed (exit code %d)! Press any key to close...' "$code" >/dev/tty
+fi
+read -rsn 1 </dev/tty
+echo >/dev/tty

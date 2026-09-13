@@ -2,7 +2,7 @@ monarch_install_packaged_runtime() {
   local legacy_supported=${1:-false}
 
   if [[ $legacy_supported != "true" ]]; then
-    monarch-pkg-add monarch
+    monarch-update-pacman -S --noconfirm --needed monarch
     return
   fi
 
@@ -37,7 +37,7 @@ monarch_install_packaged_runtime() {
   done
 
   if (( ${#existing_files[@]} == 0 )); then
-    monarch-pkg-add monarch
+    monarch-update-pacman -S --noconfirm --needed monarch
     return
   fi
 
@@ -48,6 +48,6 @@ monarch_install_packaged_runtime() {
     fi
   done
 
-  sudo env MONARCH_UPDATE_PACMAN=1 pacman -S --noconfirm --needed \
+  monarch-update-pacman -S --noconfirm --needed \
     "${overwrite_args[@]}" monarch
 }

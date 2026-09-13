@@ -15,6 +15,9 @@ cat > "$TMP/bin/mise" <<'EOF'
 #!/bin/bash
 printf 'mise %s\n' "$*" >> "$TEST_LOG"
 case "$1" in
+--version) printf '%s linux-x64\n' "${MISE_TEST_VERSION:-2026.9.6}" ;;
+config) printf '[]\n' ;;
+tool-alias) exit 0 ;;
 where) [[ ${MISE_INSTALLED:-false} == "true" ]] ;;
 use) exit 0 ;;
 x)
@@ -106,5 +109,26 @@ for case in \
   grep -qxF "mise use -g $package" "$TEST_LOG"
   [[ $(<"$HOME/.config/monarch/defaults/agent") == $expected ]]
 done
+
+: >"$TEST_LOG"
+MISE_TEST_VERSION=2026.8.14 MISE_INSTALLED=false "$ROOT/bin/monarch-default-agent" cursor
+grep -qx 'launch monarch-default-agent --install cursor-agent' "$TEST_LOG"
+if MISE_TEST_VERSION=2026.8.14 "$ROOT/bin/monarch-default-agent" --install cursor >"$TMP/old-mise" 2>&1; then
+  echo "Cursor setup accepted an unsupported mise version" >&2
+  exit 1
+fi
+! grep -q '^mise use ' "$TEST_LOG"
+grep -q 'monarch update' "$TMP/old-mise"
+
+"$ROOT/bin/monarch-mise-install" cursor-agent
+: >"$TEST_LOG"
+if MISE_TEST_VERSION=2026.8.14 "$HOME/.local/bin/cursor-agent" --version >"$TMP/old-mise" 2>&1; then
+  echo "An unsupported mise version attempted a Cursor installation" >&2
+  exit 1
+fi
+! grep -q '^mise use ' "$TEST_LOG"
+grep -q 'monarch update' "$TMP/old-mise"
+"$HOME/.local/bin/cursor-agent" --version >/dev/null
+grep -qx 'mise x cursor-agent -- cursor-agent --version' "$TEST_LOG"
 
 echo "All mise agent tests passed."

@@ -26,9 +26,9 @@ fi
 exec "$@"
 EOF
 
-cat >"$test_tmp/bin/monarch-pkg-add" <<'EOF'
+cat >"$test_tmp/bin/monarch-update-pacman" <<'EOF'
 #!/bin/bash
-printf 'pkg-add %s\n' "$*" >>"$TEST_LOG"
+printf 'protected %s\n' "$*" >>"$TEST_LOG"
 EOF
 
 chmod +x "$test_tmp/bin/"*
@@ -42,14 +42,14 @@ monarch_install_packaged_runtime true
 grep -qF -- '--overwrite etc/sudoers.d/monarch-tzupdate' "$TEST_LOG"
 grep -qF -- '--overwrite usr/share/sddm/themes/monarch/theme.conf' "$TEST_LOG"
 grep -qF -- ' monarch' "$TEST_LOG"
-! grep -q '^pkg-add ' "$TEST_LOG"
+grep -q '^protected -S ' "$TEST_LOG"
 chmod 700 "$test_tmp/system/etc/sudoers.d"
 
 : >"$TEST_LOG"
 rm -rf "$test_tmp/system/usr/share/sddm"
 monarch_install_packaged_runtime true
 grep -qF -- '--overwrite etc/sudoers.d/monarch-tzupdate' "$TEST_LOG"
-! grep -q '^pkg-add ' "$TEST_LOG"
+grep -q '^protected -S ' "$TEST_LOG"
 
 cat >"$test_tmp/bin/pacman" <<'EOF'
 #!/bin/bash
@@ -60,11 +60,13 @@ chmod +x "$test_tmp/bin/pacman"
 mkdir -p "$test_tmp/system/etc/sudoers.d"
 touch "$test_tmp/system/etc/sudoers.d/monarch-tzupdate"
 
+: >"$TEST_LOG"
 if monarch_install_packaged_runtime true 2>/dev/null; then
   echo "package-owned legacy path was overwritten" >&2
   exit 1
 fi
 ! grep -q '^-S ' "$TEST_LOG"
+! grep -q '^protected ' "$TEST_LOG"
 
 : >"$TEST_LOG"
 cat >"$test_tmp/bin/pacman" <<'EOF'
@@ -74,7 +76,7 @@ exit 1
 EOF
 chmod +x "$test_tmp/bin/pacman"
 monarch_install_packaged_runtime false
-grep -qx 'pkg-add monarch' "$TEST_LOG"
+grep -qx 'protected -S --noconfirm --needed monarch' "$TEST_LOG"
 ! grep -q '^-S ' "$TEST_LOG"
 
 echo "Packaged runtime bootstrap tests passed."

@@ -1,27 +1,52 @@
 #!/bin/bash
 
 state_file=/run/monarch-force-igpu
+sleep_action=${SYSTEMD_SLEEP_ACTION:-${2:-}}
 
-case "$1" in
+[[ -x /usr/bin/supergfxctl ]] || exit 0
+if [[ -L $state_file || ( -e $state_file && ! -f $state_file ) ]]; then
+  echo "Invalid GPU restore marker: $state_file" >&2
+  exit 1
+fi
+
+switch_mode() {
+  local expected=$1 current
+
+  if ! /usr/bin/timeout --kill-after=1s 3s /usr/bin/supergfxctl -m "$expected"; then
+    echo "Could not request the GPU transition to $expected mode" >&2
+    return 1
+  fi
+  for _ in {1..10}; do
+    if current=$(/usr/bin/timeout --kill-after=1s 2s /usr/bin/supergfxctl -g 2>/dev/null) &&
+      [[ $current == "$expected" ]]; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "Could not confirm the GPU transition to $expected mode" >&2
+  return 1
+}
+
+case "${1:-}" in
   pre)
-    /usr/bin/rm -f -- "$state_file"
-    if [[ $(/usr/bin/supergfxctl -g 2>/dev/null) == "Integrated" ]]; then
-      /usr/bin/install -m 0600 -o root -g root /dev/null "$state_file" || exit 1
-      if [[ $2 == "hibernate" ]]; then
-        if ! /usr/bin/supergfxctl -m Vfio; then
-          /usr/bin/rm -f -- "$state_file"
-          exit 1
-        fi
-        sleep 1
+    # Preserve the original mode across repeated pre-hooks and failed transitions.
+    if [[ ! -f $state_file ]]; then
+      if ! mode=$(/usr/bin/timeout --kill-after=1s 2s /usr/bin/supergfxctl -g 2>/dev/null); then
+        echo "Could not read the GPU mode before sleep" >&2
+        exit 1
       fi
+      [[ $mode == "Integrated" ]] || exit 0
+      /usr/bin/install -m 0600 -o root -g root -T /dev/null "$state_file" || exit 1
+    fi
+    if [[ $sleep_action == "hibernate" ]]; then
+      switch_mode Vfio || exit 1
     fi
     ;;
   post)
     [[ -f $state_file && ! -L $state_file ]] || exit 0
     sleep 4
-    /usr/bin/supergfxctl -m Vfio || exit 1
-    sleep 1
-    /usr/bin/supergfxctl -m Integrated || exit 1
+    switch_mode Vfio || exit 1
+    switch_mode Integrated || exit 1
     /usr/bin/rm -f -- "$state_file"
     ;;
 esac

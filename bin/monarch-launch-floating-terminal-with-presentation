@@ -3,14 +3,23 @@
 # monarch:summary=Launch a floating terminal with the Monarch presentation wrapper
 # monarch:args=[--app-id=<id>] <command>
 
-# An optional leading --app-id=<id> overrides the default org.monarch.terminal
-# app-id, letting a specific tool match its own niri window-rule (e.g. a fitted
-# window size). Everything after it is the command to run.
 appid="org.monarch.terminal"
-if [[ "$1" == --app-id=* ]]; then
+if [[ ${1:-} == --app-id=* ]]; then
   appid="${1#--app-id=}"
   shift
 fi
 
-cmd="$*"
-exec setsid uwsm-app -- xdg-terminal-exec --app-id="$appid" --title=Monarch -e bash -c "monarch-show-logo; $cmd; if (( \$? != 130 )); then monarch-show-done; fi"
+if (($# == 0)) || [[ -z $* ]]; then
+  echo "Usage: monarch-launch-floating-terminal-with-presentation [--app-id=<id>] <command>" >&2
+  exit 2
+fi
+
+exec setsid uwsm-app -- xdg-terminal-exec --app-id="$appid" --title=Monarch -e bash -c '
+  monarch-show-logo
+  bash -c "$1"
+  status=$?
+  if ((status != 130)); then
+    monarch-show-done "$status"
+  fi
+  exit "$status"
+' monarch-presentation "$*"

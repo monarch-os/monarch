@@ -16,18 +16,16 @@ cat >"$stub_bin/sudo" <<'STUB'
 #!/bin/bash
 printf '%s\n' "$*" >>"$SUDO_CALLS"
 
-case "$*" in
-  '/usr/bin/env LC_ALL=C MONARCH_UPDATE_PACMAN=1 /usr/bin/pacman -Syyu --noconfirm')
-    exec "$PACMAN_STUB" -Syyu --noconfirm
-    ;;
-  '/usr/bin/env MONARCH_UPDATE_PACMAN=1 /usr/bin/pacman -Su')
-    exec "$PACMAN_STUB" -Su
-    ;;
-  *)
-    echo "unexpected privileged command: $*" >&2
-    exit 97
-    ;;
-esac
+[[ $1 == /usr/bin/env && $2 == MONARCH_UPDATE_PACMAN=1 ]] || exit 97
+shift 2
+[[ ${1:-} != LC_ALL=* ]] || shift
+if [[ $1 == /usr/bin/systemd-run ]]; then
+  [[ $2 == --scope && $3 == --quiet && $4 == --collect ]] || exit 97
+  shift 4
+fi
+[[ $1 == /usr/bin/pacman ]] || exit 97
+shift
+exec "$PACMAN_STUB" "$@"
 STUB
 
 cat >"$stub_bin/pacman-stub" <<'STUB'
@@ -135,7 +133,7 @@ pass "clean package updates run one ordinary transaction"
 
 PACMAN_CASE=package
 prepare_case
-run_on_terminal || fail "a package conflict is not returned to the user"
+run_on_terminal || fail "a package conflict is not returned to the user" "$(<"$test_tmp/transcript")"
 (( $(<"$test_tmp/attempts") == 2 )) || fail "a package conflict does not get an interactive retry"
 [[ $(call_line 1 args) == "-Syyu --noconfirm" ]] || fail "the initial update arguments changed"
 [[ $(call_line 2 args) == "-Su" ]] || fail "the retry refreshes databases or answers the conflict"

@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# monarch:summary=Prepare optional Cursor integration without replacing configured aliases
+# monarch:args=[--if-supported]
+# monarch:hidden=true
+
+supported=false
+version=$(mise --version 2>/dev/null) || version=""
+version=${version%% *}
+if [[ $version =~ ^([0-9]{4})\.([0-9]{1,2})\.([0-9]{1,2})$ ]]; then
+  version_number=$((10#${BASH_REMATCH[1]} * 10000 + 10#${BASH_REMATCH[2]} * 100 + 10#${BASH_REMATCH[3]}))
+  ((version_number >= 20260906)) && supported=true
+fi
+
+if [[ $supported == "false" ]]; then
+  [[ ${1:-} == "--if-supported" ]] && exit 0
+  echo "Cursor requires mise 2026.9.6 or newer. Run monarch update before installing it." >&2
+  exit 1
+fi
+
+configs=$(mise config ls --json) || exit 1
+configured=$(python3 -c '
+import json
+import os
+import sys
+import tomllib
+from pathlib import Path
+
+configured = False
+toml_names = {os.environ.get("MISE_DEFAULT_CONFIG_FILENAME", "mise.toml")}
+global_config = os.environ.get("MISE_GLOBAL_CONFIG_FILE")
+if global_config:
+    toml_names.add(Path(global_config).name)
+for entry in json.load(sys.stdin):
+    path = Path(entry["path"])
+    if path.suffix != ".toml" and path.name not in toml_names:
+        continue
+    with path.open("rb") as stream:
+        config = tomllib.load(stream)
+    for section in ("tool_alias", "alias"):
+        configured |= "cursor-agent" in config.get(section, {})
+print("yes" if configured else "no")
+' <<<"$configs") || exit 1
+[[ $configured == "yes" ]] && exit 0
+
+# mise 2026.9.6 lets system aliases mask user aliases; seed a user-owned default.
+mise tool-alias set cursor-agent 'http:cursor-agent[bin_path=bin,postinstall=mkdir -p "$MISE_TOOL_INSTALL_PATH/bin" && ln -sfn ../dist-package/cursor-agent "$MISE_TOOL_INSTALL_PATH/bin/cursor-agent"]'
