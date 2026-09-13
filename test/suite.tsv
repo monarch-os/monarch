@@ -78,6 +78,7 @@ test/shell.d/legacy-runtime-remove-test.sh	updates	high	isolated
 test/shell.d/package-manifest-test.sh	package-install	high	isolated
 test/shell.d/packaged-runtime-path-test.sh	package-runtime	high	isolated
 test/shell.d/pentest-docker-access-test.sh	docker-security	high	isolated
+test/shell.d/plocate-config-test.sh	package-runtime	medium	isolated
 test/shell.d/provision-owner-branding-test.sh	provisioning	low	isolated
 test/shell.d/provision-user-test.sh	provisioning	high	isolated
 test/shell.d/provision-first-run-test.sh	provisioning	high	isolated
