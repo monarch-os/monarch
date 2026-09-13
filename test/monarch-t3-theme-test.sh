@@ -65,7 +65,7 @@ jq '.dark.mPrimary = "invalid"' "$palette" >"$test_tmp/invalid.json"
 cmp "$test_tmp/previous.json" "$theme"
 echo "Invalid Noctalia colors leave the previous T3 theme intact"
 
-rg -q 'monarch-theme-set-t3-code.*"\$scheme_json".*"\$variant"' \
+grep -Eq 'monarch-theme-set-t3-code.*"\$scheme_json".*"\$variant"' \
   "$ROOT/bin/monarch-theme-apply" || {
   echo "Theme application does not synchronize T3 Code" >&2
   exit 1
