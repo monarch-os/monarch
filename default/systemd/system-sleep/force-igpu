@@ -1,16 +1,17 @@
 #!/bin/bash
 
-state_file=/run/monarch-force-igpu
-sleep_action=${SYSTEMD_SLEEP_ACTION:-${2:-}}
+set -e
+
+# Some ASUS laptops wake in Hybrid mode after suspend. Cycling Vfio back to
+# Integrated powers the dGPU off again without a reboot.
+
+restore_marker=/run/monarch-force-igpu
+sleep_action=${SYSTEMD_SLEEP_ACTION:-$2}
 
 [[ -x /usr/bin/supergfxctl ]] || exit 0
-if [[ -L $state_file || ( -e $state_file && ! -f $state_file ) ]]; then
-  echo "Invalid GPU restore marker: $state_file" >&2
-  exit 1
-fi
 
 switch_mode() {
-  local expected=$1 current
+  local expected="$1" current
 
   if ! /usr/bin/timeout --kill-after=1s 3s /usr/bin/supergfxctl -m "$expected"; then
     echo "Could not request the GPU transition to $expected mode" >&2
@@ -18,35 +19,39 @@ switch_mode() {
   fi
   for _ in {1..10}; do
     if current=$(/usr/bin/timeout --kill-after=1s 2s /usr/bin/supergfxctl -g 2>/dev/null) &&
-      [[ $current == "$expected" ]]; then
+      [[ $current == $expected ]]; then
       return 0
     fi
     sleep 1
   done
+
   echo "Could not confirm the GPU transition to $expected mode" >&2
   return 1
 }
 
-case "${1:-}" in
+case "$1" in
   pre)
-    # Preserve the original mode across repeated pre-hooks and failed transitions.
-    if [[ ! -f $state_file ]]; then
-      if ! mode=$(/usr/bin/timeout --kill-after=1s 2s /usr/bin/supergfxctl -g 2>/dev/null); then
-        echo "Could not read the GPU mode before sleep" >&2
-        exit 1
-      fi
-      [[ $mode == "Integrated" ]] || exit 0
-      /usr/bin/install -m 0600 -o root -g root -T /dev/null "$state_file" || exit 1
+    # Remember the mode this sleep cycle started in. supergfxctl persists the
+    # temporary hibernate switch to Vfio, so post must not consult that mutable
+    # value when deciding whether to restore Integrated mode.
+    if [[ -L $restore_marker ]]; then
+      exit 1
+    elif [[ ! -f $restore_marker ]]; then
+      /usr/bin/grep -Eq '"mode"[[:space:]]*:[[:space:]]*"Integrated"' /etc/supergfxd.conf 2>/dev/null || exit 0
+      /usr/bin/install -m 0600 -o root -g root -T /dev/null "$restore_marker"
     fi
+
+    # NVIDIA cannot freeze a powered-off dGPU during hibernation resume.
     if [[ $sleep_action == "hibernate" ]]; then
-      switch_mode Vfio || exit 1
+      switch_mode Vfio
     fi
     ;;
   post)
-    [[ -f $state_file && ! -L $state_file ]] || exit 0
+    [[ -f $restore_marker && ! -L $restore_marker ]] || exit 0
+
     sleep 4
-    switch_mode Vfio || exit 1
-    switch_mode Integrated || exit 1
-    /usr/bin/rm -f -- "$state_file"
+    switch_mode Vfio
+    switch_mode Integrated
+    /usr/bin/rm -f -- "$restore_marker"
     ;;
 esac

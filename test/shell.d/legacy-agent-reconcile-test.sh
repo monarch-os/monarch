@@ -349,5 +349,6 @@ run_reconciler "$custom_home"
   fail "repeating agent reconciliation changed a canonical wrapper"
 cmp "$custom_home/.local/bin/codex" "$test_tmp/custom-codex" ||
   fail "repeating agent reconciliation overwrote a custom command"
-[[ ! -e $TEST_MISE_CALLS ]] || fail "agent reconciliation eagerly invoked mise"
+[[ $(sort -u "$TEST_MISE_CALLS") == "settings set upgrade.auto_prune false" ]] ||
+  fail "agent reconciliation invoked mise beyond the persistent Quattro setting"
 pass "custom commands survive strict ownership checks and repeated reconciliation"

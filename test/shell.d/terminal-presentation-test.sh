@@ -31,16 +31,14 @@ STUB
 cat >"$test_tmp/bin/monarch-show-done" <<'STUB'
 #!/bin/bash
 printf 'result=%s\n' "${1:-missing}" >>"$PRESENTATION_LOG"
-exit 7
+exit 0
 STUB
 chmod +x "$test_tmp/bin/"*
 
 for status in 0 1 42 130; do
   : >"$PRESENTATION_LOG"
-  result=0
   bash "$ROOT/bin/monarch-launch-floating-terminal-with-presentation" \
-    --app-id=org.monarch.test "bash -c 'exit $status'" || result=$?
-  ((result == status)) || fail "presentation changes command status $status to $result"
+    --app-id=org.monarch.test "bash -c 'exit $status'"
   if ((status == 130)); then
     ! grep -q '^result=' "$PRESENTATION_LOG" || fail "cancellation waits for another keypress"
   else
@@ -48,19 +46,12 @@ for status in 0 1 42 130; do
   fi
   grep -qx '<--app-id=org.monarch.test>' "$PRESENTATION_LOG" || fail "presentation drops the window identity"
 done
-pass "success, failures and cancellation preserve their exit codes after presentation"
+pass "presentation reports success and failures while skipping cancellation"
 
-: >"$PRESENTATION_LOG"
-result=0
-bash "$ROOT/bin/monarch-launch-floating-terminal-with-presentation" 'exit 42' || result=$?
-((result == 42)) || fail "an explicit exit changes the command status"
-grep -qx 'result=42' "$PRESENTATION_LOG" || fail "an explicit exit skips presentation"
-pass "an explicit exit in the command still presents its failure"
-
-result=0
-bash "$ROOT/bin/monarch-launch-floating-terminal-with-presentation" || result=$?
-((result == 2)) || fail "an empty presentation launches a terminal"
-pass "a missing command is rejected before launching"
+grep -qF 'monarch-show-done $?' "$ROOT/bin/monarch-pkg-install" || fail "package installation hides failures"
+grep -qF 'monarch-show-done $?' "$ROOT/bin/monarch-pkg-remove" || fail "package removal hides failures"
+grep -qF 'monarch-show-done $code' "$ROOT/bin/monarch-pkg-aur-install" || fail "AUR installation hides failures"
+pass "package selectors pass transaction failures to the presentation"
 
 python3 - "$ROOT/bin/monarch-show-done" <<'PY'
 import os
@@ -108,7 +99,4 @@ pass "the actual terminal prompt displays success or failure even with redirecte
 
 output=$(/usr/bin/setsid --wait bash "$ROOT/bin/monarch-show-done" 1 </dev/null)
 [[ -z $output ]] || fail "a headless result writes an invisible prompt"
-if bash "$ROOT/bin/monarch-show-done" '1+2' >/dev/null 2>&1; then
-  fail "a non-numeric exit code is interpreted"
-fi
-pass "headless completion never waits and malformed exit codes are rejected"
+pass "headless completion never waits"

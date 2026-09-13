@@ -4,22 +4,13 @@
 # monarch:args=[--app-id=<id>] <command>
 
 appid="org.monarch.terminal"
-if [[ ${1:-} == --app-id=* ]]; then
+if [[ $1 == --app-id=* ]]; then
   appid="${1#--app-id=}"
   shift
 fi
 
-if (($# == 0)) || [[ -z $* ]]; then
-  echo "Usage: monarch-launch-floating-terminal-with-presentation [--app-id=<id>] <command>" >&2
-  exit 2
-fi
+cmd="$*"
+# 130 is the user bailing with Ctrl-C; anything else gets the Done/Failed prompt.
+presentation_script="monarch-show-logo; $cmd; code=\$?; if (( code != 130 )); then monarch-show-done \$code; fi"
 
-exec setsid uwsm-app -- xdg-terminal-exec --app-id="$appid" --title=Monarch -e bash -c '
-  monarch-show-logo
-  bash -c "$1"
-  status=$?
-  if ((status != 130)); then
-    monarch-show-done "$status"
-  fi
-  exit "$status"
-' monarch-presentation "$*"
+exec setsid uwsm-app -- xdg-terminal-exec --app-id="$appid" --title=Monarch -e bash -c "$presentation_script"

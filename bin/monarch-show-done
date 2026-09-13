@@ -3,19 +3,20 @@
 # monarch:summary=Display command success or failure and wait for a keypress
 # monarch:args=[exit-code]
 
-code=${1:-0}
-if [[ ! $code =~ ^[0-9]{1,3}$ ]] || ((10#$code > 255)); then
-  echo "Expected an exit code from 0 to 255" >&2
-  exit 2
-fi
-code=$((10#$code))
+code="${1:-0}"
 
+# The device node is there whether or not a terminal is behind it, so opening
+# it is the only test that means anything.
 : 2>/dev/null <>/dev/tty || exit 0
 
-# Discard terminal query replies left by the command's interactive UI.
+# gum 2.0 no longer lets a spun command read the terminal, so the wait has to
+# happen here. Its own query replies are still queued on the tty; drop those or
+# they answer the keypress for the user.
 while read -rsn 1 -t 0.1 _ </dev/tty; do :; done
 
-if ((code == 0)); then
+# Prompt on the terminal rather than stdout, or a caller that redirects us
+# leaves the user waiting on a prompt they were never shown.
+if (( code == 0 )); then
   printf '\n\033[32m● \033[0mDone! Press any key to close...' >/dev/tty
 else
   printf '\n\033[31m● \033[0mFailed (exit code %d)! Press any key to close...' "$code" >/dev/tty

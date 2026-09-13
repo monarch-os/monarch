@@ -24,7 +24,7 @@ case $1 in
     ;;
   -m)
     [[ ${HANG_REQUEST:-0} == 0 ]] || exec /usr/bin/sleep 30
-    [[ ${FAIL_REQUEST:-} != "$2" ]] || exit 23
+    [[ ${FAIL_REQUEST:-} != $2 ]] || exit 23
     echo 0 >"$SLEEP_TEST_DIR/queries"
     echo "$2" >"$SLEEP_TEST_DIR/requested"
     ;;
@@ -38,13 +38,17 @@ chmod +x "$test_tmp/bin/"*
 
 sed \
   -e "s|/usr/bin/supergfxctl|$test_tmp/bin/supergfxctl|g" \
-  -e "s|state_file=/run/monarch-force-igpu|state_file=$test_tmp/marker|" \
+  -e "s|restore_marker=/run/monarch-force-igpu|restore_marker=$test_tmp/marker|" \
+  -e "s|/etc/supergfxd.conf|$test_tmp/supergfxd.conf|" \
+  -e "s|--kill-after=1s 3s|--kill-after=1s 0.1s|" \
+  -e "s|--kill-after=1s 2s|--kill-after=1s 0.1s|" \
   -e "s|-o root -g root|-o $(id -u) -g $(id -g)|" \
   "$ROOT/default/systemd/system-sleep/force-igpu" >"$test_tmp/hook"
 
 prepare() {
   rm -f "$test_tmp/marker" "$test_tmp/requested"
   echo Integrated >"$test_tmp/mode"
+  printf '{ "mode": "Integrated" }\n' >"$test_tmp/supergfxd.conf"
   echo 0 >"$test_tmp/queries"
   : >"$test_tmp/calls"
 }
@@ -94,6 +98,7 @@ pass "blocked daemon reads and requests terminate within the hook's own deadline
 
 prepare
 echo Hybrid >"$test_tmp/mode"
+printf '{ "mode": "Hybrid" }\n' >"$test_tmp/supergfxd.conf"
 bash "$test_tmp/hook" pre hibernate
 [[ ! -e $test_tmp/marker ]] || fail "Hybrid mode is claimed for restoration"
 ! grep -q '^-m ' "$test_tmp/calls" || fail "Hybrid mode is changed"

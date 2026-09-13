@@ -18,10 +18,10 @@ cat >"$bootstrap/bin/monarch-pkg-missing" <<'EOF'
 #!/bin/bash
 [[ ! -f $BOOTSTRAP_ROOT/installed ]]
 EOF
-cat >"$bootstrap/bin/monarch-update-pacman" <<'EOF'
+cat >"$bootstrap/bin/monarch-pkg-add" <<'EOF'
 #!/bin/bash
 printf '%s\n' "$*" >>"$BOOTSTRAP_ROOT/pkg-add-calls"
-if [[ $* == "-S --noconfirm --needed monarch" ]]; then
+if [[ $1 == "monarch" ]]; then
   touch "$BOOTSTRAP_ROOT/installed"
 fi
 mkdir -p "$BOOTSTRAP_ROOT/runtime/bin" "$BOOTSTRAP_ROOT/runtime/install/reconcile/schema/1-to-2"
@@ -98,7 +98,7 @@ if BOOTSTRAP_ROOT="$bootstrap" HOME="$bootstrap/home" MONARCH_PATH="$bootstrap_s
   echo "legacy installation below the support floor was accepted" >&2
   exit 1
 fi
-[[ $(<"$bootstrap/pkg-add-calls") == "-S --noconfirm --needed monarch" ]]
+[[ $(<"$bootstrap/pkg-add-calls") == "monarch" ]]
 [[ ! -s $bootstrap/pacman-calls ]]
 
 export HOME="$TEST_ROOT/home"
@@ -235,6 +235,11 @@ EOF
 cat >"$TEST_ROOT/bin/id" <<'EOF'
 #!/bin/bash
 printf '%s\n' wheel
+EOF
+
+cat >"$TEST_ROOT/bin/mise" <<'EOF'
+#!/bin/bash
+exit 0
 EOF
 
 chmod +x "$TEST_ROOT/bin/"*
