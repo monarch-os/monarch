@@ -69,3 +69,5 @@ entry  = "launcher.luau"
 prefix = "mm"
 glyph  = "menu-2"
 include_in_global_search = false
+# Providers have no open callback; debounce queries before refreshing live guards.
+debounce_ms = 150

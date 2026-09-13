@@ -40,6 +40,10 @@ also need XMLStarlet, fontconfig and Python 3.11 or newer. On Ubuntu, install
 hicolor-icon-theme imagemagick xmlstarlet fontconfig`. These tests use isolated
 homes, temporary recorder stubs and no desktop/session-bus connection.
 
+The menu launcher callback test needs Lua 5.4 (`lua5.4` on Ubuntu, `lua` on
+Arch). It executes the shipped Lua-compatible provider with simulated Noctalia
+callbacks to cover reopening, changing guards and asynchronous responses.
+
 ## Q18 baseline and decisions
 
 The initial inventory contained 50 executable tests. The GitHub workflow ran 10
