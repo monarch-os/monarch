@@ -193,7 +193,7 @@ widget ids, or inline tables.
 | App | Location |
 |-----|----------|
 | btop | `~/.config/btop/btop.conf` |
-| fastfetch | `~/.config/fastfetch/config.jsonc` |
+| fastfetch | `/etc/fastfetch/config.jsonc` default; `~/.config/fastfetch/config.jsonc` user override |
 | lazygit | `~/.config/lazygit/config.yml` |
 | starship | `~/.config/starship.toml` |
 | git | `~/.config/git/config` |

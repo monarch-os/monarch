@@ -96,8 +96,8 @@ assert all(not item["enabled"] for item in prefs["idle"]["behavior"].values())
 assert {"lock", "screen-off", "screensaver"} <= prefs["idle"]["behavior"].keys()
 PY
 cmp "$ROOT/config/herdr/config.toml" "$HOME/.config/herdr/config.toml"
-cmp "$ROOT/config/fastfetch/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
-pass "disabled idle remains disabled and missing app configs receive defaults"
+[[ ! -e $HOME/.config/fastfetch/config.jsonc ]]
+pass "disabled idle remains disabled and missing user configs use packaged defaults"
 
 export HOME="$test_tmp/invalid"
 mkdir -p "$HOME/.config/noctalia"
@@ -110,15 +110,17 @@ fi
 pass "unreadable legacy settings stay in place and keep migration pending"
 
 export HOME="$test_tmp/stock"
-mkdir -p "$HOME/.config/herdr"
+mkdir -p "$HOME/.config/herdr" "$HOME/.config/fastfetch"
 sed -e 's/{{colors.surface_container.default.hex}}/#112233/' \
   -e 's/{{colors.primary.default.hex}}/#ABCDEF/' \
   "$ROOT/test/fixtures/noctalia-v4/herdr.toml" >"$HOME/.config/herdr/config.toml"
+cp "$ROOT/etc/fastfetch/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
 cp "$HOME/.config/herdr/config.toml" "$test_tmp/stock-original"
 bash "$ROOT/install/reconcile/schema/1-to-2/legacy-noctalia.sh"
 cmp "$ROOT/config/herdr/config.toml" "$HOME/.config/herdr/config.toml"
 cmp "$test_tmp/stock-original" "$HOME/.config/herdr/config.toml.bak.monarch-v5"
-pass "recognized V4 Herdr output moves to terminal colors with an original backup"
+[[ ! -e $HOME/.config/fastfetch/config.jsonc ]]
+pass "recognized stock app configs migrate to packaged defaults"
 
 export HOME="$test_tmp/symlinks"
 mkdir -p "$HOME/.config/herdr" "$HOME/.config/fastfetch" "$HOME/.config/noctalia"
