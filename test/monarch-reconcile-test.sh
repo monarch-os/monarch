@@ -253,7 +253,7 @@ printf '%s\n' true >"$system_transition/install/reconcile/schema/1-to-2/legacy-s
 printf '%s\n' true >"$system_transition/install/reconcile/schema/1-to-2/system-sleep-ownership.sh"
 MONARCH_PATH="$system_transition" bash "$ROOT/install/reconcile/schema/1-to-2/system.sh"
 if [[ -f $TEST_LOG ]] &&
-  grep -qx 'monarch-pkg-drop noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"; then
+  grep -qx 'monarch-pkg-drop --keep-dependencies noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"; then
   echo "Legacy desktop packages were removed before user reconciliation" >&2
   exit 1
 fi
@@ -290,7 +290,7 @@ printf '%s\n' gemini >"$HOME/.config/monarch/defaults/agent"
 
 bash "$ROOT/install/reconcile/schema/1-to-2/user.sh"
 if [[ -f $TEST_LOG ]] &&
-  grep -qx 'monarch-pkg-drop noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"; then
+  grep -qx 'monarch-pkg-drop --keep-dependencies noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"; then
   echo "Legacy desktop packages were removed before user reconciliation completed" >&2
   exit 1
 fi
@@ -304,7 +304,7 @@ bash "$runtime_hook"
 bash "$ROOT/install/reconcile/schema/1-to-2/system-after-user.sh"
 bash "$ROOT/install/reconcile/user.sh"
 
-grep -qx 'monarch-pkg-drop noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"
+grep -qx 'monarch-pkg-drop --keep-dependencies noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"
 grep -qx 'monarch-pkg-drop claude-code openai-codex opencode' "$TEST_LOG"
 [[ ! -e $HOME/.config/fastfetch/config.jsonc ]]
 if grep -qx 'monarch-provision-first-run' "$TEST_LOG"; then
@@ -402,6 +402,21 @@ if bash "$runtime_hook" >/dev/null 2>&1; then
 fi
 [[ -d $HOME/.local/share/monarch && -L $legacy_backup && -x $runtime_hook ]]
 rm -f "$legacy_backup"
+
+mkdir -p "$HOME/.config/systemd/user"
+cat >"$HOME/.config/systemd/user/personal.service" <<'EOF'
+[Service]
+Environment="MONARCH_BIN=%h/.local/share/monarch/bin/monarch"
+ExecStart=/usr/bin/true
+EOF
+if TEST_NOTIFICATION_READY=true bash "$runtime_hook" >"$TEST_ROOT/stale-unit-error" 2>&1; then
+  echo "runtime finalization archived a checkout referenced by a user service" >&2
+  exit 1
+fi
+grep -qF 'personal.service' "$TEST_ROOT/stale-unit-error"
+grep -qF 'notification -g 󰚌 Monarch V5 upgrade paused' "$TEST_LOG"
+[[ -d $HOME/.local/share/monarch && -x $runtime_hook ]]
+rm "$HOME/.config/systemd/user/personal.service"
 
 if bash "$runtime_hook"; then
   echo "runtime finalization ignored an unavailable notification service" >&2

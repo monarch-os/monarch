@@ -209,6 +209,22 @@ grep -qx 'restart monarch-battery-monitor.timer' "$TEST_SYSTEMCTL_LOG"
 bash "$ROOT/install/reconcile/schema/1-to-2/legacy-user-files.sh"
 [[ ! -s $TEST_SYSTEMCTL_LOG ]]
 
+cat >"$battery_unit" <<'EOF'
+[Unit]
+Description=Monarch Battery Monitor Check
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/share/monarch/bin/monarch-battery-monitor
+Environment=DISPLAY=:0
+EOF
+[[ $(sha256sum "$battery_unit" | cut -d' ' -f1) == "78a95ab91da87c3a2a1eff296905b2acf29667797029dcf641fba19a7c8cca07" ]]
+: >"$TEST_SYSTEMCTL_LOG"
+bash "$ROOT/install/reconcile/schema/1-to-2/legacy-user-files.sh"
+[[ ! -e $battery_unit ]]
+grep -qx 'daemon-reload ' "$TEST_SYSTEMCTL_LOG"
+
 printf '%s\n' '# custom battery monitor' >"$battery_unit"
 printf '%s\n' '# custom menu' >"$menu"
 printf '%s\n' '# custom hook sample' >"$theme_sample"
