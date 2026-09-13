@@ -96,12 +96,14 @@ grep -qx 'agent ' "$TEST_LOG"
 for case in \
   "oh-my-pi|omp|github:can1357/oh-my-pi" \
   "openrouter|ori|github:OpenRouterLabs/ori-releases" \
-  "gemini|agy|antigravity-cli"; do
+  "gemini|agy|antigravity-cli" \
+  "cursor|cursor-agent|cursor-agent" \
+  "muse-code|muse|http:muse[url=https://api.meta.ai/muse-launcher.sh,bin=muse,version_list_url=https://api.meta.ai/muse-code/channels/muse-stable,version_json_path=.version]"; do
   IFS='|' read -r input expected package <<< "$case"
   : > "$TEST_LOG"
   MISE_INSTALLED=true "$ROOT/bin/monarch-default-agent" "$input"
-  grep -qx "mise where $package" "$TEST_LOG"
-  grep -qx "mise use -g $package" "$TEST_LOG"
+  grep -qxF "mise where $package" "$TEST_LOG"
+  grep -qxF "mise use -g $package" "$TEST_LOG"
   [[ $(<"$HOME/.config/monarch/defaults/agent") == $expected ]]
 done
 

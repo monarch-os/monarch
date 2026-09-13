@@ -53,6 +53,8 @@ test/monarch-sudo-passwordless-test.sh	security	high	isolated
 test/monarch-tailscale-lifecycle-test.sh	tailscale	medium	isolated
 test/monarch-tailscale-receive-test.sh	tailscale	medium	isolated
 test/monarch-tailscale-send-test.sh	tailscale	medium	isolated
+test/monarch-t3-install-test.sh	software-install	medium	isolated
+test/monarch-t3-theme-test.sh	theming	medium	isolated
 test/monarch-theme-background-import-test.sh	backgrounds	medium	isolated
 test/monarch-theme-background-list-test.sh	backgrounds	low	isolated
 test/monarch-theme-background-remove-test.sh	backgrounds	medium	isolated

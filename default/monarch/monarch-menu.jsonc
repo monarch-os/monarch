@@ -203,7 +203,9 @@
   "setup.defaults.agent.codex": {"icon":"󰚩","label":"Codex","checked":"[[ $(monarch-default-agent) == codex ]]","action":"monarch-default-agent codex"},
   "setup.defaults.agent.copilot": {"icon":"","label":"Copilot","checked":"[[ $(monarch-default-agent) == copilot ]]","action":"monarch-default-agent copilot"},
   "setup.defaults.agent.crush": {"icon":"󰋑","label":"Crush","checked":"[[ $(monarch-default-agent) == crush ]]","action":"monarch-default-agent crush"},
+  "setup.defaults.agent.cursor": {"icon":"󰚩","label":"Cursor CLI","checked":"[[ $(monarch-default-agent) == cursor-agent ]]","action":"monarch-default-agent cursor-agent"},
   "setup.defaults.agent.grok": {"icon":"󰚩","label":"Grok","checked":"[[ $(monarch-default-agent) == grok ]]","action":"monarch-default-agent grok"},
+  "setup.defaults.agent.muse": {"icon":"󰚩","label":"Muse Code","checked":"[[ $(monarch-default-agent) == muse ]]","action":"monarch-default-agent muse"},
   "setup.defaults.agent.omp": {"icon":"󰚩","label":"omp","checked":"[[ $(monarch-default-agent) == omp ]]","action":"monarch-default-agent omp"},
   "setup.defaults.agent.opencode": {"icon":"󰚩","label":"OpenCode","checked":"[[ $(monarch-default-agent) == opencode ]]","action":"monarch-default-agent opencode"},
   "setup.defaults.agent.ori": {"icon":"󰚩","label":"Ori","checked":"[[ $(monarch-default-agent) == ori ]]","action":"monarch-default-agent ori"},
@@ -298,7 +300,7 @@
   "install.ai.dictation": {"icon":"","label":"Dictation","disabled":"monarch-pkg-present voxtype-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-voxtype-install"},
   "install.ai.lm-studio": {"icon":"󱚤","label":"LM Studio","action":"monarch-install-app 'LM Studio' lmstudio-bin","disabled":"monarch-pkg-present lmstudio-bin"},
   "install.ai.ollama": {"icon":"󱚤","label":"Ollama","action":"if monarch-cmd-present nvidia-smi; then ollama_pkg=ollama-cuda; elif monarch-cmd-present rocminfo; then ollama_pkg=ollama-rocm; else ollama_pkg=ollama; fi; monarch-install-app Ollama \"$ollama_pkg\"","disabled":"monarch-cmd-present ollama"},
-  "install.ai.t3-code": {"icon":"󰚩","label":"T3 Code","disabled":"monarch-pkg-present t3code-bin","action":"monarch-install-and-launch 'T3 Code' t3code-bin t3code"},
+  "install.ai.t3-code": {"icon":"󰚩","label":"T3 Code","disabled":"monarch-pkg-present t3code-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-install-ai-t3-code"},
 
   // Install > Gaming
   "install.gaming.steam": {"icon":"","label":"Steam","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-steam","disabled":"monarch-pkg-present steam"},

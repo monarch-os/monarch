@@ -8,5 +8,7 @@ monarch-mise-install pi
 monarch-mise-install github:can1357/oh-my-pi omp
 monarch-mise-install npm:@xai-official/grok grok
 monarch-mise-install github:OpenRouterLabs/ori-releases ori
+monarch-mise-install cursor-agent
+monarch-mise-install "http:muse[url=https://api.meta.ai/muse-launcher.sh,bin=muse,version_list_url=https://api.meta.ai/muse-code/channels/muse-stable,version_json_path=.version]" muse
 monarch-mise-install npm:playwright playwright-cli playwright
 monarch-mise-install npm:@kitlangton/ghui ghui
