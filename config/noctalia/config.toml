@@ -254,14 +254,14 @@ behavior_order = ["screensaver", "lock", "screen-off"]
   resume_command = "pkill -f '[o]rg.monarch.screensaver'"
 
   [idle.behavior.lock]
-  action = "lock"
+  action = "command"
   enabled = true
   timeout = 300.0
   command = "MONARCH_LOCK_ONLY=true monarch-system-lock"
 
   [idle.behavior.screen-off]
-  action = "screen_off"
+  action = "command"
   enabled = true
   timeout = 330.0
-  command = "monarch-brightness-keyboard off"
+  command = "monarch-brightness-keyboard off; niri msg action power-off-monitors"
   resume_command = "monarch-system-wake"

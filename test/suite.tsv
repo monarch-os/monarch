@@ -1,4 +1,6 @@
 path	feature	risk	environment
+test/shell.d/test-runner-test.sh	test-runner	medium	isolated
+test/shell.d/noctalia-restart-test.sh	desktop-shell	medium	isolated
 test/shell.d/acceptance-target-test.sh	acceptance-security	high	isolated
 test/monarch-about-test.sh	about	low	isolated
 test/monarch-agent-usage-codex-test.sh	agent-usage	medium	isolated
@@ -19,6 +21,7 @@ test/shell.d/broadcom-driver-test.sh	hardware-detection	medium	isolated
 test/shell.d/hw-gpu-detection-test.sh	hardware-detection	medium	isolated
 test/monarch-kernel-headers-test.sh	kernel-packages	high	isolated
 test/monarch-menu-test.sh	menu	medium	isolated
+test/monarch-menu-launcher-test.sh	menu	medium	isolated
 test/monarch-mise-agent-test.sh	developer-agents	medium	isolated
 test/monarch-reconcile-test.sh	updates	high	isolated
 test/shell.d/legacy-noctalia-config-test.sh	updates	high	isolated

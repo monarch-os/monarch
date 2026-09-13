@@ -7,6 +7,7 @@ import re
 import stat
 import sys
 import tempfile
+import tomllib
 
 
 STOCK_FASTFETCH_HASHES = frozenset({
@@ -192,10 +193,16 @@ def preferences(settings, palettes, runtime):
   enabled = idle.get("enabled", True)
   if type(enabled) is not bool:
     raise ValueError("Expected idle.enabled to be a boolean")
-  for old, name, action in (("lockTimeout", "lock", "lock"),
-                            ("screenOffTimeout", "screen-off", "screen_off"),
-                            ("suspendTimeout", "suspend", "lock_and_suspend")):
-    if old not in idle and enabled:
+  defaults = tomllib.loads((runtime / "config/noctalia/config.toml").read_text())["idle"]["behavior"]
+  for key in ("lockCommand", "screenOffCommand", "resumeScreenOffCommand"):
+    if key in idle and not isinstance(idle[key], str):
+      raise ValueError(f"Invalid idle command: {key}")
+  for old, name, action, keys in (
+    ("lockTimeout", "lock", "command", ("lockCommand",)),
+    ("screenOffTimeout", "screen-off", "command", ("screenOffCommand", "resumeScreenOffCommand")),
+    ("suspendTimeout", "suspend", "lock_and_suspend", ()),
+  ):
+    if old not in idle and enabled and not any(key in idle for key in keys):
       continue
     behavior = {"action": action, "enabled": enabled}
     if old in idle:
@@ -203,6 +210,14 @@ def preferences(settings, palettes, runtime):
       if type(timeout) not in (int, float) or not math.isfinite(timeout) or timeout < 0:
         raise ValueError(f"Invalid idle timeout: {old}")
       behavior.update(timeout=timeout, enabled=enabled and timeout > 0)
+    if name == "lock":
+      behavior["command"] = idle.get("lockCommand") or defaults[name]["command"]
+    elif name == "screen-off":
+      command = idle.get("screenOffCommand")
+      resume = idle.get("resumeScreenOffCommand")
+      # V4 ran these hooks in addition to its native DPMS actions.
+      behavior["command"] = f"({command}); niri msg action power-off-monitors" if command else defaults[name]["command"]
+      behavior["resume_command"] = f"niri msg action power-on-monitors; ({resume})" if resume else defaults[name]["resume_command"]
     sections[f'idle.behavior."{name}"'] = behavior
 
   commands = idle.get("customCommands")
