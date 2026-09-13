@@ -8,16 +8,16 @@ test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
 
 drop_in="$ROOT/etc/systemd/system/plocate-updatedb.service.d/ac-only.conf"
-rg -q '^ConditionACPower=true$' "$drop_in" ||
+grep -q '^ConditionACPower=true$' "$drop_in" ||
   fail "plocate updates are not restricted to AC power"
-rg -q '^ExecStart=$' "$drop_in" || fail "plocate does not clear the packaged ExecStart"
-rg -q '^ExecStart=/usr/bin/updatedb --prune-bind-mounts=no --add-prunepaths=/\.snapshots$' "$drop_in" ||
+grep -q '^ExecStart=$' "$drop_in" || fail "plocate does not clear the packaged ExecStart"
+grep -q '^ExecStart=/usr/bin/updatedb --prune-bind-mounts=no --add-prunepaths=/\.snapshots$' "$drop_in" ||
   fail "plocate service does not index subvolumes while pruning snapshots"
 pass "the packaged plocate service owns Monarch's indexing policy"
 
 [[ ! -e $ROOT/install/config/locate.sh ]] ||
   fail "the installer still mutates plocate's /etc/updatedb.conf"
-! rg -q 'config/locate\.sh|/etc/updatedb\.conf' "$ROOT/install" ||
+! grep -ERq 'config/locate\.sh|/etc/updatedb\.conf' "$ROOT/install" ||
   fail "the install path still refers to the mutable plocate configuration"
 pass "the installer leaves plocate's owned configuration untouched"
 
