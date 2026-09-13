@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# monarch:summary=Run an update transaction outside the desktop session's cgroups
+# monarch:args=<pacman-args>
+# monarch:hidden=true
+# monarch:requires-sudo=true
+
+scope=()
+# The user manager may restart during its own upgrade; PID 1 owns this scope.
+if [[ -d /run/systemd/system && ! -L /run/systemd/system ]]; then
+  scope=(/usr/bin/systemd-run --scope --quiet --collect)
+fi
+
+environment=(MONARCH_UPDATE_PACMAN=1)
+[[ -z ${LC_ALL:-} ]] || environment+=(LC_ALL="$LC_ALL")
+
+exec sudo /usr/bin/env "${environment[@]}" "${scope[@]}" /usr/bin/pacman "$@"

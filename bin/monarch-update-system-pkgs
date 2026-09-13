@@ -10,8 +10,7 @@ echo -e "\e[32m\nUpdate system packages\e[0m"
 errors=$(mktemp)
 trap 'rm -f "$errors"' EXIT
 
-if sudo /usr/bin/env LC_ALL=C MONARCH_UPDATE_PACMAN=1 /usr/bin/pacman \
-  -Syyu --noconfirm 2>"$errors"; then
+if LC_ALL=C monarch-update-pacman -Syyu --noconfirm 2>"$errors"; then
   update_status=0
 else
   update_status=$?
@@ -29,7 +28,7 @@ if grep -q 'unresolvable package conflicts detected' "$errors"; then
   fi
 
   echo -e "\e[33m\nA package conflict stopped this upgrade. Running it again so you can answer:\e[0m"
-  sudo /usr/bin/env MONARCH_UPDATE_PACMAN=1 /usr/bin/pacman -Su
+  monarch-update-pacman -Su
   exit $?
 fi
 

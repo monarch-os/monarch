@@ -58,7 +58,7 @@ trusted_entry() {
 }
 
 entry_requires_repair() {
-  local source="$1" destination="$2" mode="$3" current_mode
+  local source="$1" destination="$2" mode="$3" current_mode checksum
 
   [[ -e $destination || -L $destination ]] || return 1
   if trusted_entry "$destination"; then
@@ -67,6 +67,15 @@ entry_requires_repair() {
       current_mode=$(/usr/bin/stat -c '%a' -- "$destination")
       [[ $current_mode == "${mode#0}" ]] || return 0
     fi
+    # Refresh only recognized shipped hooks; administrator versions stay authoritative.
+    checksum=$(/usr/bin/sha256sum -- "$destination") || return 1
+    case "${destination##*/}:${checksum%% *}" in
+      force-igpu:c093a4ab837c8f8337fb668f42fd5fea564d413a2a7d95279eed18e82b9eec2e | \
+        force-igpu:6b8d47cd5c21c7bc30c5425919205ebe945db51864cac1cc5d04aeadf8ac40ba | \
+        keyboard-backlight:f313a81e47401f0d38b8602e5997f52c5286d5e97f74027564ddd515b3d16511)
+        return 0
+        ;;
+    esac
     return 1
   fi
   return 0
@@ -102,7 +111,7 @@ preserve_entry() {
   prepare_state_dir || return 1
   backup_dir=$(run_privileged /usr/bin/mktemp -d -- "$state_dir/$label.XXXXXX") || return 1
   if run_privileged /usr/bin/cp -a --no-dereference -T -- "$destination" "$backup_dir/original"; then
-    echo "Preserved unsafe custom content from $destination at $backup_dir/original" >&2
+    echo "Preserved previous sleep configuration from $destination at $backup_dir/original" >&2
     return 0
   fi
   run_privileged /usr/bin/rm -rf -- "$backup_dir"

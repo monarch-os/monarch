@@ -237,6 +237,11 @@ cat >"$TEST_ROOT/bin/id" <<'EOF'
 printf '%s\n' wheel
 EOF
 
+cat >"$TEST_ROOT/bin/mise" <<'EOF'
+#!/bin/bash
+exit 0
+EOF
+
 chmod +x "$TEST_ROOT/bin/"*
 
 system_transition="$TEST_ROOT/system-transition"

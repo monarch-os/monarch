@@ -1,3 +1,7 @@
+# Upgrades must not delete the version a running process is executing from:
+# mise up would prune the old install dir out from under a live session.
+mise settings set upgrade.auto_prune false
+
 monarch-mise-install codex
 monarch-mise-install claude
 monarch-mise-install crush
