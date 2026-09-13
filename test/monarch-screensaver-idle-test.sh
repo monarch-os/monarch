@@ -39,7 +39,7 @@ cat >"$TMP/bin/idle-recorder" <<'EOF'
 printf '%s\n' "${0##*/} $*" >>"$IDLE_TEST_LOG"
 EOF
 chmod +x "$TMP/bin/idle-recorder"
-for command in noctalia pgrep pkill 1password monarch-brightness-keyboard niri; do
+for command in noctalia pgrep pkill 1password monarch-brightness-keyboard niri sleep; do
   ln -s idle-recorder "$TMP/bin/$command"
 done
 export IDLE_TEST_LOG="$TMP/idle.log"
@@ -83,6 +83,14 @@ def check_actions(behaviors):
 
 check_actions(defaults)
 print("ok - shipped idle actions lock applications and restore screen and keyboard power")
+
+calls = execute({"action": "command", "command": "env -u MONARCH_LOCK_ONLY monarch-system-lock"})
+assert "noctalia msg session lock" in calls
+assert "1password --lock" in calls
+assert "pkill -f [o]rg.monarch.screensaver" in calls
+assert "monarch-brightness-keyboard off" in calls
+assert "niri msg action power-off-monitors" not in calls
+print("ok - manual locking keeps monitors on without skipping application and keyboard cleanup")
 
 def migrated(idle):
   prefs = module.preferences({"idle": idle}, {}, root)

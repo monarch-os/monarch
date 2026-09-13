@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Lock the computer and turn off the display
+# monarch:summary=Lock the computer without turning off the display
 # monarch:group=system
 # monarch:name=lock
 # monarch:examples=monarch system lock
@@ -19,6 +19,5 @@ if [[ ${MONARCH_LOCK_ONLY:-false} != "true" ]]; then
   (
     sleep 3
     monarch-brightness-keyboard off
-    niri msg action power-off-monitors >/dev/null 2>&1
   ) &
 fi
