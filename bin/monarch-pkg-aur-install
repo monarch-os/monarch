@@ -23,6 +23,6 @@ if [[ -n $pkg_names ]]; then
   # Add aur/ prefix to each package name and convert to space-separated for yay
   source monarch-sudo-keepalive
   echo "$pkg_names" | sed 's/^/aur\//' | tr '\n' ' ' | xargs yay -S --noconfirm
-  sudo updatedb
+  sudo updatedb --prune-bind-mounts=no --add-prunepaths=/.snapshots
   monarch-show-done
 fi

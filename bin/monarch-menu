@@ -1,871 +1,488 @@
 #!/bin/bash
 
-# monarch:summary=Launch the Monarch Menu or takes a parameter to jump straight to a submenu.
+# monarch:summary=Launch the Monarch Menu or jump straight to a submenu.
+# monarch:args=[route]
+# monarch:examples=monarch menu | monarch menu style | monarch menu trigger.capture
 
-# Set to true when going directly to a submenu, so we can exit directly
-BACK_TO_EXIT=false
+# The menu's content is data: default/monarch/monarch-menu.jsonc, overlaid by
+# ~/.config/monarch/extensions/monarch-menu.jsonc — see that file for the entry
+# schema. The menu is drawn by the monarch/menu Noctalia panel; this command
+# loads the data for it, evaluates the guards, and routes the keybinds to it.
 
-back_to() {
-  local parent_menu="$1"
+MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
 
-  if [[ $BACK_TO_EXIT == "true" ]]; then
-    exit 0
-  elif [[ -n $parent_menu ]]; then
-    "$parent_menu"
-  else
-    show_main_menu
+# Guard expressions call monarch-* commands, and this runs from a keybind, from
+# the Noctalia panel and from a plain shell — none of which can be relied on to
+# have Monarch's bin on PATH. Without this every guard fails and rows silently
+# vanish, differently depending on the caller.
+PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd):$PATH"
+
+# Fall back to the checkout this script lives in when the installed tree has no
+# menu data. That is the case in CI and whenever a developer runs bin/monarch-menu
+# straight out of a clone, where relying on MONARCH_PATH being exported is a trap:
+# the test suite sets it, a bare invocation does not, and the two disagree.
+if [[ ! -f "$MONARCH_ROOT/default/monarch/monarch-menu.jsonc" ]]; then
+  MONARCH_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+fi
+
+DEFAULT_MENU="$MONARCH_ROOT/default/monarch/monarch-menu.jsonc"
+USER_MENU="$HOME/.config/monarch/extensions/monarch-menu.jsonc"
+
+# Row sources the data cannot express: `list` enumerates values, `current` names
+# the selected one, `action` receives it. Declared here rather than in the panel
+# so the CLI and the panel cannot drift; an extension may point a submenu at one
+# of these but cannot declare a new one.
+declare -A PROVIDER_LIST=(
+  [fonts]="monarch-font-list"
+  [power-profiles]="monarch-powerprofiles-list"
+  [text-size]="monarch-display-text-size --list"
+)
+declare -A PROVIDER_CURRENT=(
+  [fonts]="monarch-font-current"
+  [power-profiles]="powerprofilesctl get"
+  [text-size]="monarch-display-text-size --current"
+)
+declare -A PROVIDER_ACTION=(
+  [fonts]="monarch-font-set"
+  # Not `powerprofilesctl set`: that applies without recording, so the next
+  # time the cable moves the choice made here is silently undone.
+  [power-profiles]="monarch-powerprofiles-set autodetect"
+  [text-size]="monarch-display-text-size"
+)
+# ── Data ─────────────────────────────────────────────────────────────────────
+
+# JSONC is JSON plus whole-line // comments and trailing commas, both stripped
+# textually — an inline trailing comment breaks the parse, same limitation
+# Monarch documents. The user file is overlaid per key and per field, so reusing
+# a shipped id replaces only the fields it declares and keeps its position,
+# while new ids append. A user file that does not parse contributes nothing
+# rather than taking the whole menu down with it.
+load_menu() {
+  MENU_JSON=$(
+    python - "$DEFAULT_MENU" "$USER_MENU" <<'PY'
+import json, re, sys
+
+def load(path):
+    try:
+        raw = open(path, encoding="utf-8").read()
+    except OSError:
+        return None
+    raw = "\n".join("" if l.lstrip().startswith("//") else l for l in raw.splitlines())
+    raw = re.sub(r",(\s*[}\]])", r"\1", raw)
+    try:
+        data = json.loads(raw)
+    except ValueError as exc:
+        print(f"{path}: {exc}", file=sys.stderr)
+        return None
+    return data if isinstance(data, dict) else None
+
+defaults = load(sys.argv[1])
+if defaults is None:
+    sys.exit(1)
+
+for key, entry in (load(sys.argv[2]) or {}).items():
+    if key in defaults and isinstance(entry, dict) and isinstance(defaults[key], dict):
+        defaults[key].update(entry)
+    else:
+        defaults[key] = entry
+
+json.dump(defaults, sys.stdout)
+PY
+  ) || {
+    echo "monarch-menu: cannot read $DEFAULT_MENU" >&2
+    exit 1
+  }
+}
+
+ids() { jq -r 'keys_unsorted[]' <<<"$MENU_JSON"; }
+
+# One jq call per level: id and every field the renderer needs, unit-separated —
+# not tab, because bash `read` folds runs of whitespace delimiters together and
+# an empty field would shift every field after it.
+level_rows() {
+  local parent="$1"
+  jq -r --arg parent "$parent" '
+    to_entries
+    | map(select(
+        if $parent == "root"
+        then ((.key | contains(".") | not) and ((.value.hiddenAtRoot // false) | not))
+        else (.key | startswith($parent + ".")) and
+             ((.key | ltrimstr($parent + ".") | contains(".")) | not)
+        end))
+    | .[]
+    | [ .key,
+        (.value.icon // ""),
+        (.value.label // (.key | split(".") | last)),
+        (.value.when // ""),
+        (.value.checked // ""),
+        (.value.disabled // "") ]
+    | join("\u001f")' <<<"$MENU_JSON"
+}
+
+field() {
+  jq -r --arg id "$1" --arg key "$2" '.[$id][$key] // empty' <<<"$MENU_JSON"
+}
+
+tree_payload() {
+  jq -c '
+    . as $menu
+    | (keys_unsorted | map(select(test("\\.")) | sub("\\.[^.]+$"; "")) | unique) as $parents
+    | to_entries
+    | map(.key as $id | {
+        id: $id,
+        searchText: ([
+          (.value.label // ($id | split(".") | last)),
+          ($id | split(".") | last),
+          (.value.description // "")
+        ] + (.value.aliases // []) + (.value.keywords // []) | join(" "))
+        } + .value + {hasChildren: (($parents | index($id)) != null)})' <<<"$MENU_JSON"
+}
+
+initial_payload() {
+  local route=$1
+  tree_payload | jq -c --arg route "$route" '
+    map(.id as $id | select((.when == null) and (
+      if $route == "root" then
+        (($id | contains(".") | not) and (.hiddenAtRoot != true))
+      else
+        ($id == $route)
+        or ($route | startswith($id + "."))
+        or (($id | startswith($route + ".")) and (($id | ltrimstr($route + ".") | contains(".")) | not))
+      end
+    )))'
+}
+
+menu_title() {
+  [[ $1 == root ]] && {
+    echo Go
+    return
+  }
+  local title
+  title=$(jq -r --arg id "$1" '.[$id].title // .[$id].label // ($id | split(".") | last)' <<<"$MENU_JSON")
+  echo "$title"
+}
+
+# ── Routes ───────────────────────────────────────────────────────────────────
+
+# Exact id first, then a declared alias, then the last segment of an id — which
+# is why `monarch menu style` and `monarch menu trigger.capture` both work and
+# almost nothing needs an alias. An unknown route is passed through unchanged so
+# a typo fails visibly instead of silently opening the root menu.
+resolve_route() {
+  local route="${1,,}"
+  route="${route//_/-}"
+
+  if [[ -z $route || $route == go || $route == menu || $route == root ]]; then
+    echo root
+    return
   fi
+
+  jq -r --arg r "$route" '
+    (keys_unsorted[] | select(ascii_downcase == $r)),
+    (to_entries[] | select(.value.aliases // [] | map(ascii_downcase) | index($r)) | .key),
+    (keys_unsorted[] | select((split(".") | last | ascii_downcase) == $r)),
+    $r' <<<"$MENU_JSON" | head -1
 }
 
-toggle_existing_menu() {
-  if pgrep -x fuzzel >/dev/null; then
-    pkill -x fuzzel >/dev/null 2>&1
-    exit 0
+guard_passes() { (eval "$1") >/dev/null 2>&1; }
+
+# Evaluating the guards is the whole cost of opening the menu: 137 of them on
+# the shipped tree, ~1s of the ~1s `--state` takes. Almost all of them call one
+# of four Monarch helpers, and each helper is a script, so a guard costs a fork
+# *and* an exec of bash — for work that is either a shell builtin or a lookup in
+# state that can be read once for the whole tree.
+#
+# Defining those four as functions collapses that: a function is found before
+# PATH, so the guards get them in-process, while the scripts stay exactly where
+# they are for every other caller (and for a guard in a user's extension that
+# calls something else entirely). Measured on the shipped tree: 990ms → 190ms,
+# with all 137 verdicts unchanged.
+#
+# Parallelising instead was tried and is slower — one bash per guard costs more
+# than the execs it removes. Keep these in step with the scripts they shadow:
+# bin/monarch-{cmd,pkg,desktop}-present and bin/monarch-default-{browser,agent}.
+prime_guard_helpers() {
+  monarch-cmd-present() {
+    local cmd
+    for cmd in "$@"; do
+      command -v "$cmd" >/dev/null 2>&1 || return 1
+    done
+    return 0
+  }
+
+  monarch-desktop-present() {
+    local entry="${1:-}" dir
+    [[ -z $entry ]] && return 1
+    for dir in "$HOME/.local/share/applications" "$HOME/.nix-profile/share/applications" /usr/share/applications; do
+      [[ -f "$dir/$entry" ]] && return 0
+    done
+    return 1
+  }
+
+  # One snapshot of the local database instead of a `pacman -Q` per row. Only
+  # taken when something asks, so a tree with no package rows pays nothing.
+  if [[ $MENU_JSON == *monarch-pkg-present* ]]; then
+    declare -gA PKG_PRESENT=()
+    local pkg
+    while read -r pkg; do
+      PKG_PRESENT[$pkg]=1
+    done < <(pacman -Qq 2>/dev/null)
+    monarch-pkg-present() {
+      local pkg
+      for pkg in "$@"; do
+        [[ -n ${PKG_PRESENT[$pkg]:-} ]] || return 1
+      done
+      return 0
+    }
   fi
-}
 
-# Pop a dmenu picker via fuzzel. `extra` and `preselect` are kept for source
-# compatibility with the previous walker-based menu helper.
-menu() {
-  local prompt="$1"
-  local options="$2"
-  local _unused_extra="$3"
-  local preselect="$4"
-
-  local args=()
-  if [[ -n $preselect ]]; then
-    args+=("--select=$preselect")
+  # xdg-settings shells out to gio, so the browser rows were each paying for a
+  # full lookup — seven of them, ~35ms apiece. Resolve it once. Only the
+  # no-argument form is a query; with arguments this is a setter, which has side
+  # effects and must reach the real script.
+  if [[ $MENU_JSON == *monarch-default-browser* ]]; then
+    DEFAULT_BROWSER=$(command monarch-default-browser 2>/dev/null)
+    monarch-default-browser() {
+      if (($# == 0)); then
+        printf '%s\n' "$DEFAULT_BROWSER"
+        return 0
+      fi
+      command monarch-default-browser "$@"
+    }
   fi
 
-  echo -e "$options" | fuzzel --dmenu --lines 12 -p "$prompt… " "${args[@]}" 2>/dev/null
-}
-
-terminal() {
-  xdg-terminal-exec --app-id=org.monarch.terminal "$@"
-}
-
-present_terminal() {
-  monarch-launch-floating-terminal-with-presentation "$1"
-}
-
-open_in_editor() {
-  notify-send -u low "Editing config file" "$1"
-  monarch-launch-editor "$1"
-}
-
-install() {
-  present_terminal "echo 'Installing $1...'; monarch-pkg-add $2"
-}
-
-install_and_launch() {
-  present_terminal "echo 'Installing $1...'; monarch-pkg-add $2 && setsid gtk-launch $3"
-}
-
-install_font() {
-  present_terminal "echo 'Installing $1...'; monarch-pkg-add $2 && sleep 2 && monarch-font-set '$3'"
-}
-
-install_terminal() {
-  present_terminal "monarch-install-terminal $1"
-}
-
-aur_install() {
-  present_terminal "echo 'Installing $1 from AUR...'; monarch-pkg-aur-add $2"
-}
-
-aur_install_and_launch() {
-  present_terminal "echo 'Installing $1 from AUR...'; monarch-pkg-aur-add $2 && setsid gtk-launch $3"
-}
-
-show_learn_menu() {
-  case $(menu "Learn" "  Keybindings\n  Monarch\n  Niri\n󰣇  Arch\n  Neovim\n󱆃  Bash") in
-  *Keybindings*) monarch-menu-keybindings ;;
-  *Monarch*) monarch-launch-webapp "https://docs.monarchlinux.com/" ;;
-  *Niri*) monarch-launch-webapp "https://yalter.github.io/niri/" ;;
-  *Arch*) monarch-launch-webapp "https://wiki.archlinux.org/title/Main_page" ;;
-  *Bash*) monarch-launch-webapp "https://devhints.io/bash" ;;
-  *Neovim*) monarch-launch-webapp "https://www.lazyvim.org/keymaps" ;;
-  *) show_main_menu ;;
-  esac
-}
-
-show_trigger_menu() {
-  case $(menu "Trigger" "󰔛  Reminder\n  Capture\n󰧸  Transcode\n  Share\n󰔎  Toggle\n  Hardware") in
-  *Reminder*) show_reminder_menu ;;
-  *Capture*) show_capture_menu ;;
-  *Share*) show_share_menu ;;
-  *Transcode*) monarch-transcode || back_to show_trigger_menu ;;
-  *Toggle*) show_toggle_menu ;;
-  *Hardware*) show_hardware_menu ;;
-  *) show_main_menu ;;
-  esac
-}
-
-show_reminder_menu() {
-  case $(menu "Reminder" "󰔛  Set one\n󰔛  Show all\n󰔛  Clear all") in
-  *Set*) show_custom_reminder_input ;;
-  *"Show all"*) monarch-reminder show ;;
-  *"Clear all"*) monarch-reminder clear ;;
-  *) back_to show_trigger_menu ;;
-  esac
-}
-
-show_custom_reminder_input() {
-  local minutes
-  minutes=$(monarch-menu-input "Remind in minutes")
-
-  if [[ $minutes =~ ^[0-9]+$ ]] && ((minutes > 0)); then
-    show_reminder_message_input "$minutes"
-  elif [[ -n $minutes ]]; then
-    monarch-notification-send "󰔛" "Invalid reminder" "Enter the number of minutes" -u critical
-    show_custom_reminder_input
-  else
-    back_to show_reminder_menu
+  # One agent row per agent, all asking the same question. Cheaper than the
+  # browser lookup but eight times over, so resolve it once as well.
+  if [[ $MENU_JSON == *monarch-default-agent* ]]; then
+    DEFAULT_AGENT=$(command monarch-default-agent 2>/dev/null)
+    monarch-default-agent() {
+      if (($# == 0)); then
+        printf '%s\n' "$DEFAULT_AGENT"
+        return 0
+      fi
+      command monarch-default-agent "$@"
+    }
   fi
-}
 
-show_reminder_message_input() {
-  local minutes="$1"
-  local message
-  message=$(monarch-menu-input "Reminder message")
-
-  if [[ -n $message ]]; then
-    monarch-reminder "$minutes" "$message"
-  else
-    monarch-reminder "$minutes"
+  if [[ $MENU_JSON == *monarch-default-terminal* ]]; then
+    DEFAULT_TERMINAL=$(command monarch-default-terminal 2>/dev/null)
+    monarch-default-terminal() {
+      if (($# == 0)); then
+        printf '%s\n' "$DEFAULT_TERMINAL"
+      else
+        command monarch-default-terminal "$@"
+      fi
+    }
   fi
+
+  if [[ $MENU_JSON == *monarch-default-editor* ]]; then
+    DEFAULT_EDITOR=$(command monarch-default-editor 2>/dev/null)
+    monarch-default-editor() {
+      if (($# == 0)); then
+        printf '%s\n' "$DEFAULT_EDITOR"
+      else
+        command monarch-default-editor "$@"
+      fi
+    }
+  fi
+
+  if [[ $MENU_JSON == *monarch-bar-position* ]]; then
+    BAR_POSITION=$(command monarch-bar-position 2>/dev/null)
+    monarch-bar-position() {
+      if (($# == 0)); then
+        printf '%s\n' "$BAR_POSITION"
+      else
+        command monarch-bar-position "$@"
+      fi
+    }
+  fi
+
+  if [[ $MENU_JSON == *monarch-version-channel* ]]; then
+    VERSION_CHANNEL=$(command monarch-version-channel 2>/dev/null)
+    monarch-version-channel() {
+      printf '%s\n' "$VERSION_CHANNEL"
+    }
+  fi
+
+  if [[ $MENU_JSON == *monarch-hibernation-available* ]]; then
+    HIBERNATION_AVAILABLE=false
+    command monarch-hibernation-available && HIBERNATION_AVAILABLE=true
+    monarch-hibernation-available() {
+      [[ $HIBERNATION_AVAILABLE == true ]]
+    }
+  fi
+
+  monarch-toggle-enabled() {
+    [[ -f "$HOME/.local/state/monarch/toggles/${1:-}" ]]
+  }
 }
 
-show_capture_menu() {
-  case $(menu "Capture" "  Screenshot\n  Screenrecord\n󰴑  Text Extraction\n󰃉  Color") in
-  *Screenshot*) monarch-capture-screenshot ;;
-  *Screenrecord*) show_screenrecord_menu ;;
-  *Text*) monarch-capture-text-extraction ;;
-  *Color*) pkill hyprpicker || hyprpicker -a ;;
-  *) back_to show_trigger_menu ;;
-  esac
-}
+# ── Inspection ───────────────────────────────────────────────────────────────
 
-get_webcam_list() {
-  v4l2-ctl --list-devices 2>/dev/null | while IFS= read -r line; do
-    if [[ $line != $'\t'* && -n $line ]]; then
-      local name="$line"
-      IFS= read -r device || break
-      device=$(echo "$device" | tr -d '\t' | head -1)
-      [[ -n $device ]] && echo "$device  $name"
-    fi
-  done
-}
+# Everything above renders; nothing below it opens a window. These modes are
+# what the test suite drives, and they are equally useful for debugging a route
+# or a guard by hand.
 
-show_webcam_select_menu() {
-  local devices=$(get_webcam_list)
-  local count=$(echo "$devices" | grep -c . 2>/dev/null || echo 0)
+# Reports what the data says that the renderer cannot discover at runtime:
+# a target or provider that does not exist, an entry whose parent is missing,
+# and a submenu with no children.
+# One jq pass over the whole tree. The obvious shape — a loop calling `field`
+# and `level_rows` per entry — spawns roughly four jq processes per entry and
+# took 55 seconds on the shipped menu, which the test suite calls four times.
+check_menu() {
+  local providers findings
+  providers=$(printf '%s\n' "${!PROVIDER_LIST[@]}" | jq -R . | jq -sc .)
 
-  if [[ -z $devices ]] || ((count == 0)); then
-    notify-send "No webcam devices found" -u critical -t 3000
+  findings=$(jq -r --argjson providers "$providers" '
+    . as $menu
+    | (keys_unsorted) as $ids
+    | ($ids | map({key: ., value: true}) | from_entries) as $exists
+    | ($ids | map(select(test("\\.")) | sub("\\.[^.]+$"; "")) | unique) as $parents
+    | [ to_entries[]
+        | .key as $id
+        | .value as $entry
+        | (if ($entry.target != null) and (($exists[$entry.target] // false) | not)
+           then "\($id): target \u0027\($entry.target)\u0027 does not exist" else empty end),
+          (if ($entry.provider != null) and (($providers | index($entry.provider)) == null)
+           then "\($id): unknown provider \u0027\($entry.provider)\u0027" else empty end),
+          ((($id | sub("\\.[^.]+$"; "")) as $parent
+            | if ($id | test("\\.")) and (($exists[$parent] // false) | not)
+              then "\($id): parent \u0027\($parent)\u0027 does not exist" else empty end)),
+          (if ($entry.action == null)
+              and ($entry.target == null)
+              and ($entry.provider == null)
+              and (($parents | index($id)) == null)
+           then "\($id): submenu with no children" else empty end)
+      ]
+    | .[]' <<<"$MENU_JSON")
+
+  if [[ -n $findings ]]; then
+    printf '%s\n' "$findings" >&2
     return 1
   fi
 
-  if ((count == 1)); then
-    echo "$devices" | awk '{print $1}'
-  else
-    menu "Select Webcam" "$devices" | awk '{print $1}'
+  echo "Menu data check passed ($(jq -r 'length' <<<"$MENU_JSON") entries)"
+}
+
+case "${1:-}" in
+--initial)
+  load_menu
+  route=$(resolve_route "${2:-}")
+  if [[ $route != root ]] && ! jq -e --arg route "$route" 'has($route)' <<<"$MENU_JSON" >/dev/null; then
+    echo "monarch-menu: unknown route '$route'" >&2
+    exit 1
   fi
-}
-
-show_screenrecord_menu() {
-  monarch-capture-screenrecording --stop-recording && exit 0
-
-  case $(menu "Screenrecord" "  With no audio\n  With desktop audio\n  With desktop + microphone audio\n  With desktop + microphone audio + webcam") in
-  *"With no audio") monarch-capture-screenrecording ;;
-  *"With desktop audio") monarch-capture-screenrecording --with-desktop-audio ;;
-  *"With desktop + microphone audio") monarch-capture-screenrecording --with-desktop-audio --with-microphone-audio ;;
-  *"With desktop + microphone audio + webcam")
-    local device=$(show_webcam_select_menu) || {
-      back_to show_capture_menu
-      return
-    }
-    monarch-capture-screenrecording --with-desktop-audio --with-microphone-audio --with-webcam --webcam-device="$device"
-    ;;
-  *) back_to show_capture_menu ;;
-  esac
-}
-
-show_share_menu() {
-  case $(menu "Share" "  Clipboard\n  File \n  Folder") in
-  *Clipboard*) monarch-menu-share clipboard ;;
-  *File*) terminal bash -c "monarch-menu-share file" ;;
-  *Folder*) terminal bash -c "monarch-menu-share folder" ;;
-  *) back_to show_trigger_menu ;;
-  esac
-}
-
-show_toggle_menu() {
-  local options="󱄄  Screensaver\n󰔎  Nightlight\n󱫖  Idle Lock\n󰂛  Notifications\n  Direct Boot\n󰟵  Passwordless Sudo"
-
-  case $(menu "Toggle" "$options") in
-  *Screensaver*) monarch-toggle-screensaver ;;
-  *Nightlight*) monarch-toggle-nightlight ;;
-  *Idle*) monarch-toggle-idle ;;
-  *Notifications*) monarch-toggle-notification-silencing ;;
-  *"Direct Boot"*) present_terminal monarch-config-direct-boot ;;
-  *"Passwordless Sudo"*) present_terminal monarch-sudo-passwordless ;;
-  *) back_to show_trigger_menu ;;
-  esac
-}
-
-show_hardware_menu() {
-  local options=""
-
-  options="$options\n󰍹  Display Scaling"
-
-  if monarch-hw-external-monitors; then
-    options="$options\n󰛧  Laptop Display"
-  fi
-
-  if monarch-hw-hybrid-gpu; then
-    options="$options\n  Hybrid GPU"
-  fi
-
-  if monarch-hw-touchpad; then
-    options="$options\n󰟸  Touchpad"
-  fi
-
-  if monarch-hw-dell-xps-haptic-touchpad && monarch-cmd-present dell-xps-touchpad-haptics; then
-    options="$options\n󰌌  Touchpad Haptics"
-  fi
-
-  if monarch-hw-touchscreen; then
-    options="$options\n󰆽  Touchscreen"
-  fi
-
-  case $(menu "Toggle" "$options") in
-  *"Display Scaling"*) monarch-niri-monitor-scaling-cycle ;;
-  *"Laptop Display"*) monarch-niri-monitor-internal toggle ;;
-  *Haptics*) show_hardware_touchpad_haptics_menu ;;
-  *Touchpad*) monarch-toggle-touchpad ;;
-  *Touchscreen*) monarch-toggle-touchscreen ;;
-  *"Hybrid GPU"*) present_terminal monarch-toggle-hybrid-gpu ;;
-  *) back_to show_trigger_menu ;;
-  esac
-}
-
-show_hardware_touchpad_haptics_menu() {
-  local current=$(dell-xps-touchpad-haptics get)
-  local selected=$(menu "Touchpad Haptics" "low\nmid\nhigh" "" "$current")
-
-  if [[ -n $selected ]]; then
-    dell-xps-touchpad-haptics set "$selected"
-  else
-    back_to show_hardware_menu
-  fi
-}
-
-show_style_menu() {
-  case $(menu "Style" "  Font\n  Background\n  Niri\n󱄄  Screensaver\n  About") in
-  *Font*) show_font_menu ;;
-  *Background*) show_background_menu ;;
-  *Niri*) open_in_editor ~/.config/niri/user.kdl ;;
-  *Screensaver*) show_screensaver_menu ;;
-  *About*) show_about_menu ;;
-  *) show_main_menu ;;
-  esac
-}
-
-show_about_menu() {
-  case $(menu "About" "  Edit Text\n  Set From Image\n  Restore Default") in
-  *Text*) monarch-branding-about text ;;
-  *Image*) monarch-branding-about image ;;
-  *Default*) monarch-branding-about reset ;;
-  *) show_style_menu ;;
-  esac
-}
-
-show_screensaver_menu() {
-  case $(menu "Screensaver" "  Edit Text\n  Set From Image\n  Restore Default") in
-  *Text*) monarch-branding-screensaver text ;;
-  *Image*) monarch-branding-screensaver image ;;
-  *Default*) monarch-branding-screensaver reset ;;
-  *) show_style_menu ;;
-  esac
-}
-
-show_background_menu() {
-  qs -c noctalia-shell ipc call wallpaper toggle
-}
-
-show_font_menu() {
-  theme=$(menu "Font" "$(monarch-font-list)" "--width 350" "$(monarch-font-current)")
-  if [[ $theme == "CNCLD" || -z $theme ]]; then
-    back_to show_style_menu
-  else
-    monarch-font-set "$theme"
-  fi
-}
-
-show_setup_menu() {
-  local options="  Audio\n  Wifi\n󰂯  Bluetooth\n󱐋  Power Profile\n  System Sleep"
-  [[ -f ~/.config/niri/user.kdl ]] && options="$options\n  Niri"
-  options="$options\n  Defaults\n󰱔  DNS\n󰗊  Language\n  Security\n  Config"
-
-  case $(menu "Setup" "$options") in
-  *Audio*) monarch-launch-audio ;;
-  *Wifi*) monarch-launch-wifi ;;
-  *Bluetooth*) monarch-launch-bluetooth ;;
-  *Power*) show_setup_power_menu ;;
-  *System*) show_setup_system_menu ;;
-  *Niri*) open_in_editor ~/.config/niri/user.kdl ;;
-  *Defaults*) show_setup_default_menu ;;
-  *DNS*) present_terminal monarch-setup-dns ;;
-  *Language*) present_terminal monarch-setup-language ;;
-  *Security*) show_setup_security_menu ;;
-  *Config*) show_setup_config_menu ;;
-  *) show_main_menu ;;
-  esac
-}
-
-show_setup_power_menu() {
-  profile=$(menu "Power Profile" "$(monarch-powerprofiles-list)" "" "$(powerprofilesctl get)")
-
-  if [[ $profile == "CNCLD" || -z $profile ]]; then
-    back_to show_setup_menu
-  else
-    powerprofilesctl set "$profile"
-  fi
-}
-
-show_setup_security_menu() {
-  case $(menu "Setup" "󰈷  Fingerprint\n  Fido2") in
-    *Fingerprint*) present_terminal monarch-setup-security-fingerprint ;;
-    *Fido2*) present_terminal monarch-setup-security-fido2 ;;
-    *) show_setup_menu ;;
-    esac
-  }
-
-  show_setup_default_menu() {
-    case $(menu "Default" "  Browser\n  Terminal\n  Editor") in
-    *Browser*) show_setup_default_browser_menu ;;
-    *Terminal*) show_setup_default_terminal_menu ;;
-    *Editor*) show_setup_default_editor_menu ;;
-  *) show_setup_menu ;;
-  esac
-}
-
-browser_desktop_exists() {
-  [[ -f ~/.local/share/applications/$1 || -f ~/.nix-profile/share/applications/$1 || -f /usr/share/applications/$1 ]]
-}
-
-show_setup_default_browser_menu() {
-  local options=""
-  browser_desktop_exists chromium.desktop && options="$options  Chromium"
-  browser_desktop_exists google-chrome.desktop && options="${options:+$options\n}󰊯  Chrome"
-  browser_desktop_exists brave-browser.desktop && options="${options:+$options\n}󰖟  Brave"
-  browser_desktop_exists brave-origin-beta.desktop && options="${options:+$options\n}󰖟  Brave Origin"
-  browser_desktop_exists microsoft-edge.desktop && options="${options:+$options\n}󰇩  Edge"
-  browser_desktop_exists firefox.desktop && options="${options:+$options\n}󰈹  Firefox"
-  browser_desktop_exists zen.desktop && options="${options:+$options\n}󰖟  Zen"
-
-  local current=""
-  case "$(monarch-default-browser)" in
-  chromium) current="  Chromium" ;;
-  chrome) current="󰊯  Chrome" ;;
-  brave) current="󰖟  Brave" ;;
-  brave-origin) current="󰖟  Brave Origin" ;;
-  edge) current="󰇩  Edge" ;;
-  firefox) current="󰈹  Firefox" ;;
-  zen) current="󰖟  Zen" ;;
-  esac
-
-  case $(menu "Default Browser" "$options" "" "$current") in
-  *Chromium*) monarch-default-browser chromium ;;
-  *Chrome*) monarch-default-browser chrome ;;
-  *"Brave Origin"*) monarch-default-browser brave-origin ;;
-  *Brave*) monarch-default-browser brave ;;
-  *Edge*) monarch-default-browser edge ;;
-  *Firefox*) monarch-default-browser firefox ;;
-  *Zen*) monarch-default-browser zen ;;
-  *) show_setup_default_menu ;;
-  esac
-}
-
-show_setup_default_terminal_menu() {
-  local options=""
-  monarch-cmd-present alacritty && options="$options  Alacritty"
-  monarch-cmd-present foot && options="${options:+$options\n}  Foot"
-  monarch-cmd-present ghostty && options="${options:+$options\n}  Ghostty"
-  monarch-cmd-present kitty && options="${options:+$options\n}  Kitty"
-
-  local current=""
-  case "$(monarch-default-terminal)" in
-  alacritty) current="  Alacritty" ;;
-  foot) current="  Foot" ;;
-  ghostty) current="  Ghostty" ;;
-  kitty) current="  Kitty" ;;
-  esac
-
-  case $(menu "Default Terminal" "$options" "" "$current") in
-  *Alacritty*) monarch-default-terminal alacritty ;;
-  *Foot*) monarch-default-terminal foot ;;
-  *Ghostty*) monarch-default-terminal ghostty ;;
-  *Kitty*) monarch-default-terminal kitty ;;
-  *) show_setup_default_menu ;;
-  esac
-}
-
-show_setup_default_editor_menu() {
-  local options=""
-  monarch-cmd-present nvim && options="$options  Neovim"
-  monarch-cmd-present code && options="${options:+$options\n}  VSCode"
-  monarch-cmd-present cursor && options="${options:+$options\n}  Cursor"
-  monarch-cmd-present zeditor && options="${options:+$options\n}  Zed"
-  monarch-cmd-present sublime_text && options="${options:+$options\n}  Sublime Text"
-  monarch-cmd-present helix && options="${options:+$options\n}  Helix"
-  monarch-cmd-present vim && options="${options:+$options\n}  Vim"
-  monarch-cmd-present emacs && options="${options:+$options\n}  Emacs"
-
-  local current=""
-  case "$(monarch-default-editor)" in
-  nvim) current="  Neovim" ;;
-  code) current="  VSCode" ;;
-  cursor) current="  Cursor" ;;
-  zed | zeditor) current="  Zed" ;;
-  sublime_text) current="  Sublime Text" ;;
-  helix) current="  Helix" ;;
-  vim) current="  Vim" ;;
-  emacs) current="  Emacs" ;;
-  esac
-
-  case $(menu "Default Editor" "$options" "" "$current") in
-  *Neovim*) monarch-default-editor nvim ;;
-  *VSCode*) monarch-default-editor code ;;
-  *Cursor*) monarch-default-editor cursor ;;
-  *Zed*) monarch-default-editor zed ;;
-  *Sublime*) monarch-default-editor sublime_text ;;
-  *Helix*) monarch-default-editor helix ;;
-  *Vim*) monarch-default-editor vim ;;
-  *Emacs*) monarch-default-editor emacs ;;
-  *) show_setup_default_menu ;;
-  esac
-}
-
-show_setup_config_menu() {
-  case $(menu "Setup" "  Niri
-  Noctalia
-󰞅  XCompose") in
-  *Niri*) open_in_editor ~/.config/niri/user.kdl && monarch-refresh-niri ;;
-  *Noctalia*) open_in_editor ~/.config/noctalia/settings.json && monarch-restart-noctalia ;;
-  *XCompose*) open_in_editor ~/.XCompose && monarch-restart-xcompose ;;
-  *) show_setup_menu ;;
-  esac
-}
-
-show_setup_system_menu() {
-  local options=""
-
-  if monarch-toggle-enabled suspend-off; then
-    options="$options󰒲  Enable Suspend"
-  else
-    options="$options󰒲  Disable Suspend"
-  fi
-
-  if monarch-hibernation-available; then
-    options="$options\n󰤁  Disable Hibernate"
-  else
-    options="$options\n󰤁  Enable Hibernate"
-  fi
-
-  case $(menu "System" "$options") in
-  *Suspend*) monarch-toggle-suspend ;;
-  *"Enable Hibernate"*) present_terminal monarch-hibernation-setup ;;
-  *"Disable Hibernate"*) present_terminal monarch-hibernation-remove ;;
-  *) show_setup_menu ;;
-  esac
-}
-
-show_install_menu() {
-  case $(menu "Install" "󰣇  Package\n󰣇  AUR\n  Web App\n  TUI\n  Service\n  Font\n󰵮  Development\n󰨈  Cyber\n  Editor\n  Terminal\n  Browser\n󱚤  AI\n  Gaming\n󰍲  Windows") in
-  *Package*) terminal monarch-pkg-install ;;
-  *AUR*) terminal monarch-pkg-aur-install ;;
-  *Web*) present_terminal monarch-webapp-install ;;
-  *TUI*) present_terminal monarch-tui-install ;;
-  *Service*) show_install_service_menu ;;
-  *Font*) show_install_font_menu ;;
-  *Development*) show_install_development_menu ;;
-  *Cyber*) show_install_cyber_menu ;;
-  *Editor*) show_install_editor_menu ;;
-  *Terminal*) show_install_terminal_menu ;;
-  *Browser*) show_install_browser_menu ;;
-  *Gaming*) show_install_gaming_menu ;;
-  *AI*) show_install_ai_menu ;;
-  *Windows*) present_terminal "monarch-windows-vm install" ;;
-  *) show_main_menu ;;
-  esac
-}
-
-show_install_browser_menu() {
-  case $(menu "Install" "  Chrome\n  Edge\n  Brave\n  Brave Origin\n  Firefox\n󰖟  Zen") in
-  *Chrome*) present_terminal "monarch-install-browser chrome" ;;
-  *Edge*) present_terminal "monarch-install-browser edge" ;;
-  *"Brave Origin"*) present_terminal "monarch-install-browser brave-origin" ;;
-  *Brave*) present_terminal "monarch-install-browser brave" ;;
-  *Firefox*) present_terminal "monarch-install-browser firefox" ;;
-  *Zen*) present_terminal "monarch-install-browser zen" ;;
-  *) show_install_menu ;;
-  esac
-}
-
-show_install_service_menu() {
-  case $(menu "Install" "󰘿  Synology Drive\n  Proton Suite [AUR]\n󰹑  Displaylink [AUR]\n  Tailscale\n󱇱  NordVPN [AUR]\n󰖂  LazyVPN\n󰟵  Bitwarden\n  Creator Apps\n  Chromium Account") in
-  *Synology*) aur_install_and_launch "Synology Driver" "synology-drive" "synology-drive" ;;
-  *Proton*) present_terminal monarch-install-proton ;;
-  *Displaylink*) present_terminal monarch-install-displaylink ;;
-  *Tailscale*) present_terminal monarch-install-tailscale ;;
-  *NordVPN*) present_terminal monarch-install-nordvpn ;;
-  *LazyVPN*) present_terminal monarch-install-lazyvpn ;;
-  *Creator*) install "obs-studio" "pinta" "kdenlive";;
-  *Bitwarden*) install_and_launch "Bitwarden" "bitwarden bitwarden-cli" "bitwarden" ;;
-  *Chromium*) present_terminal monarch-install-chromium-google-account ;;
-  *) show_install_menu ;;
-  esac
-}
-
-show_install_editor_menu() {
-  case $(menu "Install" "  VSCode\n  Cursor\n  Zed\n  Sublime Text\n  Helix\n  Vim\n  Emacs") in
-  *VSCode*) present_terminal monarch-install-vscode ;;
-  *Cursor*) install_and_launch "Cursor" "cursor-bin" "cursor" ;;
-  *Zed*) present_terminal monarch-install-zed ;;
-  *Sublime*) install_and_launch "Sublime Text" "sublime-text-4" "sublime_text" ;;
-  *Helix*) present_terminal monarch-install-helix ;;
-  *Vim*) install "Vim" "vim" ;;
-  *Emacs*) install "Emacs" "emacs-wayland" && systemctl --user enable --now emacs.service ;;
-  *) show_install_menu ;;
-  esac
-}
-
-show_install_terminal_menu() {
-  case $(menu "Install" "  Alacritty\n  Foot\n  Ghostty\n  Kitty") in
-  *Alacritty*) install_terminal "alacritty" ;;
-  *Foot*) install_terminal "foot" ;;
-  *Ghostty*) install_terminal "ghostty" ;;
-  *Kitty*) install_terminal "kitty" ;;
-  *) show_install_menu ;;
-  esac
-}
-
-show_install_ai_menu() {
-  ollama_pkg=$(
-    (monarch-cmd-present nvidia-smi && echo ollama-cuda) ||
-      (monarch-cmd-present rocminfo && echo ollama-rocm) ||
-      echo ollama
+  initial_payload "$route"
+  exit 0
+  ;;
+--tree)
+  load_menu
+  tree_payload
+  exit 0
+  ;;
+--state)
+  # Tree and guards in one payload, which is what the panel asks for on every
+  # open: one subprocess instead of two, and the tree can never go stale against
+  # the file the way a cached copy does.
+  #
+  # Guards come back as an object keyed `<id>:<w|c|d>`, not as lines: the
+  # consumer decodes it natively, and parsing 130 lines in Luau is enough to
+  # blow a plugin callback's CPU budget.
+  load_menu
+  prime_guard_helpers
+  declare -A guard_results=()
+  guard_pairs=$(
+    while IFS=$'\x1f' read -r key kind expression; do
+      [[ -z $expression ]] && continue
+      if [[ -n ${guard_results["$expression"]+present} ]]; then
+        passed=${guard_results["$expression"]}
+      elif guard_passes "$expression"; then
+        passed=true
+        guard_results["$expression"]=$passed
+      else
+        passed=false
+        guard_results["$expression"]=$passed
+      fi
+      if [[ $passed == true ]]; then
+        printf '%s:%s\ttrue\n' "$key" "$kind"
+      else
+        printf '%s:%s\tfalse\n' "$key" "$kind"
+      fi
+    done < <(jq -r 'to_entries[] | .key as $k |
+      (if .value.when then [$k, "w", .value.when] else empty end),
+      (if .value.checked then [$k, "c", .value.checked] else empty end),
+      (if .value.disabled then [$k, "d", .value.disabled] else empty end)
+      | join("\u001f")' <<<"$MENU_JSON")
   )
+  jq -nc \
+    --argjson tree "$(tree_payload)" \
+    --argjson guards "$(printf '%s' "$guard_pairs" | jq -R -s 'split("\n") | map(select(length > 0) | split("\t")) | map({key: .[0], value: (.[1] == "true")}) | from_entries')" \
+    '{tree: $tree, guards: $guards}'
+  exit 0
+  ;;
+--provider)
+  # A provider's rows, as JSON, for a consumer that renders them itself. The
+  # provider definitions stay here so the CLI and the panel cannot drift.
+  load_menu
+  provider=$(field "${2:-}" provider)
+  list=""
+  [[ -n $provider ]] && list="${PROVIDER_LIST[$provider]:-}"
+  if [[ -z $list ]]; then
+    echo "monarch-menu: ${2:-} has no known provider" >&2
+    exit 1
+  fi
+  current=$(${PROVIDER_CURRENT[$provider]} 2>/dev/null)
+  $list | jq -R --arg current "$current" '{label: ., value: ., current: (. == $current)}' | jq -sc .
+  exit 0
+  ;;
+--provider-set)
+  load_menu
+  provider=$(field "${2:-}" provider)
+  action=""
+  [[ -n $provider ]] && action="${PROVIDER_ACTION[$provider]:-}"
+  if [[ -z $action ]]; then
+    echo "monarch-menu: ${2:-} has no known provider" >&2
+    exit 1
+  fi
+  exec $action "${3:-}"
+  ;;
+--resolve)
+  load_menu
+  resolve_route "${2:-}"
+  exit 0
+  ;;
+--rows)
+  load_menu
+  prime_guard_helpers
+  while IFS=$'\x1f' read -r key icon label when checked disabled; do
+    [[ -z $key ]] && continue
+    [[ -n $when ]] && ! guard_passes "$when" && continue
+    printf '%s\t%s\n' "$key" "$label"
+  done < <(level_rows "$(resolve_route "${2:-}")")
+  exit 0
+  ;;
+--check)
+  load_menu
+  check_menu
+  exit $?
+  ;;
+esac
 
-  case $(menu "Install" "  Dictation\n󱚤  LM Studio\n󱚤  Ollama\n󱚤  Crush") in
-  *Dictation*) present_terminal monarch-voxtype-install ;;
-  *Studio*) install "LM Studio" "lmstudio-bin" ;;
-  *Ollama*) install "Ollama" "$ollama_pkg" ;;
-  *Crush*) install "Crush" "crush-bin" ;;
-  *) show_install_menu ;;
-  esac
-}
+# ── Entry point ──────────────────────────────────────────────────────────────
 
-show_install_gaming_menu() {
-  case $(menu "Install" "  Steam\n  RetroArch\n󰍳  Minecraft\n󰢹  NVIDIA GeForce NOW\n  Xbox Cloud Gaming\n󰂯  Xbox Controller\n󰍹  Moonlight (GameStream)\n  Lutris (Battle.net)\n󱓟  Heroic (Epic Games)") in
-  *Steam*) present_terminal monarch-install-gaming-steam ;;
-  *RetroArch*) present_terminal monarch-install-gaming-retroarch ;;
-  *Minecraft*) install_and_launch "Minecraft" "minecraft-launcher" "minecraft-launcher" ;;
-  *GeForce*) present_terminal monarch-install-gaming-geforce-now ;;
-  *"Xbox Cloud"*) present_terminal monarch-install-gaming-xbox-cloud ;;
-  *Xbox*) present_terminal monarch-install-gaming-xbox-controllers ;;
-  *Lutris*) present_terminal monarch-install-gaming-lutris ;;
-  *Heroic*) present_terminal monarch-install-gaming-heroic ;;
-  *Moonlight*) present_terminal monarch-install-gaming-moonlight ;;
-  *) show_install_menu ;;
-  esac
-}
+# The menu itself is the monarch/menu Noctalia panel. This only routes: the
+# route is passed as the panel's context, and panel-toggle means a second press
+# of the same keybind closes it.
+PANEL="monarch/menu:panel"
 
-show_install_font_menu() {
-  case $(menu "Install" "  Cascadia Mono\n  Meslo LG Mono\n  Fira Code\n  Victor Code\n  Bitstream Vera Mono\n  Iosevka" "--width 350") in
-  *Cascadia*) install_font "Cascadia Mono" "ttf-cascadia-mono-nerd" "CaskaydiaMono Nerd Font" ;;
-  *Meslo*) install_font "Meslo LG Mono" "ttf-meslo-nerd" "MesloLGL Nerd Font" ;;
-  *Fira*) install_font "Fira Code" "ttf-firacode-nerd" "FiraCode Nerd Font" ;;
-  *Victor*) install_font "Victor Code" "ttf-victor-mono-nerd" "VictorMono Nerd Font" ;;
-  *Bitstream*) install_font "Bitstream Vera Code" "ttf-bitstream-vera-mono-nerd" "BitstromWera Nerd Font" ;;
-  *Iosevka*) install_font "Iosevka" "ttf-iosevka-nerd" "Iosevka Nerd Font Mono" ;;
-  *) show_install_menu ;;
-  esac
-}
+case "${1:-}" in
+close) exec noctalia msg panel-close "$PANEL" ;;
+--*)
+  # Anything else starting with a dash is a typo, not a route: without this it
+  # would fall through and toggle the panel, which looks like the flag worked.
+  echo "monarch-menu: unknown option '$1'" >&2
+  exit 2
+  ;;
+esac
 
-show_install_development_menu() {
-  case $(menu "Install" "󰫏  Ruby on Rails\n  Docker DB\n  JavaScript\n  Go\n  PHP\n  Python\n  Elixir\n  Zig\n  Rust\n  Java\n  .NET\n  OCaml\n  Clojure\n  Scala") in
-  *Rails*) present_terminal "monarch-install-dev-env ruby" ;;
-  *Docker*) present_terminal monarch-install-docker-dbs ;;
-  *JavaScript*) show_install_javascript_menu ;;
-  *Go*) present_terminal "monarch-install-dev-env go" ;;
-  *PHP*) show_install_php_menu ;;
-  *Python*) present_terminal "monarch-install-dev-env python" ;;
-  *Elixir*) show_install_elixir_menu ;;
-  *Zig*) present_terminal "monarch-install-dev-env zig" ;;
-  *Rust*) present_terminal "monarch-install-dev-env rust" ;;
-  *Java*) present_terminal "monarch-install-dev-env java" ;;
-  *NET*) present_terminal "monarch-install-dev-env dotnet" ;;
-  *OCaml*) present_terminal "monarch-install-dev-env ocaml" ;;
-  *Clojure*) present_terminal "monarch-install-dev-env clojure" ;;
-  *Scala*) present_terminal "monarch-install-dev-env scala" ;;
-  *) show_install_menu ;;
-  esac
-}
-
-show_install_javascript_menu() {
-  case $(menu "Install" "  Node.js\n  Bun\n  Deno") in
-  *Node*) present_terminal "monarch-install-dev-env node" ;;
-  *Bun*) present_terminal "monarch-install-dev-env bun" ;;
-  *Deno*) present_terminal "monarch-install-dev-env deno" ;;
-  *) show_install_development_menu ;;
-  esac
-}
-
-show_install_php_menu() {
-  case $(menu "Install" "  PHP\n  Laravel\n  Symfony") in
-  *PHP*) present_terminal "monarch-install-dev-env php" ;;
-  *Laravel*) present_terminal "monarch-install-dev-env laravel" ;;
-  *Symfony*) present_terminal "monarch-install-dev-env symfony" ;;
-  *) show_install_development_menu ;;
-  esac
-}
-
-show_install_elixir_menu() {
-  case $(menu "Install" "  Elixir\n  Phoenix") in
-  *Elixir*) present_terminal "monarch-install-dev-env elixir" ;;
-  *Phoenix*) present_terminal "monarch-install-dev-env phoenix" ;;
-  *) show_install_development_menu ;;
-  esac
-}
-
-show_install_cyber_menu() {
-  case $(menu "Install" "  Burpsuite\n  RFSwift\n󱉟  Wordlists") in
-  *Burpsuite*) present_terminal "monarch-install-burp" ;;
-  *RFSwift*) present_terminal "monarch-install-rfswift" ;;
-  *Wordlists*) aur_install "Seclists" "seclists" ;;
-  *) show_install_menu ;;
-  esac
-}
-
-show_remove_menu() {
-  case $(menu "Remove" "󰣇  Package\n  Web App\n  TUI\n󰵮  Development\n  Browser\n  Dictation\n  Gaming\n󰖂  LazyVPN\n󰍲  Windows\n󰏓  Preinstalls\n󰗊  Language\n  Security") in
-  *Package*) terminal monarch-pkg-remove ;;
-  *Web*) present_terminal monarch-webapp-remove ;;
-  *TUI*) present_terminal monarch-tui-remove ;;
-  *Development*) show_remove_development_menu ;;
-  *Browser*) show_remove_browser_menu ;;
-  *Dictation*) present_terminal monarch-voxtype-remove ;;
-  *Gaming*) show_remove_gaming_menu ;;
-  *LazyVPN*) present_terminal monarch-remove-lazyvpn ;;
-  *Windows*) present_terminal "monarch-windows-vm remove" ;;
-  *Preinstalls*) present_terminal monarch-remove-preinstalls ;;
-  *Security*) show_remove_security_menu ;;
-  *) show_main_menu ;;
-  esac
-}
-
-show_remove_security_menu() {
-  case $(menu "Remove" "󰈷  Fingerprint\n  Fido2") in
-  *Fingerprint*) present_terminal monarch-remove-security-fingerprint ;;
-  *Fido2*) present_terminal monarch-remove-security-fido2 ;;
-  *) show_remove_menu ;;
-  esac
-}
-
-show_remove_browser_menu() {
-  case $(menu "Remove" "  Chrome\n  Edge\n  Brave\n  Brave Origin\n  Firefox\n  Zen") in
-  *Chrome*) present_terminal "monarch-remove-browser chrome" ;;
-  *Edge*) present_terminal "monarch-remove-browser edge" ;;
-  *"Brave Origin"*) present_terminal "monarch-remove-browser brave-origin" ;;
-  *Brave*) present_terminal "monarch-remove-browser brave" ;;
-  *Firefox*) present_terminal "monarch-remove-browser firefox" ;;
-  *Zen*) present_terminal "monarch-remove-browser zen" ;;
-  *) show_remove_menu ;;
-  esac
-}
-
-show_remove_gaming_menu() {
-  case $(menu "Remove" "  Steam\n  RetroArch\n󰍳  Minecraft\n󰢹  NVIDIA GeForce NOW\n  Xbox Cloud Gaming\n󰖺  Xbox Controller (󰂯)\n󰍹  Moonlight (GameStream)\n  Lutris (Battle.net)\n󱓟  Heroic (Epic Games)") in
-  *Steam*) present_terminal monarch-remove-gaming-steam ;;
-  *RetroArch*) present_terminal monarch-remove-gaming-retroarch ;;
-  *Minecraft*) present_terminal monarch-remove-gaming-minecraft ;;
-  *GeForce*) present_terminal monarch-remove-gaming-geforce-now ;;
-  *"Xbox Cloud"*) present_terminal monarch-remove-gaming-xbox-cloud ;;
-  *Xbox*) present_terminal monarch-remove-gaming-xbox-controllers ;;
-  *Moonlight*) present_terminal monarch-remove-gaming-moonlight ;;
-  *Lutris*) present_terminal monarch-remove-gaming-lutris ;;
-  *Heroic*) present_terminal monarch-remove-gaming-heroic ;;
-  *) show_remove_menu ;;
-  esac
-}
-
-show_remove_development_menu() {
-  case $(menu "Remove" "󰫏  Ruby on Rails\n  JavaScript\n  Go\n  PHP\n  Python\n  Elixir\n  Zig\n  Rust\n  Java\n  .NET\n  OCaml\n  Clojure\n  Scala") in
-  *Rails*) present_terminal "monarch-remove-dev-env ruby" ;;
-  *JavaScript*) show_remove_javascript_menu ;;
-  *Go*) present_terminal "monarch-remove-dev-env go" ;;
-  *PHP*) show_remove_php_menu ;;
-  *Python*) present_terminal "monarch-remove-dev-env python" ;;
-  *Elixir*) show_remove_elixir_menu ;;
-  *Zig*) present_terminal "monarch-remove-dev-env zig" ;;
-  *Rust*) present_terminal "monarch-remove-dev-env rust" ;;
-  *Java*) present_terminal "monarch-remove-dev-env java" ;;
-  *NET*) present_terminal "monarch-remove-dev-env dotnet" ;;
-  *OCaml*) present_terminal "monarch-remove-dev-env ocaml" ;;
-  *Clojure*) present_terminal "monarch-remove-dev-env clojure" ;;
-  *Scala*) present_terminal "monarch-remove-dev-env scala" ;;
-  *) show_remove_menu ;;
-  esac
-}
-
-show_remove_javascript_menu() {
-  case $(menu "Remove" "  Node.js\n  Bun\n  Deno") in
-  *Node*) present_terminal "monarch-remove-dev-env node" ;;
-  *Bun*) present_terminal "monarch-remove-dev-env bun" ;;
-  *Deno*) present_terminal "monarch-remove-dev-env deno" ;;
-  *) show_remove_development_menu ;;
-  esac
-}
-
-show_remove_php_menu() {
-  case $(menu "Remove" "  PHP\n  Laravel\n  Symfony") in
-  *PHP*) present_terminal "monarch-remove-dev-env php" ;;
-  *Laravel*) present_terminal "monarch-remove-dev-env laravel" ;;
-  *Symfony*) present_terminal "monarch-remove-dev-env symfony" ;;
-  *) show_remove_development_menu ;;
-  esac
-}
-
-show_remove_elixir_menu() {
-  case $(menu "Remove" "  Elixir\n  Phoenix") in
-  *Elixir*) present_terminal "monarch-remove-dev-env elixir" ;;
-  *Phoenix*) present_terminal "monarch-remove-dev-env phoenix" ;;
-  *) show_remove_development_menu ;;
-  esac
-}
-
-show_update_menu() {
-  case $(menu "Update" "  Monarch\n󰔫  Channel\n  Config\n  Process\n󰇅  Hardware\n  Firmware\n  Password\n  Timezone\n  Time") in
-  *Monarch*) present_terminal monarch-update ;;
-  *Channel*) show_update_channel_menu ;;
-  *Config*) show_update_config_menu ;;
-  *Process*) show_update_process_menu ;;
-  *Hardware*) show_update_hardware_menu ;;
-  *Firmware*) present_terminal monarch-update-firmware ;;
-  *Timezone*) present_terminal monarch-tz-select ;;
-  *Time*) present_terminal monarch-update-time ;;
-  *Password*) show_update_password_menu ;;
-  *) show_main_menu ;;
-  esac
-}
-
-show_update_channel_menu() {
-  case $(menu "Update channel" "🟢 Stable\n🔴 Dev") in
-  *Stable*) present_terminal "monarch-channel-set stable" ;;
-  *Dev*) present_terminal "monarch-channel-set dev" ;;
-  *) show_update_menu ;;
-  esac
-}
-
-show_update_process_menu() {
-  case $(menu "Restart" "  Noctalia") in
-  *Noctalia*) monarch-restart-noctalia ;;
-  *) show_update_menu ;;
-  esac
-}
-
-show_update_config_menu() {
-  case $(menu "Use default config" "  Niri
-󱣴  Plymouth
-  Noctalia") in
-  *Niri*) present_terminal monarch-refresh-niri ;;
-  *Plymouth*) present_terminal monarch-refresh-plymouth ;;
-  *Noctalia*) present_terminal monarch-refresh-noctalia ;;
-  *) show_update_menu ;;
-  esac
-}
-
-show_update_hardware_menu() {
-  case $(menu "Restart" "  Audio\n󱚾  Wi-Fi\n󰂯  Bluetooth\n󰟸  Trackpad") in
-  *Audio*) present_terminal monarch-restart-pipewire ;;
-  *Wi-Fi*) present_terminal monarch-restart-wifi ;;
-  *Bluetooth*) present_terminal monarch-restart-bluetooth ;;
-  *Trackpad*) present_terminal monarch-restart-trackpad ;;
-  *) show_update_menu ;;
-  esac
-}
-
-show_update_password_menu() {
-  case $(menu "Update Password" "  Drive Encryption\n  User") in
-  *Drive*) present_terminal monarch-drive-password ;;
-  *User*) present_terminal passwd ;;
-  *) show_update_menu ;;
-  esac
-}
-
-show_about() {
-  monarch-launch-about
-}
-
-show_system_menu() {
-  local options="󱄄  Screensaver\n  Lock"
-  ! monarch-toggle-enabled suspend-off && options="$options\n󰒲  Suspend"
-  monarch-hibernation-available && options="$options\n󰤁  Hibernate"
-  options="$options\n󰍃  Logout\n󰜉  Restart\n󰐥  Shutdown"
-
-  case $(menu "System" "$options") in
-  *Screensaver*) monarch-launch-screensaver force ;;
-  *Lock*) monarch-system-lock ;;
-  *Suspend*) systemctl suspend ;;
-  *Hibernate*) systemctl hibernate ;;
-  *Logout*) monarch-system-logout ;;
-  *Restart*) monarch-system-reboot ;;
-  *Shutdown*) monarch-system-shutdown ;;
-  *) back_to show_main_menu ;;
-  esac
-}
-
-show_main_menu() {
-  go_to_menu "$(menu "Go" "󰀻  Apps\n󰧑  Learn\n󱓞  Trigger\n  Style\n  Setup\n󰉉  Install\n󰭌  Remove\n  Update\n  About\n  System")"
-}
-
-go_to_menu() {
-  case "${1,,}" in
-  *apps*) qs -c noctalia-shell ipc call launcher toggle ;;
-  *learn*) show_learn_menu ;;
-  *trigger*) show_trigger_menu ;;
-  *toggle*) show_toggle_menu ;;
-  *hardware*) show_hardware_menu ;;
-  *share*) show_share_menu ;;
-  *reminder-set*) show_custom_reminder_input ;;
-  *reminder*) show_reminder_menu ;;
-  *background*) show_background_menu ;;
-  *capture*) show_capture_menu ;;
-  *style*) show_style_menu ;;
-  *screenshot*) show_screenshot_menu ;;
-  *screenrecord*) show_screenrecord_menu ;;
-  *setup*) show_setup_menu ;;
-  *power*) show_setup_power_menu ;;
-  *install*) show_install_menu ;;
-  *remove*) show_remove_menu ;;
-  *update*) show_update_menu ;;
-  *about*) show_about ;;
-  *system*) show_system_menu ;;
-  esac
-}
-
-# Allow user extensions and overrides
-USER_EXTENSIONS="$HOME/.config/monarch/extensions/menu.sh"
-[[ -f $USER_EXTENSIONS ]] && source "$USER_EXTENSIONS"
-
-toggle_existing_menu
-
-if [[ -n $1 ]]; then
-  BACK_TO_EXIT=true
-  go_to_menu "$1"
-else
-  show_main_menu
-fi
+exec noctalia msg panel-toggle "$PANEL" "${1:-root}"

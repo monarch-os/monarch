@@ -1,32 +1,113 @@
 #!/bin/bash
 
-# monarch:summary=Adjust the brightness on Apple Studio Displays and Apple XDR Displays using asdcontrol.
-# monarch:args=<+N%|N%-|N%>
-# monarch:examples=monarch brightness display apple +5% | monarch brightness display apple 5%- | monarch brightness display apple 50%
+# monarch:summary=Show or adjust Apple Studio Display and Apple XDR Display brightness using asdcontrol.
+# monarch:args=[[+-]N|[+-]N%|N%-]
+# monarch:examples=monarch brightness display apple | monarch brightness display apple +5% | monarch brightness display apple 50%
 
-if (( $# == 0 )); then
-  echo "Adjust Apple Display brightness by passing +5%, 5%-, or 100%"
-else
-  step="$1"
-  if [[ $step =~ ^([0-9]+)%-$ ]]; then
-    step="-${BASH_REMATCH[1]}%"
-  fi
+set -uo pipefail
 
-  devices=()
-  for path in /dev/usb/hiddev* /dev/hiddev*; do
-    [[ -e $path ]] && devices+=("$path")
+hiddev_root=${MONARCH_HIDDEV_ROOT:-/dev}
+device_cache=""
+if [[ -n ${XDG_RUNTIME_DIR:-} && -d $XDG_RUNTIME_DIR && -O $XDG_RUNTIME_DIR ]]; then
+  device_cache="$XDG_RUNTIME_DIR/monarch-brightness-display-apple.device"
+fi
+
+detect_apple_display_device() {
+  local path device
+  local -a devices=()
+
+  for path in "$hiddev_root"/usb/hiddev* "$hiddev_root"/hiddev*; do
+    [[ -c $path ]] && devices+=("$path")
   done
+  ((${#devices[@]} > 0)) || return 1
 
-  if (( ${#devices[@]} == 0 )); then
-    echo "No Apple Display HID device found"
-    exit 1
+  device=$(asdcontrol --detect "${devices[@]}" 2>/dev/null |
+    awk -F: '/\/hiddev[0-9]+:/ { print $1; exit }')
+  [[ -n $device && -c $device ]] || return 1
+  [[ $device == "$hiddev_root"/hiddev* || $device == "$hiddev_root"/usb/hiddev* ]] || return 1
+  printf '%s\n' "$device"
+}
+
+find_apple_display_device() {
+  local cached="" device staged
+
+  if [[ -n $device_cache && -f $device_cache && ! -L $device_cache && -O $device_cache ]]; then
+    read -r cached <"$device_cache" || true
+    if [[ -c $cached ]] &&
+      [[ $cached == "$hiddev_root"/hiddev* || $cached == "$hiddev_root"/usb/hiddev* ]]; then
+      printf '%s\n' "$cached"
+      return 0
+    fi
   fi
 
-  device="$(sudo asdcontrol --detect "${devices[@]}" | grep -E '^/dev/(usb/)?hiddev' | cut -d: -f1 | head -n1)"
-  if [[ -z $device ]]; then
-    echo "No Apple Display HID device found"
-    exit 1
+  device=$(detect_apple_display_device) || return 1
+  if [[ -n $device_cache ]]; then
+    staged=$(mktemp "$XDG_RUNTIME_DIR/.monarch-apple-display.XXXXXX") || return 1
+    if ! printf '%s\n' "$device" >"$staged" ||
+      ! chmod 600 "$staged" || ! mv -fT "$staged" "$device_cache"; then
+      rm -f -- "$staged"
+      return 1
+    fi
   fi
+  printf '%s\n' "$device"
+}
 
-  sudo asdcontrol "$device" -- "$step" >/dev/null
+current_brightness() {
+  asdcontrol "$1" 2>/dev/null | awk -F= '
+    /BRIGHTNESS=/ {
+      print int($2 * 100 / 60000)
+      found = 1
+    }
+    END { exit !found }
+  '
+}
+
+refresh_device() {
+  [[ -z $device_cache ]] || rm -f -- "$device_cache"
+  device=$(find_apple_display_device || true)
+  [[ -n $device ]] || {
+    echo "No Apple Display HID device found" >&2
+    exit 1
+  }
+}
+
+valid_step() {
+  local value=${1#[+-]}
+
+  if [[ $value == *% ]]; then
+    value=${value%%%}
+    [[ $value =~ ^[0-9]{1,3}$ ]] && ((10#$value <= 100))
+  else
+    [[ $value =~ ^[0-9]{1,5}$ ]] && ((10#$value <= 65535))
+  fi
+}
+
+if (($# > 1)); then
+  echo "Usage: monarch brightness display apple [[+-]N|[+-]N%|N%-]" >&2
+  exit 1
+fi
+
+step=${1:-}
+if [[ $step =~ ^([0-9]+)%-$ ]]; then
+  step="-${BASH_REMATCH[1]}%"
+fi
+if [[ -n $step ]] && ! valid_step "$step"; then
+  echo "Invalid brightness: $step" >&2
+  exit 1
+fi
+
+device=$(find_apple_display_device || true)
+if [[ -z $device ]]; then
+  echo "No Apple Display HID device found" >&2
+  exit 1
+fi
+
+if [[ -z $step ]]; then
+  current_brightness "$device" || {
+    refresh_device
+    current_brightness "$device"
+  }
+elif ! asdcontrol "$device" -- "$step" >/dev/null; then
+  refresh_device
+  asdcontrol "$device" -- "$step" >/dev/null
 fi

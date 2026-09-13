@@ -1,6 +1,13 @@
-SHELL_NAME=$(basename $0)
-if [[ "$SHELL_NAME" == "init" ]]; then
-  SHELL_NAME=$(basename "$SHELL")
+SHELL_NAME=$(basename -- "$0")
+SHELL_NAME=${SHELL_NAME#-}
+if [[ $SHELL_NAME == init ]]; then
+  if [[ -n ${SHELL:-} ]]; then
+    SHELL_NAME=$(basename -- "$SHELL")
+  elif [[ -n ${ZSH_VERSION:-} ]]; then
+    SHELL_NAME=zsh
+  else
+    SHELL_NAME=bash
+  fi
 fi
 
 if command -v mise &> /dev/null; then

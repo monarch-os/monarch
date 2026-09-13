@@ -3,7 +3,7 @@
 
 # All the default Monarch aliases and functions
 # (don't mess with these directly, just overwrite them here!)
-source ~/.local/share/monarch/default/bash/rc
+source "${MONARCH_PATH:-/usr/share/monarch}/default/bash/rc"
 
 # Add your own exports, aliases, and functions here.
 #

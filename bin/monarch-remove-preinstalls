@@ -1,53 +1,17 @@
 #!/bin/bash
 
-# monarch:summary=Remove preinstalled Monarch applications (web apps, TUIs, and selected packages).
+# monarch:summary=Remove the user-removable Monarch software bundle.
 
-if gum confirm "Are you sure you want to remove all preinstalled web apps, TUI wrappers, and desktop applications?"; then
-  echo -e "Removing preinstalled Monarch applications...\n"
+set -euo pipefail
+MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}
 
-  monarch-webapp-remove-all
-  monarch-tui-remove-all
+if gum confirm "Are you sure you want to remove the user-removable Monarch software bundle?"; then
+  echo -e "Removing the user-removable Monarch software bundle...\n"
 
-  # Reset the Niri user override to the minimal upstream-shipped version.
-  if [[ -f ~/.config/niri/user.kdl ]]; then
-    cp ~/.config/niri/user.kdl ~/.config/niri/user.kdl.bak
-  fi
-  cp "$MONARCH_PATH/config/niri/user.kdl" ~/.config/niri/user.kdl
-  monarch-refresh-niri
+  monarch-remove-preinstall-artifacts
 
-  # Remove npx stubs
-  rm -f ~/.local/bin/codex ~/.local/bin/gemini ~/.local/bin/copilot \
-       ~/.local/bin/opencode ~/.local/bin/playwright-cli ~/.local/bin/pi
+  mapfile -t packages < <(grep -vE '^[[:space:]]*(#|$)' "$MONARCH_PATH/install/monarch-preinstalls.packages")
+  monarch-pkg-drop "${packages[@]}"
 
-  monarch-pkg-drop \
-    bettercap \
-    binwalk \
-    caido-desktop \
-    claude-code \
-    deezer \
-    fabric-ai-bin \
-    ffuf-bin \
-    fq \
-    fx \
-    gitleaks \
-    gau \
-    hashcat \
-    lazydocker \
-    lazygit \
-    ligolo-ng \
-    massdns \
-    nmap \
-    obsidian \
-    onlyoffice-bin \
-    opencode \
-    posting \
-    signal-desktop \
-    socat \
-    sshm-bin \
-    termshark \
-    traceroute \
-    waybackurls \
-    websocat \
-    wifite \
-    xournalpp
+  monarch-state set preinstalls-removed
 fi

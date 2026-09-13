@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# monarch:summary=Open Lazydocker with authenticated Docker access
+# monarch:hidden=true
+
+exec monarch-launch-docker-session lazydocker

@@ -3,5 +3,12 @@
 # monarch:summary=Restart the Noctalia desktop shell.
 # monarch:examples=monarch restart noctalia
 
-pkill -f 'qs.*noctalia-shell' 2>/dev/null || true
-setsid uwsm-app -- qs -c noctalia-shell >/dev/null 2>&1 &
+# A restarted shell comes up with caffeine off and night light unforced, and
+# neither state can be read back out of it, so the flags monarch-toggle-idle and
+# monarch-toggle-nightlight keep would be stale from here on. Drop them: they
+# describe the running shell, not a user preference.
+rm -f "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/monarch/caffeine" \
+  "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/monarch/nightlight"
+
+pkill -x noctalia 2>/dev/null || true
+setsid uwsm-app -- noctalia -d >/dev/null 2>&1 &

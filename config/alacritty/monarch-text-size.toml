@@ -1,0 +1,4 @@
+# Rewritten whole by monarch-display-text-size. 9 is the Monarch default, the
+# size 100% scales from; alacritty.toml imports this and sets no size itself.
+[font]
+size = 9

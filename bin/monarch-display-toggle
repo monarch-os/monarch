@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# monarch:summary=Turn a display on or off, and keep it that way across reloads
+# monarch:group=display
+# monarch:args=<output> [on|off|toggle]
+# monarch:examples=monarch display toggle DP-1 | monarch display toggle DP-1 off
+
+# on and off name the display, not the override. The last one standing is
+# refused: niri would have nothing left to draw on, and nothing on screen to
+# turn it back with.
+
+set -uo pipefail
+
+# Noctalia's PATH is /usr/local/sbin:/usr/local/bin:/usr/bin — Monarch's bin is
+# not on it, so a sibling called by name is simply not found when the shell runs
+# this. Appended and not prepended: this only adds a fallback, and never takes a
+# command away from a caller that put its own ahead of ours.
+PATH="$PATH:$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)"
+
+output=${1:-}
+action=${2:-toggle}
+
+if [[ -z $output ]] || ! [[ $action =~ ^(on|off|toggle)$ ]]; then
+  echo "Usage: monarch-display-toggle <output> [on|off|toggle]" >&2
+  echo "       monarch display list shows the names" >&2
+  exit 2
+fi
+
+NIRI_SOCKET=$(monarch-hw-niri-socket) || {
+  echo "Error: niri is not running." >&2
+  exit 1
+}
+export NIRI_SOCKET
+
+displays=$(monarch-display-list) || exit 1
+state=$(awk -F'\t' -v name="$output" '$1 == name { print $2; exit }' <<<"$displays")
+
+if [[ -z $state ]]; then
+  echo "Error: no display named $output." >&2
+  exit 1
+fi
+
+[[ $action == toggle ]] && { [[ $state == on ]] && action=off || action=on; }
+
+if [[ $action == "$state" ]]; then
+  exit 0
+fi
+
+if [[ $action == off ]]; then
+  lit=$(awk -F'\t' '$2 == "on"' <<<"$displays" | grep -c .)
+  if ((lit <= 1)); then
+    echo "Error: $output is the only display that is on." >&2
+    exit 1
+  fi
+fi
+
+if ! out=$(niri msg output "$output" "$action" 2>&1); then
+  printf '%s\n' "${out:-Could not turn $output $action}" >&2
+  exit 1
+fi
+
+monarch-niri-output-set "$output" power "$action" >/dev/null

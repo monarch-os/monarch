@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# monarch:summary=Show or set the Noctalia bar position
+# monarch:args=[top|bottom|left|right]
+# monarch:examples=monarch bar position | monarch bar position bottom
+
+set -euo pipefail
+
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/noctalia"
+BASE_CONFIG="$CONFIG_DIR/config.toml"
+OVERRIDE="$CONFIG_DIR/zz-monarch-bar-position.toml"
+
+position_from() {
+  local file=$1
+
+  [[ -f $file ]] || return 1
+
+  awk '
+    /^\[bar\.default\][[:space:]]*$/ { in_bar = 1; next }
+    /^\[/ { in_bar = 0 }
+    in_bar && /^[[:space:]]*position[[:space:]]*=/ {
+      value = $0
+      sub(/^[^=]*=[[:space:]]*/, "", value)
+      sub(/[[:space:]]*(#.*)?$/, "", value)
+      gsub(/^"|"$/, "", value)
+      print value
+      exit
+    }
+  ' "$file"
+}
+
+current_position() {
+  local position
+
+  position=$(position_from "$OVERRIDE" || true)
+  [[ -n $position ]] || position=$(position_from "$BASE_CONFIG" || true)
+
+  case "$position" in
+    top | bottom | left | right) printf '%s\n' "$position" ;;
+    *) printf 'top\n' ;;
+  esac
+}
+
+set_position() {
+  local position=$1
+
+  mkdir -p "$CONFIG_DIR"
+  printf '[bar.default]\nposition = "%s"\n' "$position" >"$OVERRIDE.tmp"
+  mv "$OVERRIDE.tmp" "$OVERRIDE"
+  noctalia msg config-reload >/dev/null 2>&1
+}
+
+case "${1:-}" in
+  "") current_position ;;
+  top | bottom | left | right) set_position "$1" ;;
+  *)
+    echo "Usage: $0 [top|bottom|left|right]" >&2
+    exit 1
+    ;;
+esac

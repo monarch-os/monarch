@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# monarch:summary=Succeed when Docker needs authentication, fail when it is directly accessible
+# monarch:args=[--configured]
+# monarch:hidden=true
+
+docker_socket="${MONARCH_DOCKER_SOCKET:-/var/run/docker.sock}"
+
+case "${1:-}" in
+  --configured)
+    account=$(/usr/bin/id -un)
+    id -nG "$account" 2>/dev/null | grep -qw docker && exit 1
+    exit 0
+    ;;
+  "")
+    [[ -w $docker_socket ]] && exit 1
+    exit 0
+    ;;
+  *)
+    echo "Usage: monarch-sudo-docker [--configured]" >&2
+    exit 2
+    ;;
+esac

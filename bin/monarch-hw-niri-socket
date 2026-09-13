@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# monarch:summary=Print the socket of the running niri, repairing a stale NIRI_SOCKET
+# monarch:group=hw
+# monarch:hidden=true
+
+# uwsm finalizes NIRI_SOCKET into the systemd user environment, so most things
+# inherit a working one; this repairs the value a niri restart left behind, and
+# supplies one where nothing set it at all — an ssh session, a systemd unit.
+#
+# monarch-hw-recover-internal-monitor carries its own copy of this because its
+# test sources the file and stubs pgrep inside the same shell, which a
+# subprocess cannot see. Fix one, look at the other.
+
+set -uo pipefail
+
+socket_live() {
+  local candidate=$1 pid
+  [[ -S $candidate ]] || return 1
+  pid=${candidate%.sock}
+  pid=${pid##*.}
+  [[ -r /proc/$pid/comm && $(<"/proc/$pid/comm") == niri ]]
+}
+
+if socket_live "${NIRI_SOCKET:-}"; then
+  printf '%s\n' "$NIRI_SOCKET"
+  exit 0
+fi
+
+pid=$(pgrep -x niri | head -n1)
+[[ -n $pid ]] || exit 1
+
+# printf and not ls: ls is an eza alias on a Monarch desktop, and its table
+# header would be taken for a path. Not read from /proc/<pid>/environ either —
+# that block is the one niri was exec'd with, before the socket existed.
+sock=$(printf '%s\n' "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"/niri.*."$pid".sock | head -n1)
+[[ -S $sock ]] || exit 1
+
+printf '%s\n' "$sock"

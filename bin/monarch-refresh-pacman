@@ -8,4 +8,4 @@ sudo cp -f /etc/pacman.conf /etc/pacman.conf.bak
 sudo cp -f "$MONARCH_PATH/default/pacman/pacman.conf" /etc/pacman.conf
 
 # Reset all package DBs and then update
-sudo pacman -Syyuu --noconfirm
+sudo env MONARCH_UPDATE_PACMAN=1 pacman -Syyuu --noconfirm

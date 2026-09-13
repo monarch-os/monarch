@@ -24,9 +24,11 @@ echo -e "\e[32mRemoving FIDO2 device from authentication.\n\e[0m"
 
 remove_pam_config
 
-if [[ -d /etc/fido2 ]]; then
+authdir=/etc/fido2
+
+if [[ -e $authdir || -L $authdir ]]; then
   echo "Removing FIDO2 configuration..."
-  sudo rm -rf /etc/fido2
+  sudo rm -rf "$authdir"
 fi
 
 echo "Removing FIDO2 packages..."

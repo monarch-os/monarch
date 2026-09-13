@@ -4,11 +4,9 @@
 # monarch:examples=monarch shutdown | monarch system shutdown
 # monarch:aliases=monarch shutdown
 
+# The user-manager timer survives the terminal app scope closed below.
+systemd-run --user --collect --quiet --on-active="2s" systemctl poweroff --no-wall || exit 1
+
 monarch-state clear re*-required
-
-# Schedule the shutdown to happen after closing windows (detached from terminal)
-nohup bash -c "sleep 2 && systemctl poweroff --no-wall" >/dev/null 2>&1 &
-
-# Now close all windows
 monarch-niri-window-close-all
 sleep 1 # Allow apps like Chrome to shutdown correctly

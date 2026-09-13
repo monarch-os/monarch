@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# monarch:summary=Diagnose a crashed process with the default coding agent
+# monarch:args=<pid> [comm] [exe] [signal]
+# monarch:examples=monarch agent crash 1516893
+
+set -euo pipefail
+
+pid=${1:?usage: monarch-agent-crash <pid> [comm] [exe] [signal]}
+
+if [[ ! $pid =~ ^[0-9]+$ ]]; then
+  echo "Not a PID: $pid" >&2
+  echo "Usage: monarch agent crash <pid>   (see: coredumpctl list)" >&2
+  exit 1
+fi
+
+comm=${2:-unknown}
+exe=${3:-unknown}
+signal=${4:-unknown}
+MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}
+skill="$MONARCH_PATH/default/agents/skills/diagnose-crash/SKILL.md"
+
+when=$(coredumpctl list "$pid" --no-pager --no-legend 2>/dev/null | tail -1 | cut -d' ' -f1-4) || true
+when=${when:-unknown}
+
+prompt=$(cat <<PROMPT
+A process crashed on this Monarch machine and I want to know why.
+
+What systemd-coredump recorded:
+  process:  $comm
+  PID:      $pid
+  binary:   $exe
+  signal:   $signal
+  time:     $when
+
+Use the diagnose-crash skill. It covers how to investigate safely, what to
+report, and when a crash belongs upstream. If your harness has no skill
+mechanism, read the skill files directly and follow them instead:
+
+  $skill
+PROMPT
+)
+
+exec monarch-agent --prompt "$prompt"

@@ -7,7 +7,7 @@
 set -e
 
 COMMAND="$1"
-MONARCH_PATH=${MONARCH_PATH:-$HOME/.local/share/monarch}
+MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}
 
 if [[ -z $COMMAND ]]; then
   echo "Usage: monarch-snapshot <create|restore>" >&2

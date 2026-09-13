@@ -1,0 +1,237 @@
+#!/bin/bash
+
+# monarch:summary=Manage installable theme bundles
+# monarch:hidden=true
+
+set -euo pipefail
+
+BUNDLES_DIR="${MONARCH_THEME_BUNDLES_DIR:-$HOME/.config/monarch/themes}"
+PALETTES_DIR="${MONARCH_THEME_PALETTES_DIR:-$HOME/.config/noctalia/palettes}"
+
+fail() {
+  echo "monarch-theme-bundle: $1" >&2
+  exit 1
+}
+
+slugify() {
+  local value=${1,,}
+  value=${value// /-}
+  printf '%s' "$value"
+}
+
+validate_relative_path() {
+  [[ $1 =~ ^[A-Za-z0-9._+-]+$ ]]
+}
+
+validate_palette() {
+  jq -e '
+    (keys | sort) == ["dark", "light"] and
+    ([.dark, .light] | all(
+      . as $variant |
+      type == "object" and
+      (["mPrimary", "mSurface", "mOnPrimary", "mOnSurface", "terminal"] - ($variant | keys) | length == 0) and
+      (.mPrimary | test("^#[0-9A-Fa-f]{6}$")) and
+      (.mSurface | test("^#[0-9A-Fa-f]{6}$")) and
+      (.terminal | type == "object")
+    ))' "$1" >/dev/null 2>&1
+}
+
+validate_image() {
+  local file=$1
+  case ${file##*.} in
+  jpg | JPG | jpeg | JPEG | png | PNG | gif | GIF | bmp | BMP | webp | WEBP) ;;
+  *) return 1 ;;
+  esac
+  file --brief --mime-type -- "$file" | grep -qE '^image/(jpeg|png|gif|bmp|webp)$'
+}
+
+validate_source() {
+  local source=$1 manifest="$1/monarch-theme.json" file rel mode
+  [[ -f $manifest && ! -L $manifest ]] || fail "the repository has no regular monarch-theme.json"
+
+  jq -e '
+    (keys - ["schema", "id", "name", "palette", "backgrounds", "preview"]) == [] and
+    .schema == 1 and
+    (.id | type == "string" and test("^[a-z0-9][a-z0-9._+-]*$")) and
+    (.name | type == "string" and length > 0 and length <= 80) and
+    (.palette | type == "string") and
+    (.backgrounds | type == "string") and
+    ((.preview == null) or (.preview | type == "string"))' "$manifest" >/dev/null 2>&1 || fail "invalid monarch-theme.json"
+
+  THEME_ID=$(jq -r .id "$manifest")
+  THEME_NAME=$(jq -r .name "$manifest")
+  PALETTE_PATH=$(jq -r .palette "$manifest")
+  BACKGROUNDS_PATH=$(jq -r .backgrounds "$manifest")
+  PREVIEW_PATH=$(jq -r '.preview // empty' "$manifest")
+
+  [[ $(slugify "$THEME_NAME") == "$THEME_ID" ]] || fail "theme id must be the kebab-case form of its name"
+  validate_relative_path "$PALETTE_PATH" || fail "palette must be a file at the repository root"
+  validate_relative_path "$BACKGROUNDS_PATH" || fail "backgrounds must be a directory at the repository root"
+  [[ -z $PREVIEW_PATH ]] || validate_relative_path "$PREVIEW_PATH" || fail "preview must be a file at the repository root"
+  [[ -f "$source/$PALETTE_PATH" && ! -L "$source/$PALETTE_PATH" ]] || fail "the declared palette is missing"
+  [[ -d "$source/$BACKGROUNDS_PATH" && ! -L "$source/$BACKGROUNDS_PATH" ]] || fail "the declared backgrounds directory is missing"
+  validate_palette "$source/$PALETTE_PATH" || fail "the declared palette is not a valid Noctalia palette"
+
+  if [[ -n $PREVIEW_PATH ]]; then
+    [[ -f "$source/$PREVIEW_PATH" && ! -L "$source/$PREVIEW_PATH" ]] || fail "the declared preview is missing"
+    validate_image "$source/$PREVIEW_PATH" || fail "the declared preview is not a supported image"
+  fi
+
+  while IFS= read -r -d '' file; do
+    [[ ! -L $file ]] || fail "symbolic links are not allowed"
+  done < <(find "$source" -path "$source/.git" -prune -o -print0)
+
+  while IFS= read -r -d '' file; do
+    rel=${file#"$source/"}
+    mode=$(stat -c '%A' "$file")
+    [[ $mode != *x* ]] || fail "executable files are not allowed: $rel"
+    case $rel in
+    monarch-theme.json | "$PALETTE_PATH" | "$PREVIEW_PATH" | README* | LICENSE* | CHANGELOG*) ;;
+    "$BACKGROUNDS_PATH"/*)
+      [[ ${rel#"$BACKGROUNDS_PATH/"} != */* ]] || fail "background directories cannot be nested"
+      validate_image "$file" || fail "invalid background image: $rel"
+      ;;
+    *) fail "unsupported repository file: $rel" ;;
+    esac
+  done < <(find "$source" -path "$source/.git" -prune -o -type f -print0)
+
+  find "$source/$BACKGROUNDS_PATH" -maxdepth 1 -type f | grep -q . || fail "the theme has no backgrounds"
+}
+
+clone_and_validate() {
+  local origin=$1 destination=$2
+  [[ $origin != -* && $origin != *[[:space:]]* ]] || fail "invalid Git URL"
+  case $origin in
+  https://* | ssh://* | file:///* | [A-Za-z0-9._+-]*@[A-Za-z0-9.-]*:*) ;;
+  *) fail "Git URL must use HTTPS or SSH" ;;
+  esac
+  (ulimit -f 524288; git clone --quiet --depth 1 -- "$origin" "$destination") || fail "could not clone the theme repository"
+  validate_source "$destination"
+}
+
+palette_available() {
+  local bundle=$1 palette
+  palette="$PALETTES_DIR/$THEME_NAME.json"
+  if [[ -e $palette || -L $palette ]]; then
+    [[ -L $palette ]] || return 1
+    case $(readlink "$palette" 2>/dev/null) in
+    "$bundle"/*) ;;
+    *) return 1 ;;
+    esac
+  fi
+}
+
+publish_palette() {
+  local bundle=$1 palette="$PALETTES_DIR/$THEME_NAME.json"
+  mkdir -p "$PALETTES_DIR"
+  ln -sfn "$bundle/$PALETTE_PATH" "$palette"
+}
+
+write_provenance() {
+  local bundle=$1 origin=$2 revision
+  revision=$(git -C "$bundle" rev-parse HEAD)
+  jq -n --arg origin "$origin" --arg revision "$revision" --arg installed_at "$(date -u +%FT%TZ)" \
+    --arg id "$THEME_ID" --arg name "$THEME_NAME" --arg palette "$PALETTE_PATH" \
+    --arg backgrounds "$BACKGROUNDS_PATH" --arg preview "$PREVIEW_PATH" \
+    '{schema:1, id:$id, name:$name, origin:$origin, revision:$revision, installed_at:$installed_at,
+      palette:$palette, backgrounds:$backgrounds, preview:$preview}' >"$bundle/provenance.json"
+  rm -rf -- "$bundle/.git"
+}
+
+install_theme() {
+  local origin=${1:-} work final
+  [[ -n $origin ]] || fail "usage: install <git-url>"
+  mkdir -p "$BUNDLES_DIR"
+  work=$(mktemp -d "$BUNDLES_DIR/.install.XXXXXX")
+  trap 'rm -rf -- "$work"' EXIT
+  clone_and_validate "$origin" "$work/source"
+  final="$BUNDLES_DIR/$THEME_ID"
+  [[ ! -e $final && ! -L $final ]] || fail "theme $THEME_ID is already installed"
+  palette_available "$final" || fail "a palette named $THEME_NAME already exists"
+  write_provenance "$work/source" "$origin"
+  mv "$work/source" "$final"
+  if ! publish_palette "$final"; then
+    rm -rf -- "$final"
+    fail "could not publish the palette"
+  fi
+  trap - EXIT
+  rm -rf -- "$work"
+  printf '%s\t%s\n' "$THEME_ID" "$THEME_NAME"
+}
+
+update_theme() {
+  local id=${1:-} current origin old_name work backup final
+  [[ $id =~ ^[a-z0-9][a-z0-9._+-]*$ ]] || fail "usage: update <theme-id>"
+  current="$BUNDLES_DIR/$id"
+  [[ -f "$current/provenance.json" ]] || fail "theme $id is not installed"
+  origin=$(jq -er .origin "$current/provenance.json") || fail "theme provenance is invalid"
+  old_name=$(jq -er .name "$current/provenance.json") || fail "theme provenance is invalid"
+  work=$(mktemp -d "$BUNDLES_DIR/.update.XXXXXX")
+  trap 'rm -rf -- "$work"' EXIT
+  clone_and_validate "$origin" "$work/source"
+  [[ $THEME_ID == "$id" ]] || fail "the updated repository changed theme id"
+  palette_available "$current" || fail "a palette named $THEME_NAME already exists"
+  write_provenance "$work/source" "$origin"
+
+  final="$BUNDLES_DIR/$id"
+  backup="$work/previous"
+  mv "$final" "$backup"
+  if ! mv "$work/source" "$final"; then
+    mv "$backup" "$final"
+    fail "could not publish the updated theme"
+  fi
+  if ! publish_palette "$final"; then
+    rm -rf -- "$final"
+    mv "$backup" "$final"
+    fail "could not publish the updated palette"
+  fi
+  if [[ $old_name != "$THEME_NAME" ]]; then
+    local old_palette="$PALETTES_DIR/$old_name.json"
+    if [[ -L $old_palette ]]; then
+      case $(readlink "$old_palette" 2>/dev/null) in
+      "$final"/*) rm -- "$old_palette" ;;
+      esac
+    fi
+  fi
+  trap - EXIT
+  rm -rf -- "$work"
+  printf '%s\t%s\n' "$THEME_ID" "$THEME_NAME"
+}
+
+remove_theme() {
+  local id=${1:-} bundle name palette active=""
+  [[ $id =~ ^[a-z0-9][a-z0-9._+-]*$ ]] || fail "usage: remove <theme-id>"
+  bundle="$BUNDLES_DIR/$id"
+  [[ -f "$bundle/provenance.json" ]] || fail "theme $id is not installed"
+  name=$(jq -er .name "$bundle/provenance.json") || fail "theme provenance is invalid"
+  if command -v noctalia >/dev/null 2>&1; then
+    active=$(noctalia msg color-scheme-get 2>/dev/null || true)
+    active=${active#custom }
+  fi
+  [[ $active != "$name" ]] || fail "switch to another theme before removing $name"
+  palette="$PALETTES_DIR/$name.json"
+  if [[ -L $palette ]]; then
+    case $(readlink "$palette" 2>/dev/null) in
+    "$bundle"/*) rm -- "$palette" ;;
+    esac
+  fi
+  rm -rf -- "$bundle"
+  rmdir "$BUNDLES_DIR" 2>/dev/null || true
+  printf '%s\n' "$name"
+}
+
+list_themes() {
+  local provenance
+  for provenance in "$BUNDLES_DIR"/*/provenance.json; do
+    [[ -f $provenance ]] || continue
+    jq -r '[.id, .name, .revision, .origin] | @tsv' "$provenance"
+  done | sort -t $'\t' -k2,2f
+}
+
+case ${1:-} in
+install) install_theme "${2:-}" ;;
+update) update_theme "${2:-}" ;;
+remove) remove_theme "${2:-}" ;;
+list) list_themes ;;
+*) fail "usage: {install <git-url>|update <theme-id>|remove <theme-id>|list}" ;;
+esac

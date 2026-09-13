@@ -1,5 +1,37 @@
 #!/bin/bash
 
 # monarch:summary=Toggle notification do-not-disturb mode via Noctalia
+# monarch:args=[toggle|on|off|status]
+# monarch:examples=monarch toggle notification-silencing status
 
-exec qs -c noctalia-shell ipc call notifications toggleDND
+# Same shape as monarch-toggle-idle and monarch-toggle-nightlight, minus the
+# bookkeeping: DND is the one of the three states v5 will actually tell us about
+# (`notification-dnd-status`), so the shell stays the single source of truth and
+# there is no Monarch-side flag to drift. `status` reports what the shell says.
+
+print_status() {
+  if [[ $(noctalia msg notification-dnd-status 2>/dev/null) == "on" ]]; then
+    printf '{"enabled":true,"tooltip":"Do not disturb - allow notifications"}\n'
+  else
+    printf '{"enabled":false,"tooltip":"Silence notifications"}\n'
+  fi
+}
+
+case "${1:-toggle}" in
+  toggle)
+    noctalia msg notification-dnd-toggle >/dev/null 2>&1
+    ;;
+  on)
+    noctalia msg notification-dnd-set on >/dev/null 2>&1
+    ;;
+  off)
+    noctalia msg notification-dnd-set off >/dev/null 2>&1
+    ;;
+  status | --status)
+    print_status
+    ;;
+  *)
+    echo "Usage: $0 [toggle|on|off|status]" >&2
+    exit 1
+    ;;
+esac

@@ -1,17 +1,17 @@
 #!/bin/bash
 
-# Streaming text source for the Noctalia "voxtype" CustomButton widget.
+# Streaming text source for the Noctalia "voxtype" bar indicator.
 #
 # Faithful port of the old Waybar custom/voxtype module (removed with the
 # Noctalia switchover): show a dictation glyph whose shape tracks Voxtype's
-# state, left-click to pick the AI model, right-click to edit the config.
-# CustomButton runs this via `sh -lc` in textStream mode; every emitted line
-# (parseJson) updates the widget.
+# state, left-click to pick the AI model, right-click to edit the config. The
+# monarch-indicators plugin runs this through indicator.luau's runStream and
+# maps each emitted JSON line onto the widget.
 #
 # Voxtype is an optional, install-on-demand feature, so the indicator only
 # appears once `voxtype` is present (monarch-cmd-present) — exactly like the
-# old Waybar exec, which emitted an empty object otherwise. With hideMode
-# "expandWithOutput" that empty object collapses the widget.
+# old Waybar exec, which emitted an empty object otherwise. That empty object
+# hides the widget.
 #
 # When present, `voxtype status --follow --extended --format json` streams one
 # line per state change with .class (idle|recording|transcribing) and a ready

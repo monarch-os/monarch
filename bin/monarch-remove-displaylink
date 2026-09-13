@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# monarch:summary=Remove the DisplayLink drivers
+# monarch:requires-sudo=true
+
+set -e
+
+sudo systemctl disable --now displaylink 2>/dev/null || true
+
+# evdi-dkms is only ever here for DisplayLink.
+monarch-pkg-drop displaylink evdi-dkms
+
+echo ""
+echo "DisplayLink has been removed."

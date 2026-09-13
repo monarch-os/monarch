@@ -1,13 +1,8 @@
 #!/bin/bash
 
-# monarch:summary=Overwrite the user config for the Plymouth drive decryption and boot sequence with the Monarch default and rebuild it.
+# monarch:summary=Overwrite the Plymouth boot theme with the Monarch default and rebuild it.
 # monarch:requires-sudo=true
 
-sudo cp -r ~/.local/share/monarch/default/plymouth/* /usr/share/plymouth/themes/monarch/
-sudo plymouth-set-default-theme monarch
+MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
 
-if command -v limine-mkinitcpio &>/dev/null; then
-  sudo limine-mkinitcpio
-else
-  sudo mkinitcpio -P
-fi
+exec "$MONARCH_ROOT/bin/monarch-plymouth-apply" --refresh-default

@@ -1,0 +1,192 @@
+#!/bin/bash
+
+# monarch:summary=Set up the OpenSSH server, open the firewall, and authorize an SSH key
+# monarch:args=[--key=<public-key>] [--gh-keys <github-username>]
+# monarch:examples=monarch setup security sshd | monarch setup security sshd --gh-keys y0no
+# monarch:requires-sudo=true
+
+set -euo pipefail
+
+AUTHORIZED_KEYS="$HOME/.ssh/authorized_keys"
+KEY=""
+GITHUB_USER=""
+MONARCH_ROOT=${MONARCH_PATH:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}
+
+source "$MONARCH_ROOT/install/helpers/sshd-hardening.sh"
+
+require_github_user() {
+  if [[ -z $1 || $1 == -* ]]; then
+    echo "monarch-setup-security-sshd: --gh-keys needs a GitHub username." >&2
+    exit 2
+  fi
+}
+
+while (( $# > 0 )); do
+  case "$1" in
+    --key=*) KEY="${1#--key=}" ;;
+    --gh-keys=*)
+      GITHUB_USER="${1#--gh-keys=}"
+      require_github_user "$GITHUB_USER"
+      ;;
+    --gh-keys)
+      shift
+      GITHUB_USER="${1:-}"
+      require_github_user "$GITHUB_USER"
+      ;;
+    -h | --help)
+      echo "Usage: monarch-setup-security-sshd [--key=<public-key>] [--gh-keys <github-username>]"
+      echo
+      echo "Sets up OpenSSH, opens its UFW port, and authorizes an SSH key."
+      exit 0
+      ;;
+    *)
+      echo "monarch-setup-security-sshd: unknown option '$1'. Try --help." >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+if [[ -n $KEY && -n $GITHUB_USER ]]; then
+  echo "monarch-setup-security-sshd: pass either --key or --gh-keys, not both." >&2
+  exit 2
+fi
+
+setup_sshd() {
+  echo "Installing the OpenSSH server..."
+  monarch-pkg-add openssh
+  sudo systemctl start sshdgenkeys.service
+}
+
+require_firewall() {
+  if monarch-cmd-missing ufw; then
+    echo -e "\e[31mUFW is not installed; refusing to start an unfiltered SSH server.\e[0m" >&2
+    return 1
+  fi
+
+  if ! sudo env LC_ALL=C ufw status | grep -qx 'Status: active'; then
+    echo -e "\e[31mUFW is inactive; refusing to start an unfiltered SSH server.\e[0m" >&2
+    echo "Enable it with: sudo ufw enable" >&2
+    return 1
+  fi
+
+}
+
+open_firewall() {
+  echo "Opening the SSH port in the firewall with rate limiting..."
+  sudo ufw --force delete allow 22 >/dev/null 2>&1 || true
+  sudo ufw --force delete allow 22/tcp >/dev/null 2>&1 || true
+  sudo ufw limit 22/tcp comment "monarch-sshd" >/dev/null
+  sudo ufw reload >/dev/null
+
+  if ! sudo env LC_ALL=C ufw status | awk '$1 == "22/tcp" && $2 == "LIMIT" { found = 1 } END { exit !found }'; then
+    echo -e "\e[31mUFW did not activate the rate-limited SSH rule.\e[0m" >&2
+    return 1
+  fi
+}
+
+valid_key() {
+  ssh-keygen -lf /dev/stdin <<<"$1" >/dev/null 2>&1
+}
+
+authorize_key() {
+  local key=$1
+
+  if ! valid_key "$key"; then
+    echo -e "\e[31mNot a valid SSH public key: $key\e[0m" >&2
+    return 1
+  fi
+
+  mkdir -p "$HOME/.ssh"
+  chmod 700 "$HOME/.ssh" || return 1
+  touch "$AUTHORIZED_KEYS" || return 1
+  chmod 600 "$AUTHORIZED_KEYS" || return 1
+
+  if grep -qxF "$key" "$AUTHORIZED_KEYS"; then
+    echo "Key already authorized: $(ssh-keygen -lf /dev/stdin <<<"$key")"
+  else
+    printf '%s\n' "$key" >>"$AUTHORIZED_KEYS" || return 1
+    grep -qxF "$key" "$AUTHORIZED_KEYS" || return 1
+    echo "Authorized key: $(ssh-keygen -lf /dev/stdin <<<"$key")"
+  fi
+}
+
+authorize_keys_from_github() {
+  local username=$1 keys added=0
+
+  echo "Fetching keys from https://github.com/$username.keys..."
+  if ! keys=$(curl -fsSL "https://github.com/$username.keys") || [[ -z $keys ]]; then
+    echo -e "\e[31mCould not fetch any SSH keys for GitHub user '$username'.\e[0m" >&2
+    exit 1
+  fi
+
+  while IFS= read -r key; do
+    [[ -z $key ]] && continue
+    authorize_key "$key" && added=$((added + 1))
+  done <<<"$keys"
+
+  if (( added == 0 )); then
+    echo -e "\e[31mNo valid SSH keys found for GitHub user '$username'.\e[0m" >&2
+    exit 1
+  fi
+}
+
+prompt_for_github_user() {
+  local username
+
+  username=$(gum input --prompt "GitHub username> " --placeholder "y0no") || exit 1
+  [[ -n $username ]] || { echo -e "\e[31mNo GitHub username given.\e[0m" >&2; exit 1; }
+  authorize_keys_from_github "$username"
+}
+
+authorize_pasted_key() {
+  local key
+
+  key=$(gum input --prompt "Public key> " --placeholder "ssh-ed25519 AAAA... user@host") || exit 1
+  [[ -n $key ]] || { echo -e "\e[31mNo SSH key given.\e[0m" >&2; exit 1; }
+  authorize_key "$key" || exit 1
+}
+
+echo -e "\e[32mSetting up SSH server access with key-based authentication.\n\e[0m"
+require_firewall
+setup_sshd
+
+echo
+if [[ -n $KEY ]]; then
+  authorize_key "$KEY" || exit 1
+elif [[ -n $GITHUB_USER ]]; then
+  authorize_keys_from_github "$GITHUB_USER"
+else
+  case $(gum choose "Grab key from GitHub" "Paste key manually" --header "How would you like to add your SSH key?") in
+    "Grab key from GitHub") prompt_for_github_user ;;
+    "Paste key manually") authorize_pasted_key ;;
+    *) exit 1 ;;
+  esac
+fi
+
+user=$(id -un)
+user_id=$(id -u)
+if ! monarch_sshd_has_usable_key "$AUTHORIZED_KEYS" "$user" ||
+  ! monarch_sshd_key_paths_safe "$HOME" "$AUTHORIZED_KEYS" "$user_id" ||
+  ! monarch_sshd_context_supports_user_key "$user" "$HOME"; then
+  echo -e "\e[31mThe authorized key path is not usable by sshd; the server was not started.\e[0m" >&2
+  exit 1
+fi
+
+echo "Disabling SSH password authentication..."
+monarch_sshd_install_hardening "$user" "$HOME"
+
+if systemctl is-active --quiet sshd.service; then
+  sudo systemctl reload sshd.service
+fi
+
+open_firewall
+
+if systemctl is-active --quiet sshd.service; then
+  sudo systemctl enable sshd.service
+else
+  sudo systemctl enable --now sshd.service
+fi
+
+echo -e "\e[32m\nThe SSH server is running with key-only authentication.\e[0m"
+echo "You can now connect with: ssh $user@$(hostname)"

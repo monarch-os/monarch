@@ -1,0 +1,30 @@
+# Monarch's display panel, laid out after quattro's omarchy.monitor: brightness,
+# text size, and the per-output scale and on-off no part of v5 offers. Its pill
+# replaces the stock `brightness` widget rather than joining it.
+
+id          = "monarch/display"
+name        = "Monarch Display"
+version     = "1.0.0"
+# 22 everywhere in Monarch; this panel needs 13 (capture_keys) at most.
+plugin_api  = 22
+author      = "monarch"
+license     = "MIT"
+description = "Per-output scale, on-off and the text size, in one panel."
+icon        = "device-desktop"
+
+[[widget]]
+id    = "display"
+entry = "display.luau"
+
+[[panel]]
+id     = "panel"
+entry  = "panel.luau"
+width  = 420
+height = 480
+# Drops out of the pill that opens it, the way monarch/network's panel does.
+placement = "attached"
+position  = "auto"
+open_near_click = true
+keyboard_focus = "on_demand"
+capture_keys   = ["escape"]
+dismiss_on_outside_click = true

@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# monarch:summary=Returns true when the laptop lid is closed
+# monarch:hidden=true
+
+# Exit codes only, for a conditional — and specifically for the PAM gate that
+# monarch-setup-security-fingerprint puts in front of pam_fprintd, which reads
+# nothing but the exit status. A machine with no lid button (a desktop, a VM)
+# reports open, so the gate never fires there.
+
+for state in /proc/acpi/button/lid/*/state; do
+  [[ -r $state ]] || continue
+  [[ $(<"$state") == *"closed"* ]] && exit 0
+done
+
+exit 1

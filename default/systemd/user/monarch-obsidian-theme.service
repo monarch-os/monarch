@@ -1,0 +1,6 @@
+[Unit]
+Description=Apply the Noctalia theme to Obsidian vaults
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/monarch-obsidian-theme

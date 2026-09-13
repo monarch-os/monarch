@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# monarch:summary=Write the current theme color into browser policy directories
+# monarch:args=<rrggbb>
+# monarch:hidden=true
+
+set -euo pipefail
+
+if (( EUID == 0 )); then
+  export PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin
+fi
+
+POLICY_DIRS=(
+  /etc/chromium/policies/managed
+  /etc/opt/chrome/policies/managed
+  /etc/opt/edge/policies/managed
+  /etc/brave/policies/managed
+)
+PACKAGED_PATH=/usr/bin/monarch-theme-set-browser-policy
+
+(( $# == 1 )) || { echo "Usage: monarch-theme-set-browser-policy <rrggbb>" >&2; exit 1; }
+color="$1"
+[[ $color =~ ^[0-9a-f]{6}$ ]] || {
+  echo "monarch-theme-set-browser-policy: expected six lowercase hex digits" >&2
+  exit 1
+}
+
+if (( EUID != 0 )); then
+  if sudo -n -l -l "$PACKAGED_PATH" "$color" 2>/dev/null | grep -q '!authenticate'; then
+    exec sudo "$PACKAGED_PATH" "$color"
+  fi
+  exec pkexec "$PACKAGED_PATH" "$color"
+fi
+
+failed=0
+for policy_dir in "${POLICY_DIRS[@]}"; do
+  [[ -d $policy_dir && ! -L $policy_dir ]] || continue
+  dest="$policy_dir/color.json"
+  staged=$(mktemp)
+  printf '{"BrowserThemeColor": "#%s", "BrowserColorScheme": "device"}\n' "$color" >"$staged"
+
+  blocked=0
+  if [[ -L $dest || -d $dest ]] && ! rm -rf -- "$dest"; then
+    blocked=1
+    failed=1
+  fi
+  if (( ! blocked )) && ! install -m 0644 -o root -g root -T "$staged" "$dest"; then
+    failed=1
+  fi
+  rm -f "$staged"
+done
+
+exit "$failed"

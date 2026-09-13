@@ -8,7 +8,7 @@ screensaver_in_focus() {
 
 exit_screensaver() {
   pkill -x tte 2>/dev/null
-  pkill -f org.monarch.screensaver 2>/dev/null
+  pkill -f '[o]rg.monarch.screensaver' 2>/dev/null
   exit 0
 }
 

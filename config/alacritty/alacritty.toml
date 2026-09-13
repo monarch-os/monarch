@@ -1,4 +1,10 @@
-general.import = [ "~/.config/alacritty/themes/noctalia.toml" ]
+# monarch-text-size.toml carries the font size, and this file deliberately
+# sets none: alacritty loads imports first and lets the importing file win,
+# so a size here could not be overridden. A missing import is skipped.
+general.import = [
+  "~/.config/alacritty/themes/noctalia.toml",
+  "~/.config/alacritty/monarch-text-size.toml",
+]
 
 [env]
 TERM = "xterm-256color"
@@ -10,7 +16,6 @@ osc52 = "CopyPaste"
 normal = { family = "JetBrainsMono Nerd Font", style = "Regular" }
 bold = { family = "JetBrainsMono Nerd Font", style = "Bold" }
 italic = { family = "JetBrainsMono Nerd Font", style = "Italic" }
-size = 9
 
 [window]
 padding.x = 14

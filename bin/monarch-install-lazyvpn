@@ -52,37 +52,13 @@ if pgrep -x niri >/dev/null 2>&1; then
   niri msg action load-config-file >/dev/null 2>&1 || true
 fi
 
-# Add a Noctalia bar widget showing live VPN status (click to open the TUI).
-# Idempotent: skip if a monarch-lazyvpn-status button already exists anywhere.
-# Noctalia hot-reloads settings.json, so the bar picks the change up without a
-# restart.
-NOCTALIA_CFG="$HOME/.config/noctalia/settings.json"
-if command -v jq >/dev/null && [[ -f "$NOCTALIA_CFG" ]]; then
-  if ! jq -e '[.. | objects | select(.textCommand? == "monarch-lazyvpn-status")] | length > 0' \
-       "$NOCTALIA_CFG" >/dev/null 2>&1; then
-    echo -e "\nAdding the LazyVPN status widget to the Noctalia bar..."
-    tmp=$(mktemp)
-    if jq '.bar.widgets.right = (
-             (.bar.widgets.right // []) as $w
-             | {
-                 "id": "CustomButton",
-                 "icon": "shield",
-                 "parseJson": true,
-                 "textCommand": "monarch-lazyvpn-status",
-                 "textIntervalMs": 5000,
-                 "leftClickExec": "monarch-launch-floating-terminal-with-presentation monarch-lazyvpn"
-               } as $btn
-             | ($w | map(.id == "Tray") | index(true)) as $i
-             | if $i == null then [$btn] + $w else $w[0:$i+1] + [$btn] + $w[$i+1:] end
-           )' \
-         "$NOCTALIA_CFG" >"$tmp"; then
-      mv "$tmp" "$NOCTALIA_CFG"
-    else
-      rm -f "$tmp"
-      echo "  Warning: could not update $NOCTALIA_CFG; add the widget manually." >&2
-    fi
-  fi
-fi
+# No bar wiring here. The status pill is declared by the monarch-indicators
+# Noctalia plugin (default/noctalia/plugins/monarch-indicators/lazyvpn.luau) and
+# sits in the default layout permanently, staying hidden while this package is
+# absent. v4 spliced a CustomButton into settings.json with jq at this point;
+# under v5 that would mean an install-time file restating the whole bar lane,
+# because lane arrays are replaced across .toml files rather than merged — the
+# lane would then freeze at its install-day value and never track Monarch again.
 
 echo -e "\nLazyVPN installed!"
 echo "  - Launch from app menu: LazyVPN"
