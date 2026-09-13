@@ -118,7 +118,7 @@ assert_equals "network groups overview, Wi-Fi and DNS" "${output% }" "Overview W
 
 output=$(jq -r '.[] | select(.id | test("^setup\\.defaults\\.agent\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
 assert_equals "default agents follow Monarch's supported catalog" "${output% }" \
-  "Antigravity Claude Codex Copilot Crush Grok omp OpenCode Ori Pi"
+  "Antigravity Claude Codex Copilot Crush Cursor CLI Grok Muse Code omp OpenCode Ori Pi"
 
 output=$(jq -r '.[] | select(.id == "setup.plugins") | .action' <<<"$SHIPPED_TREE")
 assert_equals "plugin setup opens Noctalia's native plugin manager" "$output" \

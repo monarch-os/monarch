@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# monarch:summary=Install T3 Code
+# monarch:requires-sudo=true
+
+set -e
+
+T3CODE_HOME=${T3CODE_HOME:-$HOME/.t3}
+export T3CODE_HOME
+
+echo "Installing T3 Code..."
+monarch-pkg-add t3code-bin
+
+mkdir -p "$T3CODE_HOME/userdata"
+monarch-theme-apply
+
+theme="$T3CODE_HOME/userdata/themes/monarch.json"
+if [[ -f $theme ]]; then
+  t3 theme set monarch --base-dir "$T3CODE_HOME"
+fi
+
+echo "Opening T3 Code..."
+setsid uwsm-app -- gtk-launch t3code >/dev/null 2>&1 &
+
+echo ""
+echo "T3 Code has been installed."

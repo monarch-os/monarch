@@ -302,3 +302,6 @@ if [[ -x $MONARCH_ROOT/bin/monarch-theme-background-list ]]; then
 fi
 sync_keyboard
 sync_chromium
+if [[ -n ${variant:-} && -x $MONARCH_ROOT/bin/monarch-theme-set-t3-code ]]; then
+  "$MONARCH_ROOT/bin/monarch-theme-set-t3-code" "$scheme_json" "$variant" || true
+fi

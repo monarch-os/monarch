@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # monarch:summary=Set and launch the default coding agent
-# monarch:args=[pi|omp|opencode|ori|claude|codex|grok|agy|copilot|crush]
+# monarch:args=[pi|omp|opencode|ori|claude|codex|grok|agy|copilot|crush|cursor-agent|muse]
 # monarch:examples=monarch default agent | monarch default agent claude | monarch default agent codex
 
 agent_file="$HOME/.config/monarch/defaults/agent"
@@ -38,8 +38,14 @@ grok) agent="grok"; name="Grok"; agent_package="npm:@xai-official/grok" ;;
 agy | antigravity | antigravity-cli | gemini | gemini-cli) agent="agy"; name="Antigravity"; agent_package="antigravity-cli" ;;
 copilot | github-copilot) agent="copilot"; name="GitHub Copilot" ;;
 crush) agent="crush"; name="Crush" ;;
+cursor | cursor-agent) agent="cursor-agent"; name="Cursor CLI" ;;
+muse | muse-code | musecode)
+  agent="muse"
+  name="Muse Code"
+  agent_package="http:muse[url=https://api.meta.ai/muse-launcher.sh,bin=muse,version_list_url=https://api.meta.ai/muse-code/channels/muse-stable,version_json_path=.version]"
+  ;;
 *)
-  echo "Usage: monarch-default-agent <pi|omp|opencode|ori|claude|codex|grok|agy|copilot|crush>" >&2
+  echo "Usage: monarch-default-agent <pi|omp|opencode|ori|claude|codex|grok|agy|copilot|crush|cursor-agent|muse>" >&2
   exit 1
   ;;
 esac
