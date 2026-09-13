@@ -61,9 +61,9 @@ SUDO_LOG="$sudo_log" PATH="$fake_bin:/usr/bin" \
   fail "the root-file publisher changed content outside its destination"
 [[ $(stat -c '%a' "$publisher_target") == 755 ]] ||
   fail "the root-file publisher did not apply the final mode before publication"
-rg -q 'install -m 0755 .* -T .*\.monarch\.[[:alnum:]]{6}$' "$sudo_log" ||
+grep -Eq 'install -m 0755 .* -T .*\.monarch\.[[:alnum:]]{6}$' "$sudo_log" ||
   fail "the root-file publisher did not stage a sibling replacement"
-rg -q 'mv -Tf -- .*\.monarch\.[[:alnum:]]{6} .*/hook$' "$sudo_log" ||
+grep -Eq 'mv -Tf -- .*\.monarch\.[[:alnum:]]{6} .*/hook$' "$sudo_log" ||
   fail "the root-file publisher did not atomically replace the destination"
 pass "privileged files are prepared on a sibling inode and atomically published"
 
@@ -99,7 +99,7 @@ cmp "$ROOT/default/systemd/supergfxd.service.d/delay-start.conf" \
   "$drop_in_dir/delay-start.conf" || fail "the unsafe supergfxd drop-in was not repaired"
 [[ $(<"$external_drop_in") == $'[Service]\nExecStartPre=/bin/sleep 20' ]] ||
   fail "the unsafe drop-in symlink target was modified"
-find "$quarantine" -type l -lname "$external_drop_in" -print -quit | rg -q . ||
+find "$quarantine" -type l -lname "$external_drop_in" -print -quit | grep -q . ||
   fail "the unsafe custom drop-in was not preserved for administrator review"
 [[ $(<"$systemctl_log") == 'daemon-reload' ]] ||
   fail "systemd was not reloaded after replacing its drop-in"
@@ -132,23 +132,23 @@ pass "a failed systemd reload remains retryable"
 
 hibernation="$ROOT/bin/monarch-hibernation-setup"
 hybrid="$ROOT/bin/monarch-toggle-hybrid-gpu"
-! rg -q 'cp -p .*system-sleep|cp -p .*supergfxd' "$hibernation" "$hybrid" ||
+! grep -Eq 'cp -p .*system-sleep|cp -p .*supergfxd' "$hibernation" "$hybrid" ||
   fail "a privileged sleep file still inherits user ownership"
 
-hook_line=$(rg -n 'monarch_install_root_file .*keyboard-backlight' "$hibernation" | cut -d: -f1)
-resume_line=$(rg -n 'echo "HOOKS\+=\(resume\)"' "$hibernation" | cut -d: -f1)
+hook_line=$(grep -En 'monarch_install_root_file .*keyboard-backlight' "$hibernation" | cut -d: -f1)
+resume_line=$(grep -En 'echo "HOOKS\+=\(resume\)"' "$hibernation" | cut -d: -f1)
 [[ -n $hook_line && -n $resume_line && $hook_line -lt $resume_line ]] ||
   fail "hibernation becomes complete before its sleep hook is safely published"
 
-force_line=$(rg -n 'monarch_install_root_file .*force-igpu' "$hybrid" | cut -d: -f1)
-delay_line=$(rg -n 'monarch_install_root_file .*delay-start\.conf' "$hybrid" | cut -d: -f1)
-mode_line=$(rg -n -F 's/"mode": ".*"/"mode": "Integrated"/' "$hybrid" | tail -1 | cut -d: -f1)
+force_line=$(grep -En 'monarch_install_root_file .*force-igpu' "$hybrid" | cut -d: -f1)
+delay_line=$(grep -En 'monarch_install_root_file .*delay-start\.conf' "$hybrid" | cut -d: -f1)
+mode_line=$(grep -nF 's/"mode": ".*"/"mode": "Integrated"/' "$hybrid" | tail -1 | cut -d: -f1)
 [[ -n $force_line && -n $delay_line && -n $mode_line ]] ||
   fail "hybrid GPU setup is missing a safely published support file"
 ((force_line < mode_line && delay_line < mode_line)) ||
   fail "hybrid GPU mode changes before its support files are safely published"
 pass "sleep support files are published before their configurations become active"
 
-rg -q 'system-sleep-ownership\.sh' "$ROOT/install/reconcile/schema/1-to-2/system.sh" ||
+grep -Eq 'system-sleep-ownership\.sh' "$ROOT/install/reconcile/schema/1-to-2/system.sh" ||
   fail "the V4 system transition does not repair historical sleep files"
 pass "the V4 system transition runs the ownership repair"
