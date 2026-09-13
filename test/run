@@ -97,7 +97,9 @@ mode=${1:-}
 }
 shift
 
-mapfile -t tests < <(select_tests "$mode" "$@")
+selection=$(select_tests "$mode" "$@")
+[[ -n $selection ]] || fail "No tests selected"
+mapfile -t tests <<<"$selection"
 for test_file in "${tests[@]}"; do
   grep -Fqx "$test_file" < <(manifest_paths) || fail "unknown test: $test_file"
 done
