@@ -8,27 +8,7 @@ set -euo pipefail
 monarch-refresh-config noctalia/config.toml
 monarch-refresh-config noctalia/palettes/Monarch.json
 
-# v4 needed ~85 lines of jq surgery between here and the restart below, to put
-# back what the wholesale config copy had just wiped. None of it is needed now,
-# and none of it was theming:
-#   - onboarding and telemetry state: v5 exposes independent
-#     shell.setup_wizard_enabled and shell.telemetry_enabled settings, which
-#     config.toml carries
-#   - the fingerprint lock-screen toggles: they live in their own
-#     monarch-fingerprint.toml, which this refresh never touches
-#   - the LazyVPN and monarch-agents bar widgets: both are Luau plugin entries in
-#     the shipped bar layout now, and each hides itself when it has nothing to
-#     show, so there is no user-only state left to restore
-#
-# The stop/start pair survives only to reload the copied config, so a plain
-# restart is enough.
-pkill -x noctalia 2>/dev/null || true
-for _ in $(seq 1 30); do
-  pgrep -x noctalia >/dev/null 2>&1 || break
-  sleep 0.1
-done
-
-setsid uwsm-app -- noctalia -d >/dev/null 2>&1 &
+monarch-restart-noctalia
 
 # Once Noctalia is up, re-apply the theme so the wallpaper IPC lands (it
 # silently no-ops at install time). `msg status` is the readiness probe: it

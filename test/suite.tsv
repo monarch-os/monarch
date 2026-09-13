@@ -1,5 +1,6 @@
 path	feature	risk	environment
 test/shell.d/test-runner-test.sh	test-runner	medium	isolated
+test/shell.d/noctalia-restart-test.sh	desktop-shell	medium	isolated
 test/shell.d/acceptance-target-test.sh	acceptance-security	high	isolated
 test/monarch-about-test.sh	about	low	isolated
 test/monarch-agent-usage-codex-test.sh	agent-usage	medium	isolated
