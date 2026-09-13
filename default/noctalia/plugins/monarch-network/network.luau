@@ -1,11 +1,10 @@
 --!nonstrict
--- The bar pill. Wired or wireless, how good the signal is, and — on Wi-Fi — the
--- band, coloured while that band is pinned rather than merely chosen.
+-- The bar pill. Wired or wireless, how good the signal is, and whether a Wi-Fi
+-- band is pinned rather than merely chosen.
 --
 -- Stock Noctalia shows the connection type and nothing else; quattro's pill
--- carries the link speed. The band is what Monarch has that neither does, and
--- it is the one number worth a glance on a router that puts every band behind
--- one name.
+-- carries the link speed. Monarch keeps the pill compact and leaves connection
+-- details to the panel.
 
 local shared = require("./shared.luau")
 
@@ -55,7 +54,7 @@ local function showWifi(ssid: string, signal: string, freq: string)
   local band = bandForFreq(freq)
 
   barWidget.setGlyph(shared.signalGlyph(tonumber(signal) or 0))
-  barWidget.setText(band)
+  barWidget.setText("")
   barWidget.setVisible(true)
 
   noctalia.runAsync(BAND_CMD, function(result)

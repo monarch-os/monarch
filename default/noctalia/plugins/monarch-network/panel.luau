@@ -530,7 +530,7 @@ local function connectionBlock(): { any }
   local lossColor = loss > 0 and "error" or nil
   local counted = info.rx_bytes ~= nil
 
-  return {
+  local rows = {
     statRow("stat-ping",
       stat("Ping", latency, lossColor),
       stat("Packet loss", #pings > 0 and (loss .. "%") or "—", lossColor)
@@ -548,6 +548,17 @@ local function connectionBlock(): { any }
       stat("Gateway", shown(info.gateway))
     ),
   }
+
+  if info.type == "wifi" then
+    local signal = info.signal_dbm ~= nil and info.signal_dbm ~= ""
+      and (info.signal_dbm .. " dBm") or "—"
+    table.insert(rows, 1, statRow("stat-wifi",
+      stat("Signal", signal),
+      stat("Band", shown(shared.bandLabel(band.band)))
+    ))
+  end
+
+  return rows
 end
 
 local function bandSection(): { any }
