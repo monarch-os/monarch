@@ -17,6 +17,20 @@ monarch_load_package_manifest required "$manifest" required
 monarch_load_package_manifest defaults "$manifest" default
 monarch_load_package_manifest all "$manifest"
 
+for path in \
+  etc/gnupg/dirmngr.conf \
+  etc/systemd/system.conf.d/10-faster-shutdown.conf \
+  etc/systemd/system/user@.service.d/10-faster-shutdown.conf; do
+  [[ -f $ROOT/$path ]] || fail "$path is shipped by the packaged runtime"
+done
+
+for path in \
+  default/gpg/dirmngr.conf \
+  default/systemd/faster-shutdown.conf \
+  default/systemd/user@.service.d/faster-shutdown.conf; do
+  [[ ! -e $ROOT/$path ]] || fail "$path duplicates a packaged system default"
+done
+
 ((${#required[@]})) || fail "required package section is populated"
 ((${#defaults[@]})) || fail "default package section is populated"
 ((${#all[@]} == ${#required[@]} + ${#defaults[@]})) ||
