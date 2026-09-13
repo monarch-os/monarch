@@ -17,6 +17,7 @@ RADIO="$ROOT/bin/monarch-toggle-wifi"
 CHOOSER="$ROOT/bin/monarch-setup-dns"
 PANEL="$ROOT/default/noctalia/plugins/monarch-network/panel.luau"
 SHARED="$ROOT/default/noctalia/plugins/monarch-network/shared.luau"
+WIDGET="$ROOT/default/noctalia/plugins/monarch-network/network.luau"
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -111,6 +112,15 @@ export NM_CONNECTIVITY="full"
 export IW_SSID="Cafe" IW_FREQ="5745.0"
 
 # ── The pill line ────────────────────────────────────────────────────────────
+
+grep -Fq 'barWidget.setText("")' "$WIDGET" ||
+  fail "the Wi-Fi pill stays icon-only"
+if grep -Fq 'barWidget.setText(band)' "$WIDGET"; then
+  fail "the Wi-Fi pill still displays its band"
+fi
+grep -Fq 'stat("Band", shown(shared.bandLabel(band.band)))' "$PANEL" ||
+  fail "the panel does not show the active Wi-Fi band"
+pass "the Wi-Fi band moves from the pill into the panel"
 
 assert_equals "no route reports disconnected" \
   "$("$STATUS" | cat -A | head -1)" 'disconnected^I^I^I$'
