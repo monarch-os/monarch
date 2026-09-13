@@ -4,6 +4,7 @@ echo "Reconcile Monarch system state"
 
 sudo bash "$MONARCH_PATH/install/reconcile/cups-browsed.sh"
 sudo bash "$MONARCH_PATH/install/reconcile/wpa-supplicant.sh"
+sudo bash /usr/share/monarch/install/reconcile/system-sleep-ownership.sh
 sudo bash "$MONARCH_PATH/install/config/enable-services.sh"
 sudo bash "$MONARCH_PATH/install/config/ssh-command-path.sh"
 sudo bash "$MONARCH_PATH/install/reconcile/browser-policy.sh" "$MONARCH_PATH"

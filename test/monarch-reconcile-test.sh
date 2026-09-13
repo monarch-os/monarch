@@ -245,6 +245,7 @@ printf '%s\n' true >"$system_transition/install/reconcile/retired-sudoers.sh"
 printf '%s\n' true >"$system_transition/install/reconcile/schema/1-to-2/legacy-docker-firewall.sh"
 printf '%s\n' true >"$system_transition/install/reconcile/schema/1-to-2/legacy-udev-rules.sh"
 printf '%s\n' true >"$system_transition/install/reconcile/schema/1-to-2/legacy-settings-pacnew.sh"
+printf '%s\n' true >"$system_transition/install/reconcile/schema/1-to-2/system-sleep-ownership.sh"
 MONARCH_PATH="$system_transition" bash "$ROOT/install/reconcile/schema/1-to-2/system.sh"
 
 printf '%s\n' '{"fixture":"legacy-settings"}' >"$HOME/.config/noctalia/settings.json"
