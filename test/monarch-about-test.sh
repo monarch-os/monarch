@@ -38,6 +38,18 @@ assert_equals "system config optically centers the full logo" \
   "$(padding_value "$ROOT/etc/fastfetch/config.jsonc" left)" "8"
 assert_equals "system config keeps the information column fixed" \
   "$(padding_value "$ROOT/etc/fastfetch/config.jsonc" right)" "0"
+assert_equals "full layout uses a uniform double-colon marker" \
+  "$(grep -c '"key": ".*::' "$ROOT/etc/fastfetch/config.jsonc")" "21"
+assert_equals "full layout removes tree-shaped module keys" \
+  "$(grep -Ec '"key": ".*[├└]' "$ROOT/etc/fastfetch/config.jsonc")" "0"
+assert_equals "vertical borders use the frame color" \
+  "$(grep -Fc '"key": "\u001b[90m│' "$ROOT/etc/fastfetch/config.jsonc")" "21"
+assert_equals "module keys do not recolor their borders" \
+  "$(grep -c '"keyColor"' "$ROOT/etc/fastfetch/config.jsonc")" "0"
+assert_equals "hardware values use concise formats" \
+  "$(grep -c '"format": "{' "$ROOT/etc/fastfetch/config.jsonc")" "7"
+assert_equals "variable hardware names stay within the frame" \
+  "$(grep -c '"format": ".*:-44' "$ROOT/etc/fastfetch/config.jsonc")" "3"
 
 CASE_DIR=$(mktemp -d)
 trap 'rm -rf "$CASE_DIR"' EXIT
