@@ -3,6 +3,8 @@
 # monarch:summary=Toggle dedicated vs integrated GPU mode via supergfxd (for hybrid gpu laptops, like Asus G14).
 # monarch:requires-sudo=true
 
+source "$MONARCH_PATH/install/helpers/root-file.sh"
+
 if monarch-cmd-missing supergfxctl; then
   monarch-pkg-add supergfxctl
 
@@ -41,18 +43,26 @@ case "$gpu_mode" in
   ;;
 "Hybrid")
   if gum confirm "Use only integrated GPU and reboot?"; then
-    # Switch to integrated mode and ensure vfio is enabled (needed for sleep/wake trick)
-    sudo sed -i "s/\"mode\": \".*\"/\"mode\": \"Integrated\"/" /etc/supergfxd.conf
-    sudo sed -i 's/"vfio_enable": false/"vfio_enable": true/' /etc/supergfxd.conf
-
-    # Force igpu mode after system sleep (or dgpu could get activated)
-    sudo mkdir -p /usr/lib/systemd/system-sleep
-    sudo cp -p $MONARCH_PATH/default/systemd/system-sleep/force-igpu /usr/lib/systemd/system-sleep/
-
     # Delay supergfxd startup to avoid race condition with display manager
     # that can cause system freeze when booting in Integrated mode
-    sudo mkdir -p /etc/systemd/system/supergfxd.service.d
-    sudo cp -p $MONARCH_PATH/default/systemd/system/supergfxd.service.d/delay-start.conf /etc/systemd/system/supergfxd.service.d/
+    sudo install -d -m 0755 -o root -g root /etc/systemd/system/supergfxd.service.d
+    if ! monarch_install_root_file "$MONARCH_PATH/default/systemd/supergfxd.service.d/delay-start.conf" /etc/systemd/system/supergfxd.service.d/delay-start.conf 0644; then
+      echo "Could not install the supergfxd startup-delay override" >&2
+      exit 1
+    fi
+
+    # Force igpu mode after system sleep (or dgpu could get activated)
+    sudo install -d -m 0755 -o root -g root /usr/lib/systemd/system-sleep
+    if ! monarch_install_root_file "$MONARCH_PATH/default/systemd/system-sleep/force-igpu" /usr/lib/systemd/system-sleep/force-igpu 0755; then
+      echo "Could not install the force-igpu system-sleep hook" >&2
+      exit 1
+    fi
+
+    # Switch to integrated mode and ensure vfio is enabled (needed for sleep/wake trick)
+    sudo sed -i \
+      -e 's/"mode": ".*"/"mode": "Integrated"/' \
+      -e 's/"vfio_enable": false/"vfio_enable": true/' \
+      /etc/supergfxd.conf
 
     monarch-system-reboot
   fi
