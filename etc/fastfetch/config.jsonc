@@ -75,6 +75,12 @@
       "text": "branch=$(monarch-version-branch); echo \"$branch\"",
     },
     {
+      "type": "command",
+      "key": "│ ├󰔫",
+      "keyColor": "blue",
+      "text": "channel=$(monarch-version-channel); echo \"$channel\"",
+    },
+    {
       "type": "kernel",
       "key": "│ ├",
       "keyColor": "blue",

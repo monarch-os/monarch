@@ -290,7 +290,7 @@ bash "$ROOT/install/reconcile/user.sh"
 
 grep -qx 'monarch-pkg-drop noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"
 grep -qx 'monarch-pkg-drop claude-code openai-codex opencode' "$TEST_LOG"
-cmp "$ROOT/config/fastfetch/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
+[[ ! -e $HOME/.config/fastfetch/config.jsonc ]]
 if grep -qx 'monarch-provision-first-run' "$TEST_LOG"; then
   echo "First-run provisioning ran before Noctalia became ready" >&2
   exit 1

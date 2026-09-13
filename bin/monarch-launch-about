@@ -3,6 +3,7 @@
 # monarch:summary=Launch the fastfetch TUI that gives information about the current system.
 
 ABOUT_LOGO_LEFT_PADDING=8
+ABOUT_FASTFETCH_DIR=/etc/fastfetch
 
 about_layout() {
   local columns=${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}
@@ -22,6 +23,20 @@ about_terminal_supports_sheen() {
   command -v tte >/dev/null 2>&1 || return 1
   colors=$(tput colors 2>/dev/null) || return 1
   [[ $colors =~ ^[0-9]+$ ]] && (( colors >= 256 ))
+}
+
+about_fastfetch_config_is_custom() {
+  local directory listed=false
+
+  while IFS= read -r directory; do
+    listed=true
+    directory=${directory% (\*)}
+    [[ ${directory%/} == "$ABOUT_FASTFETCH_DIR" ]] && return 1
+    [[ -f ${directory%/}/config.jsonc ]] && return 0
+  done < <(fastfetch --list-config-paths 2>/dev/null)
+
+  [[ $listed == true ]] && return 1
+  [[ -f $HOME/.config/fastfetch/config.jsonc ]]
 }
 
 about_logo_is_stock() {
@@ -85,7 +100,9 @@ about_render_full() {
   local branding="$HOME/.config/monarch/branding/about.txt"
   local rendered rendered_lines status
 
-  if ! about_terminal_supports_sheen || ! about_logo_is_stock "$monarch_path"; then
+  if ! about_terminal_supports_sheen ||
+    ! about_logo_is_stock "$monarch_path" ||
+    about_fastfetch_config_is_custom; then
     fastfetch
     return
   fi

@@ -34,23 +34,25 @@ assert_equals "narrow terminals use the compact layout" \
   "$(COLUMNS=103 LINES=40 "$ABOUT" --layout)" "compact"
 assert_equals "short terminals use the compact layout" \
   "$(COLUMNS=140 LINES=29 "$ABOUT" --layout)" "compact"
-assert_equals "user config optically centers the full logo" \
-  "$(padding_value "$ROOT/config/fastfetch/config.jsonc" left)" "8"
 assert_equals "system config optically centers the full logo" \
   "$(padding_value "$ROOT/etc/fastfetch/config.jsonc" left)" "8"
-assert_equals "user config keeps the information column fixed" \
-  "$(padding_value "$ROOT/config/fastfetch/config.jsonc" right)" "0"
 assert_equals "system config keeps the information column fixed" \
   "$(padding_value "$ROOT/etc/fastfetch/config.jsonc" right)" "0"
 
 CASE_DIR=$(mktemp -d)
 trap 'rm -rf "$CASE_DIR"' EXIT
-mkdir -p "$CASE_DIR/home/.config/monarch/branding" "$CASE_DIR/runtime"
+mkdir -p "$CASE_DIR/home/.config/monarch/branding" \
+  "$CASE_DIR/runtime" "$CASE_DIR/system-fastfetch"
 cp "$ROOT/icon.txt" "$CASE_DIR/runtime/icon.txt"
 cp "$ROOT/icon.txt" "$CASE_DIR/home/.config/monarch/branding/about.txt"
+export ABOUT_FASTFETCH_DIR="$CASE_DIR/system-fastfetch"
 
 cat >"$CASE_DIR/fastfetch" <<'EOF'
 #!/bin/bash
+if [[ ${1:-} == "--list-config-paths" ]]; then
+  printf '%s\n' "$HOME/.config/fastfetch/" "$ABOUT_FASTFETCH_DIR/ (*)"
+  exit 0
+fi
 for ((line = 1; line <= 27; line++)); do
   printf 'rendered %d\n' "$line"
 done
@@ -78,6 +80,14 @@ animation_args=$(<"$CASE_DIR/tte.args")
   { echo "not ok - sheen follows the optically centered logo"; ((failures++)); }
 
 rm -f "$CASE_DIR/tte.args"
+mkdir -p "$CASE_DIR/home/.config/fastfetch"
+touch "$CASE_DIR/home/.config/fastfetch/config.jsonc"
+PATH="$CASE_DIR:$PATH" HOME="$CASE_DIR/home" \
+  about_render_full "$CASE_DIR/runtime" >/dev/null
+[[ ! -e $CASE_DIR/tte.args ]] ||
+  { echo "not ok - a custom Fastfetch layout remains static"; ((failures++)); }
+
+rm "$CASE_DIR/home/.config/fastfetch/config.jsonc"
 printf 'custom logo\n' >"$CASE_DIR/home/.config/monarch/branding/about.txt"
 PATH="$CASE_DIR:$PATH" HOME="$CASE_DIR/home" \
   about_render_full "$CASE_DIR/runtime" >/dev/null
