@@ -13,11 +13,15 @@ mkdir -p "$source_tree/nested"
 printf 'first\n' >"$source_tree/nested/entry"
 chmod 0755 "$source_tree/nested/entry"
 ln -s missing "$source_tree/link"
-monarch_reconcile_managed_tree "$source_tree" "$target_tree"
+tree_changed=false
+monarch_reconcile_managed_tree "$source_tree" "$target_tree" tree_changed
+[[ $tree_changed == "true" ]] || fail "publishing a managed tree reports the change"
 tree_inode=$(stat -c %i "$target_tree")
 file_inode=$(stat -c %i "$target_tree/nested/entry")
 touch -d '2000-01-01' "$target_tree/nested/entry"
-monarch_reconcile_managed_tree "$source_tree" "$target_tree"
+tree_changed=false
+monarch_reconcile_managed_tree "$source_tree" "$target_tree" tree_changed
+[[ $tree_changed == "false" ]] || fail "an unchanged managed tree reports a change"
 [[ $(stat -c %i "$target_tree") == "$tree_inode" ]] || fail "unchanged managed trees are not replaced"
 [[ $(stat -c %i "$target_tree/nested/entry") == "$file_inode" ]] || fail "unchanged managed files are not recopied"
 pass "unchanged content, modes and links keep their inodes regardless of mtime"

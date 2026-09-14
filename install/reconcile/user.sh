@@ -30,9 +30,11 @@ for palette in "$MONARCH_PATH"/config/noctalia/palettes/*.json; do
     "$HOME/.config/noctalia/palettes/$(basename "$palette")"
 done
 
+plugins_changed=false
 for plugin in "$MONARCH_PATH"/default/noctalia/plugins/monarch-*; do
   monarch_reconcile_managed_tree "$plugin" \
-    "$HOME/.local/share/noctalia/plugins/$(basename "$plugin")"
+    "$HOME/.local/share/noctalia/plugins/$(basename "$plugin")" \
+    plugins_changed
 done
 
 plugin_hook="$HOME/.config/monarch/hooks/post-boot.d/noctalia-v5-plugins"
@@ -48,7 +50,16 @@ defer_plugin_activation() {
   trap - EXIT
 }
 
+noctalia_ready=false
 if monarch_noctalia_wait 1; then
+  noctalia_ready=true
+  if [[ $plugins_changed == "true" ]]; then
+    monarch-restart-noctalia
+    monarch_noctalia_wait || noctalia_ready=false
+  fi
+fi
+
+if [[ $noctalia_ready == "true" ]]; then
   plugins_ready=true
   monarch_noctalia_enable_plugins >/dev/null 2>&1 || plugins_ready=false
   monarch-theme-apply >/dev/null 2>&1 || true
