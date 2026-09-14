@@ -130,8 +130,8 @@ order = ["default"]
 glyph = "crown"
 
 [widget.workspaces]
-# v4: Workspace { hideUnoccupied = true, labelMode = "name" }. Without these v5
-# renders all twelve workspaces whether or not they hold windows.
+# v4: Workspace { hideUnoccupied = true }. Without these v5 renders all twelve
+# workspaces whether or not they hold windows.
 hide_when_empty = true
 labels_only_when_occupied = true
 pill_scale = 0.75

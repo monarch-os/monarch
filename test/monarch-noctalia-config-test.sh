@@ -12,6 +12,12 @@ echo "Noctalia keeps the extended clipboard history"
 grep -Fqx 'setup_wizard_enabled = false' "$ROOT/config/noctalia/config.toml"
 echo "Noctalia skips its setup wizard on managed installs"
 
+grep -Fqx 'label_source = "name"' "$ROOT/config/noctalia/monarch-workspaces.toml"
+grep -Fqx 'max_label_chars = 10' "$ROOT/config/noctalia/monarch-workspaces.toml"
+grep -Fqx 'focused_output_only = true' "$ROOT/config/noctalia/monarch-workspaces.toml"
+grep -Fqx 'occupied_color = "on_primary"' "$ROOT/config/noctalia/monarch-workspaces.toml"
+echo "Noctalia displays persistent Niri workspace names"
+
 example="$ROOT/config/noctalia/user-templates.toml.example"
 EXAMPLE="$example" python3 <<'PY'
 import os

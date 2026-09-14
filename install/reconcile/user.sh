@@ -17,6 +17,9 @@ monarch_reconcile_seeded_file \
 monarch_reconcile_managed_file \
   "$MONARCH_PATH/config/noctalia/monarch-herdr.toml" \
   "$HOME/.config/noctalia/monarch-herdr.toml"
+monarch_reconcile_managed_file \
+  "$MONARCH_PATH/config/noctalia/monarch-workspaces.toml" \
+  "$HOME/.config/noctalia/monarch-workspaces.toml"
 
 for palette in "$MONARCH_PATH"/config/noctalia/palettes/*.json; do
   monarch_reconcile_managed_file "$palette" \

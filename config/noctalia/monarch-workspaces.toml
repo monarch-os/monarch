@@ -1,0 +1,5 @@
+[widget.workspaces]
+label_source = "name"
+max_label_chars = 10
+focused_output_only = true
+occupied_color = "on_primary"
