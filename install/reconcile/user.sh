@@ -21,6 +21,10 @@ monarch_reconcile_managed_file \
   "$MONARCH_PATH/config/noctalia/monarch-workspaces.toml" \
   "$HOME/.config/noctalia/monarch-workspaces.toml"
 
+monarch_reconcile_managed_file \
+  "$MONARCH_PATH/config/noctalia/monarch-widgets.toml" \
+  "$HOME/.config/noctalia/monarch-widgets.toml"
+
 for palette in "$MONARCH_PATH"/config/noctalia/palettes/*.json; do
   monarch_reconcile_managed_file "$palette" \
     "$HOME/.config/noctalia/palettes/$(basename "$palette")"

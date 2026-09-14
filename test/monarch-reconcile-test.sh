@@ -343,6 +343,8 @@ cmp "$MONARCH_NVIM_CONFIG_DIR/lua/config/remote_clipboard.lua" \
 [[ -f $HOME/.config/noctalia/palettes/Monarch.json ]]
 cmp "$ROOT/config/noctalia/monarch-workspaces.toml" \
   "$HOME/.config/noctalia/monarch-workspaces.toml"
+cmp "$ROOT/config/noctalia/monarch-widgets.toml" \
+  "$HOME/.config/noctalia/monarch-widgets.toml"
 cmp "$ROOT/config/alacritty/monarch-text-size.toml" \
   "$HOME/.config/alacritty/monarch-text-size.toml"
 grep -qF '/usr/share/monarch}/default/zsh/rc' "$HOME/.zshrc"

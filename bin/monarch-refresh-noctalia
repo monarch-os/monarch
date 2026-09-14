@@ -7,6 +7,7 @@ set -euo pipefail
 
 monarch-refresh-config noctalia/config.toml
 monarch-refresh-config noctalia/monarch-workspaces.toml
+monarch-refresh-config noctalia/monarch-widgets.toml
 monarch-refresh-config noctalia/palettes/Monarch.json
 
 monarch-restart-noctalia
