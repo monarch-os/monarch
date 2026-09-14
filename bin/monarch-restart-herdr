@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Reload the herdr config in the running server (no-op if not running)
+# monarch:summary=Reload the Herdr config in the running server and attached clients
 
 # herdr reloads config.toml live, without dropping panes. Worth reporting on:
 # an invalid config does not fail loudly, it falls back to herdr's built-in

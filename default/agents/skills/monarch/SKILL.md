@@ -147,7 +147,7 @@ Run `monarch --help` for the full list. The most common groups:
 ├── config.toml                # Theme, bar lanes, [widget.*] settings, hooks, idle
 └── palettes/                  # Monarch and Quattro schemes (dark + light + terminal blocks)
 
-~/.config/herdr/config.toml        # ANSI slot names; follows the terminal, never re-rendered
+~/.config/herdr/config.toml        # Rendered by Noctalia's Monarch Herdr template
 
 ~/.local/share/noctalia/plugins/   # Luau plugins (monarch-indicators)
 ~/.local/state/noctalia/           # Noctalia's own mutable state — do not edit or ship
