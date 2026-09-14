@@ -122,6 +122,29 @@ cmp "$test_tmp/stock-original" "$HOME/.config/herdr/config.toml.bak.monarch-v5"
 [[ ! -e $HOME/.config/fastfetch/config.jsonc ]]
 pass "recognized stock app configs migrate to packaged defaults"
 
+export HOME="$test_tmp/custom-v4-herdr"
+mkdir -p "$HOME/.config/herdr"
+sed -e 's/{{colors.surface_container.default.hex}}/#112233/' \
+  -e 's/{{colors.primary.default.hex}}/#ABCDEF/' \
+  "$ROOT/test/fixtures/noctalia-v4/herdr.toml" >"$HOME/.config/herdr/config.toml"
+cat >>"$HOME/.config/herdr/config.toml" <<'EOF'
+
+[ui.sidebar.agents]
+rows = [["agent", { token = "workspace", dim = true }]]
+
+[ui.sound]
+enabled = false
+EOF
+cp "$HOME/.config/herdr/config.toml" "$test_tmp/custom-v4-herdr-original"
+bash "$ROOT/install/reconcile/schema/1-to-2/legacy-noctalia.sh"
+grep -qF 'panel_bg = "black"' "$HOME/.config/herdr/config.toml"
+! grep -qE '^accent[[:space:]]*=' "$HOME/.config/herdr/config.toml"
+grep -qF '[ui.sidebar.agents]' "$HOME/.config/herdr/config.toml"
+grep -qF 'enabled = false' "$HOME/.config/herdr/config.toml"
+cmp "$test_tmp/custom-v4-herdr-original" \
+  "$HOME/.config/herdr/config.toml.bak.monarch-v5"
+pass "custom V4 Herdr settings survive while generated colors become terminal colors"
+
 export HOME="$test_tmp/symlinks"
 mkdir -p "$HOME/.config/herdr" "$HOME/.config/fastfetch" "$HOME/.config/noctalia"
 ln -s "$test_tmp/stock-original" "$HOME/.config/herdr/config.toml"
