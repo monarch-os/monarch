@@ -1,0 +1,14 @@
+# Edit this template rather than the generated ~/.config/herdr/config.toml.
+
+[theme]
+name = "terminal"
+
+[theme.custom]
+panel_bg = "{{colors.surface_container.default.hex}}"
+accent = "{{colors.primary.default.hex}}"
+
+[keys]
+prefix = "ctrl+b"
+
+[terminal]
+new_cwd = "follow"

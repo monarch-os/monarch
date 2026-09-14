@@ -328,6 +328,8 @@ for template_file in fuzzel.ini nvim-base16.lua obsidian.css sddm.conf zed.json;
 done
 [[ $(<"$HOME/.config/noctalia/templates/herdr.toml") == "user-herdr" ]]
 [[ $(<"$HOME/.config/noctalia/templates/custom.tpl") == "custom" ]]
+cmp "$ROOT/config/noctalia/monarch-herdr.toml" \
+  "$HOME/.config/noctalia/monarch-herdr.toml"
 [[ -f $HOME/.local/state/monarch/reconcile/1-to-2/legacy-noctalia ]]
 [[ ! -e $HOME/.config/nvim/lua/plugins/theme.lua ]]
 [[ ! -e $HOME/.config/nvim/lua/plugins/omarchy-theme-hotreload.lua ]]

@@ -28,6 +28,27 @@ assert entry == {
 PY
 echo "Noctalia ships an inert data-only user-template example"
 
+HERDR_REGISTRATION="$ROOT/config/noctalia/monarch-herdr.toml" \
+HERDR_TEMPLATE="$ROOT/config/noctalia/templates/herdr.toml" python3 <<'PY'
+import os
+import tomllib
+
+with open(os.environ["HERDR_REGISTRATION"], "rb") as source:
+  entry = tomllib.load(source)["theme"]["templates"]["user"]["herdr"]
+
+assert entry == {
+  "enabled": True,
+  "input_path": "$XDG_CONFIG_HOME/noctalia/templates/herdr.toml",
+  "output_path": "$XDG_CONFIG_HOME/herdr/config.toml",
+  "post_hook": "monarch-restart-herdr",
+}
+
+template = open(os.environ["HERDR_TEMPLATE"]).read()
+assert 'panel_bg = "{{colors.surface_container.default.hex}}"' in template
+assert 'accent = "{{colors.primary.default.hex}}"' in template
+PY
+echo "Noctalia renders and reloads the Herdr theme"
+
 mkdir -p "$TMP/bin"
 printf '%s\n' '#!/bin/bash' 'exit 23' >"$TMP/bin/monarch-refresh-config"
 chmod +x "$TMP/bin/monarch-refresh-config"

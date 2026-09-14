@@ -2,11 +2,9 @@
 # tmux. Copied to ~/.config/herdr/config.toml on install; `monarch refresh herdr`
 # takes the shipped version again and reloads the running server.
 #
-# Nothing here needs to be re-rendered when the scheme changes. herdr asks the
-# terminal for its palette on startup — 256 OSC 4 queries plus OSC 10/11 for
-# foreground and background — so `theme = "terminal"` and colors named after ANSI
-# slots follow whatever Noctalia has themed the terminal to. This is how Omarchy
-# drives it too: not one of its dozen theme-set scripts touches herdr.
+# This fallback works before Noctalia first renders its Herdr user template.
+# The template supplies the active Material accent because Herdr's terminal
+# theme otherwise uses ANSI blue, which need not match the scheme's primary.
 #
 # herdr falls back to its built-in defaults for every key omitted here, so a
 # partial config is valid.
@@ -15,9 +13,6 @@
 name = "terminal"
 
 [theme.custom]
-# The active tab is drawn as panel_bg text on an accent background, so panel_bg
-# has to stay dark enough to read against it. An ANSI slot name, not a hex, so it
-# moves with the terminal.
 panel_bg = "black"
 
 [keys]

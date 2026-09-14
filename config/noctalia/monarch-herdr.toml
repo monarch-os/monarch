@@ -1,0 +1,5 @@
+[theme.templates.user.herdr]
+enabled = true
+input_path = "$XDG_CONFIG_HOME/noctalia/templates/herdr.toml"
+output_path = "$XDG_CONFIG_HOME/herdr/config.toml"
+post_hook = "monarch-restart-herdr"
