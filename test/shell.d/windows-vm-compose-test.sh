@@ -162,6 +162,8 @@ services:
       RAM_SIZE: "16G"
       CPU_CORES: "6"
       DISK_SIZE: "128G"
+      DISK_FMT: "qcow2"
+      LANGUAGE: "French"
       USERNAME: "legacyuser"
       PASSWORD: "legacypass"
       KEY: "H7TFB-N4W6M-6QVGX-9CBTV-KHKQY"
@@ -175,6 +177,8 @@ migrate_legacy_compose
 resolve_caller
 [[ -f $COMPOSE ]] || fail "migration did not write compose"
 grep -q 'USERNAME: "legacyuser"' "$COMPOSE" || fail "migration lost settings"
+grep -q 'LANGUAGE: "French"' "$COMPOSE" || fail "migration lost the Windows language"
+grep -q 'DISK_FMT: "qcow2"' "$COMPOSE" || fail "migration lost the Windows disk format"
 grep -q 'KEY: "H7TFB-N4W6M-6QVGX-9CBTV-KHKQY"' "$COMPOSE" || fail "migration lost OEM key"
 [[ -f $HOME/.windows/existing-disk && -f $external_shared/existing-shared-file ]] || fail "migration lost data"
 [[ ! -L $HOME/.windows && $(readlink "$HOME/Windows") == "$external_shared" ]] || fail "migration consumed source path"

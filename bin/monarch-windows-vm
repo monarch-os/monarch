@@ -106,8 +106,10 @@ with_vm_lock() {
 valid_ram() { [[ $1 =~ ^[0-9]{1,3}G$ ]]; }
 valid_cores() { [[ $1 =~ ^[0-9]{1,2}$ ]] && ((10#$1 >= 1)); }
 valid_disk() { [[ $1 =~ ^[0-9]{1,4}G$ ]]; }
+valid_disk_format() { [[ $1 == "raw" || $1 == "qcow2" ]]; }
 valid_username() { [[ $1 =~ ^[A-Za-z0-9_-]{1,20}$ ]]; }
 valid_tz() { [[ $1 =~ ^[A-Za-z0-9_/.+-]{1,64}$ ]]; }
+valid_language() { [[ $1 =~ ^[[:print:]]{1,64}$ ]]; }
 valid_password() { [[ $1 =~ ^[[:print:]]{1,64}$ ]]; }
 valid_product_key() { [[ -z $1 || $1 =~ ^[A-Z0-9]{5}(-[A-Z0-9]{5}){4}$ ]]; }
 valid_source_fingerprint() { [[ $1 =~ ^[0-9a-f]{64}$ ]]; }
@@ -666,7 +668,7 @@ rollback_new_caller_mounts() {
 
 write_compose_atomically() (
   local ram="$1" cores="$2" disk="$3" username="$4" password="$5" tz="$6" product_key="$7"
-  local tmp="" rc esc_password
+  local language="$8" disk_format="$9" tmp="" rc esc_language esc_password
   valid_source_fingerprint "$CALLER_STORAGE_FINGERPRINT" &&
     valid_source_fingerprint "$CALLER_SHARED_FINGERPRINT" || exit 1
   cleanup_writer() {
@@ -682,9 +684,12 @@ write_compose_atomically() (
   esc_password=${password//\\/\\\\}
   esc_password=${esc_password//\"/\\\"}
   esc_password=${esc_password//\$/\$\$}
+  esc_language=${language//\\/\\\\}
+  esc_language=${esc_language//\"/\\\"}
+  esc_language=${esc_language//\$/\$\$}
 
   tmp=$(mktemp "$RUNTIME_DIR/.compose.XXXXXX") || exit 1
-  # monarch:heredoc-expands paths=EXPECTED_STORAGE,EXPECTED_SHARED
+  # monarch:heredoc-expands paths=CALLER_STORAGE_FINGERPRINT,CALLER_SHARED_FINGERPRINT,EXPECTED_STORAGE,EXPECTED_SHARED -- fingerprints are validated and protected anchors are pinned
   cat >"$tmp" <<EOF || exit 1
 x-monarch-storage-fingerprint: "$CALLER_STORAGE_FINGERPRINT"
 x-monarch-shared-fingerprint: "$CALLER_SHARED_FINGERPRINT"
@@ -695,9 +700,11 @@ services:
     container_name: $CONTAINER
     environment:
       VERSION: "11"
+      LANGUAGE: "$esc_language"
       RAM_SIZE: "$ram"
       CPU_CORES: "$cores"
       DISK_SIZE: "$disk"
+      DISK_FMT: "$disk_format"
       USERNAME: "$username"
       PASSWORD: "$esc_password"
       KEY: "$product_key"
@@ -730,7 +737,7 @@ EOF
 
 # Revalidate the fixed input allowlist at the privileged boundary.
 __priv_write_compose() {
-  local ram cores disk username password tz parser_key value product_key=""
+  local ram cores disk username password tz parser_key value product_key="" language="English" disk_format="raw"
 
   while IFS='=' read -r parser_key value; do
     case "$parser_key" in
@@ -741,20 +748,24 @@ __priv_write_compose() {
     PASSWORD) password="$value" ;;
     TZ) tz="$value" ;;
     PRODUCT_KEY) product_key="$value" ;;
+    LANGUAGE) language="$value" ;;
+    DISK_FORMAT) disk_format="$value" ;;
     esac
   done
 
   valid_ram "$ram" || { echo "invalid RAM: $ram" >&2; exit 2; }
   valid_cores "$cores" || { echo "invalid CPU cores: $cores" >&2; exit 2; }
   valid_disk "$disk" || { echo "invalid disk size: $disk" >&2; exit 2; }
+  valid_disk_format "$disk_format" || { echo "invalid disk format: $disk_format" >&2; exit 2; }
   valid_username "$username" || { echo "invalid username: $username" >&2; exit 2; }
   valid_password "$password" || { echo "invalid password" >&2; exit 2; }
   valid_product_key "$product_key" || { echo "invalid Windows product key" >&2; exit 2; }
+  valid_language "$language" || { echo "invalid Windows language" >&2; exit 2; }
   valid_tz "$tz" || tz="UTC"
   prepare_caller_mounts || exit 2
   # Failures roll back newly created binds and leave an old compose untouched.
   write_compose_atomically "$ram" "$cores" "$disk" "$username" "$password" "$tz" \
-    "$product_key" || exit 2
+    "$product_key" "$language" "$disk_format" || exit 2
 }
 
 get_mount_source() {
@@ -1295,9 +1306,10 @@ available_storage_gb() {
 
 write_compose() {
   local ram="$1" cores="$2" disk="$3" username="$4" password="$5" tz="$6"
-  local product_key=${7:-}
-  printf 'RAM=%s\nCORES=%s\nDISK=%s\nUSERNAME=%s\nPASSWORD=%s\nTZ=%s\nPRODUCT_KEY=%s\n' \
-    "$ram" "$cores" "$disk" "$username" "$password" "$tz" "$product_key" |
+  local product_key=${7:-} language=${8:-English} disk_format=${9:-raw}
+  printf 'RAM=%s\nCORES=%s\nDISK=%s\nUSERNAME=%s\nPASSWORD=%s\nTZ=%s\nPRODUCT_KEY=%s\nLANGUAGE=%s\nDISK_FORMAT=%s\n' \
+    "$ram" "$cores" "$disk" "$username" "$password" "$tz" "$product_key" "$language" \
+    "$disk_format" |
     priv write_compose
 }
 
@@ -1390,7 +1402,7 @@ migrate_legacy_compose() {
   [[ -f $LEGACY_COMPOSE_FILE ]] || return 1
 
   echo "Migrating Windows VM configuration to $COMPOSE_FILE ..."
-  local ram cores disk username password tz product_key
+  local ram cores disk username password tz product_key language disk_format
   ram=$(read_compose_value RAM_SIZE "$LEGACY_COMPOSE_FILE")
   cores=$(read_compose_value CPU_CORES "$LEGACY_COMPOSE_FILE")
   disk=$(read_compose_value DISK_SIZE "$LEGACY_COMPOSE_FILE")
@@ -1398,7 +1410,11 @@ migrate_legacy_compose() {
   password=$(read_compose_value PASSWORD "$LEGACY_COMPOSE_FILE")
   tz=$(read_compose_value TZ "$LEGACY_COMPOSE_FILE")
   product_key=$(read_compose_value KEY "$LEGACY_COMPOSE_FILE")
+  language=$(read_compose_value LANGUAGE "$LEGACY_COMPOSE_FILE")
+  disk_format=$(read_compose_value DISK_FMT "$LEGACY_COMPOSE_FILE")
   [[ -z $tz ]] && tz="UTC"
+  [[ -z $language ]] && language="English"
+  [[ -z $disk_format ]] && disk_format="raw"
   prepare_user_mount_sources || {
     echo "Could not validate the existing Windows VM data directories." >&2
     return 1
@@ -1406,7 +1422,7 @@ migrate_legacy_compose() {
   write_credentials "$username" "$password" || return 1
   # The privileged writer ignores volume paths from this user-owned file.
   if ! write_compose "$ram" "$cores" "$disk" "$username" "$password" "$tz" \
-    "$product_key"; then
+    "$product_key" "$language" "$disk_format"; then
     echo "Could not migrate the existing configuration automatically." >&2
     echo "Re-run: monarch-windows-vm install" >&2
     return 1
@@ -1696,6 +1712,11 @@ launch_windows() {
   fi
   [[ -z $WIN_USER ]] && WIN_USER="docker"
   [[ -z $WIN_PASS ]] && WIN_PASS="admin"
+
+  if ! nc -z -w 1 127.0.0.1 3389 2>/dev/null; then
+    monarch-notification-send -g "" -t 15000 \
+      "Starting Windows VM" "This can take 15-30 seconds"
+  fi
 
   echo "Starting Windows VM (this may prompt for authorization)..."
   if ! priv up_wait; then
