@@ -12,6 +12,31 @@ echo "Noctalia keeps the extended clipboard history"
 grep -Fqx 'setup_wizard_enabled = false' "$ROOT/config/noctalia/config.toml"
 echo "Noctalia skips its setup wizard on managed installs"
 
+config="$ROOT/config/noctalia/monarch-widgets.toml"
+CONFIG="$config" python3 <<'PY'
+import os
+import tomllib
+
+with open(os.environ["CONFIG"], "rb") as source:
+  config = tomllib.load(source)
+
+assert config["bar"]["default"]["widget_spacing"] == 4
+assert config["widget"]["media"] == {
+  "capsule": True,
+  "hide_when_no_media": True,
+  "show_progress": True,
+  "title_scroll": "always",
+}
+assert config["widget"]["tray"]["drawer"] is True
+PY
+echo "Noctalia ships the compact media and tray layout"
+
+grep -Fqx 'label_source = "name"' "$ROOT/config/noctalia/monarch-workspaces.toml"
+grep -Fqx 'max_label_chars = 10' "$ROOT/config/noctalia/monarch-workspaces.toml"
+grep -Fqx 'focused_output_only = true' "$ROOT/config/noctalia/monarch-workspaces.toml"
+grep -Fqx 'occupied_color = "on_primary"' "$ROOT/config/noctalia/monarch-workspaces.toml"
+echo "Noctalia displays persistent Niri workspace names"
+
 example="$ROOT/config/noctalia/user-templates.toml.example"
 EXAMPLE="$example" python3 <<'PY'
 import os

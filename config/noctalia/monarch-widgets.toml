@@ -1,0 +1,11 @@
+[bar.default]
+widget_spacing = 4
+
+[widget.media]
+capsule = true
+hide_when_no_media = true
+show_progress = true
+title_scroll = "always"
+
+[widget.tray]
+drawer = true

@@ -72,7 +72,6 @@ order = ["default"]
   radius_bottom_right = 0
   thickness = 26
   padding = 6
-  widget_spacing = 2
   start = ["control-center", "workspaces", "media"]
   center = [
     "clock",
@@ -130,8 +129,8 @@ order = ["default"]
 glyph = "crown"
 
 [widget.workspaces]
-# v4: Workspace { hideUnoccupied = true, labelMode = "name" }. Without these v5
-# renders all twelve workspaces whether or not they hold windows.
+# v4: Workspace { hideUnoccupied = true }. Without these v5 renders all twelve
+# workspaces whether or not they hold windows.
 hide_when_empty = true
 labels_only_when_occupied = true
 pill_scale = 0.75
@@ -147,7 +146,7 @@ vertical_format = "{:%H\n%M}"
 # Icon-only status widgets: drop the text label next to the glyph, so the
 # network widget shows the connection icon rather than "enp0s3" and the rest
 # stay symmetrical with it. `show_label` is the generic label toggle and exists
-# only on these five — media has no label setting at all (see below), and
+# only on these five — media has no label setting at all, and
 # clock/workspaces/tray/control-center are label-less by nature.
 [widget.network]
 show_label = false
@@ -163,11 +162,6 @@ show_label = false
 
 [widget.battery.actions]
 right = "exec monarch-toggle-battery-percentage"
-
-[widget.media]
-# Collapse the pill when no MPRIS player is active, instead of leaving a
-# permanent "Nothing playing".
-hide_when_no_media = true
 
 [widget.privacy]
 hide_inactive = true
