@@ -147,7 +147,7 @@ cat >"$TEST_ROOT/bin/monarch-pkg-present" <<'EOF'
 [[ $1 == "noctalia-shell" ]]
 EOF
 
-for command in monarch-pkg-add monarch-pkg-drop monarch-refresh-config monarch-refresh-niri monarch-theme-apply; do
+for command in monarch-pkg-add monarch-pkg-drop monarch-refresh-config monarch-refresh-niri monarch-restart-noctalia monarch-theme-apply; do
   cat >"$TEST_ROOT/bin/$command" <<'EOF'
 #!/bin/bash
 printf '%s %s\n' "${0##*/}" "$*" >>"$TEST_LOG"
@@ -359,6 +359,10 @@ plugin_hook="$HOME/.config/monarch/hooks/post-boot.d/noctalia-v5-plugins"
 [[ -x $plugin_hook && -x $runtime_hook ]]
 [[ ! -e $HOME/.local/state/monarch/schema ]]
 grep -qx 'monarch-refresh-noctalia' "$TEST_LOG"
+if grep -q '^monarch-restart-noctalia ' "$TEST_LOG"; then
+  echo "Unavailable Noctalia was restarted after plugin reconciliation" >&2
+  exit 1
+fi
 
 rm "$runtime_hook"
 bash "$ROOT/install/reconcile/schema/1-to-2/runtime-hook.sh"
@@ -375,6 +379,7 @@ printf '%s\n' current >"$HOME/.config/noctalia/user-templates.toml"
 printf '%s\n' newer >"$HOME/.config/noctalia/templates/newer.tpl"
 printf '%s\n' '[font]' 'size = 12' \
   >"$HOME/.config/alacritty/monarch-text-size.toml"
+printf '%s\n' stale >"$HOME/.local/share/noctalia/plugins/monarch-network/panel.luau"
 bash "$ROOT/install/reconcile/schema/1-to-2/user.sh"
 bash "$ROOT/install/reconcile/schema/1-to-2/system-after-user.sh"
 bash "$ROOT/install/reconcile/user.sh"
@@ -389,6 +394,10 @@ grep -qx 'echo user-gemini' "$HOME/.local/bin/gemini"
 [[ $(<"$HOME/.config/noctalia/templates/newer.tpl") == "newer" ]]
 [[ $(<"$HOME/.config/alacritty/monarch-text-size.toml") == $'[font]\nsize = 12' ]]
 (( $(grep -xc monarch-refresh-noctalia "$TEST_LOG") == 1 ))
+(( $(grep -c '^monarch-restart-noctalia ' "$TEST_LOG") == 1 ))
+
+bash "$ROOT/install/reconcile/user.sh"
+(( $(grep -c '^monarch-restart-noctalia ' "$TEST_LOG") == 1 ))
 
 export TEST_NOCTALIA_PLUGIN_FAILURE=monarch/menu
 rm -f "$plugin_hook"
