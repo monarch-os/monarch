@@ -72,6 +72,9 @@ list_names() {
   grep -v '^#' "$1" | grep -v '^[[:space:]]*$'
 }
 
+grep -qxF 'multilib/lib32-nvidia-utils' "$ROOT/install/monarch-other.packages" ||
+  fail "the NVIDIA 32-bit utilities come from Arch multilib"
+
 # No names means no missing names means a pass: the silent success to prevent.
 list_is_readable() {
   if [[ -s $1 ]] && [[ -n $(list_names "$1") ]]; then
@@ -90,7 +93,7 @@ else
 
     missing=()
     while read -r pkg; do
-      grep -qxF "$pkg" "$TMP/available" || missing+=("$pkg")
+      grep -qxF "${pkg#*/}" "$TMP/available" || missing+=("$pkg")
     done < <(list_names "$ROOT/install/$list")
 
     if ((${#missing[@]})); then

@@ -29,7 +29,7 @@ linux-headers
 macbook12-spi-driver-dkms
 nvidia-open-dkms
 nvidia-utils
-lib32-nvidia-utils
+multilib/lib32-nvidia-utils
 pipewire
 pipewire-alsa
 pipewire-jack
