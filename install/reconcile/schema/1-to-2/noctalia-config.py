@@ -96,7 +96,28 @@ def herdr_config(text, runtime):
   # Only the unmodified V4 template output is owned by Monarch.
   if hashlib.sha256(normalized.encode()).hexdigest() == "3959426bdc72aab761291e1c6e8d571fb11af7f3e41c2b294769cf6ae0069075":
     return (runtime / "config/herdr/config.toml").read_text()
-  return text
+
+  marker = "# Noctalia user-template — registered as [templates.herdr]"
+  if marker not in text:
+    return text
+  theme = re.search(r'(?ms)^\[theme\][^\n]*\n(?P<body>.*?)(?=^\[|\Z)', text)
+  custom = re.search(r'(?ms)^\[theme\.custom\][^\n]*\n(?P<body>.*?)(?=^\[|\Z)', text)
+  if not theme or not custom:
+    return text
+  if not re.search(r'(?m)^[ \t]*name[ \t]*=[ \t]*"terminal"[ \t]*(?:#[^\n]*)?$', theme["body"]):
+    return text
+
+  panel = re.compile(r'(?m)^([ \t]*panel_bg[ \t]*=[ \t]*)"#[0-9a-fA-F]{6}"')
+  accent = re.compile(
+    r'(?m)^[ \t]*accent[ \t]*=[ \t]*"#[0-9a-fA-F]{6}"[ \t]*(?:#[^\n]*)?\n?'
+  )
+  body = custom["body"]
+  if not panel.search(body) or not accent.search(body):
+    return text
+  body = panel.sub(r'\1"black"', body, count=1)
+  body = accent.sub("", body, count=1)
+  start, end = custom.span("body")
+  return text[:start] + body + text[end:]
 
 
 def fastfetch_config(text):
