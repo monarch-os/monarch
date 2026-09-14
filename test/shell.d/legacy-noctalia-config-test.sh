@@ -95,9 +95,9 @@ assert prefs["theme"]["source"] == "wallpaper"
 assert all(not item["enabled"] for item in prefs["idle"]["behavior"].values())
 assert {"lock", "screen-off", "screensaver"} <= prefs["idle"]["behavior"].keys()
 PY
-cmp "$ROOT/config/herdr/config.toml" "$HOME/.config/herdr/config.toml"
+[[ ! -e $HOME/.config/herdr/config.toml ]]
 [[ ! -e $HOME/.config/fastfetch/config.jsonc ]]
-pass "disabled idle remains disabled and missing user configs use packaged defaults"
+pass "disabled idle remains disabled and generated configs wait for Noctalia"
 
 export HOME="$test_tmp/invalid"
 mkdir -p "$HOME/.config/noctalia"
@@ -117,10 +117,10 @@ sed -e 's/{{colors.surface_container.default.hex}}/#112233/' \
 cp "$ROOT/etc/fastfetch/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
 cp "$HOME/.config/herdr/config.toml" "$test_tmp/stock-original"
 bash "$ROOT/install/reconcile/schema/1-to-2/legacy-noctalia.sh"
-cmp "$ROOT/config/herdr/config.toml" "$HOME/.config/herdr/config.toml"
-cmp "$test_tmp/stock-original" "$HOME/.config/herdr/config.toml.bak.monarch-v5"
+cmp "$test_tmp/stock-original" "$HOME/.config/herdr/config.toml"
+[[ ! -e $HOME/.config/herdr/config.toml.bak.monarch-v5 ]]
 [[ ! -e $HOME/.config/fastfetch/config.jsonc ]]
-pass "recognized stock app configs migrate to packaged defaults"
+pass "stock Herdr output stays available until Noctalia renders its template"
 
 export HOME="$test_tmp/custom-v4-herdr"
 mkdir -p "$HOME/.config/herdr" "$HOME/.config/noctalia/templates"

@@ -49,6 +49,27 @@ assert 'accent = "{{colors.primary.default.hex}}"' in template
 PY
 echo "Noctalia renders and reloads the Herdr theme"
 
+[[ ! -e $ROOT/config/herdr/config.toml ]]
+echo "Herdr has no second packaged configuration source"
+
+herdr_bin="$TMP/herdr-bin"
+herdr_log="$TMP/herdr-refresh.log"
+mkdir -p "$herdr_bin"
+cat >"$herdr_bin/monarch-refresh-config" <<'EOF'
+#!/bin/bash
+printf 'refresh %s\n' "$*" >>"$HERDR_REFRESH_LOG"
+EOF
+cat >"$herdr_bin/noctalia" <<'EOF'
+#!/bin/bash
+printf 'noctalia %s\n' "$*" >>"$HERDR_REFRESH_LOG"
+EOF
+chmod +x "$herdr_bin/"*
+HERDR_REFRESH_LOG="$herdr_log" PATH="$herdr_bin:/usr/bin" \
+  "$ROOT/bin/monarch-refresh-herdr"
+grep -Fqx 'refresh noctalia/templates/herdr.toml' "$herdr_log"
+grep -Fqx 'noctalia msg templates-apply' "$herdr_log"
+echo "Herdr refresh restores and renders its only source"
+
 mkdir -p "$TMP/bin"
 printf '%s\n' '#!/bin/bash' 'exit 23' >"$TMP/bin/monarch-refresh-config"
 chmod +x "$TMP/bin/monarch-refresh-config"
