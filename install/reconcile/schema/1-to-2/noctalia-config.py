@@ -85,20 +85,6 @@ def migrate_app(config, runtime, relative, transform, retire_hashes=frozenset())
   publish(path, updated.encode(), mode, replace=True)
 
 
-def herdr_config(text, runtime):
-  normalized = text
-  for key, token in (("panel_bg", "surface_container"), ("accent", "primary")):
-    normalized = re.sub(
-      rf'(?m)^({key}\s*=\s*")#[0-9a-fA-F]{{6}}("\s*)$',
-      lambda match: match[1] + "{{colors." + token + ".default.hex}}" + match[2],
-      normalized,
-    )
-  # Only the unmodified V4 template output is owned by Monarch.
-  if hashlib.sha256(normalized.encode()).hexdigest() == "3959426bdc72aab761291e1c6e8d571fb11af7f3e41c2b294769cf6ae0069075":
-    return (runtime / "config/herdr/config.toml").read_text()
-  return text
-
-
 def fastfetch_config(text):
   old = 'theme=$(jq -r \'.colorSchemes.predefinedScheme // "Monarch"\' ~/.config/noctalia/settings.json 2>/dev/null);'
   new = "theme=$(noctalia msg color-scheme-get 2>/dev/null | cut -d' ' -f2-); theme=${theme:-Monarch};"
@@ -265,7 +251,6 @@ def main():
   bar = settings.get("bar", {})
   if isinstance(bar, dict) and bar.get("position") in ("top", "bottom", "left", "right"):
     publish(config / "zz-monarch-bar-position.toml", toml({"bar.default": {"position": bar["position"]}}))
-  migrate_app(home / ".config", runtime, "herdr/config.toml", lambda text: herdr_config(text, runtime))
   migrate_app(
     home / ".config", runtime, "fastfetch/config.jsonc", fastfetch_config,
     STOCK_FASTFETCH_HASHES,

@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# monarch:summary=Overwrite the user herdr config with the Monarch default and reload herdr
+# monarch:summary=Restore the Monarch Herdr template and render it with Noctalia
 
-monarch-refresh-config herdr/config.toml
-monarch-restart-herdr
+set -euo pipefail
+
+monarch-refresh-config noctalia/templates/herdr.toml
+noctalia msg templates-apply
