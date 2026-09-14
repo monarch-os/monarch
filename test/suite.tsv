@@ -75,6 +75,7 @@ test/monarch-webcam-overlay-test.sh	capture	medium	isolated
 test/monarch-wifi-band-test.sh	wifi	medium	isolated
 test/monarch-wifi-qr-test.sh	wifi	medium	isolated
 test/monarch-windows-key-test.sh	windows	low	isolated
+test/shell.d/windows-vm-launch-test.sh	windows	medium	isolated
 test/shell.d/dns-security-test.sh	dns	medium	isolated
 test/shell.d/docker-access-test.sh	docker-security	high	isolated
 test/shell.d/factory-reset-esp-test.sh	factory-reset	high	isolated
