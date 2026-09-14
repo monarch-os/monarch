@@ -11,10 +11,10 @@ if ! monarch-hw-nvidia; then
 fi
 
 if monarch-hw-nvidia-gsp; then
-  PACKAGES=(nvidia-open-dkms nvidia-utils lib32-nvidia-utils libva-nvidia-driver)
+  PACKAGES=(nvidia-open-dkms nvidia-utils libva-nvidia-driver)
   GPU_ARCH="turing_plus"
 elif monarch-hw-nvidia-without-gsp; then
-  PACKAGES=(nvidia-580xx-dkms nvidia-580xx-utils lib32-nvidia-580xx-utils)
+  PACKAGES=(nvidia-580xx-dkms nvidia-580xx-utils)
   GPU_ARCH="maxwell_pascal_volta"
 else
   echo "No compatible driver for your NVIDIA GPU. See: https://wiki.archlinux.org/title/NVIDIA"

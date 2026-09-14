@@ -146,3 +146,80 @@ write_pci_devices 0x1002:0x15e7:0x030000
 BLOCKED=kill-only hybrid_gpu &&
   fail "hybrid detection rejects one GPU after killing a wedged supergfxctl query"
 pass "hybrid detection kills a wedged supergfxctl query and falls back"
+
+nvidia_bin="$tmp_dir/nvidia-bin"
+nvidia_home="$tmp_dir/nvidia-home"
+nvidia_packages="$tmp_dir/nvidia-packages"
+mkdir -p "$nvidia_bin" "$nvidia_home"
+
+cat >"$nvidia_bin/monarch-hw-nvidia" <<'STUB'
+#!/bin/bash
+exit 0
+STUB
+cat >"$nvidia_bin/monarch-hw-nvidia-gsp" <<'STUB'
+#!/bin/bash
+[[ $NVIDIA_TEST_MODE == "gsp" ]]
+STUB
+cat >"$nvidia_bin/monarch-hw-nvidia-without-gsp" <<'STUB'
+#!/bin/bash
+[[ $NVIDIA_TEST_MODE == "legacy" ]]
+STUB
+cat >"$nvidia_bin/monarch-hw-kernel-headers" <<'STUB'
+#!/bin/bash
+printf '%s\n' linux-cachyos-headers
+STUB
+cat >"$nvidia_bin/monarch-pkg-add" <<'STUB'
+#!/bin/bash
+printf '%s\n' "$@" >"$NVIDIA_PACKAGES_LOG"
+STUB
+cat >"$nvidia_bin/lspci" <<'STUB'
+#!/bin/bash
+exit 0
+STUB
+cat >"$nvidia_bin/sudo" <<'STUB'
+#!/bin/bash
+[[ $1 == "tee" ]] || exit 64
+cat >/dev/null
+STUB
+chmod +x "$nvidia_bin"/*
+
+run_nvidia_installer() {
+  local mode=$1
+
+  NVIDIA_TEST_MODE="$mode" NVIDIA_PACKAGES_LOG="$nvidia_packages" \
+    HOME="$nvidia_home" MONARCH_INSTALL=1 PATH="$nvidia_bin:/usr/bin" \
+    "$ROOT/bin/monarch-install-nvidia"
+}
+
+run_gaming_driver_installer() {
+  local mode=$1
+
+  NVIDIA_TEST_MODE="$mode" NVIDIA_PACKAGES_LOG="$nvidia_packages" \
+    PATH="$nvidia_bin:/usr/bin" "$ROOT/bin/monarch-install-gaming-gpu-lib32" \
+    >/dev/null
+}
+
+run_nvidia_installer gsp
+[[ $(paste -sd ' ' "$nvidia_packages") == "linux-cachyos-headers nvidia-open-dkms nvidia-utils libva-nvidia-driver" ]] ||
+  fail "the current NVIDIA driver install excludes gaming libraries"
+pass "the current NVIDIA driver install excludes gaming libraries"
+
+run_nvidia_installer legacy
+[[ $(paste -sd ' ' "$nvidia_packages") == "linux-cachyos-headers nvidia-580xx-dkms nvidia-580xx-utils" ]] ||
+  fail "the legacy NVIDIA driver install excludes gaming libraries"
+pass "the legacy NVIDIA driver install excludes gaming libraries"
+
+run_gaming_driver_installer gsp
+[[ $(<"$nvidia_packages") == "lib32-nvidia-utils" ]] ||
+  fail "gaming installs current NVIDIA 32-bit libraries"
+pass "gaming installs current NVIDIA 32-bit libraries"
+
+run_gaming_driver_installer legacy
+[[ $(<"$nvidia_packages") == "lib32-nvidia-580xx-utils" ]] ||
+  fail "gaming installs legacy NVIDIA 32-bit libraries"
+pass "gaming installs legacy NVIDIA 32-bit libraries"
+
+if grep -Eq '^[^#[:space:]]*lib32-nvidia' "$ROOT/install/monarch-other.packages"; then
+  fail "the offline ISO excludes NVIDIA gaming libraries"
+fi
+pass "the offline ISO excludes NVIDIA gaming libraries"
