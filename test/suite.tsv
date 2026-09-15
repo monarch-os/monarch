@@ -14,7 +14,6 @@ test/shell.d/browser-defaults-test.sh	browser-security	high	isolated
 test/shell.d/browser-translate-policy-test.sh	browser-security	high	isolated
 test/shell.d/brightness-display-apple-test.sh	display-security	high	isolated
 test/shell.d/cups-browsed-retirement-test.sh	printing-security	high	isolated
-test/shell.d/fuzzel-retirement-test.sh	package-install	medium	isolated
 test/monarch-cli-test.sh	cli-routing	high	isolated
 test/monarch-crash-capture-test.sh	crash-reporting	high	isolated
 test/monarch-dev-env-test.sh	developer-environment	medium	isolated
@@ -114,3 +113,4 @@ test/shell.d/windows-vm-mount-boundary-test.sh	virtualization-security	high	isol
 test/shell.d/windows-vm-reconcile-test.sh	virtualization-security	high	isolated
 test/shell.d/wpa-supplicant-reconcile-test.sh	network	high	isolated
 test/shell.d/workspace-names-test.sh	workspaces	low	isolated
+test/shell.d/fuzzel-retirement-test.sh	package-install	medium	isolated
