@@ -1,19 +1,27 @@
 #!/bin/bash
 
-# monarch:summary=Display annotated Herdr keybindings using fuzzel for an interactive search menu.
-# monarch:args=[--print|-p] [--config <path>]
+# monarch:summary=Display searchable Herdr keybindings in the Monarch panel.
+# monarch:args=[--print|-p|--json] [--config <path>]
 
-print_only=false
+output_format=panel
 config_file="${HERDR_CONFIG_PATH:-${XDG_CONFIG_HOME:-$HOME/.config}/herdr/config.toml}"
 
 while (($#)); do
   case "$1" in
     --print|-p)
-      print_only=true
+      output_format=print
+      ;;
+    --json)
+      output_format=json
       ;;
     --config)
       shift
+      [[ $# -gt 0 ]] || { echo "Usage: monarch-menu-herdr-keybindings [--print|--json] [--config <path>]" >&2; exit 1; }
       config_file="$1"
+      ;;
+    --*)
+      echo "Usage: monarch-menu-herdr-keybindings [--print|--json] [--config <path>]" >&2
+      exit 1
       ;;
     *)
       config_file="$1"
@@ -200,7 +208,7 @@ FNR == NR {
 
 END {
   if ("prefix" in combos) {
-    printf "%-32s → %s\n", "PREFIX", combos["prefix"]
+    printf "%-32s → %s\n", combos["prefix"], "Prefix"
   }
 
   for (i = 1; i <= count; i++) {
@@ -214,9 +222,27 @@ END {
 ' - "$config_file"
 )
 
-if [[ $print_only == "true" ]]; then
-  output_keybindings
-  exit 0
-fi
+output_keybindings_json() {
+  output_keybindings | jq -Rsc '
+    split("\n")
+    | map(
+        capture("^(?<shortcut>.*?)  *→  *(?<label>.*)$")?
+        | select(.)
+        | .shortcut |= sub("[[:space:]]+$"; "")
+        | . + {searchText: (.label + " " + .shortcut)}
+      )
+  '
+}
 
-output_keybindings | fuzzel --dmenu --width 64 --lines 20 -p 'Herdr keybindings… '
+case $output_format in
+  print)
+    output_keybindings
+    ;;
+  json)
+    output_keybindings_json
+    ;;
+  panel)
+    payload=$(jq -nc --arg kind herdr --arg config "$config_file" '{kind: $kind, config: $config}')
+    noctalia msg panel-toggle monarch/menu:keybindings "$payload"
+    ;;
+esac

@@ -38,17 +38,38 @@ fi
 
 selection_file=$(mktemp)
 done_file=$(mktemp)
+options_file=$(mktemp)
 rm -f "$done_file"
-trap 'rm -f "$selection_file" "$done_file"' EXIT
+trap 'rm -f "$selection_file" "$done_file" "$options_file"' EXIT
 
-options_json=$(jq -nc '$ARGS.positional' --args -- "${options[@]}")
+printf '%s\0' "${options[@]}" | jq -Rsc '
+  split("\u0000")[:-1]
+  | to_entries
+  | map(
+      .key as $index
+      | (.value | split("\t")) as $parts
+      | {
+          kind: "choice",
+          id: ("choice-" + (($index + 1) | tostring)),
+          glyph: (if ($parts | length) >= 2 then $parts[0] else "" end),
+          label: (if ($parts | length) >= 2 then $parts[1] else $parts[0] end),
+          detail: (if ($parts | length) >= 3 then $parts[2] else "" end)
+        }
+      | .value = (if ($parts | length) >= 4 then $parts[3]
+          elif .detail != "" then .label + "\t" + .detail
+          else .label
+          end)
+      | .searchText = (.label + " " + .detail + " " + .value)
+    )
+' >"$options_file"
+
 payload=$(jq -nc \
   --arg mode select \
   --arg prompt "$prompt" \
-  --argjson options "$options_json" \
+  --arg optionsFile "$options_file" \
   --arg selectionFile "$selection_file" \
   --arg doneFile "$done_file" \
-  '{mode: $mode, prompt: $prompt, options: $options, selectionFile: $selectionFile, doneFile: $doneFile}')
+  '{mode: $mode, prompt: $prompt, optionsFile: $optionsFile, selectionFile: $selectionFile, doneFile: $doneFile}')
 
 noctalia msg panel-open monarch/menu:select "$payload" >/dev/null
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Display Niri keybindings defined in your configuration using fuzzel for an interactive search menu.
+# monarch:summary=Display searchable Niri keybindings in the Monarch panel.
 
 declare -A KEYCODE_SYM_MAP
 
@@ -276,8 +276,30 @@ output_keybindings() {
     prioritize_entries
 }
 
-if [[ $1 == "--print" || $1 == "-p" ]]; then
-  output_keybindings
-else
-  output_keybindings | fuzzel --dmenu --width 64 --lines 20 -p 'Keybindings… '
-fi
+output_keybindings_json() {
+  output_keybindings | jq -Rsc '
+    split("\n")
+    | map(
+        capture("^(?<shortcut>.*?)  →  (?<label>.*)$")?
+        | select(.)
+        | .shortcut |= sub("[[:space:]]+$"; "")
+        | . + {searchText: (.label + " " + .shortcut)}
+      )
+  '
+}
+
+case ${1:-} in
+  --print|-p)
+    output_keybindings
+    ;;
+  --json)
+    output_keybindings_json
+    ;;
+  "")
+    noctalia msg panel-toggle monarch/menu:keybindings '{"kind":"niri"}'
+    ;;
+  *)
+    echo "Usage: monarch-menu-keybindings [--print|--json]" >&2
+    exit 1
+    ;;
+esac

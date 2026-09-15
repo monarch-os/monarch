@@ -78,7 +78,6 @@ Monarch is built on:
 | **Niri** | Wayland scrollable-tiling compositor/WM | `~/.config/niri/` |
 | **Noctalia** | Desktop shell — bar, launcher, notifications, control center, lock screen, OSDs, wallpaper | `~/.config/noctalia/` |
 | **Alacritty/Foot/Kitty/Ghostty** | Terminals | `~/.config/<terminal>/` |
-| **fuzzel** | Lightweight dmenu picker used by `monarch-menu-*` | n/a |
 
 Noctalia is driven entirely through IPC: `noctalia msg <command> [args...]`, sent to the running daemon over a Unix socket. Commands are flat verbs — v4's `<target> <function>` pair is gone. `noctalia msg --help` prints the authoritative list; the commonly used ones are documented below.
 

@@ -113,3 +113,4 @@ test/shell.d/windows-vm-mount-boundary-test.sh	virtualization-security	high	isol
 test/shell.d/windows-vm-reconcile-test.sh	virtualization-security	high	isolated
 test/shell.d/wpa-supplicant-reconcile-test.sh	network	high	isolated
 test/shell.d/workspace-names-test.sh	workspaces	low	isolated
+test/shell.d/fuzzel-retirement-test.sh	package-install	medium	isolated

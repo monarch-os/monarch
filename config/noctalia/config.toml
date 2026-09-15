@@ -20,7 +20,7 @@ custom_palette = "Monarch"
 mode = "dark"
 
 [theme.templates]
-# Monarch's neovim, obsidian, fuzzel and zed templates exist in Noctalia's
+# Monarch's neovim, obsidian and zed templates exist in Noctalia's
 # community catalog, so they are enabled by id rather than shipped. Apps absent
 # from the catalogs can use `[theme.templates.user.<id>]` in a separate user
 # overlay. See config/noctalia/user-templates.toml.example.
@@ -46,7 +46,7 @@ builtin_ids = [
   "niri",
   "starship",
 ]
-community_ids = ["fuzzel", "neovim", "obsidian", "zed", "vscode"]
+community_ids = ["neovim", "obsidian", "zed", "vscode"]
 enable_community_templates = true
 enable_builtin_templates = true
 

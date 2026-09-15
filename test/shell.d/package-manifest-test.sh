@@ -49,9 +49,11 @@ for package in "${all[@]}"; do
   all_packages[$package]=true
 done
 
-for package in chromium fuzzel gpu-screen-recorder grim localsend mpv mpv-mpris neovim niri noctalia networkmanager sddm slurp uwsm yay zbar; do
+for package in chromium gpu-screen-recorder grim localsend mpv mpv-mpris neovim niri noctalia networkmanager sddm slurp uwsm yay zbar; do
   [[ -v required_packages[$package] ]] || fail "$package is a required package"
 done
+
+[[ ! -v all_packages[fuzzel] ]] || fail "fuzzel remains in the package manifest"
 
 for package in dua-cli firefox obsidian signal-desktop; do
   [[ -v default_packages[$package] ]] || fail "$package is a default package"
