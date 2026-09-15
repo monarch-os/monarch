@@ -289,8 +289,8 @@ grep -qxF system-config-printer "$ROOT/install/monarch-base.packages" ||
 ! grep -qF 'cups-browsed.service' "$ROOT/install/config/enable-services.sh" ||
   fail "fresh installs still enable cups-browsed"
 [[ ! -e $ROOT/etc/cups/cups-browsed.conf ]] || fail "unsafe cups-browsed config remains"
-grep -qF 'reconcile/cups-browsed.sh' "$ROOT/install/config/all.sh" ||
-  fail "fresh installs do not record printer discovery retirement"
+! grep -qF 'reconcile/cups-browsed.sh' "$ROOT/install/config/all.sh" ||
+  fail "fresh installs run printer discovery retirement"
 grep -qF 'reconcile/cups-browsed.sh' "$ROOT/install/reconcile/system.sh" ||
   fail "existing systems do not retire printer discovery"
 pass "fresh installs keep manual printing without automatic discovery"
