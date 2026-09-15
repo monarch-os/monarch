@@ -12,9 +12,9 @@ installed="$test_root/installed"
 log="$test_root/pacman.log"
 mkdir -p "$test_root/bin"
 
-grep -qF 'reconcile/fuzzel.sh' "$ROOT/install/config/all.sh" || fail "installer does not retire Fuzzel"
 grep -qF 'reconcile/fuzzel.sh' "$ROOT/install/reconcile/system.sh" || fail "system reconciliation does not retire Fuzzel"
-pass "Fuzzel retirement is wired into installation and reconciliation"
+! grep -qF 'reconcile/fuzzel.sh' "$ROOT/install/config/all.sh" || fail "fresh installs run Fuzzel retirement"
+pass "Fuzzel retirement runs only during system reconciliation"
 
 cat >"$test_root/bin/pacman" <<'EOF'
 #!/bin/bash
