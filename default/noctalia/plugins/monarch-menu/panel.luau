@@ -1,6 +1,6 @@
 --!nonstrict
--- The Monarch menu as a Noctalia panel. Replaces the fuzzel renderer in
--- bin/monarch-menu, which is now only an IPC wrapper: the tree still comes from
+-- The Monarch menu as a Noctalia panel. bin/monarch-menu is only an IPC
+-- wrapper: the tree still comes from
 -- default/monarch/monarch-menu.jsonc, and all of the parsing, route resolution
 -- and guard batching lives in model.luau next door.
 --
@@ -449,7 +449,7 @@ end
 
 -- Provider rows only exist at runtime, so they are fetched when their level is
 -- opened rather than held with the tree. The cursor lands on the current value,
--- which is what the fuzzel renderer got from --select.
+-- which is also the default value exposed by --select.
 local function fetchProvider(id: string)
   providerFor = nil
   providerRows = {}
@@ -672,7 +672,16 @@ local function openRequest(payload)
   selectionFile = tostring(payload.selectionFile or "")
   doneFile = tostring(payload.doneFile or "")
   requestActive = doneFile ~= ""
-  choices = choiceRows(type(payload.options) == "table" and payload.options or {})
+  choices = {}
+  if type(payload.optionsFile) == "string" and payload.optionsFile ~= "" then
+    local contents = noctalia.readFile(payload.optionsFile)
+    local decoded = contents and noctalia.json.decode(contents) or nil
+    if type(decoded) == "table" then
+      choices = decoded
+    end
+  else
+    choices = choiceRows(type(payload.options) == "table" and payload.options or {})
+  end
   query = ""
   cursor = 1
   searchRevision += 1

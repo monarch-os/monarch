@@ -59,6 +59,17 @@ keyboard_focus = "on_demand"
 capture_keys   = ["return", "escape"]
 dismiss_on_outside_click = true
 
+[[panel]]
+id     = "keybindings"
+entry  = "keybindings.luau"
+width  = 520
+height = 560
+placement = "floating"
+position  = "center"
+keyboard_focus = "on_demand"
+capture_keys   = ["escape"]
+dismiss_on_outside_click = true
+
 # The same tree, reachable from Mod+Space: `mm` lists every menu action, and
 # picking one runs it without the panel opening. Kept out of the global result
 # set — the launcher already lists applications, and 200 menu rows would drown

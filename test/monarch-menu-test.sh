@@ -236,7 +236,17 @@ cat >"$TMPDIR/keybindings-bin/xkbcli" <<'EOF'
 #!/bin/bash
 exit 0
 EOF
-chmod +x "$TMPDIR/keybindings-bin/xkbcli"
+cat >"$TMPDIR/keybindings-bin/herdr" <<'EOF'
+#!/bin/bash
+[[ $1 == "--default-config" ]] || exit 1
+cat <<'CONFIG'
+# [keys]
+# prefix = "ctrl+a"
+# quit = ["q", "ctrl+q"]
+# navigate_down = "j"
+CONFIG
+EOF
+chmod +x "$TMPDIR/keybindings-bin/xkbcli" "$TMPDIR/keybindings-bin/herdr"
 cat >"$HOME/.config/niri/config.kdl" <<EOF
 include "$ROOT/default/niri/binds.kdl"
 EOF
@@ -245,6 +255,26 @@ assert_contains "keybindings list the close-window aliases together" "$output" \
   "SUPER + Q / SUPER SHIFT + Q"
 assert_equals "keybindings list close-window once" \
   "$(grep -Fc 'Close active window' <<<"$output")" "1"
+
+output=$(PATH="$TMPDIR/keybindings-bin:$PATH" "$ROOT/bin/monarch-menu-keybindings" --json)
+assert_equals "keybindings expose structured rows to the native panel" \
+  "$(jq -r 'map(select(.label == "Close active window")) | .[0] | [.shortcut, .searchText] | @tsv' <<<"$output")" \
+  $'SUPER + Q / SUPER SHIFT + Q\tClose active window SUPER + Q / SUPER SHIFT + Q'
+
+KEYBINDINGS_PANEL="$ROOT/default/noctalia/plugins/monarch-menu/keybindings.luau"
+if grep -q 'WINDOW_ROWS' "$KEYBINDINGS_PANEL" ||
+  ! grep -q 'for _, binding in rows do' "$KEYBINDINGS_PANEL"; then
+  fail "keybindings pass the complete list to the native scroll container"
+fi
+pass "keybindings pass the complete list to the native scroll container"
+
+output=$(PATH="$TMPDIR/keybindings-bin:$PATH" HERDR_CONFIG_PATH=/dev/null \
+  "$ROOT/bin/monarch-menu-herdr-keybindings" --json)
+assert_equals "Herdr keybindings expose structured rows to the native panel" \
+  "$(jq -r 'map(select(.label == "Prefix")) | .[0] | [.shortcut, .searchText] | @tsv' <<<"$output")" \
+  $'CTRL + A\tPrefix CTRL + A'
+assert_equals "Herdr navigation keybindings keep their qualifier" \
+  "$(jq -r 'map(select(.label == "Down")) | .[0].shortcut' <<<"$output")" "NAVIGATE + J"
 
 # An exact id must beat an alias that names something else.
 cat >"$USER_MENU" <<'EOF'
@@ -459,7 +489,12 @@ if [[ ${1:-} == msg && ${2:-} == panel-open && ${3:-} == monarch/menu:* ]]; then
   payload=${4:-}
   selection_file=$(jq -r '.selectionFile' <<<"$payload")
   done_file=$(jq -r '.doneFile' <<<"$payload")
-  printf '%s\n' "${NOCTALIA_TEST_SELECTION:-}" >"$selection_file"
+  options_file=$(jq -r '.optionsFile // empty' <<<"$payload")
+  selection=${NOCTALIA_TEST_SELECTION:-}
+  if [[ -z $selection && -n $options_file ]]; then
+    selection=$(jq -r '.[0].value' "$options_file")
+  fi
+  printf '%s\n' "$selection" >"$selection_file"
   : >"$done_file"
   exit 0
 fi
@@ -468,6 +503,15 @@ EOF
 chmod +x "$FAKE_BIN/noctalia"
 export PATH="$FAKE_BIN:$PATH"
 
+assert_equals "keybindings open in the native Monarch panel" \
+  "$("$ROOT/bin/monarch-menu-keybindings")" \
+  "msg panel-toggle monarch/menu:keybindings {\"kind\":\"niri\"}"
+
+assert_contains "Herdr keybindings open in the native Monarch panel" \
+  "$(PATH="$TMPDIR/keybindings-bin:$PATH" HERDR_CONFIG_PATH=/dev/null \
+    "$ROOT/bin/monarch-menu-herdr-keybindings")" \
+  "msg panel-toggle monarch/menu:keybindings {\"kind\":\"herdr\""
+
 assert_equals "native select returns the chosen option" \
   "$(NOCTALIA_TEST_SELECTION=medium "$ROOT/bin/monarch-menu-select" Resolution high medium low)" "medium"
 
@@ -475,6 +519,14 @@ if ! grep -q 'panel-open monarch/menu:select' "$ROOT/bin/monarch-menu-select"; t
   fail "native select uses the compact panel"
 fi
 pass "native select uses the compact panel"
+
+files_dir="$TMPDIR/files"
+mkdir -p "$files_dir/.hidden"
+touch -t 202601010000 "$files_dir/older.png" "$files_dir/.ignored.png"
+touch -t 202601020000 "$files_dir/newer.jpg" "$files_dir/.hidden/ignored.jpg"
+assert_equals "native file picker returns the newest matching visible file" \
+  "$("$ROOT/bin/monarch-menu-file" "Select image" "$files_dir" "png jpg")" \
+  "$files_dir/newer.jpg"
 
 assert_equals "native input returns the submitted text" \
   "$(NOCTALIA_TEST_SELECTION='Ship it' "$ROOT/bin/monarch-menu-input" Reminder)" "Ship it"
