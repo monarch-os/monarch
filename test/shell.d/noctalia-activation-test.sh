@@ -18,6 +18,7 @@ fi
 EOF
 printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/sleep"
 printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/mise"
+printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/monarch-restart-noctalia"
 printf '#!/bin/bash\nprintf complete >"$TEST_ACTIVATION/completed"\n' >"$test_tmp/bin/complete"
 printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/monarch-theme-apply"
 chmod +x "$test_tmp/bin/"*

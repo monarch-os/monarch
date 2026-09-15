@@ -32,6 +32,7 @@ monarch_reconcile_seeded_file() {
 monarch_reconcile_managed_tree() {
   local source="$1"
   local target="$2"
+  local changed_variable=${3:-}
   local parent name staging previous
 
   [[ -d $source ]] || {
@@ -69,6 +70,7 @@ monarch_reconcile_managed_tree() {
 
   if mv "$staging" "$target"; then
     [[ -z $previous ]] || rm -rf "$previous"
+    [[ -z $changed_variable ]] || printf -v "$changed_variable" '%s' true
     return 0
   fi
 
