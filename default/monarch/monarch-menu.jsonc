@@ -351,6 +351,7 @@
   // Install > Cyber
   "install.cyber.burpsuite": {"icon":"","label":"Burpsuite","action":"monarch-launch-floating-terminal-with-presentation monarch-install-burp","disabled":"[[ -d /opt/BurpSuiteCommunity || -d /opt/BurpSuitePro ]]"},
   "install.cyber.rfswift": {"icon":"","label":"RFSwift","action":"monarch-launch-floating-terminal-with-presentation monarch-install-rfswift","disabled":"monarch-cmd-present rfswift"},
+  "install.cyber.strix": {"icon":"󰨈","label":"Strix","action":"monarch-launch-floating-terminal-with-presentation \"pipx install strix-agent\"","disabled":"monarch-cmd-present strix"},
   "install.cyber.wordlists": {"icon":"󱉟","label":"Wordlists","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Seclists from AUR...'; monarch-pkg-aur-add seclists\"","disabled":"monarch-pkg-present seclists"},
   "install.remove": {"icon":"󰭌","label":"Remove software","target":"remove"},
 
