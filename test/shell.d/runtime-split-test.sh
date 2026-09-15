@@ -33,6 +33,12 @@ grep -qF 'from 10.66.0.0/15 to 10.66.0.1 port 53' "$ROOT/install/config/firewall
   fail "UFW does not allow DNS from Monarch's Docker bridge"
 pass "Docker, resolved and UFW share Monarch's dedicated network"
 
+if grep -qF 'config/docker.sh' "$root_stage" ||
+  [[ -e $ROOT/install/config/docker.sh ]]; then
+  fail "root setup still invokes the empty Docker compatibility script"
+fi
+pass "root setup has no empty Docker compatibility stage"
+
 if grep -qF 'helpers/chroot.sh' "$apply_hardware"; then
   fail "hardware apply still depends on the legacy chroot helper"
 fi
