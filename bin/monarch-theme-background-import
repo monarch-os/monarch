@@ -3,7 +3,7 @@
 # monarch:summary=Import an image into the active theme's wallpaper collection
 # monarch:group=theme
 # monarch:name=background-import
-# monarch:args=[path]
+# monarch:args=[--reopen-panel] [path]
 # monarch:examples=monarch theme background-import | monarch theme background-import ~/Pictures/wallpaper.png
 
 set -euo pipefail
@@ -12,6 +12,11 @@ notify_error() {
   monarch-notification-send -g "" "Could not import background" "$1" -u critical 2>/dev/null || true
   echo "monarch-theme-background-import: $1" >&2
 }
+
+if [[ ${1:-} == "--reopen-panel" ]]; then
+  trap 'noctalia msg panel-open monarch/theme:background >/dev/null 2>&1 || true' EXIT
+  shift
+fi
 
 source_path=${1:-}
 if [[ -z $source_path ]]; then
