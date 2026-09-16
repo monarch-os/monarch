@@ -11,7 +11,6 @@ local windowStart = 1
 local query = ""
 local loading = true
 local applying = false
-local importing = false
 local removing = false
 local removeArmed = ""
 local status = ""
@@ -85,7 +84,7 @@ end
 
 local function apply()
   local background = rows[selected]
-  if applying or importing or removing or not background then return end
+  if applying or removing or not background then return end
   applying = true
   status = "Applying " .. background.name .. "…"
   render()
@@ -103,23 +102,18 @@ local function apply()
 end
 
 local function importBackground()
-  if importing or applying or removing then return end
-  importing = true
+  if applying or removing then return end
+  if not noctalia.runAsync(BIN .. "/monarch-theme-background-import --reopen-panel") then
+    status = "Could not import background"
+    render()
+    return
+  end
   panel.close()
-  noctalia.runAsync(BIN .. "/monarch-theme-background-import", function(result)
-    importing = false
-    if not result or result.exitCode ~= 0 then
-      status = "Could not import background"
-    elseif not (result.stdout or ""):match("([^\n]+)") then
-      status = ""
-    end
-    noctalia.runAsync("/usr/bin/noctalia msg panel-open monarch/theme:background")
-  end)
 end
 
 local function removeBackground()
   local background = rows[selected]
-  if removing or applying or importing or not background or not background.removable then return end
+  if removing or applying or not background or not background.removable then return end
   if removeArmed ~= background.path then
     removeArmed = background.path
     status = "Press Remove again to delete " .. background.name
@@ -200,8 +194,8 @@ local function content()
           ui.label({ text = background.name, fontSize = 18, fontWeight = "bold" }),
           ui.label({ text = background.current and "Current background" or "Preview from the active theme", fontSize = 11, color = "on_surface_variant" }),
         }),
-        background.removable and ui.button({ text = removeArmed == background.path and "Confirm remove" or "Remove", variant = "secondary", enabled = not applying and not importing and not removing, onClick = "onRemoveClicked" }) or ui.spacer({ width = 0 }),
-        ui.button({ text = applying and "Applying…" or "Use background", variant = "primary", enabled = not applying and not importing and not removing and not background.current, onClick = apply }),
+        background.removable and ui.button({ text = removeArmed == background.path and "Confirm remove" or "Remove", variant = "secondary", enabled = not applying and not removing, onClick = "onRemoveClicked" }) or ui.spacer({ width = 0 }),
+        ui.button({ text = applying and "Applying…" or "Use background", variant = "primary", enabled = not applying and not removing and not background.current, onClick = apply }),
       }),
     }),
   })
@@ -214,7 +208,7 @@ function render()
         ui.label({ text = "Choose a background", fontSize = 18, fontWeight = "bold" }),
         ui.label({ text = #rows .. " images from the active theme", fontSize = 11, color = "on_surface_variant" }),
       }),
-      ui.button({ text = importing and "Importing…" or "Import", glyph = "file-import", enabled = not importing and not applying and not removing, onClick = "onImportClicked" }),
+      ui.button({ text = "Import", glyph = "file-import", enabled = not applying and not removing, onClick = "onImportClicked" }),
       ui.button({ glyph = "close", onClick = "onCloseClicked" }),
     }),
     ui.input({ key = "background-search", placeholder = "Search backgrounds…", focus = true, onChange = "onQueryChanged", onSubmit = "onQuerySubmitted" }),

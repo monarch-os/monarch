@@ -16,6 +16,8 @@ if [[ ${1:-} == msg && ${2:-} == color-scheme-get ]]; then
   echo "custom Tokyo Night"
 elif [[ ${1:-} == msg && ${2:-} == wallpaper-set ]]; then
   printf '%s\n' "$3" >"$HOME/applied"
+elif [[ ${1:-} == msg && ${2:-} == panel-open ]]; then
+  printf '%s\n' "$3" >"$HOME/reopened"
 fi
 EOF
 
@@ -29,16 +31,28 @@ cat >"$TEST_ROOT/bin/monarch-notification-send" <<'EOF'
 exit 0
 EOF
 
+cat >"$TEST_ROOT/bin/monarch-file-select" <<'EOF'
+#!/bin/bash
+exit 1
+EOF
+
 chmod +x "$TEST_ROOT/bin/"*
 
+panel="$ROOT/default/noctalia/plugins/monarch-theme/background.luau"
+if ! grep -Fq 'noctalia.runAsync(BIN .. "/monarch-theme-background-import --reopen-panel")' "$panel"; then
+  echo "Background imports are not detached from Noctalia's command timeout" >&2
+  exit 1
+fi
+
 cp "$ROOT/themes/monarch/1-monarch.png" "$TEST_ROOT/wallpaper.png"
-result=$("$ROOT/bin/monarch-theme-background-import" "$TEST_ROOT/wallpaper.png")
+result=$("$ROOT/bin/monarch-theme-background-import" --reopen-panel "$TEST_ROOT/wallpaper.png")
 expected="$HOME/.config/monarch/backgrounds/tokyo-night/wallpaper.png"
 
 [[ $result == "$expected" ]]
 [[ -f $expected ]]
 grep -qx 'wallpaper.png' "$HOME/refreshed"
 grep -qx "$expected" "$HOME/applied"
+grep -qx 'monarch/theme:background' "$HOME/reopened"
 
 result=$("$ROOT/bin/monarch-theme-background-import" "$TEST_ROOT/wallpaper.png")
 [[ $result == "$HOME/.config/monarch/backgrounds/tokyo-night/wallpaper-2.png" ]]
@@ -49,5 +63,9 @@ if "$ROOT/bin/monarch-theme-background-import" "$TEST_ROOT/fake.png" >/dev/null 
   echo "Non-image input was accepted" >&2
   exit 1
 fi
+
+rm "$HOME/reopened"
+"$ROOT/bin/monarch-theme-background-import" --reopen-panel
+grep -qx 'monarch/theme:background' "$HOME/reopened"
 
 printf 'ok\n'
