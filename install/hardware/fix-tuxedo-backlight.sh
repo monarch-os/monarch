@@ -1,16 +1,17 @@
-# Install Tuxedo drivers for keyboard backlighting on Tuxedo laptops and
-# compatible devices like the Slimbook Executive (Clevo/Tuxedo chassis).
-if cat /sys/class/dmi/id/sys_vendor 2>/dev/null | grep -qi "TUXEDO\|Slimbook"; then
-  monarch-pkg-add linux-headers tuxedo-drivers-nocompatcheck-dkms
+dmi_vendor=${MONARCH_DMI_VENDOR_PATH:-/sys/class/dmi/id/sys_vendor}
+modprobe_dir=${MONARCH_MODPROBE_DIR:-/etc/modprobe.d}
+modules=${MONARCH_MODULES_PATH:-/lib/modules}
 
-  # Blacklist the legacy clevo_xsm_wmi module which conflicts with the tuxedo-drivers
-  # clevo_wmi module. When clevo_xsm_wmi loads first, it grabs the Clevo WMI GUIDs,
-  # preventing tuxedo-drivers from initializing the keyboard backlight properly.
-  mkdir -p /etc/modprobe.d
-  echo "blacklist clevo_xsm_wmi" > /etc/modprobe.d/blacklist-clevo-xsm-wmi.conf
+if grep -Eqi "TUXEDO|Slimbook" "$dmi_vendor" 2>/dev/null; then
+  mapfile -t headers < <(monarch-hw-kernel-headers)
+  monarch-pkg-add "${headers[@]}" tuxedo-drivers-nocompatcheck-dkms
 
-  # Remove any orphaned clevo_xsm_wmi module files not managed by a package
-  for f in /lib/modules/*/extra/clevo-xsm-wmi.ko; do
+  # clevo_xsm_wmi claims the same WMI GUIDs and blocks the keyboard backlight.
+  mkdir -p "$modprobe_dir"
+  echo "blacklist clevo_xsm_wmi" >"$modprobe_dir/blacklist-clevo-xsm-wmi.conf"
+
+  # Old manual installs may leave an unowned conflicting module behind.
+  for f in "$modules"/*/extra/clevo-xsm-wmi.ko; do
     if [[ -f $f ]]; then
       rm "$f"
     fi

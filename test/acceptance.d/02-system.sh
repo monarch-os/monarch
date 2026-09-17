@@ -21,6 +21,26 @@ done <"$manifest"
 ((${#missing[@]} == 0)) || fail "all Monarch packages are installed" "${missing[*]}"
 pass "all Monarch packages are installed"
 
+release=$(uname -r)
+pkgbase_file="/usr/lib/modules/$release/pkgbase"
+[[ -r $pkgbase_file ]] || fail "the running kernel identifies its package" "$pkgbase_file is missing"
+kernel=$(<"$pkgbase_file")
+case $kernel in
+  linux-cachyos | linux-cachyos-*) ;;
+  *) fail "the installed system boots a supported kernel" "$release belongs to $kernel" ;;
+esac
+monarch-pkg-present "${kernel}-headers" ||
+  fail "kernel headers are installed" "${kernel}-headers is missing"
+kernel_release_file="/usr/lib/modules/$release/build/include/config/kernel.release"
+[[ -r $kernel_release_file && $(<"$kernel_release_file") == "$release" ]] ||
+  fail "headers match the running kernel" "$release has missing or mismatched headers"
+pass "the running $kernel kernel has matching headers ($release)"
+
+expected_boot_order='BOOT_ORDER="linux-cachyos, linux-cachyos-*, *, *fallback, Snapshots"'
+grep -qxF "$expected_boot_order" /etc/default/limine ||
+  fail "Limine prefers the supported kernel" "$expected_boot_order is missing"
+pass "Limine prefers the supported kernel before fallback entries"
+
 for unit in cups.service avahi-daemon.service docker.socket NetworkManager.service \
   power-profiles-daemon.service sddm.service systemd-resolved.service ufw.service; do
   systemctl is-enabled --quiet "$unit" || fail "core services are enabled" "$unit"
