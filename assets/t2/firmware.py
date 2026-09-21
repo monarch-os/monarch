@@ -12,6 +12,7 @@ import io
 import os
 import re
 import tarfile
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
@@ -234,28 +235,70 @@ def verify(path: str) -> None:
     print(f"{len(wifi)} Wi-Fi and {len(parse_bluetooth(files))} Bluetooth files")
 
 
-def normalize(source: str, destination: str) -> None:
+def collect_firmware(source: str) -> list[FirmwareFile]:
     files = archive_files(source)
     firmware = sorted((*parse_wifi(files), *parse_bluetooth(files)), key=lambda item: item.name)
     if not any(item.name.startswith("brcmfmac") for item in firmware):
         raise ValueError("archive contains no supported T2 Wi-Fi firmware")
+    return firmware
 
+
+def add_payload(
+    archive: tarfile.TarFile,
+    firmware: list[FirmwareFile],
+    prefix: str = "",
+) -> None:
     known: dict[str, str] = {}
+    for item in firmware:
+        name = f"{prefix}{item.name}"
+        metadata = tarfile.TarInfo(name)
+        metadata.mode = 0o644
+        metadata.uid = metadata.gid = 0
+        metadata.uname = metadata.gname = "root"
+        if item.digest in known:
+            metadata.type = tarfile.LNKTYPE
+            metadata.linkname = known[item.digest]
+            archive.addfile(metadata)
+        else:
+            metadata.size = len(item.data)
+            archive.addfile(metadata, io.BytesIO(item.data))
+            known[item.digest] = name
+
+
+def normalize(source: str, destination: str) -> None:
+    firmware = collect_firmware(source)
+
     with tarfile.open(destination, "w") as archive:
-        for item in firmware:
-            metadata = tarfile.TarInfo(item.name)
-            metadata.mode = 0o644
-            metadata.uid = metadata.gid = 0
-            metadata.uname = metadata.gname = "root"
-            if item.digest in known:
-                metadata.type = tarfile.LNKTYPE
-                metadata.linkname = known[item.digest]
-                archive.addfile(metadata)
-            else:
-                metadata.size = len(item.data)
-                archive.addfile(metadata, io.BytesIO(item.data))
-                known[item.digest] = item.name
+        add_payload(archive, firmware)
     print(f"wrote {len(firmware)} firmware files")
+
+
+def package(source: str, destination: str) -> None:
+    firmware = collect_firmware(source)
+    installed_size = sum(len(item.data) for item in firmware)
+    pkginfo = f"""pkgname = apple-bcm-firmware-local
+pkgbase = apple-bcm-firmware-local
+pkgver = 1-1
+pkgdesc = Locally extracted Apple Broadcom firmware for T2 Macs
+url = https://wiki.t2linux.org/guides/wifi-bluetooth/
+builddate = {int(time.time())}
+packager = Monarch local firmware extractor
+size = {installed_size}
+arch = any
+license = LicenseRef-unknown
+provides = apple-bcm-firmware
+conflict = apple-bcm-firmware
+""".encode()
+
+    with tarfile.open(destination, "w:gz") as archive:
+        metadata = tarfile.TarInfo(".PKGINFO")
+        metadata.mode = 0o644
+        metadata.uid = metadata.gid = 0
+        metadata.uname = metadata.gname = "root"
+        metadata.size = len(pkginfo)
+        archive.addfile(metadata, io.BytesIO(pkginfo))
+        add_payload(archive, firmware, "usr/lib/firmware/brcm/")
+    print(f"built {destination}")
 
 
 def main() -> None:
@@ -266,12 +309,17 @@ def main() -> None:
     normalize_parser = subparsers.add_parser("normalize")
     normalize_parser.add_argument("archive")
     normalize_parser.add_argument("output")
+    package_parser = subparsers.add_parser("package")
+    package_parser.add_argument("archive")
+    package_parser.add_argument("output")
     args = parser.parse_args()
 
     if args.command == "verify":
         verify(args.archive)
-    else:
+    elif args.command == "normalize":
         normalize(args.archive, args.output)
+    else:
+        package(args.archive, args.output)
 
 
 if __name__ == "__main__":

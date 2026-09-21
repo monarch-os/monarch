@@ -93,42 +93,11 @@ stage_archive() {
 }
 
 build_package() {
-  local source=$1 destination work normalized size builddate
+  local source=$1 destination
   destination=$(realpath -m "$2")
-  work=$(mktemp -d)
-  trap 'rm -rf "$work"' EXIT
-  normalized="$work/firmware.tar"
-
-  python "$NORMALIZER" normalize "$source" "$normalized" >/dev/null
-  mkdir -p "$work/pkg/usr/lib/firmware/brcm"
-  bsdtar -xf "$normalized" -C "$work/pkg/usr/lib/firmware/brcm"
-
-  size=$(du -sb "$work/pkg/usr" | cut -f1)
-  builddate=$(date +%s)
-  cat >"$work/pkg/.PKGINFO" <<EOF
-pkgname = $PACKAGE_NAME
-pkgbase = $PACKAGE_NAME
-pkgver = 1-1
-pkgdesc = Locally extracted Apple Broadcom firmware for T2 Macs
-url = https://wiki.t2linux.org/guides/wifi-bluetooth/
-builddate = $builddate
-packager = Monarch local firmware extractor
-size = $size
-arch = any
-license = LicenseRef-unknown
-provides = apple-bcm-firmware
-conflict = apple-bcm-firmware
-EOF
-
   mkdir -p "$(dirname "$destination")"
-  (
-    cd "$work/pkg"
-    bsdtar --uid 0 --gid 0 --uname root --gname root -cf - .PKGINFO usr |
-      zstd -q -T0 -o "$destination"
-  )
+  python "$NORMALIZER" package "$source" "$destination" >/dev/null
   echo "Built $destination"
-  rm -rf "$work"
-  trap - EXIT
 }
 
 install_firmware() {
@@ -136,7 +105,7 @@ install_firmware() {
   work=$(mktemp -d)
   trap 'rm -rf "$work"' EXIT
   source="$work/firmware-raw.tar.gz"
-  package="$work/$PACKAGE_NAME-1-1-any.pkg.tar.zst"
+  package="$work/$PACKAGE_NAME-1-1-any.pkg.tar.gz"
   stage_archive "$disk" "$source"
   build_package "$source" "$package"
   pacman -U --noconfirm "$package"

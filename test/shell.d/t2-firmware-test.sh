@@ -38,23 +38,26 @@ for firmware in \
   brcmfmac4377b3-pcie.apple,tahiti-X1.txt \
   brcmbt4377b3-apple,tahiti-m.bin \
   brcmbt4377b3-apple,tahiti-m.ptb; do
-  bsdtar -tf "$normalized" | grep -qxF "$firmware" ||
-    fail "normalizer omitted $firmware" "$(bsdtar -tf "$normalized")"
+  tar -tf "$normalized" | grep -qxF "$firmware" ||
+    fail "normalizer omitted $firmware" "$(tar -tf "$normalized")"
 done
-[[ $(bsdtar -xOf "$normalized" brcmfmac4377b3-pcie.apple,tahiti-X0.txt) == "boardrev=0x1101" ]] ||
+[[ $(tar -xOf "$normalized" brcmfmac4377b3-pcie.apple,tahiti-X0.txt) == "boardrev=0x1101" ]] ||
   fail "normalizer did not clean the NVRAM key"
 pass "t2linux firmware is normalized without executing the EFI script"
 
-package="$test_tmp/apple-bcm-firmware-local-1-1-any.pkg.tar.zst"
+package="$test_tmp/apple-bcm-firmware-local-1-1-any.pkg.tar.gz"
 MONARCH_PATH="$ROOT" MONARCH_T2_FIRMWARE_NORMALIZER="$normalizer" \
   "$setup_command" build "$raw_archive" "$package" >/dev/null
 
-pacman -Qip "$package" | grep -qE '^Name[[:space:]]*: apple-bcm-firmware-local$' ||
+tar -xOf "$package" .PKGINFO | grep -qxF 'pkgname = apple-bcm-firmware-local' ||
   fail "local firmware package has the wrong name"
-pacman -Qip "$package" | grep -qE '^Provides[[:space:]]*: apple-bcm-firmware$' ||
+tar -xOf "$package" .PKGINFO | grep -qxF 'provides = apple-bcm-firmware' ||
   fail "local firmware package does not satisfy apple-bcm-firmware"
-bsdtar -tf "$package" | grep -qxF 'usr/lib/firmware/brcm/brcmfmac4377b3-pcie.apple,tahiti-X0.bin' ||
+tar -tf "$package" | grep -qxF 'usr/lib/firmware/brcm/brcmfmac4377b3-pcie.apple,tahiti-X0.bin' ||
   fail "local firmware package omits the Wi-Fi payload"
+if command -v pacman >/dev/null; then
+  pacman -Qip "$package" >/dev/null || fail "pacman rejected the local firmware package"
+fi
 pass "normalized firmware becomes a locally owned pacman package"
 
 esp="$test_tmp/esp"
