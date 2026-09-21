@@ -18,6 +18,8 @@ raw_tree="$test_tmp/raw"
 mkdir -p "$raw_tree/wifi/C-4377__s-B3" "$raw_tree/bluetooth"
 printf 'wifi-binary\n' >"$raw_tree/wifi/C-4377__s-B3/tahiti-X0.trx"
 printf ' boardrev =0x1101\n' >"$raw_tree/wifi/C-4377__s-B3/P-tahiti-X0.txt"
+printf 'wifi-binary-alt\n' >"$raw_tree/wifi/C-4377__s-B3/tahiti-X1.trx"
+printf ' boardrev =0x1102\n' >"$raw_tree/wifi/C-4377__s-B3/P-tahiti-X1.txt"
 printf 'bluetooth-binary\n' >"$raw_tree/bluetooth/BCM4377B3_PCIE_macOS_Tahiti_MUR.bin"
 printf 'bluetooth-parameters\n' >"$raw_tree/bluetooth/BCM4377B3_PCIE_macOS_Tahiti_MUR.ptb"
 
@@ -25,19 +27,21 @@ raw_archive="$test_tmp/firmware-raw.tar.gz"
 tar -czf "$raw_archive" -C "$raw_tree" .
 
 normalizer="$ROOT/assets/t2/firmware.py"
-python "$normalizer" verify "$raw_archive" | grep -qF '2 Wi-Fi and 2 Bluetooth files'
+python "$normalizer" verify "$raw_archive" | grep -qF '4 Wi-Fi and 2 Bluetooth files'
 normalized="$test_tmp/firmware.tar"
 python "$normalizer" normalize "$raw_archive" "$normalized" >/dev/null
 
 for firmware in \
-  brcmfmac4377b3-pcie.apple,tahiti.bin \
-  brcmfmac4377b3-pcie.apple,tahiti.txt \
+  brcmfmac4377b3-pcie.apple,tahiti-X0.bin \
+  brcmfmac4377b3-pcie.apple,tahiti-X0.txt \
+  brcmfmac4377b3-pcie.apple,tahiti-X1.bin \
+  brcmfmac4377b3-pcie.apple,tahiti-X1.txt \
   brcmbt4377b3-apple,tahiti-m.bin \
   brcmbt4377b3-apple,tahiti-m.ptb; do
   bsdtar -tf "$normalized" | grep -qxF "$firmware" ||
     fail "normalizer omitted $firmware"
 done
-[[ $(bsdtar -xOf "$normalized" brcmfmac4377b3-pcie.apple,tahiti.txt) == "boardrev=0x1101" ]] ||
+[[ $(bsdtar -xOf "$normalized" brcmfmac4377b3-pcie.apple,tahiti-X0.txt) == "boardrev=0x1101" ]] ||
   fail "normalizer did not clean the NVRAM key"
 pass "t2linux firmware is normalized without executing the EFI script"
 
@@ -49,7 +53,7 @@ pacman -Qip "$package" | grep -qE '^Name[[:space:]]*: apple-bcm-firmware-local$'
   fail "local firmware package has the wrong name"
 pacman -Qip "$package" | grep -qE '^Provides[[:space:]]*: apple-bcm-firmware$' ||
   fail "local firmware package does not satisfy apple-bcm-firmware"
-bsdtar -tf "$package" | grep -qxF 'usr/lib/firmware/brcm/brcmfmac4377b3-pcie.apple,tahiti.bin' ||
+bsdtar -tf "$package" | grep -qxF 'usr/lib/firmware/brcm/brcmfmac4377b3-pcie.apple,tahiti-X0.bin' ||
   fail "local firmware package omits the Wi-Fi payload"
 pass "normalized firmware becomes a locally owned pacman package"
 
