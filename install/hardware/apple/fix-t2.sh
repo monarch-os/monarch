@@ -8,7 +8,10 @@ if grep -q "106b:180[12]" <<<"$pci_info"; then
     t2fanrd \
     tiny-dfr
 
-  echo "T2 Wi-Fi firmware is not bundled; install apple-bcm-firmware separately."
+  if ! pacman -Q apple-bcm-firmware-local &>/dev/null && \
+    ! pacman -Q apple-bcm-firmware &>/dev/null; then
+    echo "T2 Wi-Fi firmware is missing. Run 'monarch setup t2-firmware --help' for the macOS preparation steps."
+  fi
 
   sudo usermod -aG video "$USER"
   sudo systemctl enable t2fanrd.service
