@@ -39,7 +39,7 @@ for firmware in \
   brcmbt4377b3-apple,tahiti-m.bin \
   brcmbt4377b3-apple,tahiti-m.ptb; do
   bsdtar -tf "$normalized" | grep -qxF "$firmware" ||
-    fail "normalizer omitted $firmware"
+    fail "normalizer omitted $firmware" "$(bsdtar -tf "$normalized")"
 done
 [[ $(bsdtar -xOf "$normalized" brcmfmac4377b3-pcie.apple,tahiti-X0.txt) == "boardrev=0x1101" ]] ||
   fail "normalizer did not clean the NVRAM key"
