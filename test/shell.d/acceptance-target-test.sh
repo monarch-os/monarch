@@ -16,6 +16,16 @@ if grep -R -F '$ROOT/bin' "$acceptance_dir" >/dev/null; then
 fi
 pass "acceptance is pinned to the installed runtime"
 
+grep -qF '/usr/lib/modules/$release/pkgbase' "$acceptance_dir/02-system.sh" ||
+  fail "acceptance does not identify the running kernel package"
+grep -qF 'monarch-pkg-present "${kernel}-headers"' "$acceptance_dir/02-system.sh" ||
+  fail "acceptance does not require matching kernel headers"
+grep -qF 'build/include/config/kernel.release' "$acceptance_dir/02-system.sh" ||
+  fail "acceptance does not compare the headers with the running release"
+grep -qF 'BOOT_ORDER="linux-cachyos, linux-cachyos-*, *, *fallback, Snapshots"' \
+  "$acceptance_dir/02-system.sh" || fail "acceptance does not verify the Limine kernel order"
+pass "acceptance enforces the running kernel, headers and boot order"
+
 for boundary in \
   '/etc/sudoers.d/$retired' \
   '/usr/share/plymouth/themes/monarch/monarch.script' \

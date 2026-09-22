@@ -25,7 +25,6 @@ limine-mkinitcpio-hook
 limine-snapper-sync
 linux-cachyos-headers
 linux-firmware
-linux-headers
 macbook12-spi-driver-dkms
 nvidia-open-dkms
 nvidia-utils
