@@ -23,7 +23,6 @@ test/monarch-hardware-menu-test.sh	hardware-menu	medium	isolated
 test/monarch-internal-display-test.sh	displays	high	isolated
 test/shell.d/broadcom-driver-test.sh	hardware-detection	medium	isolated
 test/shell.d/hardware-dkms-policy-test.sh	hardware-detection	high	isolated
-test/shell.d/t2-firmware-test.sh	hardware-detection	high	isolated
 test/shell.d/hw-gpu-detection-test.sh	hardware-detection	medium	isolated
 test/monarch-kernel-headers-test.sh	kernel-packages	high	isolated
 test/monarch-menu-test.sh	menu	medium	isolated
