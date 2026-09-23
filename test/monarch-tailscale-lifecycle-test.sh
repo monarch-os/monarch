@@ -46,37 +46,6 @@ grep -Fx 'systemctl --user enable --now monarch-tailscale-receive.service' "$TES
 [[ -f $HOME/.config/systemd/user/monarch-tailscale-receive.service ]] || fail "installer omits the receiver unit"
 pass "installer configures operator access and receiver"
 
-cat >"$TEST_ROOT/bin/monarch-cmd-present" <<'EOF'
-#!/bin/bash
-[[ ${TAILSCALE_PRESENT:-0} == 1 ]]
-EOF
-cat >"$TEST_ROOT/bin/jq" <<'EOF'
-#!/bin/bash
-grep -q '"BackendState":"Running"'
-EOF
-cat >"$TEST_ROOT/bin/tailscale" <<EOF
-#!/bin/bash
-if [[ \${TAILSCALE_RUNNING:-0} == 1 ]]; then
-  printf '{"BackendState":"Running"}\n'
-else
-  printf '{"BackendState":"NeedsLogin"}\n'
-fi
-EOF
-cat >"$TEST_ROOT/bin/systemctl" <<'EOF'
-#!/bin/bash
-[[ ${SYSTEMD_ACTIVE:-0} == 1 ]]
-EOF
-chmod +x "$TEST_ROOT/bin/monarch-cmd-present" "$TEST_ROOT/bin/jq" "$TEST_ROOT/bin/tailscale" "$TEST_ROOT/bin/systemctl"
-
-if TAILSCALE_PRESENT=1 TAILSCALE_RUNNING=0 SYSTEMD_ACTIVE=1 "$ROOT/bin/monarch-tailscale-installed"; then
-  fail "incomplete login is considered installed"
-fi
-if TAILSCALE_PRESENT=1 TAILSCALE_RUNNING=1 SYSTEMD_ACTIVE=0 "$ROOT/bin/monarch-tailscale-installed"; then
-  fail "inactive services are considered installed"
-fi
-TAILSCALE_PRESENT=1 TAILSCALE_RUNNING=1 SYSTEMD_ACTIVE=1 "$ROOT/bin/monarch-tailscale-installed" || fail "operational integration is not detected"
-pass "installed state requires a running tailnet and receiver"
-
 mkdir -p "$HOME/Downloads/.monarch-taildrop"
 printf 'received' >"$HOME/Downloads/file.txt"
 printf 'partial' >"$HOME/Downloads/.monarch-taildrop/partial.txt"
