@@ -25,6 +25,7 @@ test/shell.d/broadcom-driver-test.sh	hardware-detection	medium	isolated
 test/shell.d/hardware-dkms-policy-test.sh	hardware-detection	high	isolated
 test/shell.d/hw-gpu-detection-test.sh	hardware-detection	medium	isolated
 test/monarch-kernel-headers-test.sh	kernel-packages	high	isolated
+test/shell.d/limine-kernel-order-reconcile-test.sh	kernel-packages	high	isolated
 test/monarch-menu-test.sh	menu	medium	isolated
 test/monarch-menu-launcher-test.sh	menu	medium	isolated
 test/monarch-mise-agent-test.sh	developer-agents	medium	isolated

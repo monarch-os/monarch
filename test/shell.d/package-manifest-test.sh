@@ -52,6 +52,9 @@ done
 for package in chromium gpu-screen-recorder grim localsend mpv mpv-mpris neovim niri noctalia networkmanager sddm slurp uwsm yay zbar; do
   [[ -v required_packages[$package] ]] || fail "$package is a required package"
 done
+[[ -v required_packages[linux-cachyos-headers] ]] || fail "CachyOS kernel headers are required"
+grep -qxF linux-cachyos-headers "$ROOT/install/monarch-other.packages" &&
+  fail "CachyOS kernel headers remain mirror-only"
 
 [[ ! -v all_packages[fuzzel] ]] || fail "fuzzel remains in the package manifest"
 
@@ -91,6 +94,11 @@ if monarch_load_package_manifest defaults "$invalid" default 2>/dev/null; then
 fi
 
 mkdir -p "$TEST_ROOT/bin"
+mkdir -p "$TEST_ROOT/modules/7.2.5-1-cachyos" \
+  "$TEST_ROOT/modules/6.18.44-1-cachyos-lts" "$TEST_ROOT/modules/6.12.1-custom"
+printf '%s\n' linux-cachyos >"$TEST_ROOT/modules/7.2.5-1-cachyos/pkgbase"
+printf '%s\n' linux-cachyos-lts >"$TEST_ROOT/modules/6.18.44-1-cachyos-lts/pkgbase"
+printf '%s\n' linux-custom >"$TEST_ROOT/modules/6.12.1-custom/pkgbase"
 cat >"$TEST_ROOT/bin/monarch-pkg-add" <<'EOF'
 #!/bin/bash
 printf '%s\n' "$@" >"$TEST_ROOT/installed-packages"
@@ -98,11 +106,17 @@ EOF
 cat >"$TEST_ROOT/bin/pacman" <<'EOF'
 #!/bin/bash
 [[ $1 == "-Qq" ]]
+printf '%s\n' linux-cachyos linux-cachyos-lts linux-custom
 EOF
 chmod +x "$TEST_ROOT/bin/monarch-pkg-add" "$TEST_ROOT/bin/pacman"
-TEST_ROOT="$TEST_ROOT" MONARCH_PATH="$ROOT" PATH="$TEST_ROOT/bin:/usr/bin" \
+TEST_ROOT="$TEST_ROOT" MONARCH_PATH="$ROOT" MONARCH_MODULES_PATH="$TEST_ROOT/modules" \
+  PATH="$TEST_ROOT/bin:/usr/bin" \
   bash "$ROOT/install/reconcile/required-packages.sh"
 mapfile -t installed <"$TEST_ROOT/installed-packages"
-[[ ${installed[*]} == ${required[*]} ]] || fail "reconciliation installs exactly the required packages"
+expected=("${required[@]}" linux-cachyos-lts-headers)
+[[ ${installed[*]} == ${expected[*]} ]] ||
+  fail "reconciliation installs required packages and headers for installed kernels"
+[[ ${installed[*]} != *linux-custom-headers* ]] ||
+  fail "reconciliation claimed an unsupported custom kernel"
 
 pass "package manifest sections are valid"

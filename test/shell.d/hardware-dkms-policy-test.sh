@@ -76,11 +76,13 @@ pass "non-Tuxedo hardware skips the Tuxedo driver"
   fail "hardware installer still calls the obsolete YT6801 DKMS leaf"
 pass "YT6801 uses the kernel's in-tree dwmac-motorcomm driver"
 
-grep -qxF linux-cachyos-headers "$ROOT/install/monarch-other.packages" ||
+grep -qxF linux-cachyos-headers "$ROOT/install/monarch-base.packages" ||
   fail "fresh installs omit the CachyOS kernel headers"
-! grep -qxF linux-headers "$ROOT/install/monarch-other.packages" ||
+! grep -qxF linux-headers "$ROOT/install/monarch-base.packages" ||
   fail "fresh installs include headers for the absent stock Arch kernel"
-pass "fresh installs carry only the selected kernel headers"
+! grep -qxF linux-cachyos-headers "$ROOT/install/monarch-other.packages" ||
+  fail "CachyOS kernel headers remain mirror-only"
+pass "fresh installs require only the selected kernel headers"
 
 t2_fix="$ROOT/install/hardware/apple/fix-t2.sh"
 : >"$package_log"
