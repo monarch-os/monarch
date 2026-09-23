@@ -21,8 +21,7 @@ run_logged "$MONARCH_INSTALL/hardware/intel/fred.sh"
 run_logged "$MONARCH_INSTALL/hardware/intel/fix-wifi7-eht.sh"
 run_logged "$MONARCH_INSTALL/hardware/intel/sof-firmware.sh"
 
-# Rebuilds the boot image, so it has to follow the Panther Lake kernel swap
-# above rather than sit with the other Dell leaf at the top of this file.
+# Its boot-image rebuild must include the IPU7 modules installed above.
 run_logged "$MONARCH_INSTALL/hardware/dell-xps13-sidecar-amps.sh"
 
 run_logged "$MONARCH_INSTALL/hardware/asus/fix-asus-ptl-display-backlight.sh"
