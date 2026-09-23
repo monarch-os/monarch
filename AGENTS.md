@@ -145,9 +145,10 @@ is not there to remove.
 
 The panel (`default/noctalia/plugins/monarch-menu/`) never parses the JSONC: it
 calls `monarch-menu --state` for the tree and every guard in one payload, and
-`--provider <id>` for runtime rows. The same tree is exposed to the global
-launcher by the plugin's `[[launcher_provider]]` entry (`/mm`). **Do not cache
-the tree across opens** — editing the JSONC or the user's extension would then
+`--provider <id>` for runtime rows. The global launcher uses
+`--launcher-state`, which omits checked guards it cannot display, through the
+plugin's `[[launcher_provider]]` entry (`/mm`). **Do not cache the tree across
+opens** — editing the JSONC or the user's extension would then
 change nothing until the shell restarted; `--state` is one subprocess and the
 guards have to be re-read anyway. Two hard-won constraints govern any panel
 work:

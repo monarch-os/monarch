@@ -157,6 +157,9 @@ output=$(jq -r '.[] | select(.id == "install.service.signal") | [.label, .disabl
 assert_equals "Signal is available in the service catalog" "$output" \
   "Signal|monarch-pkg-present signal-desktop|monarch-launch-floating-terminal-with-presentation monarch-install-service-signal"
 
+output=$(jq -r '.[] | select(.id == "install.service.tailscale") | .disabled' <<<"$SHIPPED_TREE")
+assert_equals "Tailscale install state uses package presence" "$output" "monarch-pkg-present tailscale"
+
 output=$(jq -r '.[] | select(.id == "setup.config.input") | .action' <<<"$SHIPPED_TREE")
 assert_contains "input settings edit the user-owned Niri override" "$output" ".config/niri/user.kdl"
 assert_contains "input settings validate and reload Niri" "$output" "monarch-refresh-niri"
@@ -399,8 +402,8 @@ rm -f "$USER_MENU"
 
 # ── The payloads the panel consumes ──────────────────────────────────────────
 
-# One payload feeds both the panel and the launcher: the tree in declaration
-# order, and every guard already evaluated.
+# The panel receives the tree in declaration order and every guard already
+# evaluated in one payload.
 STATE=$("$MENU" --state)
 output=$(jq -r '.tree[0].id + " " + .tree[-1].id' <<<"$STATE")
 assert_equals "--state emits the tree in declaration order" "$output" "apps system.shutdown"
@@ -435,6 +438,10 @@ pass "search keeps result groups contiguous"
 # Guards are keyed `<id>:<w|c|d>` so the consumer decodes them natively.
 output=$(jq -r '.guards | keys | map(split(":")[1]) | unique | join(" ")' <<<"$STATE")
 assert_equals "--state reports all three guard kinds" "$output" "c d w"
+
+LAUNCHER_STATE=$("$MENU" --launcher-state)
+output=$(jq -r '.guards | keys | map(split(":")[1]) | unique | join(" ")' <<<"$LAUNCHER_STATE")
+assert_equals "--launcher-state skips presentation-only checked guards" "$output" "d w"
 
 # Install rows stay listed when the software is already there, and say so with a
 # `disabled` guard; Remove rows are the opposite and hide what is not installed.
