@@ -380,10 +380,14 @@ case "${1:-}" in
   tree_payload
   exit 0
   ;;
---state)
-  # Tree and guards in one payload, which is what the panel asks for on every
-  # open: one subprocess instead of two, and the tree can never go stale against
-  # the file the way a cached copy does.
+--state | --launcher-state)
+  state_mode=$1
+  include_checked=true
+  [[ $state_mode == --launcher-state ]] && include_checked=false
+
+  # Tree and guards in one payload, so the tree can never go stale against the
+  # file the way a cached copy does. The launcher omits checked guards because
+  # it does not render selection state.
   #
   # Guards come back as an object keyed `<id>:<w|c|d>`, not as lines: the
   # consumer decodes it natively, and parsing 130 lines in Luau is enough to
@@ -408,9 +412,9 @@ case "${1:-}" in
       else
         printf '%s:%s\tfalse\n' "$key" "$kind"
       fi
-    done < <(jq -r 'to_entries[] | .key as $k |
+    done < <(jq -r --argjson include_checked "$include_checked" 'to_entries[] | .key as $k |
       (if .value.when then [$k, "w", .value.when] else empty end),
-      (if .value.checked then [$k, "c", .value.checked] else empty end),
+      (if .value.checked and $include_checked then [$k, "c", .value.checked] else empty end),
       (if .value.disabled then [$k, "d", .value.disabled] else empty end)
       | join("\u001f")' <<<"$MENU_JSON")
   )

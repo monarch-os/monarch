@@ -15,7 +15,7 @@ local environment = setmetatable({
     getenv = function() return nil end,
     json = {decode = function(payload) return payload end},
     runAsync = function(command, callback)
-      if command:find('monarch%-menu %-%-state') then
+      if command:find('monarch%-menu %-%-launcher%-state') then
         loads = loads + 1
         pending[#pending + 1] = callback
       else
@@ -58,12 +58,10 @@ environment.onQuery('a')
 environment.onQuery('ab')
 environment.onQuery('abc')
 assert(loads == before + 1, 'in-flight queries must share one state request')
-complete('stale')
-assert(#results.list == 0, 'superseded results must not be published')
-assert(loads == before + 2, 'coalesced queries must request the latest state')
 complete('current')
+assert(loads == before + 1, 'query changes must not reload query-independent menu state')
 assert(results.query == 'abc' and results.list[1].title == 'current')
-print('ok - typing coalesces requests and ignores superseded asynchronous results')
+print('ok - typing reuses in-flight state and publishes results for the latest query')
 
 environment.onQuery('failure')
 complete('ignored', {}, 1)

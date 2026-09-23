@@ -2,8 +2,8 @@
 -- The menu, reachable from the global launcher: typing `mm` in Mod+Space lists
 -- every menu action, and picking one runs it without the panel ever opening.
 --
--- Same data and same guards as the panel — both go through `monarch-menu`, so a
--- row hidden in the panel is hidden here too.
+-- Same data and visibility guards as the panel — both go through
+-- `monarch-menu`, so a row hidden in the panel is hidden here too.
 
 local model = require("./model.luau")
 
@@ -13,7 +13,6 @@ local menu = nil
 local guards = {}
 local loading = false
 local query = ""
-local generation = 0
 
 local function shellQuote(text)
   return "'" .. text:gsub("'", "'\\''") .. "'"
@@ -55,14 +54,9 @@ local function load()
     return
   end
   loading = true
-  local requested = generation
 
-  noctalia.runAsync(monarchShell("monarch-menu --state"), function(result)
+  noctalia.runAsync(monarchShell("monarch-menu --launcher-state"), function(result)
     loading = false
-    if requested ~= generation then
-      load()
-      return
-    end
     if result and result.exitCode == 0 then
       local payload = noctalia.json.decode(result.stdout or "")
       if type(payload) == "table" and type(payload.tree) == "table" then
@@ -76,7 +70,6 @@ end
 
 function onQuery(text)
   query = text or ""
-  generation = generation + 1
   menu = nil
   guards = {}
   launcher.setResults(query, {})
