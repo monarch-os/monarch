@@ -28,7 +28,7 @@ if ((${#files[@]} == 0)); then
 fi
 
 if ((${#files[@]} == 1)); then
-  what=$(basename "${files[0]}")
+  what=$(basename -- "${files[0]}")
 else
   what="${#files[@]} files"
 fi

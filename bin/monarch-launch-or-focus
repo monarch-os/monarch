@@ -1,19 +1,52 @@
 #!/bin/bash
 
 # monarch:summary=Launch an app or focus an existing window matching a pattern
-# monarch:args=<window-pattern> <launch-command>
+# monarch:args=<window-pattern> [-- <command> [args...]|<legacy-command-string>]
 
 if (($# == 0)); then
-  echo "Usage: monarch-launch-or-focus [window-pattern] [launch-command]"
+  echo "Usage: monarch-launch-or-focus <window-pattern> [-- <command> [args...]|<legacy-command-string>]"
   exit 1
 fi
 
-WINDOW_PATTERN="$1"
-LAUNCH_COMMAND="${2:-"uwsm-app -- $WINDOW_PATTERN"}"
+WINDOW_PATTERN=$1
+shift
 WINDOW_ID=$(niri msg --json windows 2>/dev/null | jq -r --arg p "$WINDOW_PATTERN" '.[]|select(((.app_id // "")|test("\\b" + $p + "\\b";"i")) or ((.title // "")|test("\\b" + $p + "\\b";"i")))|.id' | head -n1)
 
 if [[ -n $WINDOW_ID ]]; then
   niri msg action focus-window --id "$WINDOW_ID"
-else
-  eval exec setsid $LAUNCH_COMMAND
+  exit
 fi
+
+if (($# == 0)); then
+  launch_command=(uwsm-app -- "$WINDOW_PATTERN")
+elif [[ $1 == "--" ]]; then
+  shift
+  launch_command=("$@")
+elif (($# > 1)); then
+  launch_command=("$@")
+else
+  # Backward compatibility for callers that pass one quoted command string.
+  # shlex only recovers its argument boundaries; unlike eval, it never expands
+  # variables, substitutions, redirects, pipelines, or other shell syntax.
+  mapfile -d '' -t launch_command < <(python3 - "$1" <<'PY'
+import shlex
+import sys
+
+try:
+    words = shlex.split(sys.argv[1])
+except ValueError as error:
+    print(f"Invalid launch command: {error}", file=sys.stderr)
+    raise SystemExit(2)
+
+for word in words:
+    sys.stdout.buffer.write(word.encode() + b"\0")
+PY
+  )
+fi
+
+((${#launch_command[@]})) || {
+  echo "Refusing to launch an empty command" >&2
+  exit 2
+}
+
+exec setsid "${launch_command[@]}"

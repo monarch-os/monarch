@@ -157,6 +157,17 @@ pass "an out-of-range or non-numeric scale is refused"
 "$SCALE" NOPE 1.5 2>"$TMP/err" && fail "an unknown output is refused"
 assert_equals "and names it" "$(<"$TMP/err")" "Error: no display named NOPE."
 
+"$SCALE" --help 1.5 >"$TMP/out" 2>"$TMP/err" &&
+  fail "an option-like unknown output is refused"
+assert_equals "an option-like output is matched literally" \
+  "$(<"$TMP/err")" "Error: no display named --help."
+
+sed 's/DP-1/-n/g' "$TMP/outputs.json" >"$TMP/outputs-option.json"
+: >"$NIRI_CALLS"
+OUTPUTS_JSON="$TMP/outputs-option.json" "$SCALE" -n 1.5
+assert_equals "a real option-like output can be scaled" \
+  "$(grep -c 'msg output -n scale 1.5' "$NIRI_CALLS")" "1"
+
 # niri refusing the scale must not leave a file that re-offers it at every start.
 rm -f "$HOME/.config/niri/runtime.kdl"
 NIRI_STATUS=1 "$SCALE" eDP-1 2 2>/dev/null && fail "a scale niri rejects exits non-zero"

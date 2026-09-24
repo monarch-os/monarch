@@ -20,13 +20,15 @@ MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
 [[ $bg_hex =~ ^[0-9a-fA-F]{6}$ ]] || { echo "Invalid background color: $1" >&2; exit 1; }
 [[ $text_hex =~ ^[0-9a-fA-F]{6}$ ]] || { echo "Invalid text color: $2" >&2; exit 1; }
 [[ -f $logo_path ]] || { echo "Logo file not found: $logo_path" >&2; exit 1; }
-command -v magick >/dev/null 2>&1 || { echo "imagemagick (magick) is required" >&2; exit 1; }
+logo_path=$(realpath -e -- "$logo_path") || exit 1
+output_path=$(realpath -m -- "$output_path") || exit 1
+command -v -- magick >/dev/null 2>&1 || { echo "imagemagick (magick) is required" >&2; exit 1; }
 
 staging_dir=$(mktemp -d) || exit 1
 trap 'rm -rf "$staging_dir"' EXIT
 
 find "$MONARCH_ROOT/default/plymouth" -maxdepth 1 -type f -exec cp -t "$staging_dir/" {} + || exit 1
-cp "$logo_path" "$staging_dir/logo.png" || exit 1
+cp -- "$logo_path" "$staging_dir/logo.png" || exit 1
 
 for asset in bullet.png entry.png lock.png; do
   magick "$staging_dir/$asset" -channel RGB +level-colors "#$text_hex","#$text_hex" "$staging_dir/$asset" || exit 1

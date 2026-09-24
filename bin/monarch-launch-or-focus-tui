@@ -3,7 +3,10 @@
 # monarch:summary=Launch a TUI or focus an existing terminal window for it
 # monarch:args=<command> [args...]
 
-APP_ID="org.monarch.$(basename "$1")"
-LAUNCH_COMMAND="monarch-launch-tui $@"
+APP_ID="org.monarch.$(basename -- "$1")"
 
-exec monarch-launch-or-focus "$APP_ID" "$LAUNCH_COMMAND"
+if (($# == 1)); then
+  exec monarch-launch-or-focus "$APP_ID" "monarch-launch-tui $1"
+else
+  exec monarch-launch-or-focus "$APP_ID" -- monarch-launch-tui "$@"
+fi

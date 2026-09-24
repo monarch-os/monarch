@@ -13,6 +13,6 @@ if [[ $1 == --app-id=* ]]; then
   shift
 fi
 
-[[ -z $appid ]] && appid="org.monarch.$(basename "$1")"
+[[ -z $appid ]] && appid="org.monarch.$(basename -- "$1")"
 
 exec setsid uwsm-app -- xdg-terminal-exec --app-id="$appid" -e "$1" "${@:2}"
