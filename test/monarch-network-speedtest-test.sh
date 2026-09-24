@@ -41,7 +41,7 @@ STUB
 cat >"$TMP/bin/jq" <<'STUB'
 #!/bin/bash
 cat >/dev/null
-printf 'https://example.test/payload\n'
+printf '%s\n' "${SPEEDTEST_URL:-https://example.test/payload}"
 STUB
 
 cat >"$TMP/bin/sleep" <<'STUB'
@@ -74,6 +74,12 @@ sample=$(LC_ALL=fr_FR.UTF-8 "$SPEEDTEST" down 1 2>"$TMP/stderr")
 assert_equals "prints a protocol-safe decimal point under a comma locale" "$sample" "1.2"
 assert_equals "runs both numeric conversions in the C locale" \
   "$(tr '\n' ' ' <"$AWK_LOCALES")" "C C "
+
+if SPEEDTEST_URL='--config=/tmp/curlrc' "$SPEEDTEST" down 1 >"$TMP/out" 2>"$TMP/stderr"; then
+  fail "rejects an option-like speed test endpoint"
+fi
+assert_equals "rejects endpoints that are not HTTPS URLs" \
+  "$(<"$TMP/stderr")" "Failed to fetch speed test endpoints"
 
 echo
 echo "All network speed test tests passed."

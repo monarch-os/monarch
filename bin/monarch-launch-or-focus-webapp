@@ -8,8 +8,7 @@ if (($# == 0)); then
   exit 1
 fi
 
-WINDOW_PATTERN="$1"
+WINDOW_PATTERN=$1
 shift
-LAUNCH_COMMAND="monarch-launch-webapp $@"
 
-exec monarch-launch-or-focus "$WINDOW_PATTERN" "$LAUNCH_COMMAND"
+exec monarch-launch-or-focus "$WINDOW_PATTERN" -- monarch-launch-webapp "$@"

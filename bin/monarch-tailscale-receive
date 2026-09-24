@@ -12,9 +12,9 @@ if [[ ${1:-} == "--once" ]]; then
   shift
 fi
 
-dir="${1:-${XDG_DOWNLOAD_DIR:-$HOME/Downloads}}"
+dir=$(realpath -m -- "${1:-${XDG_DOWNLOAD_DIR:-$HOME/Downloads}}") || exit 1
 staging="$dir/.monarch-taildrop"
-mkdir -p "$staging"
+mkdir -p -- "$staging"
 
 claim_path() {
   local staged=$1 name="${1##*/}" base ext candidate index=0

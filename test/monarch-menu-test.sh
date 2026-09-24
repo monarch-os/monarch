@@ -359,6 +359,7 @@ cat >"$USER_MENU" <<'EOF'
   "guarded.always": {"label":"Always","when":"true","action":"true"},
   "guarded.never": {"label":"Never","when":"false","action":"true"},
   "guarded.exit-code": {"label":"ExitCode","when":"[[ 1 == 2 ]]","action":"true"},
+  "guarded.option-like": {"label":"OptionLike","when":"monarch-cmd-present -v","action":"true"},
 }
 EOF
 

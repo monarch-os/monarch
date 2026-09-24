@@ -10,13 +10,13 @@ if [[ -n ${1:-} && ! -d $1 ]]; then
   exit 2
 fi
 
-target_dir="${1:-${XDG_CACHE_HOME:-$HOME/.cache}/monarch}"
+target_dir=$(realpath -m -- "${1:-${XDG_CACHE_HOME:-$HOME/.cache}/monarch}") || exit 1
 phase_seconds=8
 parallel=4
 chunk_mb=4
 file_mb=256
 
-mkdir -p "$target_dir"
+mkdir -p -- "$target_dir"
 
 worker_pids=()
 chunk_file=""
@@ -49,9 +49,9 @@ cleanup() {
   # impatient SIGKILL has already taken the names off the filesystem. A live
   # write worker's next dd pass recreates its file by name, so sweep again
   # once they are gone.
-  rm -f ${chunk_file:+"$chunk_file"} "${test_files[@]}"
+  rm -f -- ${chunk_file:+"$chunk_file"} "${test_files[@]}"
   stop_workers
-  rm -f ${chunk_file:+"$chunk_file"} "${test_files[@]}"
+  rm -f -- ${chunk_file:+"$chunk_file"} "${test_files[@]}"
 }
 # Armed before any scratch file exists, so a failed preflight check below
 # cannot leak them.
@@ -104,7 +104,7 @@ if [[ ! -r /sys/class/block/$dev/stat ]]; then
   exit 1
 fi
 
-available_mb=$(df --output=avail -m "$target_dir" | tail -1 | tr -d ' ')
+available_mb=$(df --output=avail -m -- "$target_dir" | tail -1 | tr -d ' ')
 if (( available_mb < parallel * file_mb * 2 )); then
   echo "Need at least $((parallel * file_mb * 2))MB free on $target_dir" >&2
   exit 1

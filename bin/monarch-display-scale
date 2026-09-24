@@ -39,7 +39,7 @@ NIRI_SOCKET=$(monarch-hw-niri-socket) || {
 }
 export NIRI_SOCKET
 
-if ! monarch-display-list | cut -f1 | grep -qxF "$output"; then
+if ! monarch-display-list | cut -f1 | grep -qxF -- "$output"; then
   echo "Error: no display named $output." >&2
   exit 1
 fi

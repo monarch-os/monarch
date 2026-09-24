@@ -205,7 +205,7 @@ prime_guard_helpers() {
   monarch-cmd-present() {
     local cmd
     for cmd in "$@"; do
-      command -v "$cmd" >/dev/null 2>&1 || return 1
+      command -v -- "$cmd" >/dev/null 2>&1 || return 1
     done
     return 0
   }

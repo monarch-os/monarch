@@ -19,7 +19,7 @@ fi
 
 # Match the profile name exactly: a substring match would delete a neighbour's
 # saved network whose name happens to contain this one.
-if ! LC_ALL=C nmcli -g NAME connection show 2>/dev/null | grep -Fxq "$ssid"; then
+if ! LC_ALL=C nmcli -g NAME connection show 2>/dev/null | grep -Fxq -- "$ssid"; then
   echo "Error: no saved profile named $ssid." >&2
   exit 1
 fi

@@ -88,3 +88,18 @@ pass "receiver preserves name collisions"
 grep -Fzq 'browser-download.iso' "$TEST_ROOT/notifications" && fail "receiver announced a concurrent download"
 [[ -z $(ls -A "$downloads/.monarch-taildrop") ]] || fail "receiver left delivered files in staging"
 pass "receiver isolates its staging directory"
+
+mkdir -p "$TEST_ROOT/work/-downloads"
+printf 'relative' >"$TEST_ROOT/outbox/relative.txt"
+(
+  cd "$TEST_ROOT/work"
+  PATH="$TEST_ROOT/bin:$ROOT/bin:$PATH" \
+    "$ROOT/bin/monarch-tailscale-receive" --once -downloads
+  for _ in {1..50}; do
+    grep -Fx "$TEST_ROOT/work/-downloads/relative.txt" "$TEST_ROOT/opened" >/dev/null 2>&1 && break
+    sleep 0.1
+  done
+)
+[[ -f $TEST_ROOT/work/-downloads/relative.txt ]] ||
+  fail "receiver does not treat an option-like directory as a path"
+pass "receiver accepts an option-like relative directory"

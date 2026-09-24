@@ -145,8 +145,8 @@ about_main() {
   fi
 
   exec monarch-launch-or-focus \
-    "org.monarch.about" \
-    "monarch-launch-tui --app-id=org.monarch.about monarch-launch-about --render"
+    "org.monarch.about" -- \
+    monarch-launch-tui --app-id=org.monarch.about monarch-launch-about --render
 }
 
 if [[ ${BASH_SOURCE[0]} == "$0" ]]; then

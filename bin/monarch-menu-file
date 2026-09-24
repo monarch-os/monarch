@@ -25,8 +25,10 @@ if (( ${#paths[@]} == 0 || ${#formats[@]} == 0 )); then
   exit 1
 fi
 
-for path in "${paths[@]}"; do
+for index in "${!paths[@]}"; do
+  path=${paths[$index]}
   [[ -e $path ]] || { echo "Path not found: $path" >&2; exit 1; }
+  paths[$index]=$(realpath -e -- "$path") || exit 1
 done
 
 find_args=("${paths[@]}" "(" -type d -name ".*" ! -name "." -prune ")" -o -type f ! -name ".*" "(")

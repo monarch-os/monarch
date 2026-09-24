@@ -42,3 +42,13 @@ if PATH="$TEST_ROOT/bin:$PATH" TAILSCALE_FAIL=1 "$ROOT/bin/monarch-tailscale-sen
 fi
 grep -Fzq 'Could not send to phone' "$TEST_ROOT/notification" || fail "send failure is not announced"
 pass "send reports transfer failure"
+
+printf 'literal' >"$TEST_ROOT/--help"
+(
+  cd "$TEST_ROOT"
+  PATH="$TEST_ROOT/bin:$PATH" "$ROOT/bin/monarch-tailscale-send" phone --help
+)
+mapfile -d '' -t notification_args <"$TEST_ROOT/notification"
+[[ ${notification_args[-1]} == "--help" ]] ||
+  fail "send interprets an option-like filename in its notification"
+pass "send treats an option-like filename literally"

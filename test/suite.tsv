@@ -3,6 +3,7 @@ test/shell.d/sleep-transition-test.sh	power	high	isolated
 test/shell.d/mise-runtime-test.sh	developer-agents	medium	isolated
 test/shell.d/update-pacman-test.sh	updates	high	isolated
 test/shell.d/terminal-presentation-test.sh	command-presentation	medium	isolated
+test/shell.d/launch-or-focus-test.sh	command-launch	high	isolated
 test/shell.d/test-runner-test.sh	test-runner	medium	isolated
 test/shell.d/noctalia-restart-test.sh	desktop-shell	medium	isolated
 test/shell.d/acceptance-target-test.sh	acceptance-security	high	isolated
@@ -28,6 +29,7 @@ test/monarch-kernel-headers-test.sh	kernel-packages	high	isolated
 test/shell.d/limine-kernel-order-reconcile-test.sh	kernel-packages	high	isolated
 test/monarch-menu-test.sh	menu	medium	isolated
 test/monarch-menu-launcher-test.sh	menu	medium	isolated
+test/shell.d/menu-file-path-test.sh	menu	high	isolated
 test/monarch-mise-agent-test.sh	developer-agents	medium	isolated
 test/monarch-reconcile-test.sh	updates	high	isolated
 test/shell.d/legacy-noctalia-config-test.sh	updates	high	isolated
@@ -37,12 +39,14 @@ test/shell.d/packaged-runtime-bootstrap-test.sh	updates	high	isolated
 test/shell.d/retired-sudoers-reconcile-test.sh	security	high	isolated
 test/monarch-network-test.sh	network	medium	isolated
 test/monarch-network-speedtest-test.sh	network	medium	isolated
+test/shell.d/wifi-option-boundary-test.sh	wifi	medium	isolated
 test/monarch-niri-socket-test.sh	display-recovery	high	isolated
 test/monarch-noctalia-config-test.sh	desktop-shell	medium	isolated
 test/monarch-notification-test.sh	notifications	medium	isolated
 test/monarch-npx-install-test.sh	package-install	medium	isolated
 test/monarch-install-helpers-test.sh	package-install	high	isolated
 test/shell.d/pkg-drop-test.sh	package-install	high	isolated
+test/shell.d/tui-install-icon-test.sh	software-install	medium	isolated
 test/monarch-font-set-test.sh	fonts	high	isolated
 test/monarch-webapp-test.sh	webapps	high	isolated
 test/monarch-webapp-cleanup-test.sh	webapps	high	isolated
@@ -57,6 +61,7 @@ test/monarch-power-test.sh	power	medium	isolated
 test/monarch-preinstalls-test.sh	package-install	medium	isolated
 test/monarch-screensaver-idle-test.sh	idle	medium	isolated
 test/monarch-sddm-test.sh	login-screen	high	isolated
+test/shell.d/plymouth-preview-path-test.sh	login-screen	medium	isolated
 test/monarch-sshd-menu-test.sh	remote-access	high	isolated
 test/shell.d/sshd-hardening-test.sh	remote-access	high	isolated
 test/shell.d/sudoless-docker-toggle-test.sh	docker-security	high	isolated
@@ -65,6 +70,9 @@ test/monarch-sudo-passwordless-test.sh	security	high	isolated
 test/monarch-tailscale-lifecycle-test.sh	tailscale	medium	isolated
 test/monarch-tailscale-receive-test.sh	tailscale	medium	isolated
 test/monarch-tailscale-send-test.sh	tailscale	medium	isolated
+test/shell.d/transcode-ascii-path-test.sh	branding	medium	isolated
+test/shell.d/disk-speedtest-path-test.sh	disk	medium	isolated
+test/shell.d/drive-info-path-test.sh	disk	low	isolated
 test/monarch-t3-install-test.sh	software-install	medium	isolated
 test/monarch-t3-theme-test.sh	theming	medium	isolated
 test/monarch-theme-background-import-test.sh	backgrounds	medium	isolated
