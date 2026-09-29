@@ -1,9 +1,16 @@
 window-rule {
-    match app-id=r#"(?i)(^|[._-])(beeper(texts)?|discord|vesktop|teams(-for-linux)?)([._-]|$)"#
+    match app-id=r#"(?i)(^|[._-])(beeper(texts)?|discord|vesktop|teams([_-]for[_-]linux)?|whatsapp)([._-]|$)"#
+    match app-id=r#"(?i)(^|[._-])(signal(-desktop)?|telegram(-desktop)?|element(-desktop)?|riot)([._-]|$)"#
+    match app-id=r#"(?i)(^|[._-])(slack|mattermost(-desktop)?|zulip(-desktop)?|ferdium|rambox|franz)([._-]|$)"#
     block-out-from "screen-capture"
 }
 
 window-rule {
     match title=r#"(^Teams$|Microsoft Teams)"#
+    block-out-from "screen-capture"
+}
+
+window-rule {
+    match app-id=r#"(?i)(^|[._-])(chromium|chrome|brave|edge|opera|vivaldi|helium)([._-]|$)"# title=r#"(?i)^(\([0-9]+\) )?(WhatsApp( Web)?|Messenger|Google Chat|Slack|Discord)( - .+)?$"#
     block-out-from "screen-capture"
 }
