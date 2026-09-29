@@ -21,6 +21,16 @@ window-rule {
     open-floating true
 }
 
+window-rule {
+    match app-id=r#"(?i)(^|[._-])(beeper(texts)?|discord|vesktop|teams(-for-linux)?)([._-]|$)"#
+    block-out-from "screen-capture"
+}
+
+window-rule {
+    match title=r#"(^Teams$|Microsoft Teams)"#
+    block-out-from "screen-capture"
+}
+
 // Force tile for chromium-based browser app windows (workaround for --app bug).
 window-rule {
     match app-id=r#"^((google-)?[cC]hrom(e|ium)|[bB]rave-browser|[mM]icrosoft-edge|Vivaldi-stable|helium)$"#

@@ -1,0 +1,14 @@
+[Unit]
+Description=Silence notifications during screen sharing
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/monarch-niri-screencast-dnd
+Restart=on-failure
+RestartSec=2
+LogLevelMax=warning
+
+[Install]
+WantedBy=graphical-session.target

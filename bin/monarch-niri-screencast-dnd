@@ -1,0 +1,90 @@
+#!/bin/bash
+
+# monarch:summary=Silence notifications while a Niri screencast is active
+# monarch:hidden=true
+
+set -uo pipefail
+
+managed=false
+shared=false
+prior_dnd=""
+
+socket_live() {
+  [[ -S ${1:-} ]] || return 1
+  local pid=${1##*/}
+  pid=${pid%.sock}
+  pid=${pid##*.}
+  [[ -r /proc/$pid/comm && $(< "/proc/$pid/comm") == niri ]]
+}
+
+ensure_socket() {
+  socket_live "${NIRI_SOCKET:-}" && return 0
+  local pid socket
+  pid=$(pgrep -x niri | head -n1)
+  [[ -n $pid ]] || return 1
+  socket=$(printf '%s\n' "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"/niri.*."$pid".sock | head -n1)
+  [[ -S $socket ]] || return 1
+  export NIRI_SOCKET="$socket"
+}
+
+sync_dnd() {
+  local status
+  status=$(noctalia msg notification-dnd-status 2>/dev/null) || return 0
+  [[ $status == "on" || $status == "off" ]] || return 0
+
+  if [[ $shared == true ]]; then
+    [[ -n $prior_dnd ]] || prior_dnd=$status
+    if [[ $status == "off" ]]; then
+      if noctalia msg notification-dnd-set on >/dev/null 2>&1 && [[ $prior_dnd == "off" ]]; then
+        managed=true
+      fi
+    fi
+  elif [[ -n $prior_dnd ]]; then
+    if [[ $managed == true && $status == "on" ]]; then
+      noctalia msg notification-dnd-set off >/dev/null 2>&1 || return 0
+    fi
+    managed=false
+    prior_dnd=""
+  fi
+}
+
+restore_dnd() {
+  shared=false
+  sync_dnd
+}
+
+update_shared() {
+  local casts next_shared
+  casts=$(niri msg --json casts 2>/dev/null) || return 0
+  next_shared=$(jq -r 'if type == "array" then any(.[]; .is_active == true) else error("unexpected casts") end' <<<"$casts" 2>/dev/null) || return 0
+  shared=$next_shared
+  sync_dnd
+}
+
+[[ ${BASH_SOURCE[0]} == "$0" ]] || return 0
+
+trap restore_dnd EXIT
+trap 'exit 0' TERM INT
+
+while true; do
+  if ensure_socket; then
+    exec {cast_fd}< <(niri msg --json event-stream 2>/dev/null)
+    while true; do
+      if IFS= read -r -t 5 line <&$cast_fd; then
+        case $line in
+          *'"CastsChanged"'* | *'"CastStartedOrChanged"'* | *'"CastStopped"'*)
+            update_shared
+            ;;
+        esac
+        sync_dnd
+      else
+        read_status=$?
+        (( read_status == 1 )) && break
+        sync_dnd
+      fi
+    done
+    exec {cast_fd}<&-
+    restore_dnd
+  fi
+  sleep 2
+done
