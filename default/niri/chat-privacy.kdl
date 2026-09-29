@@ -1,0 +1,9 @@
+window-rule {
+    match app-id=r#"(?i)(^|[._-])(beeper(texts)?|discord|vesktop|teams(-for-linux)?)([._-]|$)"#
+    block-out-from "screen-capture"
+}
+
+window-rule {
+    match title=r#"(^Teams$|Microsoft Teams)"#
+    block-out-from "screen-capture"
+}
