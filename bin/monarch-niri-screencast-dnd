@@ -69,6 +69,7 @@ trap 'exit 0' TERM INT
 while true; do
   if ensure_socket; then
     exec {cast_fd}< <(niri msg --json event-stream 2>/dev/null)
+    update_shared
     while true; do
       if IFS= read -r -t 5 line <&$cast_fd; then
         case $line in
@@ -76,11 +77,10 @@ while true; do
             update_shared
             ;;
         esac
-        sync_dnd
       else
         read_status=$?
         (( read_status == 1 )) && break
-        sync_dnd
+        [[ $shared == true || -n $prior_dnd ]] && sync_dnd
       fi
     done
     exec {cast_fd}<&-
