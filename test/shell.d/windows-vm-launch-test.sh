@@ -25,7 +25,7 @@ ensure_krb5_config() { :; }
 priv() { :; }
 gum() { :; }
 niri() { printf '{"logical":{"scale":1}}\n'; }
-xfreerdp3() { :; }
+xfreerdp3() { cat >/dev/null; }
 nc() { $rdp_ready; }
 monarch-notification-send() { printf '%s\n' "$*" >>"$trace"; }
 

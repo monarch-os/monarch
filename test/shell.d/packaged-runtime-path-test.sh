@@ -7,8 +7,10 @@ trap 'rm -rf "$test_tmp"' EXIT
 
 runtime="$test_tmp/runtime"
 home="$test_tmp/home"
-mkdir -p "$runtime/default/niri" "$runtime/config/niri" "$runtime/install/helpers" "$home" "$test_tmp/bin"
+mkdir -p "$runtime/bin" "$runtime/default/niri" "$runtime/config/niri" "$runtime/install/helpers" "$home" "$test_tmp/bin"
+cp "$ROOT/bin/monarch-toggle-chat-privacy" "$runtime/bin/"
 cp "$ROOT/default/niri/config.kdl" "$runtime/default/niri/config.kdl"
+cp "$ROOT/default/niri/chat-privacy.kdl" "$runtime/default/niri/chat-privacy.kdl"
 cp "$ROOT/config/niri/"{user.kdl,noctalia.kdl,workspaces.conf} "$runtime/config/niri/"
 cp "$ROOT/install/helpers/workspaces.sh" "$runtime/install/helpers/workspaces.sh"
 
@@ -22,6 +24,10 @@ if ! HOME="$home" MONARCH_PATH="$runtime" PATH="$test_tmp/bin:$PATH" \
   bash "$ROOT/bin/monarch-refresh-niri"; then
   fail "refresh niri runs against the packaged runtime fixture"
 fi
+
+state="$home/.local/state/monarch/chat-privacy.kdl"
+grep -qFx "include \"$runtime/default/niri/chat-privacy.kdl\"" "$state" ||
+  fail "refresh niri enables packaged chat privacy rules"
 
 target="$home/.config/niri/config.kdl"
 [[ -f $target ]] || fail "refresh niri creates the packaged user entry point"
