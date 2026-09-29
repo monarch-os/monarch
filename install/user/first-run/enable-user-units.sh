@@ -6,6 +6,7 @@ systemctl --user daemon-reload
 systemctl --user enable --now \
   monarch-crash-watch.service \
   monarch-recover-internal-monitor.service \
+  monarch-screencast-dnd.service \
   monarch-obsidian-theme.path
 
 if monarch-battery-present; then

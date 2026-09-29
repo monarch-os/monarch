@@ -41,6 +41,8 @@ test/monarch-network-test.sh	network	medium	isolated
 test/monarch-network-speedtest-test.sh	network	medium	isolated
 test/shell.d/wifi-option-boundary-test.sh	wifi	medium	isolated
 test/monarch-niri-socket-test.sh	display-recovery	high	isolated
+test/shell.d/screencast-dnd-test.sh	notifications	high	isolated
+test/shell.d/chat-privacy-test.sh	privacy	medium	isolated
 test/monarch-noctalia-config-test.sh	desktop-shell	medium	isolated
 test/monarch-notification-test.sh	notifications	medium	isolated
 test/monarch-npx-install-test.sh	package-install	medium	isolated

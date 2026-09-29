@@ -232,6 +232,11 @@ cat >"$TEST_ROOT/bin/sudo" <<'EOF'
 exec "$@"
 EOF
 
+cat >"$TEST_ROOT/bin/systemctl" <<'EOF'
+#!/bin/bash
+printf 'systemctl %s\n' "$*" >>"$TEST_LOG"
+EOF
+
 cat >"$TEST_ROOT/bin/id" <<'EOF'
 #!/bin/bash
 printf '%s\n' wheel

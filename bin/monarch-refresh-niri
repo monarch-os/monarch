@@ -96,6 +96,7 @@ fi
 if [[ ! -f $HOME/.config/niri/runtime.kdl ]]; then
   : >"$HOME/.config/niri/runtime.kdl"
 fi
+MONARCH_PATH="$MONARCH_ROOT" "$MONARCH_ROOT/bin/monarch-toggle-chat-privacy" init
 # Drop the obsolete per-feature include it superseded (folded into runtime.kdl).
 rm -f "$HOME/.config/niri/monarch-input.kdl"
 

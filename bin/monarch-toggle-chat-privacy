@@ -1,0 +1,61 @@
+#!/bin/bash
+
+# monarch:summary=Toggle masking of chat windows in screen captures
+# monarch:args=[toggle|on|off|status]
+# monarch:examples=monarch toggle chat-privacy status
+
+set -euo pipefail
+
+root=${MONARCH_PATH:-/usr/share/monarch}
+rules=$root/default/niri/chat-privacy.kdl
+state=$HOME/.local/state/monarch/chat-privacy.kdl
+
+enabled() {
+  [[ -f $state ]] && grep -Fxq "include \"$rules\"" "$state"
+}
+
+write_state() {
+  local value=$1 temporary
+  mkdir -p "${state%/*}"
+  temporary=$(mktemp "${state%/*}/.chat-privacy.XXXXXX")
+  trap 'rm -f "$temporary"' EXIT
+  if [[ $value == "on" ]]; then
+    [[ -f $rules ]] || {
+      echo "Missing chat privacy rules: $rules" >&2
+      return 1
+    }
+    printf 'include "%s"\n' "$rules" >"$temporary"
+  fi
+  mv -f "$temporary" "$state"
+  trap - EXIT
+}
+
+case ${1:-toggle} in
+  status | --status)
+    if enabled; then
+      printf '{"enabled":true,"tooltip":"Show chat windows in captures"}\n'
+    else
+      printf '{"enabled":false,"tooltip":"Mask chat windows in captures"}\n'
+    fi
+    ;;
+  init)
+    [[ -e $state || -L $state ]] || write_state on
+    ;;
+  on)
+    enabled || write_state on
+    ;;
+  off)
+    [[ -f $state && ! -s $state ]] || write_state off
+    ;;
+  toggle)
+    if enabled; then
+      write_state off
+    else
+      write_state on
+    fi
+    ;;
+  *)
+    echo "Usage: $0 [toggle|on|off|status]" >&2
+    exit 1
+    ;;
+esac
