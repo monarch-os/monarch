@@ -4,15 +4,10 @@
 # monarch:group=capture
 # monarch:args=[--fullscreen] [--with-desktop-audio] [--with-microphone-audio] [--with-webcam] [--webcam-device=<device>] [--webcam-size=<small|medium|large>] [--webcam-shape=<circle|rectangle>] [--resolution=<size>] [--stop-recording]
 # monarch:examples=monarch screenrecord | monarch capture screenrecord --with-desktop-audio
-# monarch:aliases=monarch screenrecord
+# monarch:aliases=monarch screenrecord | monarch capture screenrecord
 #
-# Env: MONARCH_SCREENRECORD_USE_PORTAL=true skips the built-in slurp picker and
-# uses gpu-screen-recorder's xdg-desktop-portal capture backend instead. The
-# portal backend was originally added (PR #3401) for HDR-aware capture, support
-# for monitors driven by external GPUs, and window capture — enable it if any
-# of those matter to you. Off by default because the portal path can fail EGL
-# DMA-BUF modifier import on some configurations, leaving recording unable to
-# start.
+# MONARCH_SCREENRECORD_USE_PORTAL=false opts into direct capture for GPUs that
+# reject portal DMA-BUF imports. This bypasses Niri's capture privacy rules.
 #
 # Env: MONARCH_SCREENRECORD_DEBUG=true appends gpu-screen-recorder's stderr (and
 # the picker target it was launched with) to /tmp/monarch-screenrecord.log so
@@ -204,17 +199,13 @@ start_screenrecording() {
   local capture_args=()
   local target
 
-  # Opt-in path for HDR, external-GPU monitors, and window capture (all things
-  # the portal backend supports and the kms backend doesn't). Default flow uses
-  # slurp + the kms backend, which avoids the EGL DMA-BUF modifier import
-  # failures the portal path can hit on some configurations.
-  if [[ $FULLSCREEN == "true" ]]; then
+  if [[ ${MONARCH_SCREENRECORD_USE_PORTAL:-true} != "false" ]]; then
+    target="portal"
+    capture_args=(-w portal -s "${RESOLUTION:-$(default_resolution)}")
+  elif [[ $FULLSCREEN == "true" ]]; then
     target="monitor:$(niri msg --json focused-output 2>/dev/null | jq -r '.name // empty')"
     [[ $target != "monitor:" ]] || return 1
     capture_args=(-w "${target#monitor:}" -s "${RESOLUTION:-$(default_resolution)}")
-  elif [[ ${MONARCH_SCREENRECORD_USE_PORTAL:-false} == "true" ]]; then
-    target="portal"
-    capture_args=(-w portal -s "${RESOLUTION:-$(default_resolution)}")
   else
     target=$(select_capture_target) || return 1
 
@@ -338,5 +329,8 @@ elif [[ $STOP_RECORDING == "true" ]]; then
   exit 1
 else
   trap 'cleanup_webcam; exit 130' INT TERM
-  start_screenrecording || cleanup_webcam
+  if ! start_screenrecording; then
+    cleanup_webcam
+    exit 1
+  fi
 fi

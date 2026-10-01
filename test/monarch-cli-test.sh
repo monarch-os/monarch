@@ -163,6 +163,9 @@ assert_output_contains "root command help shows related child commands" "$output
 output=$("$CLI" screenshot --help)
 assert_output_contains "root alias resolves to command help" "$output" "monarch-capture-screenshot"
 
+output=$("$CLI" capture screenrecord --help)
+assert_output_contains "screenrecord alias resolves to recording help" "$output" "monarch-capture-screenrecording"
+
 "$CLI" commands --json | jq -e '.commands[] | select(.binary == "monarch-capture-screenshot") | .aliases | index("monarch screenshot")' >/dev/null
 pass "aliases are included in JSON metadata"
 
