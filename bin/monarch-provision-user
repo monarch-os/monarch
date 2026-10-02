@@ -119,6 +119,7 @@ if (( first_install || initialize_user )); then
   done
 
   source "$MONARCH_INSTALL/user/all.sh"
+  monarch-setup-first-steps prepare
 fi
 
 if (( skip_preinstalls )); then

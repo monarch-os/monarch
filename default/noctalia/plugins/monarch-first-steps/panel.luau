@@ -1,6 +1,7 @@
 --!nonstrict
 
 local root = ""
+local stateHome = ""
 local phase = "welcome"
 local shortcuts = {}
 local status = ""
@@ -29,7 +30,8 @@ local function quote(value)
 end
 
 local function run(arguments, callback)
-  noctalia.runAsync(quote(root .. "/bin/monarch-dev-first-steps-prototype") .. " " .. arguments, callback)
+  noctalia.runAsync("MONARCH_PATH=" .. quote(root) .. " XDG_STATE_HOME=" .. quote(stateHome) .. " "
+    .. quote(root .. "/bin/monarch-setup-first-steps") .. " " .. arguments, callback)
 end
 
 local function change(nextPhase)
@@ -193,7 +195,7 @@ function render()
   table.insert(children,
     ui.row({ align = "center", gap = 8 }, {
       ui.label({ text = "monarch-menu · Win + Alt + Espace", fontSize = 11, color = "on_surface/0.65", flexGrow = 1 }),
-      ui.button({ text = "Documentation", variant = "ghost", height = 32, onClick = function() onDocsClicked("monarch") end }),
+      ui.button({ text = "Documentation", variant = "ghost", height = 32, onClick = function() onDocsClicked() end }),
     })
   )
   table.insert(children, ui.row({ gap = 8, align = "center" }, buttons))
@@ -202,12 +204,13 @@ end
 
 function onOpen(context)
   local request = noctalia.json.decode(context or "")
-  if type(request) ~= "table" or type(request.root) ~= "string" then
+  if type(request) ~= "table" or type(request.root) ~= "string"
+    or type(request.stateHome) ~= "string" then
     panel.close()
     return
   end
   root = request.root
-  run("visibility true")
+  stateHome = request.stateHome
   phase = request.phase or "welcome"
   if not table.find(steps, phase) and phase ~= "done" then phase = "welcome" end
   status = ""
@@ -228,6 +231,7 @@ function onOpen(context)
     render()
   end)
   render()
+  run("opened")
 end
 
 function onNextClicked()
@@ -241,16 +245,11 @@ function onBackClicked()
 end
 
 function onSkipClicked()
-  run("record skipped")
   panel.close()
 end
 
 function onCloseClicked()
   panel.close()
-end
-
-function onClose()
-  if root ~= "" then run("visibility false") end
 end
 
 function onVisitClicked()
@@ -261,8 +260,8 @@ function onCyberClicked()
   run("visit cyber")
 end
 
-function onDocsClicked(kind)
-  run("docs " .. quote(kind))
+function onDocsClicked()
+  run("docs")
 end
 
 function onInstallClicked(tool)

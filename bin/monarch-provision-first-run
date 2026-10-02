@@ -36,10 +36,15 @@ while (($#)); do
   esac
 done
 
+offer_first_steps() {
+  monarch-setup-first-steps first-login || echo "First-steps guide remains pending for the next session." >&2
+}
+
 state_dir=~/.local/state/monarch
 FIRST_RUN_DONE="first-run-user"
 if monarch-done check "$FIRST_RUN_DONE" && monarch-done check finalize-user && (( force == 0 )); then
   echo "First-run already complete (rerun with --force to refresh)."
+  offer_first_steps
   exit 0
 fi
 
@@ -90,6 +95,7 @@ run_first_run_step "schedule Wi-Fi/update notifications" \
 
 if (( first_run_failed == 0 )); then
   monarch-done mark "$FIRST_RUN_DONE"
+  offer_first_steps
 else
   log_first_run "One or more first-run steps failed; first-run will retry next login"
   rm -f "$state_dir/done/$FIRST_RUN_DONE"

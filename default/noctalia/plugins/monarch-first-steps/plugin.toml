@@ -1,10 +1,10 @@
-id = "monarch/first-steps-prototype"
-name = "Premiers pas — prototype"
-version = "0.1.0"
+id = "monarch/first-steps"
+name = "Premiers pas"
+version = "1.0.0"
 plugin_api = 22
 author = "monarch"
 license = "MIT"
-description = "Prototype of an optional first-session discovery of Monarch."
+description = "Discover Monarch shortcuts, appearance and software."
 icon = "sparkles"
 
 [[panel]]

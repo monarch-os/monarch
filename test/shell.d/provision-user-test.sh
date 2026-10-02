@@ -22,7 +22,7 @@ chmod +x "$mock_bin"/*
 mkdir -p "$test_tmp/install/user"
 : >"$test_tmp/install/user/all.sh"
 
-HOME="$test_tmp/home" PATH="$mock_bin:$ROOT/bin:$PATH" MONARCH_PATH="$ROOT" \
+HOME="$test_tmp/home" XDG_STATE_HOME="$test_tmp/home/.local/state" PATH="$mock_bin:$ROOT/bin:$PATH" MONARCH_PATH="$ROOT" \
   MONARCH_INSTALL="$test_tmp/install" bash "$ROOT/bin/monarch-provision-user" --first-install >/dev/null ||
   fail "monarch-provision-user finishes"
 
@@ -47,6 +47,7 @@ assert_skills() {
 }
 
 assert_skills
+[[ -f $test_tmp/home/.local/state/monarch/first-steps/pending ]] || fail "initial setup prepares first steps"
 pass "monarch-provision-user provisions agent skills for every supported client"
 
 legacy_skill="$test_tmp/home/.local/share/monarch/default/monarch-skill"
@@ -55,7 +56,7 @@ for skill_dir in "${skill_dirs[@]:0:4}"; do
 done
 rm "$test_tmp/home/.gemini/config/skills/monarch"
 
-HOME="$test_tmp/home" PATH="$mock_bin:$ROOT/bin:$PATH" MONARCH_PATH="$ROOT" \
+HOME="$test_tmp/home" XDG_STATE_HOME="$test_tmp/home/.local/state" PATH="$mock_bin:$ROOT/bin:$PATH" MONARCH_PATH="$ROOT" \
   MONARCH_INSTALL="$test_tmp/install" bash "$ROOT/bin/monarch-provision-user" --force >/dev/null ||
   fail "monarch-provision-user repairs legacy agent skills"
 
@@ -69,7 +70,7 @@ mkdir "$custom_skill_dir"
 printf '%s\n' '# User-owned Monarch skill' >"$custom_skill_dir/SKILL.md"
 printf '%s\n' 'user-owned skill reference' >"$custom_skill_file"
 
-HOME="$test_tmp/home" PATH="$mock_bin:$ROOT/bin:$PATH" MONARCH_PATH="$ROOT" \
+HOME="$test_tmp/home" XDG_STATE_HOME="$test_tmp/home/.local/state" PATH="$mock_bin:$ROOT/bin:$PATH" MONARCH_PATH="$ROOT" \
   MONARCH_INSTALL="$test_tmp/install" bash "$ROOT/bin/monarch-provision-user" --force >/dev/null ||
   fail "monarch-provision-user preserves a user-owned skill directory"
 
