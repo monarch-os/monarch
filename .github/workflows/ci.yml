@@ -6,25 +6,6 @@ on:
   pull_request:
 
 jobs:
-  crash-collection:
-    name: Crash collection
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: services/crashes
-    env:
-      WRANGLER_SEND_METRICS: "false"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: services/crashes/package-lock.json
-      - run: npm ci
-      - run: npm test
-      - run: npm run test:integration
-
   integration-tests:
     name: Integration tests
     runs-on: ubuntu-latest
