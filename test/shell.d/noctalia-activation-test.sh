@@ -39,7 +39,7 @@ for entrypoint in first-run reconcile deferred; do
   esac
   : >"$test_tmp/calls"
   bash "$script" >/dev/null
-  [[ $(grep -c '^msg plugins enable ' "$test_tmp/calls") == 7 ]]
+  [[ $(grep -c '^msg plugins enable ' "$test_tmp/calls") == 8 ]]
   grep -qx 'msg plugins enable monarch/theme' "$test_tmp/calls"
   [[ $(tail -1 "$test_tmp/calls") == 'msg config-reload' ]] || fail "$entrypoint reloads after activation"
   grep '^msg plugins enable ' "$test_tmp/calls" | sort >"$test_tmp/$entrypoint-plugins"

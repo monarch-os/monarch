@@ -12,18 +12,26 @@ mkdir -p "$runtime/bin"
 ln -s "$ROOT/install" "$runtime/install"
 ln -s "$ROOT/default" "$runtime/default"
 
-for command in monarch-provision-first-run monarch-provision-user monarch-done monarch-hook-install; do
+for command in monarch-provision-first-run monarch-provision-user monarch-done monarch-hook-install monarch-setup-first-steps; do
   ln -s "$ROOT/bin/$command" "$runtime/bin/$command"
 done
 
 for command in monarch-refresh-niri monarch-refresh-noctalia monarch-refresh-applications \
   monarch-theme-apply monarch-mise-install monarch-notification-wait monarch-notification-send \
   xdg-user-dirs-update xdg-settings xdg-mime update-desktop-database git mise \
-  systemctl noctalia gsettings nm-online pactl; do
+  systemctl noctalia gsettings nm-online pactl sleep; do
   cat >"$runtime/bin/$command" <<'EOF'
 #!/bin/bash
 printf '%s %s\n' "${0##*/}" "$*" >>"$TEST_PROVISION_LOG"
 [[ ${0##*/} != "${TEST_PROVISION_FAIL:-}" ]] || exit 42
+if [[ ${0##*/} == "noctalia" ]]; then
+  if [[ $* == 'msg status' ]]; then
+    printf '%s\n' '{"locked":false,"panelOpen":false}'
+  elif [[ $1 == "msg" && $2 == "panel-open" && $3 == "monarch/first-steps:panel" ]]; then
+    [[ ${TEST_GUIDE_FAIL:-0} != 1 ]] || exit 42
+    monarch-setup-first-steps opened
+  fi
+fi
 EOF
 done
 
@@ -36,7 +44,7 @@ run_for_user() {
   local user_home="$1"
   shift
 
-  env HOME="$user_home" MONARCH_PATH="$runtime" MONARCH_INSTALL="$runtime/install" \
+  env HOME="$user_home" XDG_STATE_HOME="$user_home/.local/state" MONARCH_PATH="$runtime" MONARCH_INSTALL="$runtime/install" \
     MONARCH_USER_NAME='Existing User' MONARCH_USER_EMAIL='user@example.invalid' \
     MONARCH_SETUP_CONTEXT=runtime MONARCH_INSTALL_LOG_FILE='' \
     TEST_PROVISION_LOG="$user_home/calls" PATH="$runtime/bin:/usr/bin" \
@@ -103,6 +111,7 @@ case ${1:-all} in
       assert_customizations "$user_home"
       [[ -f $user_home/.local/state/monarch/done/finalize-user ]] || fail "existing user finalization is recorded"
       [[ -f $user_home/.local/state/monarch/done/first-run-user ]] || fail "existing user session setup completes"
+      [[ ! -f $user_home/.local/state/monarch/first-steps/shown ]] || fail "upgrades keep first steps available without an automatic offer"
       [[ -L $user_home/.agents/skills/monarch ]] || fail "existing users receive packaged skill links"
       grep -qF 'noctalia msg plugins enable monarch/menu' "$user_home/calls" || fail "existing users receive the V5 menu"
       grep -qF 'monarch-obsidian-theme.path' "$user_home/calls" || fail "existing users receive V5 user units"
@@ -110,6 +119,25 @@ case ${1:-all} in
       assert_customizations "$user_home"
       pass "$source_state users retain their data through migration and forced session retries"
     done
+    ;;
+esac
+
+case ${1:-all} in
+  all | guide-retry)
+    user_home="$test_tmp/guide-retry"
+    mkdir -p "$user_home"
+    TEST_GUIDE_FAIL=1 run_for_user "$user_home" "$ROOT/bin/monarch-provision-first-run" >/dev/null 2>&1
+    [[ -f $user_home/.local/state/monarch/done/first-run-user ]] || fail "guide failure does not invalidate completed provisioning"
+    [[ -f $user_home/.local/state/monarch/first-steps/pending ]] || fail "guide failure keeps the offer pending"
+    [[ ! -f $user_home/.local/state/monarch/first-steps/shown ]] || fail "a failed opening is not marked as shown"
+    setup_calls=$(grep -c '^systemctl ' "$user_home/calls")
+    run_for_user "$user_home" "$ROOT/bin/monarch-provision-first-run" >/dev/null
+    [[ -f $user_home/.local/state/monarch/first-steps/shown ]] || fail "the next session retries the pending guide"
+    [[ $(grep -c '^systemctl ' "$user_home/calls") == "$setup_calls" ]] || fail "guide retry does not repeat provisioning"
+    cp "$user_home/calls" "$user_home/expected-calls"
+    run_for_user "$user_home" "$ROOT/bin/monarch-provision-first-run" >/dev/null
+    cmp -s "$user_home/calls" "$user_home/expected-calls" || fail "a shown guide is not offered on later sessions"
+    pass "guide failure retries after completed provisioning and stops after its first confirmed opening"
     ;;
 esac
 
@@ -161,6 +189,8 @@ case ${1:-all} in
     [[ -f $user_home/.XCompose && -f $user_home/Work/.mise.toml ]] || fail "new users receive initial config"
     grep -qF 'xdg-settings set default-web-browser firefox.desktop' "$user_home/calls" || fail "new users receive MIME defaults"
     grep -qF 'mise use -g node@latest' "$user_home/calls" || fail "new users receive their Node setup"
+    [[ -f $user_home/.local/state/monarch/first-steps/shown ]] || fail "the first session offers first steps"
+    [[ ! -e $user_home/.local/state/monarch/first-steps/pending ]] || fail "the offered guide is no longer pending"
     cp "$user_home/calls" "$user_home/expected-calls"
     run_for_user "$user_home" "$ROOT/bin/monarch-provision-first-run" >/dev/null
     cmp -s "$user_home/calls" "$user_home/expected-calls" || fail "successful first-run is not repeated"

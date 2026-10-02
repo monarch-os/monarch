@@ -1,0 +1,20 @@
+id = "monarch/first-steps"
+name = "Premiers pas"
+version = "1.0.0"
+plugin_api = 22
+author = "monarch"
+license = "MIT"
+description = "Discover Monarch shortcuts, appearance and software."
+icon = "sparkles"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 560
+height = 470
+placement = "floating"
+position = "center"
+keyboard_focus = "on_demand"
+capture_keys = ["escape", "return", "left", "right"]
+dismiss_on_outside_click = false
+persistent = true

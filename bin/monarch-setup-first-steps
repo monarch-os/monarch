@@ -1,0 +1,265 @@
+#!/bin/bash
+
+# monarch:summary=Discover Monarch shortcuts, appearance and software
+# monarch:args=[open|first-login|reset|state]
+# monarch:examples=monarch setup first-steps | monarch setup first-steps reset
+
+set -euo pipefail
+
+runtime=${MONARCH_PATH:-/usr/share/monarch}
+export MONARCH_PATH="$runtime"
+export PATH="$runtime/bin:$PATH"
+state_home=${XDG_STATE_HOME:-$HOME/.local/state}
+export XDG_STATE_HOME="$state_home"
+state_dir="$state_home/monarch/first-steps"
+panel_id="monarch/first-steps:panel"
+mkdir -p "$state_dir"
+
+wait_for_shell() {
+  source "$runtime/install/reconcile/noctalia-wait.sh"
+  monarch_noctalia_wait 300 || { echo "Noctalia is not ready." >&2; return 1; }
+}
+
+open_guide() {
+  local phase="welcome" context attempt
+  [[ ! -f $state_dir/progress ]] || phase=$(<"$state_dir/progress")
+  context=$(jq -cn --arg root "$runtime" --arg stateHome "$state_home" --arg phase "$phase" \
+    '{root:$root,stateHome:$stateHome,phase:$phase}')
+  wait_for_shell
+  noctalia msg plugins enable monarch/first-steps >/dev/null
+  for ((attempt = 0; attempt < 50; attempt++)); do
+    noctalia msg panel-open "$panel_id" "$context" >/dev/null 2>&1 && return 0
+    sleep 0.1
+  done
+  echo "The first-steps panel is unavailable." >&2
+  return 1
+}
+
+record() {
+  local next
+  case "$1" in welcome|shortcuts|appearance|software|done) ;;
+    *) echo "Unknown first-steps phase: $1" >&2; return 1 ;;
+  esac
+  next=$(mktemp "$state_dir/.progress.XXXXXX")
+  printf '%s\n' "$1" > "$next"
+  mv -- "$next" "$state_dir/progress"
+}
+
+first_login() {
+  [[ -f $state_dir/pending && ! -f $state_dir/shown ]] || return 0
+  exec 9>"$state_dir/offer.lock"
+  flock -n 9 || return 0
+  [[ -f $state_dir/pending && ! -f $state_dir/shown ]] || return 0
+  wait_for_shell
+  local attempt state opened
+  for ((attempt = 0; attempt < 300; attempt++)); do
+    [[ -f $state_dir/pending && ! -f $state_dir/shown ]] || return 0
+    if state=$(noctalia msg status) && jq -e '.locked == false and .panelOpen == false' >/dev/null <<< "$state"; then
+      open_guide
+      for ((opened = 0; opened < 50; opened++)); do
+        [[ ! -f $state_dir/shown ]] || return 0
+        sleep 0.1
+      done
+      echo "The first-steps panel did not confirm opening; it remains pending." >&2
+      return 1
+    fi
+    sleep 0.1
+  done
+  echo "Desktop busy; the first-steps guide remains pending." >&2
+  return 1
+}
+
+visit() {
+  local destination state active attempt route="install"
+  case "$1" in
+    shortcuts) destination="monarch/menu:keybindings" ;;
+    appearance) destination="monarch/theme:theme" ;;
+    software|cyber) destination="monarch/menu:panel" ;;
+    *) return 1 ;;
+  esac
+  noctalia msg panel-close "$panel_id"
+  if [[ $1 == "software" || $1 == "cyber" ]]; then
+    [[ $1 != "cyber" ]] || route="install.cyber"
+    if ! "$runtime/bin/monarch-menu" "$route"; then open_guide; return 1; fi
+  elif ! noctalia msg panel-open "$destination"; then
+    open_guide
+    return 1
+  fi
+  for ((attempt = 0; attempt < 3000; attempt++)); do
+    sleep 0.2
+    state=$(noctalia msg status) || return 0
+    jq -e '.locked == false' >/dev/null <<< "$state" || return 0
+    active=$(jq -r '.activePanelId // empty' <<< "$state")
+    [[ -z $active ]] && { open_guide; return; }
+    [[ $active != "$destination" ]] && return 0
+  done
+}
+
+installer_args() {
+  case "$1" in
+    burpsuite) installer=("$runtime/bin/monarch-install-burp") ;;
+    rfswift) installer=("$runtime/bin/monarch-install-rfswift") ;;
+    seclists) installer=("$runtime/bin/monarch-pkg-aur-add" "seclists") ;;
+    *) echo "Unknown first-steps tool: $1" >&2; return 1 ;;
+  esac
+}
+
+tool_installed() {
+  case "$1" in
+    burpsuite) [[ -d /opt/BurpSuiteCommunity || -d /opt/BurpSuitePro ]] ;;
+    rfswift) type -P rfswift >/dev/null ;;
+    seclists) "$runtime/bin/monarch-pkg-present" seclists ;;
+    *) return 1 ;;
+  esac
+}
+
+lock_install_state() {
+  exec 8>"$state_dir/install-state.lock"
+  flock 8
+}
+
+recover_install() {
+  [[ -d $state_dir/installing ]] || return 0
+  local tool=""
+  [[ ! -f $state_dir/installing/tool ]] || tool=$(<"$state_dir/installing/tool")
+  finish_install_state "$tool" 130
+}
+
+tools_state() {
+  local burpsuite=false rfswift=false seclists=false active="" result="null"
+  tool_installed burpsuite && burpsuite=true
+  tool_installed rfswift && rfswift=true
+  tool_installed seclists && seclists=true
+  lock_install_state
+  exec 9>"$state_dir/install.lock"
+  if flock -n 9; then
+    recover_install
+  elif [[ -f $state_dir/installing/tool ]]; then
+    active=$(<"$state_dir/installing/tool")
+  fi
+  exec 9>&-
+  [[ -f $state_dir/install-result.json ]] && result=$(<"$state_dir/install-result.json")
+  jq -cn --argjson burpsuite "$burpsuite" --argjson rfswift "$rfswift" --argjson seclists "$seclists" \
+    --arg active "$active" --argjson result "$result" \
+    '{installed:{burpsuite:$burpsuite,rfswift:$rfswift,seclists:$seclists},active:$active,lastResult:$result}'
+}
+
+finish_install_state() {
+  local tool=$1 code=$2 result
+  result=$(mktemp "$state_dir/.install-result.XXXXXX")
+  jq -cn --arg tool "$tool" --argjson code "$code" '{tool:$tool,code:$code}' > "$result"
+  mv -- "$result" "$state_dir/install-result.json"
+  local file
+  for file in tool token started; do
+    [[ ! -f $state_dir/installing/$file ]] || unlink "$state_dir/installing/$file"
+  done
+  [[ ! -d $state_dir/installing ]] || rmdir "$state_dir/installing"
+}
+
+finish_install() {
+  local tool=$1 token=$2 code=$3
+  lock_install_state
+  [[ -f $state_dir/installing/token && $(<"$state_dir/installing/token") == "$token" ]] || return 0
+  [[ ${4:-} != "launching" || ! -f $state_dir/installing/started ]] || return 0
+  finish_install_state "$tool" "$code"
+}
+
+launch_installer() {
+  local tool=$1 token=$2 command=$3 launcher_pid accepted=false code=0 attempt
+  "$runtime/bin/monarch-launch-floating-terminal-with-presentation" "$command" 9>&- &
+  launcher_pid=$!
+  for ((attempt = 0; attempt < 300; attempt++)); do
+    if [[ -f $state_dir/installing/started ]]; then
+      exec 9>&-
+      return 0
+    fi
+    if [[ $accepted == "false" ]] && ! kill -0 "$launcher_pid" 2>/dev/null; then
+      if wait "$launcher_pid"; then accepted=true; else code=$?; break; fi
+    fi
+    sleep 0.1
+  done
+  exec 9>&-
+  ((code != 0)) || code=124
+  finish_install "$tool" "$token" "$code" launching
+}
+
+install_tool() {
+  local tool=$1 command token
+  installer_args "$tool"
+  tool_installed "$tool" && return 0
+  lock_install_state
+  exec 9>"$state_dir/install.lock"
+  flock -n 9 || { echo "Another tool installation is running." >&2; return 1; }
+  recover_install
+  mkdir "$state_dir/installing"
+  token=$(</proc/sys/kernel/random/uuid)
+  printf '%s\n' "$tool" > "$state_dir/installing/tool"
+  printf '%s\n' "$token" > "$state_dir/installing/token"
+  [[ ! -f $state_dir/install-result.json ]] || unlink "$state_dir/install-result.json"
+  printf -v command '%q ' env "MONARCH_PATH=$runtime" "XDG_STATE_HOME=$state_home" \
+    "$runtime/bin/monarch-setup-first-steps" run-installer "$tool" "$token"
+  (
+    exec 8>&-
+    launch_installer "$tool" "$token" "$command"
+  ) > "$state_dir/install-launch.log" 2>&1 &
+  exec 9>&-
+  exec 8>&-
+}
+
+run_installer() {
+  local tool=$1 token=$2 code=130 cleanup_trap
+  installer_args "$tool"
+  lock_install_state
+  [[ -f $state_dir/installing/token && $(<"$state_dir/installing/token") == "$token"
+    && -f $state_dir/installing/tool && $(<"$state_dir/installing/tool") == "$tool"
+    && ! -f $state_dir/installing/started ]] || {
+    echo "Start installation with install-tool first." >&2
+    return 1
+  }
+  # Keep state locked through handoff so a new launch cannot claim the slot.
+  touch "$state_dir/installing/started"
+  exec 9>"$state_dir/install.lock"
+  flock 9
+  exec 8>&-
+  printf -v cleanup_trap 'finish_install %q %q 130' "$tool" "$token"
+  trap "$cleanup_trap" EXIT
+  if "${installer[@]}"; then code=0; else code=$?; fi
+  finish_install "$tool" "$token" "$code"
+  trap - EXIT
+  return "$code"
+}
+
+case ${1:-open} in
+  prepare)
+    [[ -f $state_dir/shown ]] || touch "$state_dir/pending"
+    ;;
+  first-login) first_login ;;
+  open) open_guide ;;
+  opened)
+    touch "$state_dir/shown"
+    [[ ! -f $state_dir/pending ]] || unlink "$state_dir/pending"
+    ;;
+  record) record "${2:?A phase is required}" ;;
+  visit) visit "${2:?A destination is required}" ;;
+  tools-state) tools_state ;;
+  install-tool) install_tool "${2:?A tool is required}" ;;
+  run-installer) run_installer "${2:?A tool is required}" "${3:?An installation token is required}" ;;
+  docs) "$runtime/bin/monarch-launch-webapp" "https://docs.monarchlinux.com/" ;;
+  state)
+    phase="welcome"
+    [[ ! -f $state_dir/progress ]] || phase=$(<"$state_dir/progress")
+    shown=false
+    [[ ! -f $state_dir/shown ]] || shown=true
+    pending=false
+    [[ ! -f $state_dir/pending ]] || pending=true
+    jq -n --arg phase "$phase" --argjson shown "$shown" --argjson pending "$pending" \
+      '{shown:$shown,pending:$pending,phase:$phase}'
+    ;;
+  reset)
+    wait_for_shell
+    noctalia msg panel-close "$panel_id" >/dev/null || true
+    record welcome
+    open_guide
+    ;;
+  *) echo "Usage: monarch-setup-first-steps [open|first-login|reset|state]" >&2; exit 1 ;;
+esac
