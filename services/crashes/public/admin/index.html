@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Monarch — Diagnostics</title>
+  <link rel="stylesheet" href="/admin/style.css">
+  <script defer src="/admin/app.js"></script>
+</head>
+<body>
+  <header>
+    <div class="identity"><h1>Monarch <span>/ Diagnostics</span></h1><span class="badge">Accès mainteneurs</span></div>
+    <div class="header-actions">
+      <div class="stat"><span>Rapports reçus</span><strong id="report-count">—</strong></div>
+      <div class="stat"><span>Crashs distincts</span><strong id="group-count">—</strong></div>
+      <button id="refresh" type="button">Actualiser</button>
+    </div>
+  </header>
+  <p id="status" role="status" aria-live="polite"></p>
+  <main>
+    <section class="master" aria-labelledby="group-title">
+      <div class="search">
+        <h2 id="group-title">Crashs reçus</h2>
+        <label for="search">Filtrer cette page</label>
+        <input id="search" type="search" placeholder="Application, signal ou version">
+      </div>
+      <div id="groups" class="groups" aria-live="polite"></div>
+      <nav class="pagination" aria-label="Pages de crashs">
+        <span id="page-number">Page 1</span>
+        <button id="previous" type="button" disabled>Précédent</button>
+        <button id="next" type="button" disabled>Suivant</button>
+      </nav>
+    </section>
+    <section class="detail" aria-labelledby="detail-title">
+      <div class="detail-heading"><h2 id="detail-title">Sélectionnez un crash</h2><span id="signal" class="signal"></span></div>
+      <p id="detail-status" role="status" aria-live="polite">Choisissez un groupe dans la liste pour consulter ses rapports.</p>
+      <div id="report" hidden>
+        <div id="occurrences" class="occurrences" hidden>
+          <label for="occurrence">Dernières occurrences <span id="occurrence-count"></span></label>
+          <select id="occurrence"></select>
+        </div>
+        <div class="reference"><code id="reference"></code><button id="copy-link" type="button">Copier le lien du crash</button></div>
+        <dl id="metadata"></dl>
+        <h3>Backtrace</h3>
+        <pre id="backtrace"></pre>
+        <p id="trace-note" class="muted"></p>
+      </div>
+    </section>
+  </main>
+  <footer><span id="retention">Conservation des rapports : 30 jours.</span><span>Consultation réservée aux mainteneurs.</span></footer>
+</body>
+</html>

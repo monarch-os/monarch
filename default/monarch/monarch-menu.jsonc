@@ -472,4 +472,5 @@
   "system.logout": {"icon":"󰍃","label":"Logout","action":"monarch-system-logout"},
   "system.restart": {"icon":"󰜉","label":"Restart","keywords":["reboot","power"],"action":"monarch-system-reboot"},
   "system.shutdown": {"icon":"󰐥","label":"Shutdown","keywords":["poweroff","turn off","power"],"action":"monarch-system-shutdown"},
+  "system.crashes": {"icon":"󰨇","label":"Crashes","description":"View crashes and export a diagnostic report","keywords":["crash","diagnostic","logs","report"],"action":"monarch-crash-history"},
 }

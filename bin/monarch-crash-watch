@@ -20,18 +20,26 @@ announce() {
   local comm=$1 pid=$2 exe=$3 signal=$4
 
   monarch-notification-wait || return 1
-  monarch-notification-send -u critical -t 0 -g "$CRASH_GLYPH" \
-    "Process crashed: $comm" \
-    "Click to diagnose with AI. Nothing is sent automatically." \
-    --action "Diagnose" \
-    monarch-agent-crash "$pid" "$comm" "$exe" "$signal"
+  if [[ -n $(monarch-default-agent) ]]; then
+    monarch-notification-send -u critical -t 0 -g "$CRASH_GLYPH" \
+      "Process crashed: $comm" \
+      "Click to diagnose with AI. Nothing is sent automatically." \
+      --action "Diagnose" \
+      monarch-agent-crash "$pid" "$comm" "$exe" "$signal"
+  else
+    monarch-notification-send -u critical -t 0 -g "$CRASH_GLYPH" \
+      "Process crashed: $comm" \
+      "View the crash history and prepare a report. Nothing is sent automatically." \
+      --action "View crashes" \
+      monarch-crash-history
+  fi
 }
 
 journalctl -f -n 0 -o json "MESSAGE_ID=$COREDUMP_MESSAGE_ID" 2>/dev/null |
   while IFS= read -r entry; do
     IFS=$'\t' read -r uid comm pid exe signal < <(
       jq -r 'def field: if . == null or . == "" then "-" else . end;
-             [(._UID | field),
+              [((.COREDUMP_UID // ._UID) | field),
               (.COREDUMP_COMM | field),
               (.COREDUMP_PID | field),
               (.COREDUMP_EXE | field),
@@ -39,7 +47,6 @@ journalctl -f -n 0 -o json "MESSAGE_ID=$COREDUMP_MESSAGE_ID" 2>/dev/null |
     )
 
     [[ $pid =~ ^[0-9]+$ ]] || continue
-    [[ -n $(monarch-default-agent) ]] || continue
     [[ $uid =~ ^[0-9]+$ ]] || continue
     ((uid == UID)) || continue
 

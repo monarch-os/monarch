@@ -1,0 +1,181 @@
+#!/bin/bash
+
+# monarch:summary=Browse crashes and export a diagnostic report
+# monarch:args=[open [id]|list [--json]|report <id> [--json]|export <id> [--stdin]]
+# monarch:examples=monarch crash history | monarch crash history list | monarch crash history report <id>
+
+set -euo pipefail
+
+runtime=${MONARCH_PATH:-/usr/share/monarch}
+readonly message_id=fc2e22bc6ee647b6b90729ab34a250b1
+readonly history_limit=100
+readonly fields="_BOOT_ID,COREDUMP_UID,COREDUMP_PID,COREDUMP_TIMESTAMP,COREDUMP_COMM,COREDUMP_EXE,COREDUMP_SIGNAL,COREDUMP_SIGNAL_NAME,COREDUMP_FILENAME,COREDUMP_TRUNCATED,COREDUMP_PACKAGE_NAME,COREDUMP_PACKAGE_VERSION"
+
+usage() {
+  echo "Usage: monarch crash history [open [id]|list [--json]|report <id> [--json]|export <id> [--stdin]]" >&2
+  return 1
+}
+
+validate_id() {
+  [[ $1 =~ ^[a-f0-9]{32}:[0-9]{1,10}:[0-9]{1,20}$ ]] || {
+    echo "Invalid crash id. See: monarch crash history list" >&2
+    return 1
+  }
+}
+
+read_entries() {
+  local id=${1:-} selected_fields=$fields boot pid timestamp output
+  local matches=("MESSAGE_ID=$message_id" "COREDUMP_UID=$UID")
+  local limit=$((history_limit + 1))
+  if [[ -n $id ]]; then
+    validate_id "$id"
+    IFS=: read -r boot pid timestamp <<< "$id"
+    matches+=("_BOOT_ID=$boot" "COREDUMP_PID=$pid" "COREDUMP_TIMESTAMP=$timestamp")
+    selected_fields+=",MESSAGE"
+    limit=1
+  fi
+  # Never request environment, command lines, open files or memory contents.
+  output=$(timeout 15s journalctl --no-pager --all -o json \
+    --output-fields="$selected_fields" -n "$limit" "${matches[@]}") || {
+    echo "Could not read the crash journal." >&2
+    return 1
+  }
+  jq -cs --arg uid "$UID" -L "$runtime/default/monarch" \
+    'include "crashes"; map(select(valid($uid))) | unique_by(identifier)
+      | sort_by(.COREDUMP_TIMESTAMP | tonumber) | reverse' <<< "$output"
+}
+
+core_status() {
+  local file=$1 truncated=$2
+  if [[ $file != "-" && -n $file && -f $file && -r $file ]]; then
+    [[ $truncated == "1" ]] && echo truncated || echo present
+  elif [[ $file != "-" && -n $file ]]; then
+    echo missing
+  else
+    echo unavailable
+  fi
+}
+
+summaries() {
+  local entries=$1 file truncated core cores=""
+  while IFS=$'\t' read -r file truncated; do
+    core=$(core_status "$file" "$truncated")
+    cores+="$core"$'\n'
+  done < <(jq -r --argjson limit "$history_limit" \
+    '.[:$limit][] | [(.COREDUMP_FILENAME // "" | if length > 0 then . else "-" end),
+      (.COREDUMP_TRUNCATED // "0")] | @tsv' <<< "$entries")
+  jq -c --argjson limit "$history_limit" --arg cores "$cores" -L "$runtime/default/monarch" \
+    'include "crashes"; ($cores | split("\n")) as $states
+      | .[:$limit] | to_entries[] | .value |= summary | .value.core=$states[.key] | .value' <<< "$entries"
+}
+
+list_crashes() {
+  local entries crashes
+  entries=$(read_entries)
+  crashes=$(summaries "$entries" | jq -s .)
+  if [[ ${1:-} == "--json" ]]; then
+    jq -cn --argjson crashes "$crashes" --argjson limit "$history_limit" \
+      --argjson more "$(jq --argjson limit "$history_limit" 'length > $limit' <<< "$entries")" \
+      '{crashes:$crashes,limit:$limit,hasMore:$more}'
+  elif [[ $crashes == "[]" ]]; then
+    echo "No crashes recorded for this user."
+  else
+    jq -r '.[] | [.id,.date,.application,.signal,.core] | @tsv' <<< "$crashes"
+  fi
+}
+
+report_json() {
+  local id=$1 entries entry crash trace exe package_name package_version source="journal"
+  local installed="" monarch_version="unknown" kernel architecture
+  entries=$(read_entries "$id")
+  entry=$(jq -c '.[0] // empty' <<< "$entries")
+  [[ -n $entry ]] || { echo "This crash is no longer available in the journal." >&2; return 1; }
+  crash=$(summaries "$entries" | jq -s '.[0]')
+  trace=$(jq --arg uid "$UID" -L "$runtime/default/monarch" \
+    'include "crashes"; .[0] | frames' <<< "[$entry]")
+  exe=$(jq -r '.COREDUMP_EXE // empty' <<< "$entry")
+  package_name=$(jq -r -L "$runtime/default/monarch" \
+    'include "crashes"; .COREDUMP_PACKAGE_NAME | text' <<< "$entry")
+  package_version=$(jq -r -L "$runtime/default/monarch" \
+    'include "crashes"; .COREDUMP_PACKAGE_VERSION | text' <<< "$entry")
+  if [[ -z $package_name && $exe == /* ]]; then
+    installed=$(pacman -Qoq -- "$exe" 2>/dev/null) || true
+    if [[ $installed =~ ^[a-zA-Z0-9@+_.-]+$ ]]; then
+      package_name=$installed
+      package_version=$(pacman -Q -- "$installed" 2>/dev/null | cut -d' ' -f2-) || true
+      source="installed"
+    fi
+  fi
+  [[ ! -f $runtime/version ]] || monarch_version=$(<"$runtime/version")
+  kernel=$(uname -r)
+  architecture=$(uname -m)
+  jq -cn --argjson crash "$crash" --argjson trace "$trace" \
+    --arg monarch "$monarch_version" --arg kernel "$kernel" --arg arch "$architecture" \
+    --arg package "$package_name" --arg version "$package_version" --arg source "$source" \
+    '{schema:1,crash:($crash | del(.id,.pid,.timestamp)),
+      system:{monarch:$monarch,kernel:$kernel,architecture:$arch,source:"current"},
+      package:{name:$package,version:$version,source:$source},
+      backtrace:$trace[:120],backtraceTruncated:($trace | length > 120)}'
+}
+
+report_text() {
+  jq -r -L "$runtime/default/monarch" 'include "crashes"; report_text'
+}
+
+export_report() {
+  local id=$1 state_home=${XDG_STATE_HOME:-$HOME/.local/state} folder temp report report_size
+  if [[ ${2:-} == "--stdin" ]]; then
+    report=$(head -c 65537)
+    report_size=$(printf '%s' "$report" | wc -c)
+    [[ -n $report ]] && ((report_size <= 65536)) || {
+      echo "The report is empty or exceeds 64 KiB." >&2
+      return 1
+    }
+  else
+    report=$(report_json "$id" | report_text)
+  fi
+  folder="$state_home/monarch/crashes/reports"
+  umask 077
+  mkdir -p "$folder"
+  temp=$(mktemp "$folder/.report.XXXXXX")
+  printf '%s\n' "$report" > "$temp"
+  local destination="$folder/crash-${id//:/-}.txt"
+  mv -T -- "$temp" "$destination"
+  jq -cn --arg path "$destination" '{path:$path}'
+}
+
+open_history() {
+  local id=${1:-} context attempt
+  [[ -z $id ]] || validate_id "$id"
+  context=$(jq -cn --arg root "$runtime" --arg id "$id" '{root:$root,id:$id}')
+  source "$runtime/install/reconcile/noctalia-wait.sh"
+  monarch_noctalia_wait || { echo "Noctalia is not ready." >&2; return 1; }
+  noctalia msg plugins enable monarch/crashes >/dev/null
+  for ((attempt = 0; attempt < 30; attempt++)); do
+    noctalia msg panel-open monarch/crashes:panel "$context" >/dev/null 2>&1 && return 0
+    sleep 0.1
+  done
+  echo "The crash history panel is unavailable." >&2
+  return 1
+}
+
+case ${1:-open} in
+  open) (($# <= 2)) || usage; open_history "${2:-}" ;;
+  list)
+    (($# <= 2)) && [[ -z ${2:-} || $2 == "--json" ]] || usage
+    list_crashes "${2:-}"
+    ;;
+  report)
+    (($# >= 2 && $# <= 3)) && [[ -z ${3:-} || $3 == "--json" ]] || usage
+    report=$(report_json "$2")
+    if [[ ${3:-} == "--json" ]]; then printf '%s\n' "$report"; else report_text <<< "$report"; fi
+    ;;
+  export)
+    (($# >= 2 && $# <= 3)) && [[ -z ${3:-} || $3 == "--stdin" ]] || usage
+    validate_id "$2"
+    export_report "$2" "${3:-}"
+    ;;
+  *)
+    if (($# == 1)) && validate_id "$1"; then open_history "$1"; else usage; fi
+    ;;
+esac
