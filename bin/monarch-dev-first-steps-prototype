@@ -1,0 +1,263 @@
+#!/bin/bash
+
+# monarch:summary=Try the optional native first-session guide (prototype)
+# monarch:group=dev
+# monarch:args=[demo|first-login|open|state|reset|cleanup]
+# monarch:hidden=true
+
+set -euo pipefail
+
+prototype_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+export PATH="$prototype_root/bin:$PATH"
+export MONARCH_PATH="$prototype_root"
+scratch="$prototype_root/.prototype-first-steps"
+plugin_id="monarch/first-steps-prototype"
+panel_id="$plugin_id:panel"
+plugin_path="${XDG_DATA_HOME:-$HOME/.local/share}/noctalia/plugins/monarch-first-steps-prototype"
+plugin_source="$prototype_root/default/noctalia/plugins/monarch-first-steps-prototype"
+menu_path="$HOME/.config/monarch/extensions/monarch-menu.jsonc"
+mkdir -p "$scratch"
+
+menu_extension() {
+  python3 - "$1" "$menu_path" "$scratch/menu-snippet" "$prototype_root/bin/monarch-dev-first-steps-prototype" <<'PY'
+import json, re, shlex, sys
+from pathlib import Path
+
+mode, target, snippet, command = sys.argv[1:]
+path, marker = Path(target), Path(snippet)
+key = 'learn.first-steps-prototype'
+raw = path.read_text() if path.exists() else '{}\n'
+if mode == 'remove':
+    if marker.exists():
+        addition = marker.read_text()
+        if addition in raw:
+            path.write_text(raw.replace(addition, '', 1))
+        marker.unlink()
+    sys.exit()
+clean = '\n'.join(line for line in raw.splitlines() if not line.lstrip().startswith('//'))
+data = json.loads(re.sub(r',(\s*[}\]])', r'\1', clean))
+if key in data:
+    if not marker.exists():
+        raise SystemExit('A first-steps prototype entry already exists; it was left untouched.')
+    sys.exit()
+entry = {'label': 'Premiers pas', 'icon': '󰧑', 'description': 'Découvrir Monarch (POC)',
+         'action': shlex.quote(command) + ' open'}
+addition = '\n  ' + json.dumps(key) + ': ' + json.dumps(entry, ensure_ascii=False) + ',\n'
+offset = raw.index('{') + 1
+path.parent.mkdir(parents=True, exist_ok=True)
+path.write_text(raw[:offset] + addition + raw[offset:])
+marker.write_text(addition)
+PY
+}
+
+wait_for_shell() {
+  source "$prototype_root/install/reconcile/noctalia-wait.sh"
+  monarch_noctalia_wait 300 || { echo "Noctalia is not ready." >&2; return 1; }
+}
+
+stage() {
+  wait_for_shell
+  mkdir -p "$(dirname -- "$plugin_path")"
+  if [[ -e $plugin_path || -L $plugin_path ]]; then
+    [[ -L $plugin_path && $(readlink -- "$plugin_path") == "$plugin_source" ]] || {
+      echo "A different prototype plugin exists at $plugin_path." >&2
+      return 1
+    }
+  else
+    ln -s -- "$plugin_source" "$plugin_path"
+  fi
+  menu_extension add
+  # Noctalia keeps panel options until the plugin is disabled and enabled again.
+  noctalia msg plugins disable "$plugin_id" >/dev/null 2>&1 || true
+  noctalia msg config-reload
+  noctalia msg plugins enable "$plugin_id"
+}
+
+open_guide() {
+  local phase="welcome" context attempt
+  [[ -f $scratch/progress ]] && phase=$(<"$scratch/progress")
+  context=$(jq -cn --arg root "$prototype_root" --arg phase "$phase" '{root:$root,phase:$phase}')
+  for ((attempt = 0; attempt < 50; attempt++)); do
+    noctalia msg panel-open "$panel_id" "$context" >/dev/null 2>&1 && return 0
+    sleep 0.1
+  done
+  echo "The prototype panel is unavailable." >&2
+  return 1
+}
+
+record() {
+  case "$1" in welcome|shortcuts|appearance|software|done|skipped) ;;
+    *) echo "Unknown prototype phase: $1" >&2; return 1 ;;
+  esac
+  printf '%s\n' "$1" > "$scratch/progress.next"
+  mv -- "$scratch/progress.next" "$scratch/progress"
+}
+
+first_login() {
+  [[ -f $scratch/shown ]] && { echo "Prototype already offered; use open or demo to revisit."; return 0; }
+  stage
+  local attempt state
+  for ((attempt = 0; attempt < 300; attempt++)); do
+    state=$(noctalia msg status)
+    if jq -e '.locked == false and .panelOpen == false' >/dev/null <<< "$state"; then
+      open_guide
+      touch "$scratch/shown"
+      return 0
+    fi
+    sleep 0.1
+  done
+  echo "Desktop busy; the prototype was not marked as shown." >&2
+  return 1
+}
+
+visit() {
+  local destination state active attempt
+  case "$1" in
+    shortcuts) destination="monarch/menu:keybindings" ;;
+    appearance) destination="monarch/theme:theme" ;;
+    software|cyber) destination="monarch/menu:panel" ;;
+    *) return 1 ;;
+  esac
+  noctalia msg panel-close "$panel_id"
+  if [[ $1 == "software" || $1 == "cyber" ]]; then
+    local route="install"
+    [[ $1 != "cyber" ]] || route="install.cyber"
+    "$prototype_root/bin/monarch-menu" "$route"
+  else
+    noctalia msg panel-open "$destination"
+  fi
+  for ((attempt = 0; attempt < 3000; attempt++)); do
+    sleep 0.2
+    state=$(noctalia msg status) || return 0
+    jq -e '.locked == false' >/dev/null <<< "$state" || return 0
+    active=$(jq -r '.activePanelId // empty' <<< "$state")
+    [[ -z $active ]] && { open_guide; return; }
+    [[ $active != "$destination" ]] && return 0
+  done
+}
+
+installer_args() {
+  case "$1" in
+    burpsuite) installer=("$prototype_root/bin/monarch-install-burp") ;;
+    rfswift) installer=("$prototype_root/bin/monarch-install-rfswift") ;;
+    seclists) installer=("$prototype_root/bin/monarch-pkg-aur-add" "seclists") ;;
+    *) echo "Unknown prototype tool: $1" >&2; return 1 ;;
+  esac
+}
+
+tool_installed() {
+  case "$1" in
+    burpsuite) [[ -d /opt/BurpSuiteCommunity || -d /opt/BurpSuitePro ]] ;;
+    rfswift) type -P rfswift >/dev/null ;;
+    seclists) "$prototype_root/bin/monarch-pkg-present" seclists ;;
+    *) return 1 ;;
+  esac
+}
+
+tools_state() {
+  local burpsuite=false rfswift=false seclists=false active="" result="null"
+  tool_installed burpsuite && burpsuite=true
+  tool_installed rfswift && rfswift=true
+  tool_installed seclists && seclists=true
+  [[ -f $scratch/installing/tool ]] && active=$(<"$scratch/installing/tool")
+  [[ -f $scratch/install-result.json ]] && result=$(<"$scratch/install-result.json")
+  jq -cn --argjson burpsuite "$burpsuite" --argjson rfswift "$rfswift" --argjson seclists "$seclists" \
+    --arg active "$active" --argjson result "$result" \
+    '{installed:{burpsuite:$burpsuite,rfswift:$rfswift,seclists:$seclists},active:$active,lastResult:$result}'
+}
+
+finish_install() {
+  local tool=$1 code=$2
+  jq -cn --arg tool "$tool" --argjson code "$code" '{tool:$tool,code:$code}' > "$scratch/install-result.json"
+  [[ ! -f $scratch/installing/tool ]] || unlink "$scratch/installing/tool"
+  [[ ! -d $scratch/installing ]] || rmdir "$scratch/installing"
+}
+
+install_tool() {
+  local tool=$1 command
+  installer_args "$tool"
+  tool_installed "$tool" && return 0
+  mkdir "$scratch/installing" || { echo "Another tool installation is running." >&2; return 1; }
+  printf '%s\n' "$tool" > "$scratch/installing/tool"
+  [[ ! -f $scratch/install-result.json ]] || unlink "$scratch/install-result.json"
+  printf -v command '%q ' "$prototype_root/bin/monarch-dev-first-steps-prototype" run-installer "$tool"
+  (
+    if "$prototype_root/bin/monarch-launch-floating-terminal-with-presentation" "$command"; then
+      true
+    else
+      finish_install "$tool" "$?"
+    fi
+  ) > "$scratch/install-launch.log" 2>&1 &
+}
+
+run_installer() {
+  local tool=$1 code=130 cleanup_trap
+  installer_args "$tool"
+  [[ -f $scratch/installing/tool && $(<"$scratch/installing/tool") == "$tool" ]] || {
+    echo "Start installation with install-tool first." >&2
+    return 1
+  }
+  printf -v cleanup_trap 'finish_install %q 130' "$tool"
+  trap "$cleanup_trap" EXIT
+  if "${installer[@]}"; then code=0; else code=$?; fi
+  finish_install "$tool" "$code"
+  trap - EXIT
+  return "$code"
+}
+
+case ${1:-demo} in
+  demo)
+    record welcome
+    [[ -f $scratch/shown ]] && unlink "$scratch/shown"
+    first_login
+    ;;
+  first-login) first_login ;;
+  open) wait_for_shell; open_guide ;;
+  record) record "${2:?A phase is required}" ;;
+  visibility)
+    [[ ${2:-} == "true" || ${2:-} == "false" ]] || exit 1
+    printf '%s\n' "$2" > "$scratch/visible"
+    ;;
+  visit) visit "${2:?A phase is required}" ;;
+  tools-state) tools_state ;;
+  install-command)
+    installer_args "${2:?A tool is required}"
+    printf '%q ' "${installer[@]}"
+    printf '\n'
+    ;;
+  install-tool) install_tool "${2:?A tool is required}" ;;
+  run-installer) run_installer "${2:?A tool is required}" ;;
+  docs)
+    case ${2:-monarch} in
+      monarch) url="https://docs.monarchlinux.com/" ;;
+      cyber) url="https://docs.monarchlinux.com/basics/pentest-tools" ;;
+      *) exit 1 ;;
+    esac
+    "$prototype_root/bin/monarch-launch-webapp" "$url"
+    ;;
+  state)
+    phase="welcome"
+    [[ -f $scratch/progress ]] && phase=$(<"$scratch/progress")
+    shown=false
+    [[ -f $scratch/shown ]] && shown=true
+    visible=false
+    [[ -f $scratch/visible ]] && visible=$(<"$scratch/visible")
+    jq -n --arg phase "$phase" --argjson shown "$shown" --argjson visible "$visible" \
+      '{prototype:true,shown:$shown,visible:$visible,phase:$phase}'
+    ;;
+  reset)
+    record welcome
+    [[ ! -f $scratch/shown ]] || unlink "$scratch/shown"
+    ;;
+  cleanup)
+    [[ ! -d $scratch/installing ]] || { echo "A tool installation is still running." >&2; exit 1; }
+    noctalia msg panel-close "$panel_id" || true
+    noctalia msg plugins disable "$plugin_id" || true
+    menu_extension remove
+    if [[ -L $plugin_path && $(readlink -- "$plugin_path") == "$plugin_source" ]]; then
+      unlink "$plugin_path"
+    fi
+    noctalia msg config-reload
+    ;;
+  *) echo "Usage: monarch-dev-first-steps-prototype [demo|first-login|open|state|reset|cleanup]" >&2; exit 1 ;;
+esac

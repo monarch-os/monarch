@@ -46,6 +46,7 @@
   "about": {"icon":"","label":"About","action":"monarch-launch-about","hiddenAtRoot":true,"rootGroup":"learn"},
 
   // Learn
+  "learn.first-steps-prototype": {"icon":"󰧑","label":"Premiers pas","description":"Découvrir Monarch (POC)","action":"monarch-dev-first-steps-prototype open"},
   "learn.keybindings": {"icon":"","label":"Keybindings","action":"monarch-menu-keybindings"},
   "learn.monarch": {"icon":"󰆥","label":"Monarch","action":"monarch-launch-webapp 'https://docs.monarchlinux.com/'"},
   "learn.niri": {"icon":"","label":"Niri","action":"monarch-launch-webapp 'https://yalter.github.io/niri/'"},

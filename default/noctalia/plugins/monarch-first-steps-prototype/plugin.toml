@@ -1,0 +1,20 @@
+id = "monarch/first-steps-prototype"
+name = "Premiers pas — prototype"
+version = "0.1.0"
+plugin_api = 22
+author = "monarch"
+license = "MIT"
+description = "Prototype of an optional first-session discovery of Monarch."
+icon = "sparkles"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 560
+height = 470
+placement = "floating"
+position = "center"
+keyboard_focus = "on_demand"
+capture_keys = ["escape", "return", "left", "right"]
+dismiss_on_outside_click = false
+persistent = true
