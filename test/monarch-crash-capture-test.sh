@@ -29,7 +29,7 @@ EOF
 
 cat >"$TMP/bin/monarch-default-agent" <<'EOF'
 #!/bin/bash
-printf 'codex\n'
+[[ ${NO_AGENT:-false} == "true" ]] || printf 'codex\n'
 EOF
 
 cat >"$TMP/bin/journalctl" <<'EOF'
@@ -86,6 +86,10 @@ run_watch
 grep -F 'Process crashed: crasher' "$ACTION_LOG" >/dev/null
 grep -F 'Click to diagnose with AI. Nothing is sent automatically.' "$ACTION_LOG" >/dev/null
 grep -F 'monarch-agent-crash 4242 crasher /usr/bin/crasher SIGSEGV' "$ACTION_LOG" >/dev/null
+
+NO_AGENT=true run_watch
+grep -F -- '--action View crashes monarch-crash-history' "$ACTION_LOG" >/dev/null
+! grep -F 'monarch-agent-crash' "$ACTION_LOG" >/dev/null
 
 crash_mute /usr/bin/crasher on >/dev/null
 [[ -f $TMP/home/.local/state/monarch/toggles/crash-ignore/crasher ]]

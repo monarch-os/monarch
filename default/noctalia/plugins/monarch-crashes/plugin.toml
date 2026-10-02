@@ -1,0 +1,20 @@
+id = "monarch/crashes"
+name = "Crashes"
+version = "1.0.0"
+plugin_api = 22
+author = "monarch"
+license = "MIT"
+description = "Browse personal crashes and preview, export or voluntarily send diagnostic reports."
+icon = "bug"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 640
+height = 560
+placement = "floating"
+position = "center"
+keyboard_focus = "on_demand"
+capture_keys = ["escape", "left"]
+dismiss_on_outside_click = false
+persistent = true

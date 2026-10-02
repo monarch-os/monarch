@@ -125,8 +125,8 @@ assert_equals "plugin setup opens Noctalia's native plugin manager" "$output" \
   "noctalia msg settings-open plugins"
 
 output=$(jq -r '.[] | select(.id | test("^system\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
-assert_equals "system contains only session and power actions" "${output% }" \
-  "Lock Screensaver Suspend Hibernate Logout Restart Shutdown"
+assert_equals "system retains session and power actions before crash history" "${output% }" \
+  "Lock Screensaver Suspend Hibernate Logout Restart Shutdown Crashes"
 
 output=$("$MENU" --rows learn | cut -f2 | tr '\n' ' ')
 assert_contains "documentation contains About" "$output" "About"
@@ -407,7 +407,7 @@ rm -f "$USER_MENU"
 # evaluated in one payload.
 STATE=$("$MENU" --state)
 output=$(jq -r '.tree[0].id + " " + .tree[-1].id' <<<"$STATE")
-assert_equals "--state emits the tree in declaration order" "$output" "apps system.shutdown"
+assert_equals "--state emits the tree in declaration order" "$output" "apps system.crashes"
 
 output=$(jq -r '.tree[] | select(.id == "learn.bash") | .action' <<<"$STATE")
 assert_contains "--state carries the fields the panel renders" "$output" "devhints.io/bash"
