@@ -32,7 +32,11 @@ elif [[ $1 == "msg" && $2 == "panel-open" ]]; then
   monarch-setup-first-steps opened
 fi
 EOF
-printf '#!/bin/bash\nexit 0\n' >"$runtime/bin/sleep"
+cat >"$runtime/bin/sleep" <<'EOF'
+#!/bin/bash
+[[ ${TEST_FIRST_STEPS_REAL_SLEEP:-} != 1 ]] || exec /usr/bin/sleep "$@"
+exit 0
+EOF
 cat >"$runtime/bin/monarch-pkg-present" <<'EOF'
 #!/bin/bash
 [[ -f $TEST_FIRST_STEPS/installed ]]
@@ -40,6 +44,8 @@ EOF
 cat >"$runtime/bin/monarch-pkg-aur-add" <<'EOF'
 #!/bin/bash
 printf '%s\n' "$*" >"$TEST_FIRST_STEPS/installer-args"
+printf '%s\n' "$BASHPID" >"$TEST_FIRST_STEPS/installer-pid"
+printf '%s\n' "$PPID" >"$TEST_FIRST_STEPS/runner-pid"
 touch "$TEST_FIRST_STEPS/installer-started"
 while [[ -f $TEST_FIRST_STEPS/block-install ]]; do /usr/bin/sleep 0.02; done
 [[ ${TEST_FIRST_STEPS_EXIT:-0} == 0 ]] || exit "$TEST_FIRST_STEPS_EXIT"
@@ -47,6 +53,15 @@ touch "$TEST_FIRST_STEPS/installed"
 EOF
 cat >"$runtime/bin/monarch-launch-floating-terminal-with-presentation" <<'EOF'
 #!/bin/bash
+printf '%s\n' "$*" >"$TEST_FIRST_STEPS/terminal-command"
+case ${TEST_FIRST_STEPS_LAUNCH:-} in
+  failure) exit 42 ;;
+  never) exit 0 ;;
+  delayed)
+    (/usr/bin/sleep 0.2; exec bash -c "$*") &
+    exit 0
+    ;;
+esac
 exec bash -c "$*"
 EOF
 chmod +x "$runtime/bin/"*
@@ -119,6 +134,13 @@ unset TEST_FIRST_STEPS_MODE
 pass "manual opening cancels a waiting automatic offer"
 
 fresh_state installer
+export TEST_FIRST_STEPS_REAL_SLEEP=1
+mkdir -p "$state_dir/installing"
+printf '%s\n' seclists >"$state_dir/installing/tool"
+monarch-setup-first-steps tools-state | jq -e '.active == "" and .lastResult.tool == "seclists" and .lastResult.code == 130' >/dev/null
+[[ ! -e $state_dir/installing ]] || fail "interrupted installation state is recovered"
+pass "stale installation state is recovered before displaying tool availability"
+
 : >"$test_tmp/block-install"
 monarch-setup-first-steps install-tool seclists
 for ((attempt = 0; attempt < 100; attempt++)); do
@@ -147,3 +169,70 @@ done
 monarch-setup-first-steps tools-state | jq -e '.active == "" and .lastResult.code == 42' >/dev/null
 if monarch-setup-first-steps install-tool unknown >/dev/null 2>&1; then fail "unknown tools cannot launch installers"; fi
 pass "failed installations release their slot and unknown tools are rejected"
+
+unset TEST_FIRST_STEPS_EXIT
+fresh_state delayed-installer
+rm -f "$test_tmp/installer-started"
+export TEST_FIRST_STEPS_LAUNCH=delayed
+: >"$test_tmp/block-install"
+monarch-setup-first-steps install-tool seclists
+monarch-setup-first-steps tools-state | jq -e '.active == "seclists"' >/dev/null
+if monarch-setup-first-steps install-tool seclists >/dev/null 2>&1; then fail "a delayed terminal retains its installation slot"; fi
+for ((attempt = 0; attempt < 100; attempt++)); do
+  [[ ! -e $test_tmp/installer-started ]] || break
+  /usr/bin/sleep 0.02
+done
+[[ -f $test_tmp/installer-started ]] || fail "the delayed terminal starts its installer"
+monarch-setup-first-steps tools-state | jq -e '.active == "seclists"' >/dev/null
+pass "a terminal launcher can exit before its installer starts without losing ownership"
+
+runner_pid=$(<"$test_tmp/runner-pid")
+installer_pid=$(<"$test_tmp/installer-pid")
+kill -KILL "$runner_pid"
+monarch-setup-first-steps tools-state | jq -e '.active == "seclists"' >/dev/null
+if monarch-setup-first-steps install-tool seclists >/dev/null 2>&1; then fail "a surviving installer retains the lock after its wrapper dies"; fi
+kill -KILL "$installer_pid"
+for ((attempt = 0; attempt < 100; attempt++)); do
+  state=$(monarch-setup-first-steps tools-state)
+  if jq -e '.active == ""' >/dev/null <<<"$state"; then break; fi
+  /usr/bin/sleep 0.02
+done
+jq -e '.active == "" and .lastResult.code == 130' >/dev/null <<<"$state"
+[[ ! -e $state_dir/installing ]] || fail "a killed installation can be recovered"
+pass "an abruptly killed wrapper preserves a live installer and recovers after all processes stop"
+
+unset TEST_FIRST_STEPS_REAL_SLEEP
+export TEST_FIRST_STEPS_LAUNCH=never
+monarch-setup-first-steps install-tool seclists
+for ((attempt = 0; attempt < 100; attempt++)); do
+  [[ -d $state_dir/installing ]] || break
+  /usr/bin/sleep 0.02
+done
+monarch-setup-first-steps tools-state | jq -e '.active == "" and .lastResult.code == 124' >/dev/null
+expired_command=$(<"$test_tmp/terminal-command")
+pass "an accepted terminal that never starts its installer releases its reservation"
+
+export TEST_FIRST_STEPS_REAL_SLEEP=1 TEST_FIRST_STEPS_LAUNCH=delayed
+rm -f "$test_tmp/installer-started"
+monarch-setup-first-steps install-tool seclists
+if bash -c "$expired_command" >/dev/null 2>&1; then fail "an expired terminal cannot take over a new installation"; fi
+monarch-setup-first-steps tools-state | jq -e '.active == "seclists" and .lastResult == null' >/dev/null
+rm "$test_tmp/block-install"
+for ((attempt = 0; attempt < 100; attempt++)); do
+  [[ -d $state_dir/installing ]] || break
+  /usr/bin/sleep 0.02
+done
+monarch-setup-first-steps tools-state | jq -e '.installed.seclists and .active == "" and .lastResult.code == 0' >/dev/null
+pass "a stale terminal is rejected and installation succeeds after crash recovery"
+
+rm "$test_tmp/installed"
+export TEST_FIRST_STEPS_LAUNCH=failure
+mkdir "$state_dir/installing"
+printf '%s\n' seclists >"$state_dir/installing/tool"
+monarch-setup-first-steps install-tool seclists
+for ((attempt = 0; attempt < 100; attempt++)); do
+  [[ -d $state_dir/installing ]] || break
+  /usr/bin/sleep 0.02
+done
+monarch-setup-first-steps tools-state | jq -e '.active == "" and .lastResult.code == 42' >/dev/null
+pass "terminal launch failure releases the reservation and preserves its exit status"

@@ -32,7 +32,9 @@ la même étape du guide.
 Les installations démarrent au clic sur Installer, dans un terminal qui permet
 de suivre leur progression. Burp Suite propose Community ou Pro. Les outils
 présents affichent ✓ Installé ; une installation affiche En cours. Une seule
-installation peut être lancée à la fois. Les erreurs restent détaillées dans
+installation peut être lancée à la fois. Le verrou suit les processus de
+l’installation ; après une interruption ou un redémarrage, un état périmé est
+récupéré au prochain contrôle ou lancement. Les erreurs restent détaillées dans
 le terminal.
 
 Le guide reste ouvert au clic extérieur et avec Échap. La croix, Passer et

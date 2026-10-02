@@ -113,55 +113,118 @@ tool_installed() {
   esac
 }
 
+lock_install_state() {
+  exec 8>"$state_dir/install-state.lock"
+  flock 8
+}
+
+recover_install() {
+  [[ -d $state_dir/installing ]] || return 0
+  local tool=""
+  [[ ! -f $state_dir/installing/tool ]] || tool=$(<"$state_dir/installing/tool")
+  finish_install_state "$tool" 130
+}
+
 tools_state() {
   local burpsuite=false rfswift=false seclists=false active="" result="null"
   tool_installed burpsuite && burpsuite=true
   tool_installed rfswift && rfswift=true
   tool_installed seclists && seclists=true
-  [[ -f $state_dir/installing/tool ]] && active=$(<"$state_dir/installing/tool")
+  lock_install_state
+  exec 9>"$state_dir/install.lock"
+  if flock -n 9; then
+    recover_install
+  elif [[ -f $state_dir/installing/tool ]]; then
+    active=$(<"$state_dir/installing/tool")
+  fi
+  exec 9>&-
   [[ -f $state_dir/install-result.json ]] && result=$(<"$state_dir/install-result.json")
   jq -cn --argjson burpsuite "$burpsuite" --argjson rfswift "$rfswift" --argjson seclists "$seclists" \
     --arg active "$active" --argjson result "$result" \
     '{installed:{burpsuite:$burpsuite,rfswift:$rfswift,seclists:$seclists},active:$active,lastResult:$result}'
 }
 
-finish_install() {
+finish_install_state() {
   local tool=$1 code=$2 result
   result=$(mktemp "$state_dir/.install-result.XXXXXX")
   jq -cn --arg tool "$tool" --argjson code "$code" '{tool:$tool,code:$code}' > "$result"
   mv -- "$result" "$state_dir/install-result.json"
-  [[ ! -f $state_dir/installing/tool ]] || unlink "$state_dir/installing/tool"
+  local file
+  for file in tool token started; do
+    [[ ! -f $state_dir/installing/$file ]] || unlink "$state_dir/installing/$file"
+  done
   [[ ! -d $state_dir/installing ]] || rmdir "$state_dir/installing"
 }
 
+finish_install() {
+  local tool=$1 token=$2 code=$3
+  lock_install_state
+  [[ -f $state_dir/installing/token && $(<"$state_dir/installing/token") == "$token" ]] || return 0
+  [[ ${4:-} != "launching" || ! -f $state_dir/installing/started ]] || return 0
+  finish_install_state "$tool" "$code"
+}
+
+launch_installer() {
+  local tool=$1 token=$2 command=$3 launcher_pid accepted=false code=0 attempt
+  "$runtime/bin/monarch-launch-floating-terminal-with-presentation" "$command" 9>&- &
+  launcher_pid=$!
+  for ((attempt = 0; attempt < 300; attempt++)); do
+    if [[ -f $state_dir/installing/started ]]; then
+      exec 9>&-
+      return 0
+    fi
+    if [[ $accepted == "false" ]] && ! kill -0 "$launcher_pid" 2>/dev/null; then
+      if wait "$launcher_pid"; then accepted=true; else code=$?; break; fi
+    fi
+    sleep 0.1
+  done
+  exec 9>&-
+  ((code != 0)) || code=124
+  finish_install "$tool" "$token" "$code" launching
+}
+
 install_tool() {
-  local tool=$1 command
+  local tool=$1 command token
   installer_args "$tool"
   tool_installed "$tool" && return 0
-  mkdir "$state_dir/installing" || { echo "Another tool installation is running." >&2; return 1; }
+  lock_install_state
+  exec 9>"$state_dir/install.lock"
+  flock -n 9 || { echo "Another tool installation is running." >&2; return 1; }
+  recover_install
+  mkdir "$state_dir/installing"
+  token=$(</proc/sys/kernel/random/uuid)
   printf '%s\n' "$tool" > "$state_dir/installing/tool"
+  printf '%s\n' "$token" > "$state_dir/installing/token"
   [[ ! -f $state_dir/install-result.json ]] || unlink "$state_dir/install-result.json"
-  printf -v command '%q ' "$runtime/bin/monarch-setup-first-steps" run-installer "$tool"
+  printf -v command '%q ' env "MONARCH_PATH=$runtime" "XDG_STATE_HOME=$state_home" \
+    "$runtime/bin/monarch-setup-first-steps" run-installer "$tool" "$token"
   (
-    if "$runtime/bin/monarch-launch-floating-terminal-with-presentation" "$command"; then
-      true
-    else
-      finish_install "$tool" "$?"
-    fi
+    exec 8>&-
+    launch_installer "$tool" "$token" "$command"
   ) > "$state_dir/install-launch.log" 2>&1 &
+  exec 9>&-
+  exec 8>&-
 }
 
 run_installer() {
-  local tool=$1 code=130 cleanup_trap
+  local tool=$1 token=$2 code=130 cleanup_trap
   installer_args "$tool"
-  [[ -f $state_dir/installing/tool && $(<"$state_dir/installing/tool") == "$tool" ]] || {
+  lock_install_state
+  [[ -f $state_dir/installing/token && $(<"$state_dir/installing/token") == "$token"
+    && -f $state_dir/installing/tool && $(<"$state_dir/installing/tool") == "$tool"
+    && ! -f $state_dir/installing/started ]] || {
     echo "Start installation with install-tool first." >&2
     return 1
   }
-  printf -v cleanup_trap 'finish_install %q 130' "$tool"
+  # Keep state locked through handoff so a new launch cannot claim the slot.
+  touch "$state_dir/installing/started"
+  exec 9>"$state_dir/install.lock"
+  flock 9
+  exec 8>&-
+  printf -v cleanup_trap 'finish_install %q %q 130' "$tool" "$token"
   trap "$cleanup_trap" EXIT
   if "${installer[@]}"; then code=0; else code=$?; fi
-  finish_install "$tool" "$code"
+  finish_install "$tool" "$token" "$code"
   trap - EXIT
   return "$code"
 }
@@ -180,7 +243,7 @@ case ${1:-open} in
   visit) visit "${2:?A destination is required}" ;;
   tools-state) tools_state ;;
   install-tool) install_tool "${2:?A tool is required}" ;;
-  run-installer) run_installer "${2:?A tool is required}" ;;
+  run-installer) run_installer "${2:?A tool is required}" "${3:?An installation token is required}" ;;
   docs) "$runtime/bin/monarch-launch-webapp" "https://docs.monarchlinux.com/" ;;
   state)
     phase="welcome"

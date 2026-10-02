@@ -234,6 +234,10 @@ function onOpen(context)
   run("opened")
 end
 
+function onClose()
+  panel.setWantsSecondTicks(false)
+end
+
 function onNextClicked()
   local index = table.find(steps, phase)
   change(index and (steps[index + 1] or "done") or "shortcuts")
