@@ -61,8 +61,8 @@ Le panneau utilise `export '<id>' --stdin` pour conserver le texte prévisualis�
 même si le journal tourne entre la préparation et l'export. Cette option accepte
 un rapport texte de 64 Kio maximum ; sans elle, `export` prépare un nouveau rapport.
 
-Le service de collecte, son tableau de bord et sa procédure de déploiement
-sont dans le dépôt [monarch-crashes](https://forge.cloud.y0no.fr/Monarch/monarch-crashes).
+Le service de collecte et son tableau de bord sont maintenus séparément du
+client embarqué dans l'OS.
 
 ## Envoi volontaire
 
@@ -104,6 +104,4 @@ Une fois le rapport distant purgé, son lien indique qu'il est indisponible ou
 a expiré. Un lien dans un ticket GitHub ne prolonge pas cette conservation.
 
 Pour la recette locale uniquement, `MONARCH_CRASH_ENDPOINT=http://127.0.0.1:8787`
-avec `MONARCH_CRASH_ALLOW_LOCAL=1` permet d'utiliser le Worker local. La procédure
-mainteneur est documentée dans le dépôt
-[monarch-crashes](https://forge.cloud.y0no.fr/Monarch/monarch-crashes).
+avec `MONARCH_CRASH_ALLOW_LOCAL=1` permet d'utiliser le Worker local.
