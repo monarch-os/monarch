@@ -72,7 +72,7 @@ indépendamment du panneau :
 ```bash
 monarch crash submit status
 monarch crash submit prepare '<id>' | jq -r .text
-monarch crash submit send '<id>' --confirm
+monarch crash submit send '<id>' --confirm 'https://crashes.monarchlinux.com'
 monarch crash submit copy '<id>'
 ```
 
@@ -81,6 +81,11 @@ ne relit pas le journal. La réponse contient une référence `MCR-…` et une U
 après une erreur réseau utilisent la même clé pour éviter les doublons. Après
 réception, le client conserve la référence et le lien et ne renvoie plus ce crash.
 `copy` copie le lien dans le presse-papiers sans requête réseau.
+
+La destination passée après `--confirm` doit correspondre à la configuration
+courante. Le panneau transmet celle qu'il affiche et refuse l'envoi si elle a
+changé depuis sa vérification. En ligne de commande, `--confirm` sans destination
+confirme l'envoi à la destination actuellement configurée.
 
 La collecte distante reste désactivée dans les defaults tant que le service
 Cloudflare n'a pas été déployé et testé. Son URL se configure dans

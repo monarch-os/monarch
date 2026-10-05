@@ -102,9 +102,11 @@ report_json() {
     installed=$(pacman -Qoq -- "$exe" 2>/dev/null) || true
     if [[ $installed =~ ^[a-zA-Z0-9@+_.-]+$ ]]; then
       package_name=$installed
-      package_version=$(pacman -Q -- "$installed" 2>/dev/null | cut -d' ' -f2-) || true
-      source="installed"
     fi
+  fi
+  if [[ -z $package_version && $package_name =~ ^[a-zA-Z0-9@+_.-]+$ ]]; then
+    package_version=$(pacman -Q -- "$package_name" 2>/dev/null | cut -d' ' -f2-) || true
+    [[ -z $package_version ]] || source="installed"
   fi
   [[ ! -f $runtime/version ]] || monarch_version=$(<"$runtime/version")
   kernel=$(uname -r)

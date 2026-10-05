@@ -151,7 +151,7 @@ local function send()
   sending = true
   status = ""
   render()
-  submit("send " .. quote(selected.id) .. " --confirm", function(result)
+  submit("send " .. quote(selected.id) .. " --confirm " .. quote(collection.endpoint), function(result)
     if request ~= generation then return end
     sending = false
     local data = result and result.exitCode == 0 and noctalia.json.decode(result.stdout or "") or nil
@@ -256,7 +256,7 @@ function render()
     table.insert(children, ui.row({ gap = 8, align = "center" }, {
       ui.label({ text = "Export local disponible", fontSize = 11, color = "on_surface/0.55", flexGrow = 1 }),
       ui.button({ text = "Ouvrir le rapport", height = 30, variant = "ghost",
-        onClick = function() noctalia.runAsync("xdg-open " .. quote(saved)) end }),
+        onClick = function() noctalia.runAsync("/usr/bin/xdg-open " .. quote(saved)) end }),
     }))
   end
   if selected then

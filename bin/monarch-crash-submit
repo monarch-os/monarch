@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # monarch:summary=Preview and voluntarily send a crash report to Monarch
-# monarch:args=[status|prepare <id>|send <id> --confirm|copy <id>]
+# monarch:args=[status|prepare <id>|send <id> --confirm [<endpoint>]|copy <id>]
 # monarch:examples=monarch crash submit status | monarch crash submit prepare <id> | monarch crash submit send <id> --confirm
 
 set -euo pipefail
@@ -12,7 +12,7 @@ config_home=${XDG_CONFIG_HOME:-$HOME/.config}
 folder="$state_home/monarch/crashes/submissions"
 
 usage() {
-  echo "Usage: monarch crash submit [status|prepare <id>|send <id> --confirm|copy <id>]" >&2
+  echo "Usage: monarch crash submit [status|prepare <id>|send <id> --confirm [<endpoint>]|copy <id>]" >&2
   return 1
 }
 
@@ -99,9 +99,10 @@ copy_link() {
 }
 
 send() {
-  local id=$1 file="$folder/${1//:/-}.json" url receipt submission temp existing link
+  local id=$1 file="$folder/${1//:/-}.json" url confirmed receipt submission temp existing link
   validate_id "$id"
   url=$(endpoint)
+  confirmed=${2-$url}
   [[ -n $url ]] || { echo "Crash collection is not configured." >&2; return 1; }
   [[ -f $file ]] || { echo "Preview the report before sending it." >&2; return 1; }
   umask 077
@@ -112,6 +113,10 @@ send() {
     saved_receipt "$file"
     return
   fi
+  [[ $confirmed == "$url" ]] || {
+    echo "The crash collection destination changed. Review the destination and confirm again." >&2
+    return 1
+  }
   submission=$(jq -er '.submission' "$file")
   temp=$(mktemp "$folder/.payload.XXXXXX")
   trap 'rm -f -- "$temp"' RETURN
@@ -140,7 +145,10 @@ send() {
 case ${1:-status} in
   status) (($# <= 1)) || usage; status ;;
   prepare) (($# == 2)) || usage; prepare "$2" ;;
-  send) (($# == 3)) && [[ $3 == "--confirm" ]] || usage; send "$2" ;;
+  send)
+    (($# >= 3 && $# <= 4)) && [[ $3 == "--confirm" ]] || usage
+    send "$2" "${@:4}"
+    ;;
   copy) (($# == 2)) || usage; copy_link "$2" ;;
   *) usage ;;
 esac

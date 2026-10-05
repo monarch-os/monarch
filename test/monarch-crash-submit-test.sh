@@ -45,13 +45,15 @@ chmod +x "$test_tmp/bin/"*
 jq -cn --arg uid "$UID" '{_BOOT_ID:"0123456789abcdef0123456789abcdef",COREDUMP_UID:$uid,
   COREDUMP_PID:"4242",COREDUMP_TIMESTAMP:"1790859948000000",COREDUMP_EXE:"/usr/bin/crasher",
   COREDUMP_SIGNAL_NAME:"SIGSEGV",COREDUMP_PACKAGE_NAME:"crasher",COREDUMP_PACKAGE_VERSION:"1.0.0",
-  MESSAGE:"Stack trace of thread 4242:\n#0 do_crash (libcrasher.so + 0x10)"}' > "$JOURNAL_FIXTURE"
+  MESSAGE:"Stack trace of thread 4242:\n#0 do_crash (libcrasher.so + 0x10)\n#1 main (/home/alice/My Project (draft)/file.c + 0x20)"}' > "$JOURNAL_FIXTURE"
 
 monarch-crash-submit status | jq -e '.enabled == false and .endpoint == ""' >/dev/null
 [[ ! -f $SUBMISSION_CALLS ]]
 export MONARCH_CRASH_ENDPOINT=https://crashes.example.com
-monarch-crash-submit status | jq -e '.enabled and .retentionDays == 30' >/dev/null
-if monarch-crash-submit send "$id" --confirm >/dev/null 2>&1; then
+collection=$(monarch-crash-submit status)
+jq -e '.enabled and .retentionDays == 30' <<< "$collection" >/dev/null
+confirmed_endpoint=$(jq -r .endpoint <<< "$collection")
+if monarch-crash-submit send "$id" --confirm "$confirmed_endpoint" >/dev/null 2>&1; then
   echo "Sent a report without a preview" >&2
   exit 1
 fi
@@ -63,29 +65,49 @@ if monarch-crash-submit send "$id" >/dev/null 2>&1; then
 fi
 ! rg -q '/v1/reports' "$SUBMISSION_CALLS"
 
+unset MONARCH_CRASH_ENDPOINT
+mkdir -p "$XDG_CONFIG_HOME/monarch"
+jq -cn '{endpoint:"https://changed.example.com"}' > "$XDG_CONFIG_HOME/monarch/crash-reporting.json"
+before=$(wc -l < "$SUBMISSION_CALLS")
+if monarch-crash-submit send "$id" --confirm "$confirmed_endpoint" > "$test_tmp/output" 2> "$test_tmp/error"; then
+  echo "Sent a report after its confirmed destination changed" >&2
+  exit 1
+fi
+rg -q 'destination changed' "$test_tmp/error"
+[[ $(wc -l < "$SUBMISSION_CALLS") == "$before" ]]
+monarch-crash-submit prepare "$id" | jq -e '.receipt == null' >/dev/null
+jq -cn --arg endpoint "$confirmed_endpoint" '{endpoint:$endpoint}' > "$XDG_CONFIG_HOME/monarch/crash-reporting.json"
+if monarch-crash-submit send "$id" --confirm '' >/dev/null 2>&1; then
+  echo "Accepted an empty confirmed destination" >&2
+  exit 1
+fi
+[[ $(wc -l < "$SUBMISSION_CALLS") == "$before" ]]
+
 # Reopening and retrying keep the reviewed snapshot even after journal rotation.
 : > "$JOURNAL_FIXTURE"
 again=$(monarch-crash-submit prepare "$id")
 [[ $preview == "$again" ]]
-if FAIL_SUBMIT=1 monarch-crash-submit send "$id" --confirm >/dev/null 2>&1; then
+if FAIL_SUBMIT=1 monarch-crash-submit send "$id" --confirm "$confirmed_endpoint" >/dev/null 2>&1; then
   echo "Accepted a failed upload" >&2
   exit 1
 fi
 for link in 'https://other.example.com/admin/reports/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' \
   'https://crashes.example.com/admin/reports/short' 'https://crashes.example.com/admin/reports/../../private'; do
-  if BAD_LINK="$link" monarch-crash-submit send "$id" --confirm >/dev/null 2>&1; then
+  if BAD_LINK="$link" monarch-crash-submit send "$id" --confirm "$confirmed_endpoint" >/dev/null 2>&1; then
     echo "Accepted an invalid crash link" >&2
     exit 1
   fi
   monarch-crash-submit prepare "$id" | jq -e '.receipt == null' >/dev/null
 done
-sent=$(monarch-crash-submit send "$id" --confirm)
+sent=$(monarch-crash-submit send "$id" --confirm "$confirmed_endpoint")
 jq -e '.reference == "MCR-0123456789ABCDEF" and (.url | test("^https://crashes.example.com/admin/reports/[a-f0-9]{64}$"))' <<< "$sent" >/dev/null
 jq -S . "$SUBMISSION_BODY" > "$test_tmp/actual"
 jq -S .report <<< "$preview" > "$test_tmp/expected"
 cmp "$test_tmp/expected" "$test_tmp/actual"
-! rg -q '4242|submission|receipt|endpoint' "$SUBMISSION_BODY"
+! rg -q '4242|submission|receipt|endpoint|alice|My Project|draft|file.c' "$SUBMISSION_BODY"
+jq -e '.backtrace[2] == "#1 main (<private-path> + 0x20)"' "$SUBMISSION_BODY" >/dev/null
 rg -q 'Idempotency-Key: [a-f0-9-]{36}' "$SUBMISSION_CALLS"
+[[ $(sed -n 's/.*Idempotency-Key: \([a-f0-9-]*\).*/\1/p' "$SUBMISSION_CALLS" | sort -u | wc -l) == 1 ]]
 before=$(wc -l < "$SUBMISSION_CALLS")
 [[ $(monarch-crash-submit send "$id" --confirm) == "$sent" ]]
 [[ $(wc -l < "$SUBMISSION_CALLS") == "$before" ]]

@@ -31,7 +31,7 @@ def frames:
   | map(gsub("^\\s+"; "")
       | gsub("Stack trace of thread [0-9]+:"; "Stack trace:")
       | gsub("0x[0-9a-fA-F]+\\s+"; "")
-      | gsub("/(home|tmp|run/user|root)/[^\\s)]+"; "<private-path>")
+      | gsub("/(home|tmp|run/user|root)/.*?(?= \\+ 0x[0-9a-fA-F]+\\)$|$)"; "<private-path>")
       | gsub("[\\x00-\\x1f\\x7f]"; " ")
       | .[0:300]);
 
