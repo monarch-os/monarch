@@ -10,6 +10,7 @@ export MONARCH_PATH="$ROOT" XDG_STATE_HOME="$test_tmp/state" XDG_CONFIG_HOME="$t
 export SUBMISSION_CALLS="$test_tmp/calls" SUBMISSION_BODY="$test_tmp/body" JOURNAL_FIXTURE="$test_tmp/journal"
 export COPIED_LINK="$test_tmp/clipboard"
 export PATH="$test_tmp/bin:$ROOT/bin:/usr/bin"
+unset MONARCH_CRASH_ENDPOINT MONARCH_CRASH_ALLOW_LOCAL
 id=0123456789abcdef0123456789abcdef:4242:1790859948000000
 
 cat > "$test_tmp/bin/curl" <<'EOF'
@@ -47,8 +48,21 @@ jq -cn --arg uid "$UID" '{_BOOT_ID:"0123456789abcdef0123456789abcdef",COREDUMP_U
   COREDUMP_SIGNAL_NAME:"SIGSEGV",COREDUMP_PACKAGE_NAME:"crasher",COREDUMP_PACKAGE_VERSION:"1.0.0",
   MESSAGE:"Stack trace of thread 4242:\n#0 do_crash (libcrasher.so + 0x10)\n#1 main (/home/alice/My Project (draft)/file.c + 0x20)"}' > "$JOURNAL_FIXTURE"
 
+monarch-crash-submit status | jq -e '.enabled and .endpoint == "https://crashes.monarchlinux.com" and .retentionDays == 30' >/dev/null
+[[ $(wc -l < "$SUBMISSION_CALLS") == 1 ]]
+rg -q 'https://crashes.monarchlinux.com/v1/status$' "$SUBMISSION_CALLS"
+FAIL_SUBMIT=1 monarch-crash-submit status | jq -e '.enabled == false and .endpoint == "https://crashes.monarchlinux.com"' >/dev/null
+
+mkdir -p "$XDG_CONFIG_HOME/monarch"
+jq -cn '{endpoint:""}' > "$XDG_CONFIG_HOME/monarch/crash-reporting.json"
+before=$(wc -l < "$SUBMISSION_CALLS")
 monarch-crash-submit status | jq -e '.enabled == false and .endpoint == ""' >/dev/null
-[[ ! -f $SUBMISSION_CALLS ]]
+[[ $(wc -l < "$SUBMISSION_CALLS") == "$before" ]]
+if monarch-crash-submit send "$id" --confirm https://crashes.monarchlinux.com >/dev/null 2>&1; then
+  echo "Sent a report while remote submission was disabled" >&2
+  exit 1
+fi
+[[ $(wc -l < "$SUBMISSION_CALLS") == "$before" ]]
 export MONARCH_CRASH_ENDPOINT=https://crashes.example.com
 collection=$(monarch-crash-submit status)
 jq -e '.enabled and .retentionDays == 30' <<< "$collection" >/dev/null
@@ -66,7 +80,6 @@ fi
 ! rg -q '/v1/reports' "$SUBMISSION_CALLS"
 
 unset MONARCH_CRASH_ENDPOINT
-mkdir -p "$XDG_CONFIG_HOME/monarch"
 jq -cn '{endpoint:"https://changed.example.com"}' > "$XDG_CONFIG_HOME/monarch/crash-reporting.json"
 before=$(wc -l < "$SUBMISSION_CALLS")
 if monarch-crash-submit send "$id" --confirm "$confirmed_endpoint" > "$test_tmp/output" 2> "$test_tmp/error"; then

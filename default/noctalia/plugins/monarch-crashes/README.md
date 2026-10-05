@@ -85,12 +85,15 @@ The panel passes the destination it displays, and the client rejects the upload
 if it has changed since the availability check. On the command line, `--confirm`
 without a destination confirms sending to the currently configured destination.
 
-Remote collection remains disabled in the defaults until the Cloudflare service
-has been deployed and tested. Configure its URL in
-`~/.config/monarch/crash-reporting.json`:
+The client uses `https://crashes.monarchlinux.com` by default. The panel checks
+the service's availability before enabling submission, and sending requires
+explicit confirmation.
+
+To override the destination or disable remote submission, create
+`~/.config/monarch/crash-reporting.json`. For local previews and exports only:
 
 ```json
-{"endpoint":"https://crashes.monarchlinux.com"}
+{"endpoint":""}
 ```
 
 The client requires HTTPS, rejects redirects and sends reports without
