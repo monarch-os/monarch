@@ -1,0 +1,154 @@
+#!/bin/bash
+
+# monarch:summary=Preview and voluntarily send a crash report to Monarch
+# monarch:args=[status|prepare <id>|send <id> --confirm [<endpoint>]|copy <id>]
+# monarch:examples=monarch crash submit status | monarch crash submit prepare <id> | monarch crash submit send <id> --confirm
+
+set -euo pipefail
+
+runtime=${MONARCH_PATH:-/usr/share/monarch}
+state_home=${XDG_STATE_HOME:-$HOME/.local/state}
+config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+folder="$state_home/monarch/crashes/submissions"
+
+usage() {
+  echo "Usage: monarch crash submit [status|prepare <id>|send <id> --confirm [<endpoint>]|copy <id>]" >&2
+  return 1
+}
+
+validate_id() {
+  [[ $1 =~ ^[a-f0-9]{32}:[0-9]{1,10}:[0-9]{1,20}$ ]] || {
+    echo "Invalid crash id. See: monarch crash history list" >&2
+    return 1
+  }
+}
+
+endpoint() {
+  local config="$runtime/default/monarch/crash-reporting.json" url
+  [[ ! -f $config_home/monarch/crash-reporting.json ]] || config="$config_home/monarch/crash-reporting.json"
+  url=${MONARCH_CRASH_ENDPOINT:-$(jq -er '.endpoint | select(type == "string")' "$config")}
+  [[ -z $url || $url =~ ^https://[a-zA-Z0-9][a-zA-Z0-9.-]*(:[0-9]{1,5})?$ ]] || {
+    [[ ${MONARCH_CRASH_ALLOW_LOCAL:-0} == "1" && $url =~ ^http://127\.0\.0\.1:[0-9]{1,5}$ ]] || {
+      echo "The crash collection endpoint must use HTTPS without a path or credentials." >&2
+      return 1
+    }
+  }
+  printf '%s' "$url"
+}
+
+request() {
+  local url=$1
+  shift
+  local protocol="=https"
+  [[ ${MONARCH_CRASH_ALLOW_LOCAL:-0} != "1" ]] || protocol="=https,http"
+  curl --disable --no-location --silent --show-error --fail --proto "$protocol" --connect-timeout 5 --max-time 20 \
+    --max-filesize 8192 --header 'Accept: application/json' "$@" "$url"
+}
+
+status() {
+  local url service='{}' enabled=false retention=30
+  url=$(endpoint)
+  if [[ -n $url ]]; then
+    service=$(request "$url/v1/status" 2>/dev/null) || service='{}'
+    if jq -e '.schema == 1 and .enabled == true and .maxBytes == 65536 and
+      (.retentionDays | type == "number" and . >= 1 and . <= 90 and floor == .)' <<< "$service" >/dev/null 2>&1; then
+      enabled=true
+      retention=$(jq .retentionDays <<< "$service")
+    fi
+  fi
+  jq -cn --arg endpoint "$url" --argjson enabled "$enabled" --argjson retention "$retention" \
+    '{endpoint:$endpoint,enabled:$enabled,retentionDays:$retention}'
+}
+
+prepare() {
+  local id=$1 file="$folder/${1//:/-}.json" data temp submission
+  validate_id "$id"
+  umask 077
+  mkdir -p "$folder"
+  exec {submission_lock}> "$folder/${id//:/-}.lock"
+  flock -x "$submission_lock"
+  if [[ ! -f $file ]]; then
+    data=$("$runtime/bin/monarch-crash-history" report "$id" --json)
+    submission=$(cat /proc/sys/kernel/random/uuid)
+    temp=$(mktemp "$folder/.submission.XXXXXX")
+    jq -cn --argjson report "$data" --arg submission "$submission" \
+      '{report:$report,submission:$submission,receipt:null,endpoint:null,url:null}' > "$temp"
+    mv -T -- "$temp" "$file"
+  fi
+  jq -c -L "$runtime/default/monarch" 'include "crashes";
+    {report:.report,text:(.report | report_text),receipt:.receipt,endpoint:.endpoint,url:(.url // null)}' "$file"
+}
+
+saved_receipt() {
+  local file=$1 target id
+  target=$(jq -er '.endpoint' "$file")
+  id=$(jq -er '.submission' "$file" | tr -d '\n' | sha256sum | cut -d' ' -f1)
+  jq -c --arg url "$target/admin/reports/$id" \
+    '{reference:.receipt,endpoint:.endpoint,url:(.url // $url)}' "$file"
+}
+
+copy_link() {
+  local id=$1 file="$folder/${1//:/-}.json" link
+  validate_id "$id"
+  [[ -f $file ]] && jq -e '.receipt != null' "$file" >/dev/null || {
+    echo "Send the crash report before copying its link." >&2
+    return 1
+  }
+  link=$(saved_receipt "$file" | jq -er .url)
+  printf '%s' "$link" | wl-copy --type text/plain
+}
+
+send() {
+  local id=$1 file="$folder/${1//:/-}.json" url confirmed receipt submission temp existing link
+  validate_id "$id"
+  url=$(endpoint)
+  confirmed=${2-$url}
+  [[ -n $url ]] || { echo "Crash collection is not configured." >&2; return 1; }
+  [[ -f $file ]] || { echo "Preview the report before sending it." >&2; return 1; }
+  umask 077
+  exec {submission_lock}> "$folder/${id//:/-}.lock"
+  flock -x "$submission_lock"
+  existing=$(jq -r '.receipt // empty' "$file")
+  if [[ -n $existing ]]; then
+    saved_receipt "$file"
+    return
+  fi
+  [[ $confirmed == "$url" ]] || {
+    echo "The crash collection destination changed. Review the destination and confirm again." >&2
+    return 1
+  }
+  submission=$(jq -er '.submission' "$file")
+  temp=$(mktemp "$folder/.payload.XXXXXX")
+  trap 'rm -f -- "$temp"' RETURN
+  jq -c '.report' "$file" > "$temp"
+  (($(wc -c < "$temp") <= 65536)) || { echo "The report exceeds 64 KiB." >&2; return 1; }
+  receipt=$(request "$url/v1/reports" --header 'Content-Type: application/json' \
+    --header "Idempotency-Key: $submission" --data-binary "@$temp") || {
+    echo "The report could not be sent. It stays available locally; you can retry." >&2
+    return 1
+  }
+  link=$(jq -er --arg prefix "$url/admin/reports/" '.url | select(type == "string") |
+    select(startswith($prefix)) | select(.[($prefix | length):] | test("^[a-f0-9]{64}$"))' <<< "$receipt") || {
+    echo "The collection service returned an invalid crash link. You can retry safely." >&2
+    return 1
+  }
+  receipt=$(jq -er '.reference | select(type == "string" and test("^MCR-[A-F0-9]{16}$"))' <<< "$receipt") || {
+    echo "The collection service returned an invalid receipt. You can retry safely." >&2
+    return 1
+  }
+  jq --arg receipt "$receipt" --arg endpoint "$url" --arg url "$link" \
+    '.receipt=$receipt | .endpoint=$endpoint | .url=$url' "$file" > "$temp"
+  mv -T -- "$temp" "$file"
+  saved_receipt "$file"
+}
+
+case ${1:-status} in
+  status) (($# <= 1)) || usage; status ;;
+  prepare) (($# == 2)) || usage; prepare "$2" ;;
+  send)
+    (($# >= 3 && $# <= 4)) && [[ $3 == "--confirm" ]] || usage
+    send "$2" "${@:4}"
+    ;;
+  copy) (($# == 2)) || usage; copy_link "$2" ;;
+  *) usage ;;
+esac

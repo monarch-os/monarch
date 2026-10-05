@@ -17,6 +17,8 @@ test/shell.d/brightness-display-apple-test.sh	display-security	high	isolated
 test/shell.d/cups-browsed-retirement-test.sh	printing-security	high	isolated
 test/monarch-cli-test.sh	cli-routing	high	isolated
 test/monarch-crash-capture-test.sh	crash-reporting	high	isolated
+test/monarch-crash-history-test.sh	crash-reporting	high	isolated
+test/monarch-crash-submit-test.sh	crash-reporting	high	isolated
 test/monarch-dev-env-test.sh	developer-environment	medium	isolated
 test/monarch-display-test.sh	displays	high	isolated
 test/monarch-drive-password-test.sh	drive-encryption	high	isolated
