@@ -76,6 +76,29 @@ Example:
 # monarch:aliases=monarch screenshot
 ```
 
+# Shell Helper Descriptions
+
+Shell aliases live in `default/shells/aliases`, and named functions live in
+`default/shells/fns/`. Their descriptions for the command picker are maintained
+in `default/shells/command-descriptions.tsv`.
+
+- Each row has two fields separated by a literal tab: helper name and a short
+  English description. There is no header; names must be unique.
+- When adding, renaming, removing or changing the behavior of a public helper,
+  update its description in the same change. Keep the row when moving a helper
+  from an alias to a function without changing its name.
+- Describe what the helper does, rather than repeating its shell definition.
+  Keep entries for conditionally available helpers; omit internal functions
+  whose names start with `_`.
+
+The TSV documents shell helpers only. Command descriptions for `bin/monarch-*`
+still come from their `# monarch:summary` metadata via `monarch commands --json`.
+User-defined helpers without a catalog entry remain visible in the picker with
+a generic description.
+
+Validate changes with `bash test/shell.d/shell-helpers-test.sh`, which checks
+unique description names and coverage of the loaded Monarch helpers.
+
 # Install Scripts
 
 Install entry points (`install.sh`, `boot.sh`) use `#!/bin/bash`. Many scripts under `install/` are sourced via `run_logged` and intentionally do not have shebangs.
