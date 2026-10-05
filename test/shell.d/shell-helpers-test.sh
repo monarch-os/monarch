@@ -111,6 +111,8 @@ with tempfile.TemporaryDirectory() as directory:
             assert not (fixture / "executed").exists()
 
     defaults = run([picker, "--list"], env={**env, "MONARCH_PATH": str(root)}).stdout
+    clean_env = {key: value for key, value in environment.items() if key != "MONARCH_PATH"}
+    assert run([picker, "--list"], env=clean_env).stdout == defaults
     assert b"cpy\tCopy input to the Wayland clipboard" in defaults
     assert b"dex\tRun a command in a selected Docker container" in defaults
     assert b"_monarch_command_picker\t" not in defaults

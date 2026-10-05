@@ -32,6 +32,7 @@ if [[ $shell_commands == "true" ]]; then
 elif [[ -f $runtime_root/default/shells/fns/command-picker ]]; then
   helpers=$(
     set +u
+    export MONARCH_PATH="$runtime_root"
     source "$runtime_root/default/shells/aliases"
     source "$runtime_root/default/shells/functions"
     _monarch_command_picker_entries
