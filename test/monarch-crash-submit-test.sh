@@ -16,6 +16,14 @@ id=0123456789abcdef0123456789abcdef:4242:1790859948000000
 cat > "$test_tmp/bin/curl" <<'EOF'
 #!/bin/bash
 printf '%s\n' "$*" >> "$SUBMISSION_CALLS"
+[[ $1 == "--disable" ]] || exit 2
+case " $* " in
+  *' --no-location '*) ;;
+  *) exit 2 ;;
+esac
+if [[ -n ${CURL_CONFIG_PROBE:-} ]]; then
+  exec /usr/bin/curl "${@:1:$#-1}" --proto '=file' "file://$CURL_CONFIG_PROBE"
+fi
 [[ ${FAIL_SUBMIT:-0} != 1 ]] || exit 22
 case "${!#}" in
   */v1/status) printf '%s\n' '{"schema":1,"enabled":true,"maxBytes":65536,"retentionDays":30}' ;;
@@ -52,6 +60,16 @@ monarch-crash-submit status | jq -e '.enabled and .endpoint == "https://crashes.
 [[ $(wc -l < "$SUBMISSION_CALLS") == 1 ]]
 rg -q 'https://crashes.monarchlinux.com/v1/status$' "$SUBMISSION_CALLS"
 FAIL_SUBMIT=1 monarch-crash-submit status | jq -e '.enabled == false and .endpoint == "https://crashes.monarchlinux.com"' >/dev/null
+
+printf '%s\n' '{"schema":1,"enabled":true,"maxBytes":65536,"retentionDays":30}' > "$test_tmp/service.json"
+mkdir -p "$test_tmp/curl-home" "$test_tmp/home" "$XDG_CONFIG_HOME"
+for config in "$test_tmp/curl-home/.curlrc" "$XDG_CONFIG_HOME/curlrc" "$test_tmp/home/.curlrc"; do
+  printf 'location\noutput = "%s"\n' "$test_tmp/unexpected-output" > "$config"
+  CURL_HOME="$test_tmp/curl-home" HOME="$test_tmp/home" CURL_CONFIG_PROBE="$test_tmp/service.json" \
+    monarch-crash-submit status | jq -e '.enabled and .retentionDays == 30' >/dev/null
+  [[ ! -e $test_tmp/unexpected-output ]]
+  rm -- "$config"
+done
 
 mkdir -p "$XDG_CONFIG_HOME/monarch"
 jq -cn '{endpoint:""}' > "$XDG_CONFIG_HOME/monarch/crash-reporting.json"

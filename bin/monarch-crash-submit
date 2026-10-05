@@ -41,7 +41,7 @@ request() {
   shift
   local protocol="=https"
   [[ ${MONARCH_CRASH_ALLOW_LOCAL:-0} != "1" ]] || protocol="=https,http"
-  curl --silent --show-error --fail --proto "$protocol" --connect-timeout 5 --max-time 20 \
+  curl --disable --no-location --silent --show-error --fail --proto "$protocol" --connect-timeout 5 --max-time 20 \
     --max-filesize 8192 --header 'Accept: application/json' "$@" "$url"
 }
 
