@@ -1,0 +1,75 @@
+unalias dockit dex dexr dockns dnorestart dstopall dkillall din dinp \
+  dwipe-image dwipe-network dwipe-process dwipe-volume 2>/dev/null || true
+
+dockit() { docker run --rm -it -v /tmp:/tmp -v "$PWD":/monhost -w /monhost "$@"; }
+
+_monarch_docker_pick() (
+  set -o pipefail
+  local row
+  row=$(docker ps --format '{{.ID}}\t{{.Names}}\t{{.Image}}' |
+    fzf --no-multi --delimiter=$'\t' --prompt='Container ❯ ') || return
+  [[ -n $row ]] || return 1
+  printf '%s\n' "${row%%$'\t'*}"
+)
+
+dex() {
+  local container
+  container=$(_monarch_docker_pick) || return
+  docker exec -it "$container" "$@"
+}
+
+dexr() {
+  local container
+  container=$(_monarch_docker_pick) || return
+  docker exec -it -u root "$container" "$@"
+}
+
+dockns() {
+  local container pid
+  container=$(_monarch_docker_pick) || return
+  pid=$(docker inspect -f '{{.State.Pid}}' "$container") || return
+  if [[ ! $pid =~ ^[1-9][0-9]*$ ]]; then
+    echo "Container has no running process" >&2
+    return 1
+  fi
+  sudo nsenter -a -t "$pid" "$@"
+}
+
+_monarch_docker_batch() {
+  local kind=$1 output id
+  local -a ids=()
+  shift
+  case "$kind" in
+    running) output=$(docker ps -q) || return ;;
+    containers) output=$(docker ps -aq) || return ;;
+    images) output=$(docker images -q) || return ;;
+    networks) output=$(docker network ls -q) || return ;;
+    volumes) output=$(docker volume ls -q) || return ;;
+    *) return 2 ;;
+  esac
+  while IFS= read -r id; do
+    [[ -z $id ]] || ids+=("$id")
+  done <<<"$output"
+  (( ${#ids[@]} > 0 )) || return 0
+  docker "$@" "${ids[@]}"
+}
+
+dnorestart() { _monarch_docker_batch running update --restart=no "$@"; }
+dstopall() { _monarch_docker_batch running stop "$@"; }
+dkillall() { dnorestart && dstopall "$@"; }
+dwipe-image() { _monarch_docker_batch images rmi -f "$@"; }
+dwipe-network() { _monarch_docker_batch networks network rm "$@"; }
+dwipe-process() { _monarch_docker_batch containers rm "$@"; }
+dwipe-volume() { _monarch_docker_batch volumes volume rm "$@"; }
+
+din() (
+  set -o pipefail
+  local container
+  container=$(_monarch_docker_pick) || return
+  docker inspect "$container" | jq "$@"
+)
+
+dinp() (
+  set -o pipefail
+  din | grep -P '(172|10)\.' "$@"
+)

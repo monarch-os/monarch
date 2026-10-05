@@ -1,0 +1,103 @@
+#!/bin/bash
+
+# monarch:summary=Search Monarch commands and shell helpers without executing them
+# monarch:args=[--list] [query]
+# monarch:examples=monarch cmd picker | monarch cmd picker screenshot
+
+set -euo pipefail
+
+runtime_root=${MONARCH_PATH:-$(cd -- "$(dirname -- "$0")/.." && pwd)}
+list_only=false
+shell_commands=false
+query=""
+query_set=false
+while (( $# )); do
+  case $1 in
+    --list) list_only=true ;;
+    --shell-commands) shell_commands=true ;;
+    *)
+      if [[ $query_set == "true" ]]; then
+        echo "Usage: monarch cmd picker [--list] [query]" >&2
+        exit 2
+      fi
+      query=$1
+      query_set=true
+      ;;
+  esac
+  shift
+done
+
+if [[ $shell_commands == "true" ]]; then
+  helpers=$(cat)
+elif [[ -f $runtime_root/default/shells/fns/command-picker ]]; then
+  helpers=$(
+    set +u
+    source "$runtime_root/default/shells/aliases"
+    source "$runtime_root/default/shells/functions"
+    _monarch_command_picker_entries
+  )
+else
+  helpers='[]'
+fi
+
+descriptions_file=${MONARCH_COMMAND_PICKER_DESCRIPTIONS:-$runtime_root/default/shells/command-descriptions.tsv}
+descriptions='{}'
+if [[ -f $descriptions_file ]]; then
+  descriptions=$(jq -Rn '
+    [inputs | split("\t") | select(length == 2) |
+      {key: .[0], value: .[1]}] | from_entries
+  ' <"$descriptions_file")
+fi
+
+rows=$("$runtime_root/bin/monarch" commands --json | jq -r '
+  def single_line: gsub("[\u0000-\u001f\u007f]"; " ");
+  .commands[] | [
+    .route, .summary, .args,
+    (.examples | join(" | ")),
+    (if .requires_sudo then "Requires sudo" else "Runs as your user" end), "Monarch"
+  ] | map(single_line) | join("\t")
+')
+helper_rows=$(jq -r --argjson descriptions "$descriptions" '
+  def single_line: gsub("[\u0000-\u001f\u007f]"; " ");
+  .[] | [
+    .route,
+    ($descriptions[.route] // "User-defined shell helper"),
+    "", .definition, .summary,
+    (if .summary == "Shell alias" then "Alias" else "Function" end)
+  ] | map(single_line) | join("\t")
+' <<<"$helpers")
+if [[ -n $helper_rows ]]; then
+  rows+=$'\n'"$helper_rows"
+fi
+
+terminal_columns=${COLUMNS:-$(tput cols 2>/dev/null || printf '80')}
+[[ $terminal_columns =~ ^[0-9]+$ ]] || terminal_columns=80
+max_name_width=$(( terminal_columns * 2 / 5 ))
+(( max_name_width > 44 )) && max_name_width=44
+(( max_name_width < 18 )) && max_name_width=18
+name_width=$(awk -F '\t' -v max="$max_name_width" '
+  length($1) > width {width = length($1)}
+  END {print (width > max ? max : width)}
+' <<<"$rows")
+rows=$(awk -F '\t' -v width="$name_width" '
+  {
+    name = $1
+    if (length(name) > width) name = substr(name, 1, width - 3) "..."
+    printf "%s\t%-*s\t%-8s\n", $0, width, name, $6
+  }
+' <<<"$rows")
+
+if [[ $list_only == "true" ]]; then
+  printf '%s\n' "$rows"
+  exit 0
+fi
+
+header=$(printf 'Enter: insert command · Esc: cancel\n%-*s %-8s %s' "$name_width" 'COMMAND' 'TYPE' 'DESCRIPTION')
+selection=$(printf '%s\n' "$rows" | fzf \
+  --height=70% --layout=reverse --no-multi --delimiter=$'\t' --with-nth=7,8,2 --nth=1,2,3 \
+  --tabstop=1 --no-hscroll \
+  --prompt='Command ❯ ' --query="$query" \
+  --header="$header" \
+  --preview='printf "Command: %s\n%s\nArguments: %s\nDefinition / examples: %s\n%s\n" {1} {2} {3} {4} {5}' \
+  --preview-window='down,6,wrap')
+printf '%s\n' "${selection%%$'\t'*}"

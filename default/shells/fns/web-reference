@@ -1,0 +1,7 @@
+unalias getinfo-known-creds getinfo-known-port getinfo-bookhacktricks getinfo-virustotal getinfo-ip 2>/dev/null || true
+
+getinfo-known-creds() { xdg-open "https://cirt.net/passwords?criteria=$*"; }
+getinfo-known-port() { xdg-open "https://www.speedguide.net/port.php?port=$*"; }
+getinfo-bookhacktricks() { xdg-open "https://book.hacktricks.wiki/en/index.html?search=$*"; }
+getinfo-virustotal() { xdg-open "https://www.virustotal.com/gui/domain/$1"; }
+getinfo-ip() { curl -sk "http://ip-api.com/json/$1?fields=66846719" | jq; }

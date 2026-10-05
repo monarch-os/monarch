@@ -1,0 +1,16 @@
+unalias getinfo-certspotter getinfo-crtsh getinfo-wayback getinfo-leakix 2>/dev/null || true
+
+getinfo-certspotter() {
+  curl -sS "https://api.certspotter.com/v1/issuances?domain=$1&include_subdomains=true&expand=dns_names&expand=issuer&expand=cert" | jq
+}
+
+getinfo-crtsh() { curl -sk "https://crt.sh/json?q=$1" | jq .; }
+
+getinfo-wayback() {
+  curl -sk "https://web.archive.org/cdx/search/cdx?fl=original&collapse=urlkey&url=*.$1"
+}
+
+getinfo-leakix() {
+  curl -sk "https://leakix.net/api/graph/hostname/$1?v[]=hostname&v[]=ip&d=auto&l=auto" |
+    jq | grep -ioP 'hostname/[^"]+' | cut -d/ -f2 | sort -uV
+}

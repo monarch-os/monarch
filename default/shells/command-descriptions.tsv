@@ -1,0 +1,130 @@
+..	Go up one directory
+...	Go up two directories
+....	Go up three directories
+K	Open this directory in Cursor
+Z	Open this directory in Zed
+b	View files with syntax highlighting
+b64d	Decode Base64 input
+b64e	Encode input as Base64 without line wrapping
+c	Start OpenCode
+cd	Change directory with zoxide support
+cdtmp	Create and enter a temporary directory
+cfu	Format local JSON results as a table
+cfu-clean	Deduplicate and sort local JSON results
+cfu-clean-url	Extract URLs from local JSON results
+cheat	Look up a command on cheat.sh
+compress	Create a compressed tar archive
+cp	Copy files with overwrite confirmation
+cpy	Copy input to the Wayland clipboard
+cr	Resume a Claude session
+crl	Send an HTTP request with the configured curl options
+crli	Send an HTTP request and show response headers
+crlix	Send an HTTP request through the local proxy
+cx	Start Claude with permission prompts bypassed
+d	Run Docker
+decompress	Extract a compressed tar archive
+dex	Run a command in a selected Docker container
+dexr	Run a command as root in a selected Docker container
+dgitleaks	Run Gitleaks in Docker
+digall	Query DNS records with dig
+din	Inspect a selected Docker container
+dinp	Filter network details of a selected Docker container
+dip	Stop local SSH port forwards
+dirmon	Watch filesystem events in a directory
+dkillall	Disable restart policies and stop Docker containers
+dnessus-logs	Follow logs from the local Nessus container
+dnessus-start	Start the local Nessus container
+dnessus-stop	Stop the local Nessus container
+dnessus-web	Open the local Nessus interface
+dnorestart	Disable automatic restart for running Docker containers
+dns-1	Set the DNS resolver to Cloudflare
+dns-127	Set the DNS resolver to localhost
+dns-8	Set the DNS resolver to Google
+dns-9	Set the DNS resolver to Quad9
+dockit	Run a temporary Docker container with this directory mounted
+dockns	Run a command in a selected Docker container's namespaces
+dps	List running Docker containers
+dssh-audit	Run ssh-audit in Docker
+dssl-test	Run testssl.sh in Docker
+dstopall	Stop all running Docker containers
+dtrufflehog	Run TruffleHog in Docker
+dwipe-all	Delete unused Docker resources, including volumes
+dwipe-image	Delete Docker images
+dwipe-network	Delete Docker networks
+dwipe-process	Delete Docker containers
+dwipe-volume	Delete Docker volumes
+eff	Select a file and open it in your editor
+ff	Select a file with a preview
+fip	Create local SSH port forwards
+format-drive	Format a selected drive
+fu	Run ffuf with the configured options
+g	Run Git
+ga	Stage files in Git
+gaa	Stage all changes in Git
+gcad	Amend the last Git commit with tracked changes
+gcam	Commit tracked changes with a message
+gcm	Create a Git commit with a message
+get-ip	Show your public IP address
+get-ip-cpy	Copy your public IP address to the clipboard
+getinfo-bookhacktricks	Search the HackTricks reference
+getinfo-certspotter	Look up public certificate records on Cert Spotter
+getinfo-crtsh	Look up public certificate records on crt.sh
+getinfo-ip	Look up public information about an IP address
+getinfo-known-creds	Search the CIRT reference
+getinfo-known-port	Look up a port in the SpeedGuide reference
+getinfo-leakix	Look up indexed public hostname information on LeakIX
+getinfo-virustotal	Open a domain report on VirusTotal
+getinfo-wayback	Look up archived URLs in the Wayback Machine
+gsb	Show Git status and branch information
+gsi	Initialize Git submodules
+gss	Show concise Git status
+gst	Show Git status
+gsu	Update Git submodules
+img2jpg	Convert an image to high-quality JPEG
+img2jpg-large	Convert an image to high-quality JPEG
+img2jpg-medium	Convert an image to medium-quality JPEG
+img2jpg-small	Convert an image to low-quality JPEG
+img2png	Convert an image to PNG
+ipa	Show a concise list of network interfaces
+ipv6-disable	Disable IPv6 until the next reboot
+ipv6-enable	Enable IPv6
+iso2sd	Write an ISO image to a selected drive
+k	Open Cursor
+lfu	Run ffuf with local JSON output
+lip	List active local SSH port forwards
+ll	List files with details
+ls	List files with details and icons
+lsa	List files, including hidden files
+lt	Show a directory tree two levels deep
+lta	Show a directory tree, including hidden files
+mkcd	Create and enter a directory
+monarch-picker	Search commands, aliases and shell functions
+mup	Update mise tools without the release-age delay
+n	Open files or this directory in Neovim
+ncl	Listen on a port with Ncat
+open	Open a file or URL with its default application
+p	Run Python
+paste	Read the Wayland clipboard without adding a newline
+probe-urls	Read HTTP response information for a URL list
+pv	Set up a project's Python version and virtual environment
+pyreq	Install Python dependencies from requirements.txt
+pysrv	Serve an empty directory with Python's HTTP server
+rm	Move files to the trash
+sff	Select a file and copy it to an SSH destination
+show-open-ports	Show listening sockets and their processes
+sop	Show listening sockets and their processes
+ssh	Connect over SSH with Kitty terminal support
+ssh-yolo	Connect over SSH without host-key verification
+t	Start Herdr
+tdl	Create a Herdr development layout
+tdlm	Create a Herdr development layout for each subdirectory
+te	Empty the trash
+transcode-video-1080p	Convert a video to 1080p MP4
+transcode-video-4K	Convert a video to 4K MP4
+transcode-video-gif	Convert a video to GIF
+tsl	Run the same command across multiple Herdr panes
+upload	Upload a file to 0x0.st
+v	Open Neovim
+wget-yolo	Download a file without certificate verification
+z	Open Zed
+zd	Change directory with zoxide support

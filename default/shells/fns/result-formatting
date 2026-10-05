@@ -1,0 +1,16 @@
+unalias cfu cfu-clean cfu-clean-url 2>/dev/null || true
+
+cfu() (
+  set -o pipefail
+  jq -r '.results[]|[.status,.length,.lines,.words,.url]|@tsv' "$@" | sort -uV
+)
+
+cfu-clean() (
+  set -o pipefail
+  cfu "$@" | cut -d '|' -f1,3- | awk -F/ '!_[$1]++' | sort -u -t: -k1,1
+)
+
+cfu-clean-url() (
+  set -o pipefail
+  cfu-clean "$@" | cut -d '|' -f4-
+)

@@ -1,0 +1,18 @@
+unalias digall cheat upload pv 2>/dev/null || true
+
+digall() { dig +answer +multiline "$1" any @8.8.8.8; }
+cheat() { curl -s "cheat.sh/$1"; }
+upload() { curl -F "file=@$1" https://0x0.st; }
+
+pv() {
+  if (( $# != 1 )); then
+    echo "Usage: pv <python-version>" >&2
+    return 2
+  fi
+  mise use "python@$1" &&
+    mise config set env._.python.venv.path .venv &&
+    mise config set --type list env._.python.venv.uv_create_args -- --seed &&
+    mise config set --type bool env._.python.venv.create true &&
+    mise exec -- which python &&
+    mise exec -- python --version
+}
