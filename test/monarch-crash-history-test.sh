@@ -66,6 +66,19 @@ jq -e --arg id "$id" --arg old "$old_id" \
   '.crashes | length == 2 and .[0].id == $id and .[1].id == $old and .[0].core == "present" and .[1].core == "missing"' <<< "$state" >/dev/null
 ! rg -q 'PRIVATE_HOST|SECRET_ARGUMENT|TOKEN|/usr/bin/crasher|private-source' <<< "$state"
 
+: > "$JOURNAL_FIXTURE"
+for ((index = 0; index <= 100; index++)); do
+  entry "$UID" "$boot" "$((1790859948000000 + index))" "$test_tmp/core" >> "$JOURNAL_FIXTURE"
+done
+state=$(monarch-crash-history list --json)
+jq -e --arg id "$id" '.hasMore == true and (.crashes | length) == 100
+  and all(.crashes[]; .id != $id)' <<< "$state" >/dev/null
+detail=$(monarch-crash-history show "$id" --json)
+jq -e --arg id "$id" '.id == $id and .application == "crasher"' <<< "$detail" >/dev/null
+entry "$UID" "$boot" 1790859948000000 "$test_tmp/core" > "$JOURNAL_FIXTURE"
+entry "$UID" "$old_boot" 1790684259000000 "$test_tmp/gone" >> "$JOURNAL_FIXTURE"
+entry "$((UID + 1))" "$boot" 1790959948000000 "$test_tmp/core" >> "$JOURNAL_FIXTURE"
+
 report=$(monarch-crash-history report "$id" --json)
 jq -e '.crash.application == "crasher" and .package.version == "1.2.3-1" and .package.source == "installed" and (.backtrace | length) == 3' <<< "$report" >/dev/null
 ! rg -q 'PRIVATE_HOST|SECRET_ARGUMENT|TOKEN|SECRET_HEADER|My Project|draft|private-source|0x000abcdef|"pid"|"id"' <<< "$report"

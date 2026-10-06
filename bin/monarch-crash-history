@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # monarch:summary=Browse crashes and export a diagnostic report
-# monarch:args=[open [id]|list [--json]|report <id> [--json]|export <id> [--stdin]]
+# monarch:args=[open [id]|list [--json]|show <id> --json|report <id> [--json]|export <id> [--stdin]]
 # monarch:examples=monarch crash history | monarch crash history list | monarch crash history report <id>
 
 set -euo pipefail
@@ -12,7 +12,7 @@ readonly history_limit=100
 readonly fields="_BOOT_ID,COREDUMP_UID,COREDUMP_PID,COREDUMP_TIMESTAMP,COREDUMP_COMM,COREDUMP_EXE,COREDUMP_SIGNAL,COREDUMP_SIGNAL_NAME,COREDUMP_FILENAME,COREDUMP_TRUNCATED,COREDUMP_PACKAGE_NAME,COREDUMP_PACKAGE_VERSION"
 
 usage() {
-  echo "Usage: monarch crash history [open [id]|list [--json]|report <id> [--json]|export <id> [--stdin]]" >&2
+  echo "Usage: monarch crash history [open [id]|list [--json]|show <id> --json|report <id> [--json]|export <id> [--stdin]]" >&2
   return 1
 }
 
@@ -82,6 +82,14 @@ list_crashes() {
   else
     jq -r '.[] | [.id,.date,.application,.signal,.core] | @tsv' <<< "$crashes"
   fi
+}
+
+show_crash() {
+  local entries crash
+  entries=$(read_entries "$1")
+  crash=$(summaries "$entries" | jq -s '.[0] // empty')
+  [[ -n $crash ]] || { echo "This crash is no longer available in the journal." >&2; return 1; }
+  printf '%s\n' "$crash"
 }
 
 report_json() {
@@ -169,6 +177,10 @@ case ${1:-open} in
   list)
     (($# <= 2)) && [[ -z ${2:-} || $2 == "--json" ]] || usage
     list_crashes "${2:-}"
+    ;;
+  show)
+    (($# == 3)) && [[ $3 == "--json" ]] || usage
+    show_crash "$2"
     ;;
   report)
     (($# >= 2 && $# <= 3)) && [[ -z ${3:-} || $3 == "--json" ]] || usage

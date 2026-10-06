@@ -46,6 +46,7 @@ choose it.
 ```bash
 monarch crash history list
 monarch crash history list --json
+monarch crash history show '<id>' --json
 monarch crash history report '<id>'
 monarch crash history report '<id>' --json
 monarch crash history export '<id>'
@@ -53,7 +54,8 @@ monarch crash history export '<id>'
 
 The identifier combines the boot ID, PID and crash timestamp to distinguish
 events when the system reuses a PID. `list --json` returns `crashes`, `limit` and
-`hasMore`; `export` returns the file path as JSON. Journal access failures are
+`hasMore`; `show` fetches a specific crash even beyond the 100 listed entries;
+`export` returns the file path as JSON. Journal access failures are
 reported as errors instead of appearing as an empty history.
 
 The panel uses `export '<id>' --stdin` to preserve the previewed text even if the

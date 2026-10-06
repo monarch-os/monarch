@@ -6,6 +6,7 @@ local selected = nil
 local report = nil
 local status = ""
 local loading = false
+local diagnosing = false
 local exporting = false
 local sending = false
 local confirming = false
@@ -35,7 +36,7 @@ local function run(arguments, callback, input)
   local command = "MONARCH_PATH=" .. quote(root) .. " "
     .. quote(root .. "/bin/monarch-crash-history") .. " " .. arguments
   if input then command = "printf '%s' " .. quote(input) .. " | " .. command end
-  noctalia.runAsync(command, callback)
+  return noctalia.runAsync(command, callback)
 end
 
 local function submit(arguments, callback)
@@ -62,22 +63,42 @@ local function load()
   render()
   run("list --json", function(result)
     if request ~= generation then return end
-    loading = false
     local data = result and result.exitCode == 0 and noctalia.json.decode(result.stdout or "") or nil
     if type(data) == "table" and type(data.crashes) == "table" then
       crashes = data.crashes
       more = data.hasMore == true
       page = 1
       if requested ~= "" then
-        for _, crash in crashes do
-          if crash.id == requested then selected = crash; break end
-        end
+        local id = requested
         requested = ""
+        for _, crash in crashes do
+          if crash.id == id then selected = crash; break end
+        end
+        if not selected then
+          local started = run("show " .. quote(id) .. " --json", function(detail)
+            if request ~= generation then return end
+            loading = false
+            local crash = detail and detail.exitCode == 0 and noctalia.json.decode(detail.stdout or "") or nil
+            if type(crash) == "table" and crash.id == id then
+              selected = crash
+            else
+              status = failure(detail, "Le crash demandé n’est plus disponible.")
+            end
+            render()
+          end)
+          if not started then
+            loading = false
+            status = "Le crash demandé n’a pas pu être chargé."
+            render()
+          end
+          return
+        end
       end
     else
       crashes = {}
       status = failure(result, "L’historique n’a pas pu être chargé.")
     end
+    loading = false
     render()
   end)
 end
@@ -95,7 +116,7 @@ local function choose(crash)
 end
 
 local function preview()
-  if loading or exporting or sending or report or not selected then return end
+  if loading or diagnosing or exporting or sending or report or not selected then return end
   generation += 1
   local request = generation
   loading = true
@@ -125,7 +146,7 @@ local function preview()
 end
 
 local function export()
-  if exporting or sending or confirming or not selected or not report then return end
+  if diagnosing or exporting or sending or confirming or not selected or not report then return end
   local request = generation
   exporting = true
   render()
@@ -146,7 +167,7 @@ local function export()
 end
 
 local function send()
-  if sending or not confirming or not selected or not report or receipt ~= ""
+  if diagnosing or sending or not confirming or not selected or not report or receipt ~= ""
     or not collection or not collection.enabled then return end
   local request = generation
   sending = true
@@ -170,7 +191,7 @@ local function send()
 end
 
 local function copyLink()
-  if receipt == "" or not selected then return end
+  if diagnosing or receipt == "" or not selected then return end
   local request = generation
   submit("copy " .. quote(selected.id), function(result)
     if request ~= generation then return end
@@ -182,12 +203,26 @@ local function copyLink()
 end
 
 local function diagnose()
-  if not agentAvailable or not selected or loading or exporting or sending then return end
+  if not agentAvailable or not selected or loading or diagnosing or exporting or sending then return end
   local command = "PATH=" .. quote(root .. "/bin") .. ':"$PATH" MONARCH_PATH=' .. quote(root) .. " "
     .. quote(root .. "/bin/monarch-agent-crash") .. " " .. quote(selected.id)
-  if noctalia.runAsync(command) then
-    panel.close()
-  else
+  local request = generation
+  diagnosing = true
+  status = ""
+  render()
+  local started = noctalia.runAsync(command, function(result)
+    if request ~= generation then return end
+    diagnosing = false
+    if result and result.exitCode == 0 then
+      panel.close()
+      return
+    end
+    status = failure(result, "Le diagnostic IA n’a pas pu démarrer.")
+    statusOk = false
+    render()
+  end)
+  if not started then
+    diagnosing = false
     status = "Le diagnostic IA n’a pas pu démarrer."
     statusOk = false
     render()
@@ -275,11 +310,11 @@ function render()
   end
   if selected then
     local buttons = {
-      ui.button({ text = "Retour", height = 34, variant = "ghost", enabled = not exporting and not sending, onClick = onBackClicked }),
+      ui.button({ text = "Retour", height = 34, variant = "ghost", enabled = not diagnosing and not exporting and not sending, onClick = onBackClicked }),
     }
     if agentAvailable and not confirming then
-      table.insert(buttons, ui.button({ text = "Diagnostiquer avec l’IA", height = 34,
-        variant = "outline", enabled = not loading and not exporting and not sending, onClick = diagnose }))
+      table.insert(buttons, ui.button({ text = diagnosing and "Ouverture…" or "Diagnostiquer avec l’IA", height = 34,
+        variant = "outline", enabled = not loading and not diagnosing and not exporting and not sending, onClick = diagnose }))
     end
     table.insert(buttons, ui.spacer({ flexGrow = 1 }))
     if confirming then
@@ -287,18 +322,18 @@ function render()
         variant = "primary", enabled = not sending, onClick = send }))
     elseif report then
       table.insert(buttons, ui.button({ text = exporting and "Export…" or "Exporter", height = 34,
-        variant = "outline", enabled = not exporting, onClick = export }))
+        variant = "outline", enabled = not diagnosing and not exporting, onClick = export }))
       if receipt ~= "" then
         table.insert(buttons, ui.button({ text = "Copier le lien du crash", height = 34,
-          variant = "primary", enabled = not exporting, onClick = copyLink }))
+          variant = "primary", enabled = not diagnosing and not exporting, onClick = copyLink }))
       else
         table.insert(buttons, ui.button({ text = "Envoyer à Monarch", height = 34,
-          variant = "primary", enabled = not exporting and collection ~= nil and collection.enabled == true,
+          variant = "primary", enabled = not diagnosing and not exporting and collection ~= nil and collection.enabled == true,
           onClick = function() confirming = true; status = ""; render() end }))
       end
     else
       table.insert(buttons, ui.button({ text = loading and "Préparation…" or "Préparer le rapport", height = 34,
-        variant = "primary", enabled = not loading, onClick = preview }))
+        variant = "primary", enabled = not loading and not diagnosing, onClick = preview }))
     end
     local hint = "Aucun rapport n’est envoyé automatiquement."
     if report and receipt == "" and not confirming then
@@ -331,6 +366,7 @@ function onOpen(context)
   report = nil
   saved = ""
   exporting = false
+  diagnosing = false
   sending = false
   confirming = false
   receipt = ""
@@ -342,12 +378,13 @@ end
 function onClose()
   generation += 1
   loading = false
+  diagnosing = false
   exporting = false
   sending = false
 end
 
 function onBackClicked()
-  if exporting or sending then return end
+  if diagnosing or exporting or sending then return end
   generation += 1
   loading = false
   status = ""
