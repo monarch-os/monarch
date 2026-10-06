@@ -1,0 +1,56 @@
+_monarch_command_picker_entries() (
+  local name
+  local -a alias_names function_names
+  if [[ -n ${ZSH_VERSION:-} ]]; then
+    alias_names=("${(@k)aliases}")
+    function_names=("${(@k)functions}")
+  else
+    alias_names=("${!BASH_ALIASES[@]}")
+    while IFS= read -r name; do
+      function_names+=("$name")
+    done < <(compgen -A function)
+  fi
+
+  {
+    for name in "${alias_names[@]}"; do
+      if [[ -n ${ZSH_VERSION:-} ]]; then
+        printf '%s\0%s\0%s\0' "$name" 'Shell alias' "${aliases[$name]}"
+      else
+        printf '%s\0%s\0%s\0' "$name" 'Shell alias' "${BASH_ALIASES[$name]}"
+      fi
+    done
+    for name in "${function_names[@]}"; do
+      printf '%s\0%s\0%s\0' "$name" 'Shell function' ''
+    done
+  } | jq -Rs '
+    split("\u0000") | .[:-1] as $fields |
+    [range(0; $fields | length; 3) | . as $i |
+      {route: $fields[$i], summary: $fields[$i + 1], definition: $fields[$i + 2]} |
+      select(.route | test("^[[:alnum:].+-][[:alnum:]_.+-]*$"))
+    ] | unique_by(.route)
+  '
+)
+
+_monarch_command_picker() {
+  local selection
+  selection=$(_monarch_command_picker_entries |
+    "${MONARCH_COMMAND_PICKER_BIN:-$MONARCH_PATH/bin/monarch-cmd-picker}" --shell-commands) || selection=""
+
+  if [[ -n ${ZSH_VERSION:-} ]]; then
+    [[ -z $selection ]] || LBUFFER+="$selection "
+    zle reset-prompt
+  else
+    [[ -n $selection ]] || return 0
+    READLINE_LINE="${READLINE_LINE:0:READLINE_POINT}$selection ${READLINE_LINE:READLINE_POINT}"
+    READLINE_POINT=$(( READLINE_POINT + ${#selection} + 1 ))
+  fi
+}
+
+if [[ $- == *i* && -x ${MONARCH_COMMAND_PICKER_BIN:-${MONARCH_PATH:-}/bin/monarch-cmd-picker} ]]; then
+  if [[ -n ${ZSH_VERSION:-} ]]; then
+    zle -N _monarch_command_picker
+    bindkey '^[m' _monarch_command_picker
+  else
+    bind -x '"\em":_monarch_command_picker'
+  fi
+fi
