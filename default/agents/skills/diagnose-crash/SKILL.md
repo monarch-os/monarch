@@ -13,7 +13,10 @@ plausible story.
 
 ## Establish the facts
 
-Start with `coredumpctl info <pid>`. Note the command line as well as the
+If the prompt supplies boot ID, PID and coredump timestamp matches, pass all
+three to every `coredumpctl info`, `dump` or `debug` call. A PID may be reused;
+stop if the exact entry is unavailable. Otherwise, start with
+`coredumpctl info <pid>`. Note the command line as well as the
 backtrace: it often reveals what the program was doing. Use `coredumpctl list`
 to determine whether this was isolated or recurrent.
 
@@ -32,7 +35,7 @@ Arch provides a public debuginfod server:
 ```bash
 core=$(mktemp -t crash-XXXXXX.core)
 trap 'rm -f "$core"' EXIT
-coredumpctl dump <pid> --output="$core"
+coredumpctl dump <pid-or-exact-matches> --output="$core"
 DEBUGINFOD_URLS="https://debuginfod.archlinux.org" \
   gdb -q <executable> "$core" \
   -batch -ex 'set debuginfod enabled on' -ex 'bt'

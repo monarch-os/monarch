@@ -184,8 +184,7 @@ end
 local function diagnose()
   if not agentAvailable or not selected or loading or exporting or sending then return end
   local command = "PATH=" .. quote(root .. "/bin") .. ':"$PATH" MONARCH_PATH=' .. quote(root) .. " "
-    .. quote(root .. "/bin/monarch-agent-crash") .. " " .. quote(selected.pid) .. " "
-    .. quote(selected.application) .. " " .. quote("unknown") .. " " .. quote(selected.signal)
+    .. quote(root .. "/bin/monarch-agent-crash") .. " " .. quote(selected.id)
   if noctalia.runAsync(command) then
     panel.close()
   else
