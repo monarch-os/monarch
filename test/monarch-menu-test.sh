@@ -96,9 +96,15 @@ assert_equals "Backgrounds opens the Monarch selector directly" "$output" "nocta
 output=$(jq -r '.[0] | [.id, .label] | join("|")' <<<"$SHIPPED_TREE")
 assert_equals "--tree exposes menu data without guards" "$output" "apps|Apps"
 
-output=$("$MENU" --initial style.backgrounds | jq -r 'map(.id) | join(" ")')
-assert_equals "--initial limits data to the requested level" "$output" \
-  "style style.backgrounds"
+output=$("$MENU" --initial style.backgrounds | jq -r 'map(select(.id == "style.backgrounds" or .id == "style.theme")) | map(.id) | join(" ")')
+assert_equals "--initial includes the full tree for immediate search" "$output" \
+  "style.theme style.backgrounds"
+
+output=$("$MENU" --initial root | jq -r 'map(select(.id == "style.theme")) | length')
+assert_equals "root search can find nested entries before guards load" "$output" "1"
+
+output=$("$MENU" --initial root | jq -r 'map(select(.id == "trigger.hardware.touchpad-haptics.low" or .id == "install.browser.chrome")) | length')
+assert_equals "initial search excludes entries awaiting visibility or disabled guards" "$output" "0"
 
 if ! grep -q 'onImportClicked() importBackground()' "$ROOT/default/noctalia/plugins/monarch-theme/background.luau" ||
   ! grep -q 'ctrl+i.*importBackground' "$ROOT/default/noctalia/plugins/monarch-theme/background.luau"; then
@@ -439,6 +445,28 @@ pass "search keeps result groups contiguous"
 # Guards are keyed `<id>:<w|c|d>` so the consumer decodes them natively.
 output=$(jq -r '.guards | keys | map(split(":")[1]) | unique | join(" ")' <<<"$STATE")
 assert_equals "--state reports all three guard kinds" "$output" "c d w"
+
+EFI_VARS="$TMPDIR/efivars"
+mkdir -p "$EFI_VARS"
+python - "$EFI_VARS" <<'PY'
+from pathlib import Path
+import sys
+
+directory = Path(sys.argv[1])
+guid = "8be4df61-93ca-11d2-aa0d-00e098032b8c"
+for number, active, label in (
+    (1, False, "Monarch"),
+    (2, True, "MonarchOS"),
+    (3, True, "Monarch"),
+):
+    data = bytes(4) + int(active).to_bytes(4, "little") + bytes(2) + label.encode("utf-16-le") + bytes(2)
+    (directory / f"Boot{number:04X}-{guid}").write_bytes(data)
+PY
+output=$(MONARCH_EFIVARS_DIR="$EFI_VARS" "$MENU" --state | jq -r '.guards["trigger.toggle.direct-boot:c"]')
+assert_equals "direct boot checks an active Monarch EFI entry" "$output" "true"
+rm -f "$EFI_VARS/Boot0003-8be4df61-93ca-11d2-aa0d-00e098032b8c"
+output=$(MONARCH_EFIVARS_DIR="$EFI_VARS" "$MENU" --state | jq -r '.guards["trigger.toggle.direct-boot:c"]')
+assert_equals "direct boot ignores inactive and differently named entries" "$output" "false"
 
 LAUNCHER_STATE=$("$MENU" --launcher-state)
 output=$(jq -r '.guards | keys | map(split(":")[1]) | unique | join(" ")' <<<"$LAUNCHER_STATE")

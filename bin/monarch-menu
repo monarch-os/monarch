@@ -139,17 +139,14 @@ tree_payload() {
 }
 
 initial_payload() {
-  local route=$1
-  tree_payload | jq -c --arg route "$route" '
-    map(.id as $id | select((.when == null) and (
-      if $route == "root" then
-        (($id | contains(".") | not) and (.hiddenAtRoot != true))
-      else
-        ($id == $route)
-        or ($route | startswith($id + "."))
-        or (($id | startswith($route + ".")) and (($id | ltrimstr($route + ".") | contains(".")) | not))
-      end
-    )))'
+  tree_payload | jq -c '
+    . as $tree
+    | ($tree | map({key: .id, value: (.when == null and .disabled == null)}) | from_entries) as $safe
+    | map(select(
+        (.id | split(".")) as $parts
+        | [range(1; ($parts | length) + 1) | $parts[:.] | join(".")]
+        | all(. as $prefix | $safe[$prefix] == true)
+      ))'
 }
 
 menu_title() {
@@ -315,6 +312,41 @@ prime_guard_helpers() {
   monarch-toggle-enabled() {
     [[ -f "$HOME/.local/state/monarch/toggles/${1:-}" ]]
   }
+
+  monarch-direct-boot-enabled() {
+    local status
+    python - "${MONARCH_EFIVARS_DIR:-/sys/firmware/efi/efivars}" <<'PY'
+from pathlib import Path
+import sys
+
+readable = False
+for variable in Path(sys.argv[1]).glob("Boot????-8be4df61-93ca-11d2-aa0d-00e098032b8c"):
+    try:
+        data = variable.read_bytes()
+    except OSError:
+        continue
+    readable = True
+    if len(data) < 12 or not int.from_bytes(data[4:8], "little") & 1:
+        continue
+    end = next((offset for offset in range(10, len(data) - 1, 2) if data[offset:offset + 2] == b"\0\0"), None)
+    if end is None:
+        continue
+    try:
+        label = data[10:end].decode("utf-16-le")
+    except UnicodeDecodeError:
+        continue
+    if label == "Monarch" or (label.startswith("Monarch") and label[7].isspace()):
+        raise SystemExit(0)
+
+raise SystemExit(1 if readable else 2)
+PY
+    status=$?
+    if (( status == 2 )); then
+      efibootmgr 2>/dev/null | grep -Eq '^Boot[0-9A-Fa-f]+[*]? Monarch([[:space:]]|$)'
+    else
+      return "$status"
+    fi
+  }
 }
 
 # ── Inspection ───────────────────────────────────────────────────────────────
@@ -372,7 +404,7 @@ case "${1:-}" in
     echo "monarch-menu: unknown route '$route'" >&2
     exit 1
   fi
-  initial_payload "$route"
+  initial_payload
   exit 0
   ;;
 --tree)
