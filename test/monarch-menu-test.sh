@@ -463,10 +463,13 @@ for number, active, label in (
     (directory / f"Boot{number:04X}-{guid}").write_bytes(data)
 PY
 output=$(MONARCH_EFIVARS_DIR="$EFI_VARS" "$MENU" --state | jq -r '.guards["trigger.toggle.direct-boot:c"]')
-assert_equals "direct boot checks an active Monarch EFI entry" "$output" "true"
+assert_equals "direct boot detects an active Monarch EFI entry" "$output" "true"
 rm -f "$EFI_VARS/Boot0003-8be4df61-93ca-11d2-aa0d-00e098032b8c"
 output=$(MONARCH_EFIVARS_DIR="$EFI_VARS" "$MENU" --state | jq -r '.guards["trigger.toggle.direct-boot:c"]')
-assert_equals "direct boot ignores inactive and differently named entries" "$output" "false"
+assert_equals "direct boot detects an inactive Monarch EFI entry" "$output" "true"
+rm -f "$EFI_VARS/Boot0001-8be4df61-93ca-11d2-aa0d-00e098032b8c"
+output=$(MONARCH_EFIVARS_DIR="$EFI_VARS" "$MENU" --state | jq -r '.guards["trigger.toggle.direct-boot:c"]')
+assert_equals "direct boot ignores differently named entries" "$output" "false"
 
 LAUNCHER_STATE=$("$MENU" --launcher-state)
 output=$(jq -r '.guards | keys | map(split(":")[1]) | unique | join(" ")' <<<"$LAUNCHER_STATE")
