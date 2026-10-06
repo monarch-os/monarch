@@ -19,6 +19,7 @@ if [[ ${TEST_WRONG:-false} == "true" ]]; then
   exit
 fi
 printf '{"BootID":"0123456789abcdef0123456789abcdef","PID":4242,"Timestamp":1790859948000000,"UID":%s,"ThreadName":"crasher","Executable":"/usr/bin/crasher","SignalName":"SEGV"}\n' "$TEST_UID"
+[[ " $* " == *" --quiet "* ]] || printf 'Output may be incomplete while a coredump is being processed.\n'
 EOF
 cat > "$test_tmp/bin/monarch-agent" <<'EOF'
 #!/bin/bash
@@ -28,7 +29,7 @@ EOF
 chmod +x "$test_tmp/bin/"*
 
 "$root/bin/monarch-agent-crash" "$id"
-grep -Fx -- '--no-pager --json=short info COREDUMP_PID=4242 _BOOT_ID=0123456789abcdef0123456789abcdef COREDUMP_TIMESTAMP=1790859948000000' "$TEST_CALLS" >/dev/null
+grep -Fx -- '--no-pager --quiet --json=short info COREDUMP_PID=4242 _BOOT_ID=0123456789abcdef0123456789abcdef COREDUMP_TIMESTAMP=1790859948000000' "$TEST_CALLS" >/dev/null
 grep -F 'binary:   /usr/bin/crasher' "$TEST_PROMPT" >/dev/null
 grep -F 'COREDUMP_TIMESTAMP=1790859948000000' "$TEST_PROMPT" >/dev/null
 grep -F 'Never select this crash by PID alone.' "$TEST_PROMPT" >/dev/null
