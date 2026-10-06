@@ -8,6 +8,7 @@ trap 'rm -rf "$test_tmp"' EXIT
 mkdir -p "$test_tmp/bin" "$test_tmp/home"
 export JOURNAL_FIXTURE="$test_tmp/journal.jsonl" JOURNAL_CALLS="$test_tmp/journal.calls"
 export PACMAN_CALLS="$test_tmp/pacman.calls"
+export NOCTALIA_CALLS="$test_tmp/noctalia.calls"
 export XDG_CONFIG_HOME="$test_tmp/home" XDG_STATE_HOME="$test_tmp/state" MONARCH_PATH="$ROOT"
 export PATH="$test_tmp/bin:$ROOT/bin:/usr/bin"
 boot=0123456789abcdef0123456789abcdef
@@ -34,6 +35,18 @@ cat > "$test_tmp/bin/pacman" <<'EOF'
 printf '%s\n' "$*" >> "$PACMAN_CALLS"
 [[ ${TEST_PACKAGE_MISSING:-0} != 1 ]] || exit 1
 if [[ $1 == "-Qoq" ]]; then echo crasher; else echo "$3 1.2.3-1"; fi
+EOF
+cat > "$test_tmp/bin/monarch-default-agent" <<'EOF'
+#!/bin/bash
+[[ ${NO_AGENT:-false} == "true" ]] || printf 'codex\n'
+EOF
+cat > "$test_tmp/bin/monarch-cmd-present" <<'EOF'
+#!/bin/bash
+[[ ${AGENT_MISSING:-false} != "true" ]]
+EOF
+cat > "$test_tmp/bin/noctalia" <<'EOF'
+#!/bin/bash
+printf '%s\n' "$*" >> "$NOCTALIA_CALLS"
 EOF
 chmod +x "$test_tmp/bin/"*
 touch "$test_tmp/core"
@@ -143,5 +156,17 @@ rg -q "COREDUMP_UID=$UID" "$JOURNAL_CALLS"
 monarch-crash-history list --json | jq -e '.crashes == [] and .hasMore == false' >/dev/null
 entry "$UID" "$boot" 1790859948000000 '' > "$JOURNAL_FIXTURE"
 monarch-crash-history list --json | jq -e '.crashes[0].core == "unavailable"' >/dev/null
+
+monarch-crash-history open "$id"
+sed -n 's/^msg panel-open monarch\/crashes:panel //p' "$NOCTALIA_CALLS" |
+  jq -e --arg id "$id" 'select(.id == $id and .agent == true)' >/dev/null
+: > "$NOCTALIA_CALLS"
+NO_AGENT=true monarch-crash-history open "$id"
+sed -n 's/^msg panel-open monarch\/crashes:panel //p' "$NOCTALIA_CALLS" |
+  jq -e --arg id "$id" 'select(.id == $id and .agent == false)' >/dev/null
+: > "$NOCTALIA_CALLS"
+AGENT_MISSING=true monarch-crash-history open "$id"
+sed -n 's/^msg panel-open monarch\/crashes:panel //p' "$NOCTALIA_CALLS" |
+  jq -e --arg id "$id" 'select(.id == $id and .agent == false)' >/dev/null
 
 echo "Crash history identity, user scope, journal failure, report projection and private export pass"

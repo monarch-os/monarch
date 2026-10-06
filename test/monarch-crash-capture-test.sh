@@ -40,11 +40,12 @@ EOF
 chmod +x "$TMP/bin/"*
 
 crash_entry() {
-  local comm=$1 exe=$2 pid=${3:-4242}
+  local comm=$1 exe=$2 pid=${3:-4242} boot=${4:-0123456789abcdef0123456789abcdef}
 
-  jq -cn --arg uid "$UID" --arg comm "$comm" --arg exe "$exe" --arg pid "$pid" \
+  jq -cn --arg uid "$UID" --arg comm "$comm" --arg exe "$exe" --arg pid "$pid" --arg boot "$boot" \
     '{_UID: $uid, COREDUMP_COMM: $comm, COREDUMP_PID: $pid,
-      COREDUMP_EXE: $exe, COREDUMP_SIGNAL_NAME: "SIGSEGV"}' >>"$JOURNAL_ENTRIES"
+      COREDUMP_EXE: $exe, COREDUMP_SIGNAL_NAME: "SIGSEGV", _BOOT_ID: $boot,
+      COREDUMP_TIMESTAMP: "1790859948000000"}' >>"$JOURNAL_ENTRIES"
 }
 
 run_watch() {
@@ -84,11 +85,12 @@ crash_entry crasher /usr/bin/crasher
 run_watch
 
 grep -F 'Process crashed: crasher' "$ACTION_LOG" >/dev/null
-grep -F 'Click to diagnose with AI. Nothing is sent automatically.' "$ACTION_LOG" >/dev/null
-grep -F 'monarch-agent-crash 4242 crasher /usr/bin/crasher SIGSEGV' "$ACTION_LOG" >/dev/null
+grep -F 'View this crash and choose what to do. Nothing is sent automatically.' "$ACTION_LOG" >/dev/null
+grep -F -- '--action View crash monarch-crash-history open 0123456789abcdef0123456789abcdef:4242:1790859948000000' "$ACTION_LOG" >/dev/null
+! grep -F 'monarch-agent-crash' "$ACTION_LOG" >/dev/null
 
 NO_AGENT=true run_watch
-grep -F -- '--action View crashes monarch-crash-history' "$ACTION_LOG" >/dev/null
+grep -F -- '--action View crash monarch-crash-history open 0123456789abcdef0123456789abcdef:4242:1790859948000000' "$ACTION_LOG" >/dev/null
 ! grep -F 'monarch-agent-crash' "$ACTION_LOG" >/dev/null
 
 crash_mute /usr/bin/crasher on >/dev/null
@@ -127,6 +129,11 @@ done
 crash_entry a/../fallback -
 run_watch
 grep -F 'Process crashed: fallback' "$ACTION_LOG" >/dev/null
+
+: >"$JOURNAL_ENTRIES"
+crash_entry fallback /usr/bin/fallback 4242 invalid
+run_watch
+grep -F -- '--action View crash monarch-crash-history open' "$ACTION_LOG" >/dev/null
 
 : >"$JOURNAL_ENTRIES"
 crash_entry 'bad$name' -

@@ -12,6 +12,7 @@ local confirming = false
 local receipt = ""
 local collection = nil
 local statusOk = false
+local agentAvailable = false
 local requested = ""
 local page = 1
 local more = false
@@ -180,6 +181,20 @@ local function copyLink()
   end)
 end
 
+local function diagnose()
+  if not agentAvailable or not selected or loading or exporting or sending then return end
+  local command = "PATH=" .. quote(root .. "/bin") .. ':"$PATH" MONARCH_PATH=' .. quote(root) .. " "
+    .. quote(root .. "/bin/monarch-agent-crash") .. " " .. quote(selected.pid) .. " "
+    .. quote(selected.application) .. " " .. quote("unknown") .. " " .. quote(selected.signal)
+  if noctalia.runAsync(command) then
+    panel.close()
+  else
+    status = "Le diagnostic IA n’a pas pu démarrer."
+    statusOk = false
+    render()
+  end
+end
+
 local function row(crash)
   return ui.row({ key = crash.id, padding = 10, gap = 12,
     fill = "surface_variant", radius = 8, align = "center" }, {
@@ -262,8 +277,12 @@ function render()
   if selected then
     local buttons = {
       ui.button({ text = "Retour", height = 34, variant = "ghost", enabled = not exporting and not sending, onClick = onBackClicked }),
-      ui.spacer({ flexGrow = 1 }),
     }
+    if agentAvailable and not confirming then
+      table.insert(buttons, ui.button({ text = "Diagnostiquer avec l’IA", height = 34,
+        variant = "outline", enabled = not loading and not exporting and not sending, onClick = diagnose }))
+    end
+    table.insert(buttons, ui.spacer({ flexGrow = 1 }))
     if confirming then
       table.insert(buttons, ui.button({ text = sending and "Envoi…" or "Confirmer l’envoi", height = 34,
         variant = "primary", enabled = not sending, onClick = send }))
@@ -308,6 +327,7 @@ function onOpen(context)
   root = type(data) == "table" and type(data.root) == "string" and data.root
     or noctalia.getenv("MONARCH_PATH") or "/usr/share/monarch"
   requested = type(data) == "table" and type(data.id) == "string" and data.id or ""
+  agentAvailable = type(data) == "table" and data.agent == true
   selected = nil
   report = nil
   saved = ""

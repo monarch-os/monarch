@@ -147,9 +147,12 @@ export_report() {
 }
 
 open_history() {
-  local id=${1:-} context attempt
+  local id=${1:-} context attempt agent=false agent_name
   [[ -z $id ]] || validate_id "$id"
-  context=$(jq -cn --arg root "$runtime" --arg id "$id" '{root:$root,id:$id}')
+  agent_name=$(monarch-default-agent)
+  if [[ -n $agent_name ]] && monarch-cmd-present "$agent_name"; then agent=true; fi
+  context=$(jq -cn --arg root "$runtime" --arg id "$id" --argjson agent "$agent" \
+    '{root:$root,id:$id,agent:$agent}')
   source "$runtime/install/reconcile/noctalia-wait.sh"
   monarch_noctalia_wait || { echo "Noctalia is not ready." >&2; return 1; }
   noctalia msg plugins enable monarch/crashes >/dev/null

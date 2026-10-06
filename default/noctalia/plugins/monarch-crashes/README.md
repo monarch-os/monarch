@@ -36,9 +36,10 @@ memory exhaustion are outside the scope of this history.
 
 Disable notifications through **Actions → Toggle → Crash Capture** or
 `monarch toggle crash-capture`. This setting controls notifications; systemd
-continues to retain crash events. With no AI agent configured, a notification
-opens the history. With an agent configured, it offers the existing analysis
-workflow.
+continues to retain crash events. A notification opens the matching crash in
+this panel. When a default AI agent is configured, the crash details also offer
+**Diagnostiquer avec l’IA**. No diagnosis or report submission starts until you
+choose it.
 
 ## Command line
 
