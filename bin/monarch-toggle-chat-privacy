@@ -8,30 +8,42 @@ set -euo pipefail
 
 root=${MONARCH_PATH:-/usr/share/monarch}
 rules=$root/default/niri/chat-privacy.kdl
-state=$HOME/.local/state/monarch/chat-privacy.kdl
+user_config=$HOME/.config/niri/user.kdl
+legacy_config=$HOME/.local/state/monarch/chat-privacy.kdl
 flag=$HOME/.local/state/monarch/toggles/chat-privacy-off
 
 enabled() {
   [[ ! -f $flag ]]
 }
 
-write_state() {
-  local value=$1 temporary
-  mkdir -p "${state%/*}"
-  temporary=$(mktemp "${state%/*}/.chat-privacy.XXXXXX")
+write_config() (
+  local value=$1 target=$user_config temporary source escaped_rules
+  if [[ $value == "on" && ! -f $rules ]]; then
+    echo "Missing chat privacy rules: $rules" >&2
+    return 1
+  fi
+  if [[ -L $target ]]; then
+    target=$(readlink -f "$target") || return 1
+  fi
+  mkdir -p "${target%/*}" || return 1
+  temporary=$(mktemp "${target%/*}/.chat-privacy.XXXXXX") || return 1
   trap 'rm -f "$temporary"' EXIT
   if [[ $value == "on" ]]; then
-    [[ -f $rules ]] || {
-      echo "Missing chat privacy rules: $rules" >&2
-      return 1
-    }
-    printf 'include "%s"\n' "$rules" >"$temporary"
-  else
-    printf '// monarch-toggle chat-privacy-off\n' >"$temporary"
+    escaped_rules=${rules//\\/\\\\}
+    escaped_rules=${escaped_rules//\"/\\\"}
+    printf 'include "%s" // monarch:chat-privacy\n' "$escaped_rules" >"$temporary" || return 1
   fi
-  mv -f "$temporary" "$state"
-  trap - EXIT
-}
+  source=$target
+  [[ -f $source ]] || source=$root/config/niri/user.kdl
+  if [[ -f $source ]]; then
+    sed '/^include .*\/\/ monarch:chat-privacy$/d' "$source" >>"$temporary" || return 1
+  fi
+  if [[ -f $target ]]; then
+    cmp -s "$temporary" "$target" && return 0
+    chmod --reference="$target" "$temporary" || return 1
+  fi
+  mv -f "$temporary" "$target" || return 1
+)
 
 set_state() {
   local desired=$1 current=on changed=false
@@ -40,10 +52,11 @@ set_state() {
     "$root/bin/monarch-toggle" chat-privacy-off
     changed=true
   fi
-  if ! write_state "$desired"; then
+  if ! write_config "$desired"; then
     [[ $changed == "false" ]] || "$root/bin/monarch-toggle" chat-privacy-off
     return 1
   fi
+  rm -f "$legacy_config"
 }
 
 case ${1:-toggle} in
@@ -55,14 +68,13 @@ case ${1:-toggle} in
     fi
     ;;
   init)
-    # Empty files are the legacy off state; generated off files have a marker.
-    if [[ -f $state && ! -s $state && ! -f $flag ]]; then
-      "$root/bin/monarch-toggle" chat-privacy-off
-    fi
-    if enabled; then
-      [[ -f $state ]] && grep -Fxq "include \"$rules\"" "$state" || write_state on
+    if [[ -f $legacy_config && ! -f $flag &&
+      ( ! -s $legacy_config || $(<"$legacy_config") == "// monarch-toggle chat-privacy-off" ) ]]; then
+      set_state off
+    elif enabled; then
+      set_state on
     else
-      [[ -f $state && $(<"$state") == "// monarch-toggle chat-privacy-off" ]] || write_state off
+      set_state off
     fi
     ;;
   on)

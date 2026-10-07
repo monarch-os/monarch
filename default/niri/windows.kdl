@@ -21,9 +21,6 @@ window-rule {
     open-floating true
 }
 
-// The Security menu can switch this include without changing packaged rules.
-include optional=true "~/.local/state/monarch/chat-privacy.kdl"
-
 // Force tile for chromium-based browser app windows (workaround for --app bug).
 window-rule {
     match app-id=r#"^((google-)?[cC]hrom(e|ium)|[bB]rave-browser|[mM]icrosoft-edge|Vivaldi-stable|helium)$"#

@@ -26,8 +26,8 @@ if ! HOME="$home" MONARCH_PATH="$runtime" PATH="$test_tmp/bin:$PATH" \
   fail "refresh niri runs against the packaged runtime fixture"
 fi
 
-state="$home/.local/state/monarch/chat-privacy.kdl"
-grep -qFx "include \"$runtime/default/niri/chat-privacy.kdl\"" "$state" ||
+user_config="$home/.config/niri/user.kdl"
+grep -qFx "include \"$runtime/default/niri/chat-privacy.kdl\" // monarch:chat-privacy" "$user_config" ||
   fail "refresh niri enables packaged chat privacy rules"
 
 target="$home/.config/niri/config.kdl"
