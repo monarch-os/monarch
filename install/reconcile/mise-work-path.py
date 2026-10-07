@@ -11,10 +11,10 @@ import tomllib
 def reconcile(path):
   if path.is_symlink():
     return
-  original = path.read_bytes().decode("utf-8")
   try:
+    original = path.read_bytes().decode("utf-8")
     config = tomllib.loads(original)
-  except tomllib.TOMLDecodeError:
+  except (UnicodeDecodeError, tomllib.TOMLDecodeError):
     print(f"Keeping invalid user mise configuration: {path}", file=sys.stderr)
     return
   environment = config.get("env")

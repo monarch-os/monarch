@@ -58,6 +58,36 @@ bash "$ROOT/install/reconcile/mise.sh"
 [[ -L $HOME/Work/.mise.toml ]] || fail "mise reconciliation deletes a custom Work symlink"
 pass "mise removes only the generated project PATH trust and retains custom Work settings"
 
+python3 - "$ROOT" "$HOME/Work/.mise.toml" <<'PY'
+from pathlib import Path
+import subprocess
+import sys
+
+root, config = map(Path, sys.argv[1:])
+config.unlink()
+for content in [
+    b'[env]\n_.path = "{{ cwd }}/bin"\nCUSTOM = "\xff"\n',
+    b'[env]\nCUSTOM = "unterminated\n',
+]:
+    config.write_bytes(content)
+    original = config.stat()
+    for _ in range(2):
+        result = subprocess.run([
+            "/bin/bash", "-euc",
+            'source "$1/install/reconcile/mise.sh"; printf "reconciliation-continued\\n"',
+            "bash", str(root),
+        ], text=True, capture_output=True)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == "reconciliation-continued\n"
+        assert "Keeping invalid user mise configuration:" in result.stderr
+        assert config.read_bytes() == content
+        current = config.stat()
+        assert (current.st_ino, current.st_mode, current.st_mtime_ns) == (
+            original.st_ino, original.st_mode, original.st_mtime_ns,
+        )
+PY
+pass "invalid encoding and TOML preserve custom files without aborting sourced reconciliation"
+
 mkdir -p "$test_tmp/packages" "$test_tmp/node/node-v22.0.0-linux-x64/bin"
 printf '%s\n' offline-node >"$test_tmp/node/node-v22.0.0-linux-x64/bin/node"
 tar -czf "$test_tmp/packages/node-v22.0.0-linux-x64.tar.gz" -C "$test_tmp/node" node-v22.0.0-linux-x64
