@@ -28,12 +28,13 @@ end
 local function limitRows(record: any): { any }
   local rows = {}
   for index, limit in ipairs(record.limits or {}) do
-    local percent = tonumber(limit.percent) or 0
-    if percent < 0 then
-      percent = 0
-    end
+    local percent = agents.limitPercent(limit)
     local title = tostring(limit.title or limit.label or "")
     local reset = agents.formatReset(limit.resetsAt)
+    local resetStamp = agents.timestamp(limit.resetsAt)
+    if resetStamp and resetStamp * 1000 <= noctalia.nowMs() then
+      reset = ""
+    end
 
     table.insert(rows, ui.column({ key = "limit-" .. index, gap = 4 }, {
       ui.row({ gap = 8, align = "center" }, {
@@ -164,6 +165,12 @@ local function footer(record: any): any
   end
   if status ~= "" and help ~= "" then
     table.insert(cells, ui.label({ text = help, fontSize = 11, color = "error", maxLines = 2, flexGrow = 1 }))
+  end
+  if #(record.limits or {}) > 0 then
+    local freshness = agents.freshness(record)
+    if freshness ~= "" then
+      table.insert(cells, ui.label({ text = freshness, fontSize = 11, color = "on_surface/0.6", flexGrow = 1 }))
+    end
   end
   if #cells == 0 then
     return ui.spacer({ height = 0 })

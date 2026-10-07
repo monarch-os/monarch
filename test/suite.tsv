@@ -10,6 +10,7 @@ test/shell.d/noctalia-restart-test.sh	desktop-shell	medium	isolated
 test/shell.d/acceptance-target-test.sh	acceptance-security	high	isolated
 test/monarch-about-test.sh	about	low	isolated
 test/monarch-agent-usage-codex-test.sh	agent-usage	medium	isolated
+test/monarch-agent-usage-test.sh	agent-usage	medium	isolated
 test/monarch-bar-position-test.sh	desktop-bar	medium	isolated
 test/shell.d/browser-policy-hardening-test.sh	browser-security	high	isolated
 test/shell.d/browser-defaults-test.sh	browser-security	high	isolated

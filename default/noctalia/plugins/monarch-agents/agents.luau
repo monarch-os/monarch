@@ -70,31 +70,60 @@ function M.formatTokens(value: number): string
   return tostring(n)
 end
 
--- "2026-08-17T02:59:59+00:00" -> "Mon 04:59" in local time. Anything
--- unparseable yields "", which the caller then omits entirely.
-function M.formatReset(value: string?): string
+function M.timestamp(value: string?): number?
   if type(value) ~= "string" or value == "" then
-    return ""
+    return nil
   end
-  local y, mo, d, h, mi = string.match(value, "^(%d+)-(%d+)-(%d+)T(%d+):(%d+)")
+  local y, mo, d, h, mi, s = string.match(value, "^(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)")
   if not y then
-    return ""
+    return nil
   end
-  -- The records carry UTC timestamps, and this runtime's os.time reads a table
-  -- as UTC rather than local — verified against a record whose window reset at
-  -- 23:00Z, which renders as 01:00 in a UTC+2 session. So the epoch goes to
-  -- formatTime unadjusted and formatTime alone does the zone conversion;
-  -- correcting by hand here would double the offset.
+  -- Noctalia's os.time interprets tables as UTC; formatTime applies local time.
   local utc = os.time({
     year = tonumber(y) :: number,
     month = tonumber(mo) :: number,
     day = tonumber(d) :: number,
     hour = tonumber(h) :: number,
     min = tonumber(mi) :: number,
-    sec = 0,
+    sec = tonumber(s) :: number,
     isdst = false,
   })
-  return noctalia.formatTime("%a %H:%M", utc)
+  local sign, hours, minutes = string.match(value, "([+-])(%d%d):(%d%d)$")
+  if sign then
+    local offset = ((tonumber(hours) :: number) * 60 + (tonumber(minutes) :: number)) * 60
+    utc -= if sign == "+" then offset else -offset
+  elseif not string.match(value, "Z$") then
+    return nil
+  end
+  return utc
+end
+
+function M.formatReset(value: string?): string
+  local stamp = M.timestamp(value)
+  return if stamp then noctalia.formatTime("%a %H:%M", stamp) else ""
+end
+
+function M.limitPercent(limit: any): number
+  local reset = M.timestamp(limit.resetsAt)
+  if reset and reset * 1000 <= noctalia.nowMs() then
+    return 0
+  end
+  return math.clamp(tonumber(limit.percent) or 0, 0, 1)
+end
+
+function M.freshness(record: any): string
+  local stamp = M.timestamp(record.limitsFetchedAt or record.updatedAt)
+  local prefix = if record.limitsStale == true then "Last known quotas" else "Quotas updated"
+  if not stamp then
+    return if record.limitsStale == true then prefix .. " · time unavailable" else ""
+  end
+  local minutes = math.max(0, math.floor((noctalia.nowMs() / 1000 - stamp) / 60))
+  if minutes == 0 then
+    return prefix .. " less than a minute ago"
+  elseif minutes < 60 then
+    return prefix .. " " .. minutes .. "m ago"
+  end
+  return prefix .. " " .. math.floor(minutes / 60) .. "h ago"
 end
 
 function M.dayLabel(value: string?): string
@@ -134,8 +163,8 @@ function M.worstPercent(records: { any }): number
   local worst = -1
   for _, record in ipairs(records) do
     for _, limit in ipairs(record.limits or {}) do
-      local percent = tonumber(limit.percent)
-      if percent and percent >= 0 and percent > worst then
+      local percent = M.limitPercent(limit)
+      if percent > worst then
         worst = percent
       end
     end
