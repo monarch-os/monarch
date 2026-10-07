@@ -17,7 +17,7 @@ monarch_nvidia_environment() {
 
 monarch_reconcile_nvidia_environment() {
   local architecture=${1:-} display=false file="$HOME/.config/environment.d/nvidia.conf"
-  local known_architecture known_display recognized=false temporary
+  local known_architecture known_display recognized=false driver_ready=false temporary
 
   if [[ -z $architecture ]]; then
     monarch-hw-nvidia || return 0
@@ -31,10 +31,14 @@ monarch_reconcile_nvidia_environment() {
   fi
   case $architecture in
     turing_plus)
-      monarch-pkg-present nvidia-open-dkms nvidia-utils libva-nvidia-driver || return 0
+      if monarch-pkg-present nvidia-open-dkms nvidia-utils libva-nvidia-driver; then
+        driver_ready=true
+      fi
       ;;
     maxwell_pascal_volta)
-      monarch-pkg-present nvidia-580xx-dkms nvidia-580xx-utils || return 0
+      if monarch-pkg-present nvidia-580xx-dkms nvidia-580xx-utils; then
+        driver_ready=true
+      fi
       ;;
     *) return 0 ;;
   esac
@@ -45,7 +49,9 @@ monarch_reconcile_nvidia_environment() {
     return 0
   fi
   if [[ -f $file ]]; then
-    cmp -s "$file" <(monarch_nvidia_environment "$architecture" "$display") && return 0
+    if [[ $driver_ready == "true" ]] && cmp -s "$file" <(monarch_nvidia_environment "$architecture" "$display"); then
+      return 0
+    fi
     for known_architecture in turing_plus maxwell_pascal_volta; do
       for known_display in true false; do
         if cmp -s "$file" <(monarch_nvidia_environment "$known_architecture" "$known_display"); then
@@ -57,6 +63,14 @@ monarch_reconcile_nvidia_environment() {
       echo "Keeping custom NVIDIA environment: $file" >&2
       return 0
     fi
+  fi
+
+  if [[ $driver_ready == "false" ]]; then
+    if [[ $recognized == "true" ]]; then
+      rm -f -- "$file" || return 1
+      echo "NVIDIA session environment removed; log out or reboot to apply it."
+    fi
+    return 0
   fi
 
   mkdir -p "${file%/*}"

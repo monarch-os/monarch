@@ -225,7 +225,7 @@ export HOME="$nvidia_home" MONARCH_PCI_DEVICES_PATH="$tmp_dir/devices"
 export PATH="$nvidia_bin:$ROOT/bin:/usr/bin"
 nvidia_env="$HOME/.config/environment.d/nvidia.conf"
 pending_driver="$HOME/.local/state/monarch/nvidia-driver-pending"
-mkdir -p "${pending_driver%/*}"
+mkdir -p "${pending_driver%/*}" "${nvidia_env%/*}"
 for mode in gsp legacy; do
   export NVIDIA_TEST_MODE="$mode"
   if [[ $mode == "gsp" ]]; then
@@ -242,6 +242,22 @@ for mode in gsp legacy; do
   : >"$NVIDIA_INSTALLED_PACKAGES"
   monarch_reconcile_nvidia_environment
   [[ ! -e $nvidia_env ]] || fail "missing $mode driver still publishes NVIDIA environment"
+  for known_architecture in turing_plus maxwell_pascal_volta; do
+    for known_display in true false; do
+      monarch_nvidia_environment "$known_architecture" "$known_display" >"$nvidia_env"
+      monarch_reconcile_nvidia_environment
+      [[ ! -e $nvidia_env ]] || fail "missing $mode driver retains a managed NVIDIA environment"
+    done
+  done
+  printf '%s\n' CUSTOM=value >"$nvidia_env"
+  before=$(sha256sum "$nvidia_env")
+  monarch_reconcile_nvidia_environment
+  [[ $(sha256sum "$nvidia_env") == "$before" ]] || fail "missing driver removes custom NVIDIA settings"
+  mv "$nvidia_env" "$nvidia_home/custom-pending"
+  ln -s "$nvidia_home/custom-pending" "$nvidia_env"
+  monarch_reconcile_nvidia_environment
+  [[ -L $nvidia_env ]] || fail "missing driver removes a custom NVIDIA symlink"
+  rm -f "$nvidia_env"
   printf '%s\n' "${other_packages[@]}" >"$NVIDIA_INSTALLED_PACKAGES"
   monarch_reconcile_nvidia_environment
   [[ ! -e $nvidia_env ]] || fail "the wrong driver generation publishes $mode environment"

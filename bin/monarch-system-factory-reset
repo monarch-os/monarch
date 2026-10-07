@@ -324,8 +324,8 @@ scrub_factory_accounts() {
   while IFS= read -r user; do
     [[ -n $user ]] || continue
     [[ $user != */* && $user != "." && $user != ".." && $user != -* ]] || return 1
-    userdel --root "$root" "$user" 2>>"$LOG_FILE" || return 1
     rm -rf -- "${root:?}/home/$user" || return 1
+    userdel --root "$root" "$user" 2>>"$LOG_FILE" || return 1
   done <<<"$users"
   usermod --root "$root" --password '!' root >>"$LOG_FILE" 2>&1 || return 1
   rm -f -- "$root/etc/"{shadow-,gshadow-,passwd-,group-,subuid-,subgid-} || return 1

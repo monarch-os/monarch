@@ -31,6 +31,16 @@ retire_factory_privilege_grants() { :; }
 retire_factory_printer_discovery() { :; }
 stage_current_apple_display_access() { :; }
 gum() { :; }
+fail() { printf 'Error: %s\n' "$1" >&2; exit 1; }
+
+rm() {
+  if [[ -n ${HOME_CLEANUP_FAIL:-} ]]; then
+    for argument in "$@"; do
+      [[ $argument != "$HOME_CLEANUP_FAIL" ]] || return 1
+    done
+  fi
+  command rm "$@"
+}
 
 make_root() {
   mkdir -p "$1/etc/ssh" "$1/etc/NetworkManager/system-connections" \
@@ -72,6 +82,36 @@ for failure in userdel usermod; do
     fail "failed factory baseline scrub leaves it writable"
 done
 pass "account cleanup failures stop reset and restore the baseline read-only flag"
+
+for name in next factory; do
+  root="$test_tmp/home-failure-$name"
+  make_root "$root"
+  mkdir -p "$root/home/owner/.ssh"
+  printf '%s\n' PRIVATE_KEY_FIXTURE >"$root/home/owner/.ssh/id_ed25519"
+  : >"$CALL_LOG"
+  if HOME_CLEANUP_FAIL="$root/home/owner" scrub_factory_accounts "$root"; then
+    fail "factory scrub succeeds after home cleanup failure"
+  fi
+  for file in passwd shadow; do
+    grep -q '^owner:' "$root/etc/$file" || fail "home cleanup failure loses the account needed for retry"
+  done
+  [[ -f $root/home/owner/.ssh/id_ed25519 ]] || fail "home failure fixture did not retain its private key"
+  ! grep -q '^userdel owner$' "$CALL_LOG" || fail "failed home cleanup deletes the account"
+  if [[ $name == "factory" ]]; then
+    if (HOME_CLEANUP_FAIL="$root/home/owner" sanitize_factory_baseline "$root"); then
+      fail "factory baseline succeeds after home cleanup failure"
+    fi
+    [[ $(tail -1 "$CALL_LOG") == "property set -ts $root ro true" ]] || fail "home cleanup failure leaves factory writable"
+    sanitize_factory_baseline "$root"
+  else
+    scrub_factory_accounts "$root"
+  fi
+  [[ ! -e $root/home/owner && ! -e $root/home/lastowner ]] || fail "successful retry retains private home data"
+  ! grep -q 'owner:' "$root/etc/passwd" "$root/etc/shadow" || fail "successful retry retains owner credentials"
+  ! find "$root/etc" -maxdepth 1 -name '*-' -print -quit | grep -q . || fail "successful retry retains account backups"
+  scrub_factory_accounts "$root"
+done
+pass "home cleanup failure preserves account records and retries without retaining private data"
 
 grep -Fq 'scrub_factory_accounts "$next" ||' "$ROOT/bin/monarch-system-factory-reset" ||
   fail "the staged reset root bypasses account scrubbing"
