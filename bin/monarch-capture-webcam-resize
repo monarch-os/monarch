@@ -8,7 +8,7 @@
 set -euo pipefail
 
 readonly MARGIN=40
-readonly STATE_FILE="${XDG_RUNTIME_DIR:-/tmp}/monarch-screenrecord-webcam-$UID.json"
+readonly STATE_FILE="${XDG_RUNTIME_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/monarch}/monarch-screenrecord-webcam-$UID.json"
 
 usage() {
   echo "Usage: monarch capture webcam resize <smaller|larger|reset|small|medium|large>" >&2

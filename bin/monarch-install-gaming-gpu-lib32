@@ -25,4 +25,6 @@ elif monarch-hw-nvidia-without-gsp; then
   PACKAGES+=(lib32-nvidia-580xx-utils)
 fi
 
-[[ ${#PACKAGES[@]} -gt 0 ]] && monarch-pkg-add "${PACKAGES[@]}"
+if (( ${#PACKAGES[@]} > 0 )); then
+  monarch-pkg-add "${PACKAGES[@]}"
+fi

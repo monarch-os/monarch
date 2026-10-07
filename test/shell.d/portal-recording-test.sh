@@ -7,6 +7,7 @@ source "$(dirname "$0")/base-test.sh"
 test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
 mkdir -p "$test_tmp/bin" "$test_tmp/runtime"
+chmod 700 "$test_tmp/runtime"
 
 cat >"$test_tmp/bin/pgrep" <<'EOF'
 #!/bin/bash

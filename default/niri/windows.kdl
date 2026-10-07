@@ -2,7 +2,7 @@
 
 // 1Password / Bitwarden — block screen-share + treat as floating.
 window-rule {
-    match app-id=r#"^1[pP]assword$"#
+    match app-id=r#"^(1[pP]assword|com\.onepassword\.OnePassword)$"#
     block-out-from "screencast"
     open-floating true
     default-column-width { fixed 875; }
@@ -15,6 +15,7 @@ window-rule {
     default-column-width { fixed 875; }
 }
 
+// Bitwarden's Chrome extension pop-out, limited to the Default profile.
 window-rule {
     match app-id=r#"^chrome-nngceckbapebfimnlniiiahkandclblb-Default$"#
     block-out-from "screencast"

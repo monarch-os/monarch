@@ -8,6 +8,8 @@ source "$MONARCH_PATH/install/reconcile/config-files.sh"
 source "$MONARCH_PATH/install/reconcile/noctalia-activation.sh"
 source "$MONARCH_PATH/install/reconcile/chromium-flags.sh"
 source "$MONARCH_PATH/install/reconcile/mise.sh"
+source "$MONARCH_PATH/install/reconcile/nvidia-env.sh"
+monarch_reconcile_nvidia_environment
 
 source "$MONARCH_PATH/install/reconcile/chat-privacy.sh"
 

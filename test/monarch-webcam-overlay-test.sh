@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -euo pipefail
+umask 077
 
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 TMP=$(mktemp -d)
@@ -23,7 +24,7 @@ if [[ $* == "msg --json windows" ]]; then
   height=$(<"$MOCK_NIRI_STATE.height")
   x=$(<"$MOCK_NIRI_STATE.x")
   y=$(<"$MOCK_NIRI_STATE.y")
-  app_id=$(jq -r '.app_id' "$XDG_RUNTIME_DIR/monarch-screenrecord-webcam-$UID.json")
+  app_id=$(jq -r '.app_id' "${XDG_RUNTIME_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/monarch}/monarch-screenrecord-webcam-$UID.json")
   jq -cn --arg app_id "$app_id" --argjson width "$width" --argjson height "$height" --argjson x "$x" --argjson y "$y" \
     '[{id: 42, pid: 123, app_id: $app_id, layout: {window_size: [$width, $height], tile_pos_in_workspace_view: [$x, $y]}}]'
 elif [[ $* == "msg --json outputs" ]]; then
@@ -86,13 +87,25 @@ grep -Fqx 'set-window-width --id 42 180' "$MOCK_NIRI_LOG"
 grep -Fqx 'set-window-height --id 42 203' "$MOCK_NIRI_LOG"
 grep -Fqx 'move-floating-window --id 42 --x 780 --y 457' "$MOCK_NIRI_LOG"
 
+: >"$MOCK_NIRI_LOG"
+mkdir -p "$TMP/state/monarch"
+jq -cn '{target: "region:800x600+200+100", shape: "circle", app_id: "org.monarch.webcam-overlay.circle", pid: 123}' >"$TMP/state/monarch/monarch-screenrecord-webcam-$UID.json"
+env -u XDG_RUNTIME_DIR HOME="$TMP" XDG_STATE_HOME="$TMP/state" PATH="$TMP/bin:/usr/bin" \
+  "$ROOT/bin/monarch-capture-webcam-resize" reset
+grep -Fqx 'set-window-width --id 42 150' "$MOCK_NIRI_LOG"
+grep -Fqx 'move-floating-window --id 42 --x 810 --y 510' "$MOCK_NIRI_LOG"
+
+env -u XDG_RUNTIME_DIR HOME="$TMP" XDG_STATE_HOME="$TMP/unused-state" PATH="$TMP/bin:/usr/bin" \
+  "$ROOT/bin/monarch-capture-webcam-resize" medium
+[[ ! -e $TMP/unused-state ]]
+
 if run_resize huge >/dev/null 2>&1; then
   echo "Invalid webcam size was accepted" >&2
   exit 1
 fi
 
 for args in '--webcam-size=huge' '--webcam-shape=triangle'; do
-  if MONARCH_SCREENRECORD_DIR="$TMP" HOME="$TMP" "$ROOT/bin/monarch-capture-screenrecording" "$args" >/dev/null 2>&1; then
+  if XDG_RUNTIME_DIR="$TMP/runtime" MONARCH_SCREENRECORD_DIR="$TMP" HOME="$TMP" "$ROOT/bin/monarch-capture-screenrecording" "$args" >/dev/null 2>&1; then
     echo "Invalid screen recording webcam option was accepted: $args" >&2
     exit 1
   fi

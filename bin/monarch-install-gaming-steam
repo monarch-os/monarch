@@ -6,8 +6,8 @@
 set -e
 
 echo "Installing Steam..."
-monarch-pkg-add steam
 monarch-install-gaming-gpu-lib32
+monarch-pkg-add steam
 
 echo ""
 echo "Steam will start automatically now. This might take a while..."

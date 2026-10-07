@@ -3,25 +3,24 @@
 # monarch:summary=Ensure the Arch, Cachy, and Monarch keyrings package are installed and populated
 # monarch:requires-sudo=true
 
-# Ensure we have the monarch-keyring and it's populated
+set -euo pipefail
+
 if monarch-pkg-missing monarch-keyring || ! sudo pacman-key --list-keys 519BC3D5AEA652C94F89F0AAC13B3766D969CE82 &>/dev/null; then
   sudo pacman-key --recv-keys 519BC3D5AEA652C94F89F0AAC13B3766D969CE82 --keyserver keys.openpgp.org
   sudo pacman-key --lsign-key 519BC3D5AEA652C94F89F0AAC13B3766D969CE82
 
-  # Same here
   sudo pacman -Sy
   monarch-pkg-add monarch-keyring
 
   sudo pacman-key --list-keys 519BC3D5AEA652C94F89F0AAC13B3766D969CE82
 fi
 
-# Ensure we have the latest archlinux-keyring, maintainer keys might have changed
 # Always reinstall, as the keyring can be updated without a package version bump.
 echo -e "\e[32m\nUpdate Arch signing keys\e[0m"
 sudo pacman -Sy --noconfirm archlinux-keyring >/dev/null 2> >(grep -vE '^warning: archlinux-keyring-[^ ]+ is up to date -- reinstalling$' >&2)
 
-# Ensure we have the latest CachyOS-keyring, maintainer keys might have changed
 echo -e "\e[32m\nUpdate CachyOS signing keys\e[0m"
 sudo pacman -Sy --noconfirm cachyos-keyring >/dev/null
 
+sudo pacman-key --list-keys 519BC3D5AEA652C94F89F0AAC13B3766D969CE82 >/dev/null
 echo "Keys are correct"
