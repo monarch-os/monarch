@@ -232,7 +232,7 @@
   "setup.defaults.editor.vscode": {"icon":"","label":"VSCode","when":"monarch-cmd-present code","checked":"[[ $(monarch-default-editor) == code ]]","action":"monarch-default-editor code"},
   "setup.defaults.editor.cursor": {"icon":"","label":"Cursor","when":"monarch-cmd-present cursor","checked":"[[ $(monarch-default-editor) == cursor ]]","action":"monarch-default-editor cursor"},
   "setup.defaults.editor.zed": {"icon":"","label":"Zed","when":"monarch-cmd-present zeditor","checked":"[[ $(monarch-default-editor) == zed || $(monarch-default-editor) == zeditor ]]","action":"monarch-default-editor zed"},
-  "setup.defaults.editor.sublime": {"icon":"","label":"Sublime Text","when":"monarch-cmd-present sublime_text","checked":"[[ $(monarch-default-editor) == sublime_text ]]","action":"monarch-default-editor sublime_text"},
+  "setup.defaults.editor.sublime": {"icon":"","label":"Sublime Text","when":"monarch-cmd-present subl","checked":"[[ $(monarch-default-editor) == subl ]]","action":"monarch-default-editor subl"},
   "setup.defaults.editor.helix": {"icon":"","label":"Helix","when":"monarch-cmd-present helix","checked":"[[ $(monarch-default-editor) == helix ]]","action":"monarch-default-editor helix"},
   "setup.defaults.editor.vim": {"icon":"","label":"Vim","when":"monarch-cmd-present vim","checked":"[[ $(monarch-default-editor) == vim ]]","action":"monarch-default-editor vim"},
   "setup.defaults.editor.emacs": {"icon":"","label":"Emacs","when":"monarch-cmd-present emacs","checked":"[[ $(monarch-default-editor) == emacs ]]","action":"monarch-default-editor emacs"},

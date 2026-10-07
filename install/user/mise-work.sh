@@ -1,9 +1,4 @@
 mkdir -p "$HOME/Work" "$HOME/Work/tries"
-cat >"$HOME/Work/.mise.toml" <<'EOF'
-[env]
-_.path = "{{ cwd }}/bin"
-EOF
-mise trust "$HOME/Work/.mise.toml"
 
 case ${MONARCH_SETUP_CONTEXT:-runtime} in
   iso-chroot) node_package_dir=/opt/packages ;;
@@ -27,6 +22,7 @@ if [[ -n $node_package_dir ]]; then
     mkdir -p "$node_install_dir"
     tar -xzf "$node_tarball" --strip-components=1 -C "$node_install_dir"
     mise use -g node@"$node_version"
+    mise config set tools.node latest --file "$HOME/.config/mise/config.toml"
   fi
 else
   mise use -g node@latest

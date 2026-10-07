@@ -269,6 +269,16 @@ done
 pass "font installer stops at the failed stage and preserves its exit status"
 
 menu_tree=$(env HOME="$TEST_TMP/home" "$ROOT/bin/monarch-menu" --tree)
+new_case
+action=$(jq -er '.[] | select(.id == "install.editor.sublime") | .action' <<<"$menu_tree")
+bash -e -c "$action"
+run_terminal
+(( terminal_status == 0 )) || fail "Sublime menu installation failed"
+assert_args packages sublime-text-4
+assert_args desktop sublime_text
+[[ $(<"$INSTALL_TEST_CASE/events") == $'install\nlaunch' ]] || fail "Sublime launches before installation"
+pass "Sublime menu installation launches its packaged desktop ID"
+
 font_count=$(jq '[.[] | select(.id | startswith("install.font."))] | length' <<<"$menu_tree")
 [[ $font_count == "6" ]] || fail "expected six font installation actions"
 while IFS='|' read -r id package font message; do

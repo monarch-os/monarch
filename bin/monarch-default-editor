@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # monarch:summary=Set the default editor for $EDITOR
-# monarch:args=[code|cursor|zed|sublime_text|helix|vim|emacs|nvim]
+# monarch:args=[code|cursor|zed|subl|helix|vim|emacs|nvim]
 # monarch:examples=monarch default editor | monarch default editor code | monarch default editor helix
 
 if (($# == 0)); then
-  sed -n 's/^export EDITOR=//p' ~/.config/uwsm/default | head -n 1
+  sed -n 's/^export EDITOR=//p' ~/.config/uwsm/default | head -n 1 | sed 's/^sublime_text$/subl/'
   exit 0
 fi
 
@@ -13,13 +13,13 @@ case "$1" in
 code) editor="code"; name="VSCode"; glyph="" ;;
 cursor) editor="cursor"; name="Cursor"; glyph="" ;;
 zed | zeditor) editor="zeditor"; name="Zed"; glyph="" ;;
-sublime_text) editor="sublime_text"; name="Sublime Text"; glyph="" ;;
+subl | sublime_text) editor="subl"; name="Sublime Text"; glyph="" ;;
 helix) editor="helix"; name="Helix"; glyph="" ;;
 vim) editor="vim"; name="Vim"; glyph="" ;;
 emacs) editor="emacs"; name="Emacs"; glyph="" ;;
 nvim) editor="nvim"; name="Neovim"; glyph="" ;;
 *)
-  echo "Usage: monarch-default-editor <code|cursor|zed|sublime_text|helix|vim|emacs|nvim>"
+  echo "Usage: monarch-default-editor <code|cursor|zed|subl|helix|vim|emacs|nvim>"
   exit 1
   ;;
 esac

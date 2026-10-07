@@ -186,7 +186,7 @@ case ${1:-all} in
     [[ -f $user_home/.local/state/monarch/done/finalize-user ]] || fail "new users finish provisioning"
     [[ -f $user_home/.local/state/monarch/done/first-run-user ]] || fail "new users finish session setup"
     [[ $(<"$user_home/.local/share/keyrings/default") == Default_keyring ]] || fail "new users receive the initial keyring"
-    [[ -f $user_home/.XCompose && -f $user_home/Work/.mise.toml ]] || fail "new users receive initial config"
+    [[ -f $user_home/.XCompose && -d $user_home/Work/tries && ! -e $user_home/Work/.mise.toml ]] || fail "new users receive initial config without trusting project executables"
     grep -qF 'xdg-settings set default-web-browser firefox.desktop' "$user_home/calls" || fail "new users receive MIME defaults"
     grep -qF 'mise use -g node@latest' "$user_home/calls" || fail "new users receive their Node setup"
     [[ -f $user_home/.local/state/monarch/first-steps/shown ]] || fail "the first session offers first steps"
