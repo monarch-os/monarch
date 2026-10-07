@@ -1,27 +1,42 @@
 #!/bin/bash
 
 # monarch:summary=Diagnose a crashed process with the default coding agent
-# monarch:args=<pid> [comm] [exe] [signal]
+# monarch:args=<crash-id|pid> [comm] [exe] [signal]
 # monarch:examples=monarch agent crash 1516893
 
 set -euo pipefail
 
-pid=${1:?usage: monarch-agent-crash <pid> [comm] [exe] [signal]}
-
-if [[ ! $pid =~ ^[0-9]+$ ]]; then
-  echo "Not a PID: $pid" >&2
-  echo "Usage: monarch agent crash <pid>   (see: coredumpctl list)" >&2
-  exit 1
-fi
-
-comm=${2:-unknown}
-exe=${3:-unknown}
-signal=${4:-unknown}
+target=${1:?usage: monarch-agent-crash <crash-id|pid> [comm] [exe] [signal]}
 MONARCH_PATH=${MONARCH_PATH:-/usr/share/monarch}
 skill="$MONARCH_PATH/default/agents/skills/diagnose-crash/SKILL.md"
 
-when=$(coredumpctl list "$pid" --no-pager --no-legend 2>/dev/null | tail -1 | cut -d' ' -f1-4) || true
-when=${when:-unknown}
+if [[ $target =~ ^([a-f0-9]{32}):([0-9]{1,10}):([0-9]{1,20})$ ]]; then
+  boot=${BASH_REMATCH[1]} pid=${BASH_REMATCH[2]} timestamp=${BASH_REMATCH[3]}
+  matches=("COREDUMP_PID=$pid" "_BOOT_ID=$boot" "COREDUMP_TIMESTAMP=$timestamp")
+  entry=$(coredumpctl --no-pager --quiet --json=short info "${matches[@]}" 2>/dev/null |
+    jq -sc --arg boot "$boot" --arg pid "$pid" --arg timestamp "$timestamp" --arg uid "$UID" \
+      'map(select(.BootID == $boot and (.PID | tostring) == $pid
+        and (.Timestamp | tostring) == $timestamp and (.UID | tostring) == $uid))
+        | if length == 1 then .[0] else empty end') || true
+  [[ -n $entry ]] || { echo "This crash is no longer available." >&2; exit 1; }
+  comm=$(jq -r '.ThreadName // .Command // "unknown"' <<< "$entry")
+  exe=$(jq -r '.Executable // "unknown"' <<< "$entry")
+  signal=$(jq -r '.SignalName // "unknown"' <<< "$entry")
+  when=$(date -u -d "@$((10#$timestamp / 1000000))" '+%Y-%m-%d %H:%M:%S UTC')
+  selection=$(printf 'Use these three matches together for every coredumpctl info, dump or debug command:\n  %q %q %q\nNever select this crash by PID alone. If the selected record or core is unavailable, report that instead of choosing another crash.' "${matches[@]}")
+elif [[ $target =~ ^[0-9]+$ ]]; then
+  pid=$target
+  comm=${2:-unknown}
+  exe=${3:-unknown}
+  signal=${4:-unknown}
+  when=$(coredumpctl list "$pid" --no-pager --no-legend 2>/dev/null | tail -1 | cut -d' ' -f1-4) || true
+  when=${when:-unknown}
+  selection="Use coredumpctl to inspect PID $pid. Check its timestamp and process before drawing conclusions."
+else
+  echo "Invalid crash id or PID: $target" >&2
+  echo "Usage: monarch agent crash <crash-id|pid>   (see: monarch crash history list)" >&2
+  exit 1
+fi
 
 prompt=$(cat <<PROMPT
 A process crashed on this Monarch machine and I want to know why.
@@ -32,6 +47,8 @@ What systemd-coredump recorded:
   binary:   $exe
   signal:   $signal
   time:     $when
+
+$selection
 
 Use the diagnose-crash skill. It covers how to investigate safely, what to
 report, and when a crash belongs upstream. If your harness has no skill
