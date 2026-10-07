@@ -8,6 +8,7 @@ trap 'rm -rf "$test_tmp"' EXIT
 mkdir -p "$test_tmp/bin" "$test_tmp/home"
 export JOURNAL_FIXTURE="$test_tmp/journal.jsonl" JOURNAL_CALLS="$test_tmp/journal.calls"
 export PACMAN_CALLS="$test_tmp/pacman.calls"
+export NOCTALIA_CALLS="$test_tmp/noctalia.calls"
 export XDG_CONFIG_HOME="$test_tmp/home" XDG_STATE_HOME="$test_tmp/state" MONARCH_PATH="$ROOT"
 export PATH="$test_tmp/bin:$ROOT/bin:/usr/bin"
 boot=0123456789abcdef0123456789abcdef
@@ -35,6 +36,18 @@ printf '%s\n' "$*" >> "$PACMAN_CALLS"
 [[ ${TEST_PACKAGE_MISSING:-0} != 1 ]] || exit 1
 if [[ $1 == "-Qoq" ]]; then echo crasher; else echo "$3 1.2.3-1"; fi
 EOF
+cat > "$test_tmp/bin/monarch-default-agent" <<'EOF'
+#!/bin/bash
+[[ ${NO_AGENT:-false} == "true" ]] || printf 'codex\n'
+EOF
+cat > "$test_tmp/bin/monarch-cmd-present" <<'EOF'
+#!/bin/bash
+[[ ${AGENT_MISSING:-false} != "true" ]]
+EOF
+cat > "$test_tmp/bin/noctalia" <<'EOF'
+#!/bin/bash
+printf '%s\n' "$*" >> "$NOCTALIA_CALLS"
+EOF
 chmod +x "$test_tmp/bin/"*
 touch "$test_tmp/core"
 
@@ -52,6 +65,19 @@ state=$(monarch-crash-history list --json)
 jq -e --arg id "$id" --arg old "$old_id" \
   '.crashes | length == 2 and .[0].id == $id and .[1].id == $old and .[0].core == "present" and .[1].core == "missing"' <<< "$state" >/dev/null
 ! rg -q 'PRIVATE_HOST|SECRET_ARGUMENT|TOKEN|/usr/bin/crasher|private-source' <<< "$state"
+
+: > "$JOURNAL_FIXTURE"
+for ((index = 0; index <= 100; index++)); do
+  entry "$UID" "$boot" "$((1790859948000000 + index))" "$test_tmp/core" >> "$JOURNAL_FIXTURE"
+done
+state=$(monarch-crash-history list --json)
+jq -e --arg id "$id" '.hasMore == true and (.crashes | length) == 100
+  and all(.crashes[]; .id != $id)' <<< "$state" >/dev/null
+detail=$(monarch-crash-history show "$id" --json)
+jq -e --arg id "$id" '.id == $id and .application == "crasher"' <<< "$detail" >/dev/null
+entry "$UID" "$boot" 1790859948000000 "$test_tmp/core" > "$JOURNAL_FIXTURE"
+entry "$UID" "$old_boot" 1790684259000000 "$test_tmp/gone" >> "$JOURNAL_FIXTURE"
+entry "$((UID + 1))" "$boot" 1790959948000000 "$test_tmp/core" >> "$JOURNAL_FIXTURE"
 
 report=$(monarch-crash-history report "$id" --json)
 jq -e '.crash.application == "crasher" and .package.version == "1.2.3-1" and .package.source == "installed" and (.backtrace | length) == 3' <<< "$report" >/dev/null
@@ -143,5 +169,17 @@ rg -q "COREDUMP_UID=$UID" "$JOURNAL_CALLS"
 monarch-crash-history list --json | jq -e '.crashes == [] and .hasMore == false' >/dev/null
 entry "$UID" "$boot" 1790859948000000 '' > "$JOURNAL_FIXTURE"
 monarch-crash-history list --json | jq -e '.crashes[0].core == "unavailable"' >/dev/null
+
+monarch-crash-history open "$id"
+sed -n 's/^msg panel-open monarch\/crashes:panel //p' "$NOCTALIA_CALLS" |
+  jq -e --arg id "$id" 'select(.id == $id and .agent == true)' >/dev/null
+: > "$NOCTALIA_CALLS"
+NO_AGENT=true monarch-crash-history open "$id"
+sed -n 's/^msg panel-open monarch\/crashes:panel //p' "$NOCTALIA_CALLS" |
+  jq -e --arg id "$id" 'select(.id == $id and .agent == false)' >/dev/null
+: > "$NOCTALIA_CALLS"
+AGENT_MISSING=true monarch-crash-history open "$id"
+sed -n 's/^msg panel-open monarch\/crashes:panel //p' "$NOCTALIA_CALLS" |
+  jq -e --arg id "$id" 'select(.id == $id and .agent == false)' >/dev/null
 
 echo "Crash history identity, user scope, journal failure, report projection and private export pass"

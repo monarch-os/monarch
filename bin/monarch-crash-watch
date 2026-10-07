@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Watch for process crashes and offer an AI diagnosis
+# monarch:summary=Watch for process crashes and open their history
 # monarch:hidden=true
 
 set -uo pipefail
@@ -17,33 +17,26 @@ PATH="$PATH:$MONARCH_PATH/bin"
 declare -A last_notified
 
 announce() {
-  local comm=$1 pid=$2 exe=$3 signal=$4
+  local comm=$1 id=$2
 
   monarch-notification-wait || return 1
-  if [[ -n $(monarch-default-agent) ]]; then
-    monarch-notification-send -u critical -t 0 -g "$CRASH_GLYPH" \
-      "Process crashed: $comm" \
-      "Click to diagnose with AI. Nothing is sent automatically." \
-      --action "Diagnose" \
-      monarch-agent-crash "$pid" "$comm" "$exe" "$signal"
-  else
-    monarch-notification-send -u critical -t 0 -g "$CRASH_GLYPH" \
-      "Process crashed: $comm" \
-      "View the crash history and prepare a report. Nothing is sent automatically." \
-      --action "View crashes" \
-      monarch-crash-history
-  fi
+  monarch-notification-send -u critical -t 0 -g "$CRASH_GLYPH" \
+    "Process crashed: $comm" \
+    "View this crash and choose what to do. Nothing is sent automatically." \
+    --action "View crash" \
+    monarch-crash-history open "$id"
 }
 
 journalctl -f -n 0 -o json "MESSAGE_ID=$COREDUMP_MESSAGE_ID" 2>/dev/null |
   while IFS= read -r entry; do
-    IFS=$'\t' read -r uid comm pid exe signal < <(
+    IFS=$'\t' read -r uid comm pid exe boot timestamp < <(
       jq -r 'def field: if . == null or . == "" then "-" else . end;
               [((.COREDUMP_UID // ._UID) | field),
               (.COREDUMP_COMM | field),
               (.COREDUMP_PID | field),
               (.COREDUMP_EXE | field),
-              (.COREDUMP_SIGNAL_NAME | field)] | @tsv' <<<"$entry" 2>/dev/null
+              (._BOOT_ID | field),
+              (.COREDUMP_TIMESTAMP | field)] | @tsv' <<<"$entry" 2>/dev/null
     )
 
     [[ $pid =~ ^[0-9]+$ ]] || continue
@@ -62,5 +55,9 @@ journalctl -f -n 0 -o json "MESSAGE_ID=$COREDUMP_MESSAGE_ID" 2>/dev/null |
     now=$EPOCHSECONDS
     (((now - ${last_notified[$name]:-0}) < dedupe_seconds)) && continue
 
-    announce "$name" "$pid" "$exe" "$signal" && last_notified[$name]=$now
+    id=""
+    if [[ $boot =~ ^[a-f0-9]{32}$ && $timestamp =~ ^[0-9]{1,20}$ ]]; then
+      id="$boot:$pid:$timestamp"
+    fi
+    announce "$name" "$id" && last_notified[$name]=$now
   done

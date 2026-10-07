@@ -3,6 +3,8 @@
 # monarch:summary=Toggle Monarch features between enabled and disabled
 # monarch:args=[--enabled-notification <text>] [--disabled-notification <text>] <flag-name>
 
+set -e
+
 ENABLED_NOTIFICATION=""
 DISABLED_NOTIFICATION=""
 
@@ -18,10 +20,14 @@ FLAG_NAME="$1"
 FLAG="$HOME/.local/state/monarch/toggles/$FLAG_NAME"
 
 if [[ -f $FLAG ]]; then
-  rm $FLAG
-  [[ -n $DISABLED_NOTIFICATION ]] && notify-send -u low "$DISABLED_NOTIFICATION"
+  rm "$FLAG"
+  if [[ -n $DISABLED_NOTIFICATION ]]; then
+    notify-send -u low "$DISABLED_NOTIFICATION" || true
+  fi
 else
-  mkdir -p "$(dirname $FLAG)"
-  touch $FLAG
-  [[ -n $ENABLED_NOTIFICATION ]] && notify-send -u low "$ENABLED_NOTIFICATION"
+  mkdir -p "$(dirname "$FLAG")"
+  touch "$FLAG"
+  if [[ -n $ENABLED_NOTIFICATION ]]; then
+    notify-send -u low "$ENABLED_NOTIFICATION" || true
+  fi
 fi
