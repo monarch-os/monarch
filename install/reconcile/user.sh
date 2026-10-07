@@ -9,7 +9,7 @@ source "$MONARCH_PATH/install/reconcile/noctalia-activation.sh"
 source "$MONARCH_PATH/install/reconcile/chromium-flags.sh"
 source "$MONARCH_PATH/install/reconcile/mise.sh"
 
-"$MONARCH_PATH/bin/monarch-toggle-chat-privacy" init
+source "$MONARCH_PATH/install/reconcile/chat-privacy.sh"
 
 monarch_reconcile_seeded_file \
   "$MONARCH_PATH/config/alacritty/monarch-text-size.toml" \

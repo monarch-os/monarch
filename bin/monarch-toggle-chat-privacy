@@ -9,7 +9,6 @@ set -euo pipefail
 root=${MONARCH_PATH:-/usr/share/monarch}
 rules=$root/default/niri/chat-privacy.kdl
 user_config=$HOME/.config/niri/user.kdl
-legacy_config=$HOME/.local/state/monarch/chat-privacy.kdl
 flag=$HOME/.local/state/monarch/toggles/chat-privacy-off
 
 enabled() {
@@ -56,7 +55,6 @@ set_state() {
     [[ $changed == "false" ]] || "$root/bin/monarch-toggle" chat-privacy-off
     return 1
   fi
-  rm -f "$legacy_config"
 }
 
 case ${1:-toggle} in
@@ -68,10 +66,7 @@ case ${1:-toggle} in
     fi
     ;;
   init)
-    if [[ -f $legacy_config && ! -f $flag &&
-      ( ! -s $legacy_config || $(<"$legacy_config") == "// monarch-toggle chat-privacy-off" ) ]]; then
-      set_state off
-    elif enabled; then
+    if enabled; then
       set_state on
     else
       set_state off

@@ -10,6 +10,7 @@ export HOME="$test_tmp/home"
 export MONARCH_PATH="$ROOT"
 
 toggle="$ROOT/bin/monarch-toggle-chat-privacy"
+reconcile="$ROOT/install/reconcile/chat-privacy.sh"
 user_config="$HOME/.config/niri/user.kdl"
 legacy_config="$HOME/.local/state/monarch/chat-privacy.kdl"
 rules="$ROOT/default/niri/chat-privacy.kdl"
@@ -54,30 +55,54 @@ pass "repeated activation preserves personal settings without duplicate includes
 mkdir -p "${legacy_config%/*}"
 : >"$legacy_config"
 "$toggle" init
+[[ ! -f $flag && -f $legacy_config ]]
+bash "$reconcile"
 [[ -f $flag && ! -e $legacy_config ]]
 cmp -s "$user_config" "$test_tmp/personal.kdl"
 pass "existing disabled state migrates to the shared toggle flag"
 
 "$ROOT/bin/monarch-toggle" chat-privacy-off
 printf 'include "%s"\n' "$rules" >"$legacy_config"
-"$toggle" init
+bash "$reconcile"
 [[ ! -f $flag && ! -e $legacy_config && $(head -n 1 "$user_config") == "$include" ]]
 pass "reconciliation moves enabled legacy rules into user.kdl"
 
 printf '// monarch-toggle chat-privacy-off\n' >"$legacy_config"
-"$toggle" init
+bash "$reconcile"
 [[ -f $flag && ! -e $legacy_config ]]
 cmp -s "$user_config" "$test_tmp/personal.kdl"
 pass "reconciliation migrates the previous generated off state"
 
+printf 'include "%s"\n' "$rules" >"$legacy_config"
+bash "$reconcile"
+[[ -f $flag && ! -e $legacy_config ]]
+cmp -s "$user_config" "$test_tmp/personal.kdl"
+bash "$reconcile"
+[[ -f $flag ]]
+cmp -s "$user_config" "$test_tmp/personal.kdl"
+pass "reconciliation preserves the shared preference and tolerates repeat runs"
+
 mkdir -p "$test_tmp/incomplete-runtime/bin"
 cp "$ROOT/bin/monarch-toggle" "$test_tmp/incomplete-runtime/bin/"
+cp "$toggle" "$test_tmp/incomplete-runtime/bin/"
 if MONARCH_PATH="$test_tmp/incomplete-runtime" "$toggle" on 2>/dev/null; then
   fail "chat masking enabled without its Niri rules"
 fi
 [[ -f $flag ]]
 cmp -s "$user_config" "$test_tmp/personal.kdl"
 pass "a failed enable restores the shared toggle flag"
+
+"$toggle" on
+printf 'include "%s"\n' "$rules" >"$legacy_config"
+cp "$user_config" "$test_tmp/before-failure.kdl"
+if MONARCH_PATH="$test_tmp/incomplete-runtime" bash "$reconcile" 2>/dev/null; then
+  fail "reconciliation succeeded without its Niri rules"
+fi
+[[ -f $legacy_config && ! -f $flag ]]
+cmp -s "$user_config" "$test_tmp/before-failure.kdl"
+bash "$reconcile"
+[[ ! -e $legacy_config ]]
+pass "failed reconciliation preserves the legacy configuration for retry"
 
 mv "$user_config" "$test_tmp/linked-user.kdl"
 ln -s "$test_tmp/linked-user.kdl" "$user_config"
