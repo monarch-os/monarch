@@ -13,15 +13,17 @@ bar_enabled() {
 }
 
 set_bar() {
-  local state=$1
+  local state=$1 current=on
+  [[ -f $STATE_FILE ]] && current=off
 
   if [[ $state == "on" ]]; then
     noctalia msg bar-show >/dev/null 2>&1 || return 1
-    rm -f "$STATE_FILE"
   else
     noctalia msg bar-hide >/dev/null 2>&1 || return 1
-    mkdir -p "$(dirname "$STATE_FILE")"
-    touch "$STATE_FILE"
+  fi
+
+  if [[ $state != "$current" ]]; then
+    monarch-toggle bar-off || return 1
   fi
 }
 
