@@ -100,9 +100,10 @@ MONARCH_SETUP_CONTEXT=iso-chroot bash "$test_tmp/mise-work.sh"
   fail "offline Node stays pinned instead of allowing later upgrades"
 pass "offline Node import requires no network and retains the latest global selector"
 
-python3 - "$ROOT" "$test_tmp/real-home" "$real_mise" <<'PY'
+env -u USER python3 - "$ROOT" "$test_tmp/real-home" "$real_mise" <<'PY'
 import os
 from pathlib import Path
+import pwd
 import subprocess
 import sys
 import tomllib
@@ -115,7 +116,7 @@ config = home / "Work/.mise.toml"
 probe = project / "bin/review-probe"
 probe.write_text('#!/bin/sh\nprintf "fixture-project-bin-ran\\n"\n')
 probe.chmod(0o755)
-environment = {"HOME": str(home), "PATH": f"{Path(mise).parent}:/usr/bin", "USER": os.environ["USER"]}
+environment = {"HOME": str(home), "PATH": f"{Path(mise).parent}:/usr/bin", "USER": pwd.getpwuid(os.geteuid()).pw_name}
 for prefix in ["XDG", "MISE"]:
     for kind in ["CONFIG", "DATA", "CACHE", "STATE"]:
         suffix = "HOME" if prefix == "XDG" else "DIR"
