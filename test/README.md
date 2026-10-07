@@ -44,6 +44,9 @@ The menu launcher callback test needs Lua 5.4 (`lua5.4` on Ubuntu, `lua` on
 Arch). It executes the shipped Lua-compatible provider with simulated Noctalia
 callbacks to cover reopening, changing guards and asynchronous responses.
 
+The mise runtime test needs the real `mise` executable on `PATH`. CI installs
+version `2026.10.3` and runs it against isolated homes and local fixtures.
+
 ## Q18 baseline and decisions
 
 The initial inventory contained 50 executable tests. The GitHub workflow ran 10

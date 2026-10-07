@@ -3,6 +3,7 @@
 set -euo pipefail
 source "$(dirname "$0")/base-test.sh"
 
+real_mise=$(type -P mise) || fail "mise is required for runtime tests"
 test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
 mkdir -p "$test_tmp/bin" "$test_tmp/home"
@@ -69,21 +70,22 @@ MONARCH_SETUP_CONTEXT=iso-chroot bash "$test_tmp/mise-work.sh"
   fail "offline Node stays pinned instead of allowing later upgrades"
 pass "offline Node import requires no network and retains the latest global selector"
 
-python3 - "$ROOT" "$test_tmp/real-home" <<'PY'
+python3 - "$ROOT" "$test_tmp/real-home" "$real_mise" <<'PY'
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tomllib
 
-root, home = map(Path, sys.argv[1:])
+root, home = map(Path, sys.argv[1:3])
+mise = sys.argv[3]
 project = home / "Work/untrusted-project"
 (project / "bin").mkdir(parents=True)
 config = home / "Work/.mise.toml"
 probe = project / "bin/review-probe"
 probe.write_text('#!/bin/sh\nprintf "fixture-project-bin-ran\\n"\n')
 probe.chmod(0o755)
-environment = {"HOME": str(home), "PATH": "/usr/bin", "USER": os.environ["USER"]}
+environment = {"HOME": str(home), "PATH": f"{Path(mise).parent}:/usr/bin", "USER": os.environ["USER"]}
 for prefix in ["XDG", "MISE"]:
     for kind in ["CONFIG", "DATA", "CACHE", "STATE"]:
         suffix = "HOME" if prefix == "XDG" else "DIR"
@@ -102,8 +104,8 @@ for definition in [
     '# "{{ cwd }}/bin" in a comment\r\n[env]\r\n_.path = "{{ cwd }}/bin"\r\nREVIEW_CUSTOM = "keep"\r\n',
 ]:
     config.write_text(definition)
-    run("/usr/bin/mise", "trust", str(config))
-    assert run("/usr/bin/mise", "exec", "--", "review-probe").stdout.strip() == "fixture-project-bin-ran"
+    run(mise, "trust", str(config))
+    assert run(mise, "exec", "--", "review-probe").stdout.strip() == "fixture-project-bin-ran"
     run("/bin/bash", str(root / "install/reconcile/mise.sh"))
     result = tomllib.loads(config.read_text())
     assert result["env"]["_"]["path"] == []
@@ -112,9 +114,9 @@ for definition in [
         assert "# preserved comment" in config.read_text()
     if "\r\n" in definition:
         assert config.read_bytes().count(b"\r\n") == definition.count("\r\n")
-    run("/usr/bin/mise", "trust", str(config))
-    assert run("/usr/bin/mise", "exec", "--", "review-probe", check=False).returncode != 0
-    assert run("/usr/bin/mise", "exec", "--", "printenv", "REVIEW_CUSTOM").stdout.strip() == "keep"
+    run(mise, "trust", str(config))
+    assert run(mise, "exec", "--", "review-probe", check=False).returncode != 0
+    assert run(mise, "exec", "--", "printenv", "REVIEW_CUSTOM").stdout.strip() == "keep"
     inode = config.stat().st_ino
     run("/bin/bash", str(root / "install/reconcile/mise.sh"))
     assert config.stat().st_ino == inode
