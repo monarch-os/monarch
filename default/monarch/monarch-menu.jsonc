@@ -285,7 +285,7 @@
   "install.editor.vscode": {"icon":"","label":"VSCode","action":"monarch-launch-floating-terminal-with-presentation monarch-install-vscode","disabled":"monarch-pkg-present visual-studio-code-bin"},
   "install.editor.cursor": {"icon":"","label":"Cursor","action":"monarch-install-and-launch Cursor cursor-bin cursor","disabled":"monarch-pkg-present cursor-bin"},
   "install.editor.zed": {"icon":"","label":"Zed","action":"monarch-launch-floating-terminal-with-presentation monarch-install-zed","disabled":"monarch-pkg-present zed"},
-  "install.editor.sublime": {"icon":"","label":"Sublime Text","action":"monarch-install-and-launch 'Sublime Text' sublime-text-4 subl","disabled":"monarch-pkg-present sublime-text-4"},
+  "install.editor.sublime": {"icon":"","label":"Sublime Text","action":"monarch-install-and-launch 'Sublime Text' sublime-text-4 sublime_text","disabled":"monarch-pkg-present sublime-text-4"},
   "install.editor.helix": {"icon":"","label":"Helix","action":"monarch-launch-floating-terminal-with-presentation monarch-install-helix","disabled":"monarch-pkg-present helix"},
   "install.editor.vim": {"icon":"","label":"Vim","action":"monarch-install-app Vim vim","disabled":"monarch-pkg-present vim"},
   "install.editor.emacs": {"icon":"","label":"Emacs","action":"monarch-launch-floating-terminal-with-presentation monarch-install-emacs","disabled":"monarch-pkg-present emacs-wayland"},

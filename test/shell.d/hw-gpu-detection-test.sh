@@ -162,7 +162,9 @@ pass "hybrid detection kills a wedged supergfxctl query and falls back"
 nvidia_bin="$tmp_dir/nvidia-bin"
 nvidia_home="$tmp_dir/nvidia-home"
 nvidia_packages="$tmp_dir/nvidia-packages"
+export NVIDIA_INSTALLED_PACKAGES="$tmp_dir/nvidia-installed-packages"
 mkdir -p "$nvidia_bin" "$nvidia_home"
+: >"$NVIDIA_INSTALLED_PACKAGES"
 
 cat >"$nvidia_bin/monarch-hw-nvidia" <<'STUB'
 #!/bin/bash
@@ -183,6 +185,12 @@ STUB
 cat >"$nvidia_bin/monarch-pkg-add" <<'STUB'
 #!/bin/bash
 printf '%s\n' "$@" >"$NVIDIA_PACKAGES_LOG"
+printf '%s\n' "$@" >>"$NVIDIA_INSTALLED_PACKAGES"
+STUB
+cat >"$nvidia_bin/pacman" <<'STUB'
+#!/bin/bash
+[[ $1 == "-Q" && $2 == "--" ]] || exit 64
+grep -Fxq -- "$3" "$NVIDIA_INSTALLED_PACKAGES"
 STUB
 cat >"$nvidia_bin/lspci" <<'STUB'
 #!/bin/bash
@@ -211,6 +219,44 @@ run_gaming_driver_installer() {
     PATH="$nvidia_bin:/usr/bin" "$ROOT/bin/monarch-install-gaming-gpu-lib32" \
     >/dev/null
 }
+
+source "$ROOT/install/reconcile/nvidia-env.sh"
+export HOME="$nvidia_home" MONARCH_PCI_DEVICES_PATH="$tmp_dir/devices"
+export PATH="$nvidia_bin:$ROOT/bin:/usr/bin"
+nvidia_env="$HOME/.config/environment.d/nvidia.conf"
+pending_driver="$HOME/.local/state/monarch/nvidia-driver-pending"
+mkdir -p "${pending_driver%/*}"
+for mode in gsp legacy; do
+  export NVIDIA_TEST_MODE="$mode"
+  if [[ $mode == "gsp" ]]; then
+    required_packages=(nvidia-open-dkms nvidia-utils libva-nvidia-driver)
+    other_packages=(nvidia-580xx-dkms nvidia-580xx-utils)
+    write_pci_devices 0x10de:0x1e00:0x030000
+  else
+    required_packages=(nvidia-580xx-dkms nvidia-580xx-utils)
+    other_packages=(nvidia-open-dkms nvidia-utils libva-nvidia-driver)
+    write_pci_devices 0x10de:0x1d81:0x030000
+  fi
+  rm -f "$nvidia_env"
+  touch "$pending_driver"
+  : >"$NVIDIA_INSTALLED_PACKAGES"
+  monarch_reconcile_nvidia_environment
+  [[ ! -e $nvidia_env ]] || fail "missing $mode driver still publishes NVIDIA environment"
+  printf '%s\n' "${other_packages[@]}" >"$NVIDIA_INSTALLED_PACKAGES"
+  monarch_reconcile_nvidia_environment
+  [[ ! -e $nvidia_env ]] || fail "the wrong driver generation publishes $mode environment"
+  for missing_package in "${required_packages[@]}"; do
+    for package in "${required_packages[@]}"; do
+      [[ $package == "$missing_package" ]] || printf '%s\n' "$package"
+    done >"$NVIDIA_INSTALLED_PACKAGES"
+    monarch_reconcile_nvidia_environment
+    [[ ! -e $nvidia_env ]] || fail "missing $missing_package still publishes NVIDIA environment"
+  done
+  run_nvidia_installer "$mode" >/dev/null
+  grep -Fqx '__GLX_VENDOR_LIBRARY_NAME=nvidia' "$nvidia_env" || fail "driver retry does not publish $mode environment"
+  [[ ! -e $pending_driver ]] || fail "successful driver retry leaves its pending marker"
+  pass "$mode environment requires matching installed packages and recovers after a pending install"
+done
 
 run_nvidia_installer gsp
 [[ $(paste -sd ' ' "$nvidia_packages") == "linux-cachyos-headers nvidia-open-dkms nvidia-utils libva-nvidia-driver" ]] ||

@@ -29,6 +29,15 @@ monarch_reconcile_nvidia_environment() {
       return 0
     fi
   fi
+  case $architecture in
+    turing_plus)
+      monarch-pkg-present nvidia-open-dkms nvidia-utils libva-nvidia-driver || return 0
+      ;;
+    maxwell_pascal_volta)
+      monarch-pkg-present nvidia-580xx-dkms nvidia-580xx-utils || return 0
+      ;;
+    *) return 0 ;;
+  esac
   monarch-hw-nvidia-display && display=true
 
   if [[ -L $file || ( -e $file && ! -f $file ) ]]; then
