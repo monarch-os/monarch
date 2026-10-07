@@ -8,7 +8,7 @@ set -euo pipefail
 
 root=${MONARCH_PATH:-/usr/share/monarch}
 rules=$root/default/niri/chat-privacy.kdl
-user_config=$HOME/.config/niri/user.kdl
+config=$HOME/.config/niri/chat-privacy.kdl
 flag=$HOME/.local/state/monarch/toggles/chat-privacy-off
 
 enabled() {
@@ -16,32 +16,19 @@ enabled() {
 }
 
 write_config() (
-  local value=$1 target=$user_config temporary source escaped_rules
+  local value=$1 temporary
   if [[ $value == "on" && ! -f $rules ]]; then
     echo "Missing chat privacy rules: $rules" >&2
     return 1
   fi
-  if [[ -L $target ]]; then
-    target=$(readlink -f "$target") || return 1
-  fi
-  mkdir -p "${target%/*}" || return 1
-  temporary=$(mktemp "${target%/*}/.chat-privacy.XXXXXX") || return 1
+  mkdir -p "${config%/*}" || return 1
+  temporary=$(mktemp "${config%/*}/.chat-privacy.XXXXXX") || return 1
   trap 'rm -f "$temporary"' EXIT
   if [[ $value == "on" ]]; then
-    escaped_rules=${rules//\\/\\\\}
-    escaped_rules=${escaped_rules//\"/\\\"}
-    printf 'include "%s" // monarch:chat-privacy\n' "$escaped_rules" >"$temporary" || return 1
+    cp "$rules" "$temporary" || return 1
   fi
-  source=$target
-  [[ -f $source ]] || source=$root/config/niri/user.kdl
-  if [[ -f $source ]]; then
-    sed '/^include .*\/\/ monarch:chat-privacy$/d' "$source" >>"$temporary" || return 1
-  fi
-  if [[ -f $target ]]; then
-    cmp -s "$temporary" "$target" && return 0
-    chmod --reference="$target" "$temporary" || return 1
-  fi
-  mv -f "$temporary" "$target" || return 1
+  cmp -s "$temporary" "$config" && return 0
+  mv -f "$temporary" "$config" || return 1
 )
 
 set_state() {

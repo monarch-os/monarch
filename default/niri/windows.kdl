@@ -21,6 +21,8 @@ window-rule {
     open-floating true
 }
 
+include optional=true "~/.config/niri/chat-privacy.kdl"
+
 // Force tile for chromium-based browser app windows (workaround for --app bug).
 window-rule {
     match app-id=r#"^((google-)?[cC]hrom(e|ium)|[bB]rave-browser|[mM]icrosoft-edge|Vivaldi-stable|helium)$"#
