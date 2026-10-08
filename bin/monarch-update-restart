@@ -1,40 +1,60 @@
 #!/bin/bash
 
 # monarch:summary=Prompt for required reboot or service restarts after updates
+# monarch:args=[--services-only|--reboot-only]
+
+mode=${1:-all}
+if (( $# > 1 )) || [[ $mode != "all" && $mode != "--services-only" && $mode != "--reboot-only" ]]; then
+  echo "Usage: monarch update restart [--services-only|--reboot-only]" >&2
+  exit 2
+fi
+
+confirm_reboot() {
+  if [[ ${MONARCH_UPDATE_UNATTENDED:-0} == "1" ]]; then
+    echo "$1 Run monarch system reboot when ready."
+  elif gum confirm "$1"; then
+    monarch-system-reboot
+    exit 0
+  fi
+}
 
 echo
 
-running_kernel=$(uname -r)
-kernel_updated=true
+if [[ $mode != "--services-only" ]]; then
+  running_kernel=$(uname -r)
+  kernel_updated=true
 
-for kernel in /usr/lib/modules/*/vmlinuz; do
-  if [[ -f $kernel ]] && pacman -Qo "$kernel" &>/dev/null; then
-    installed_kernel=$(basename "$(dirname "$kernel")")
+  for kernel in /usr/lib/modules/*/vmlinuz; do
+    if [[ -f $kernel ]] && pacman -Qo "$kernel" &>/dev/null; then
+      installed_kernel=$(basename "$(dirname "$kernel")")
 
-    if [[ $installed_kernel == $running_kernel ]]; then
-      kernel_updated=false
-      break
+      if [[ $installed_kernel == $running_kernel ]]; then
+        kernel_updated=false
+        break
+      fi
     fi
-  fi
-done
+  done
 
-if [[ $kernel_updated == "true" ]]; then
-  gum confirm "Linux kernel has been updated. Reboot?" && monarch-system-reboot
-elif [[ -f $HOME/.local/state/monarch/reboot-required ]]; then
-  gum confirm "Updates require reboot. Ready?" && monarch-system-reboot
+  if [[ $kernel_updated == "true" ]]; then
+    confirm_reboot "Linux kernel has been updated. Reboot?"
+  elif [[ -f $HOME/.local/state/monarch/reboot-required ]]; then
+    confirm_reboot "Updates require reboot. Ready?"
+  fi
+
+  running_niri=$(readlink /proc/$(pgrep -x niri)/exe 2>/dev/null)
+  if [[ $running_niri == *"(deleted)"* ]]; then
+    confirm_reboot "Niri has been updated. Reboot?"
+  fi
 fi
 
-running_niri=$(readlink /proc/$(pgrep -x niri)/exe 2>/dev/null)
-if [[ $running_niri == *"(deleted)"* ]]; then
-  gum confirm "Niri has been updated. Reboot?" && monarch-system-reboot
+if [[ $mode != "--reboot-only" ]]; then
+  for file in "$HOME"/.local/state/monarch/restart-*-required; do
+    if [[ -f $file ]]; then
+      filename=$(basename "$file")
+      service=$(echo "$filename" | sed 's/restart-\(.*\)-required/\1/')
+      echo "Restarting $service"
+      monarch-state clear "$filename"
+      monarch-restart-"$service"
+    fi
+  done
 fi
-
-for file in "$HOME"/.local/state/monarch/restart-*-required; do
-  if [[ -f $file ]]; then
-    filename=$(basename "$file")
-    service=$(echo "$filename" | sed 's/restart-\(.*\)-required/\1/')
-    echo "Restarting $service"
-    monarch-state clear "$filename"
-    monarch-restart-"$service"
-  fi
-done

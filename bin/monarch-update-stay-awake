@@ -105,7 +105,10 @@ start() {
 
   if monarch-cmd-present systemd-inhibit; then
     if (( EUID != 0 )); then
-      if [[ -t 0 ]]; then
+      if [[ ${MONARCH_UPDATE_SUDO_SESSION:-0} == "1" ]]; then
+        sudo -n true
+        inhibit_runner=(sudo -n)
+      elif [[ -t 0 ]]; then
         sudo -v
         inhibit_runner=(sudo)
       else

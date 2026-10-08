@@ -1,0 +1,16 @@
+#!/bin/bash -p
+
+if [[ $- != *p* ]]; then
+  echo "Refusing an unsafe Bash startup for the sudo boundary." >&2
+  exit 126
+fi
+
+if (( $# == 1 )); then
+  case $1 in
+    -k | --reset-timestamp | -K | --remove-timestamp | -h | --help | -V | --version)
+      exec /usr/bin/sudo "$@"
+      ;;
+  esac
+fi
+
+exec /usr/bin/sudo -N "$@"

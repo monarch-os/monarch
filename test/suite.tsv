@@ -127,6 +127,7 @@ test/shell.d/shell-helpers-test.sh	shell	medium	isolated
 test/shell.d/system-power-test.sh	power	high	isolated
 test/shell.d/update-conflict-recovery-test.sh	updates	high	isolated
 test/shell.d/update-guardrails-test.sh	updates	high	isolated
+test/shell.d/update-sudo-keepalive-test.sh	updates	high	isolated
 test/shell.d/update-pacman-guard-test.sh	updates	high	isolated
 test/shell.d/windows-vm-compose-test.sh	virtualization-security	high	isolated
 test/shell.d/windows-vm-mount-boundary-test.sh	virtualization-security	high	isolated

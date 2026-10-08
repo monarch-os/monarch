@@ -11,6 +11,18 @@ It runs its own desktop stack:
 
 Monarch is a fork of [Omarchy](https://omarchy.org). The `monarch` CLI and the install scripts descend from it, and a good number of commands are still Omarchy's unchanged but for the name. The stack has since diverged — CachyOS rather than Arch, Niri rather than Hyprland, Noctalia rather than waybar and its neighbours — but the lineage is Omarchy's, and so is the licence.
 
+## Updates
+
+`monarch update` authenticates sudo once for the system steps and keeps that
+authorization alive during long downloads, reconciliation, hooks and service
+restarts. AUR updates run last, after the authorization is revoked; their sudo
+calls authenticate without renewing the credential cache. Cleanup revokes sudo
+and releases sleep inhibition on completion, failure or interruption.
+
+`monarch update -y` skips Monarch confirmation prompts, but sudo authentication
+can still be required. Required reboots are reported without prompting in this
+mode.
+
 ## Application theme templates
 
 Noctalia themes applications from its built-in and community catalogs. For an

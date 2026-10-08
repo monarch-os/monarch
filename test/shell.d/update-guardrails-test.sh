@@ -11,6 +11,14 @@ stub_bin="$test_tmp/bin"
 test_home="$test_tmp/home"
 runtime_dir="$test_tmp/runtime"
 mkdir -p "$stub_bin" "$test_home" "$runtime_dir"
+update_script="$test_tmp/monarch-update"
+sed "s|/usr/bin/sudo|$stub_bin/sudo|g" "$ROOT/bin/monarch-update" >"$update_script"
+chmod +x "$update_script"
+write_sudo_stub() {
+  printf '#!/bin/bash\nexit 0\n' >"$stub_bin/sudo"
+  chmod +x "$stub_bin/sudo"
+}
+write_sudo_stub
 
 write_stub() {
   local name="$1"
@@ -26,7 +34,8 @@ run_update() {
   MONARCH_UPDATE_LOGGED=1 \
   PATH="$stub_bin:$ROOT/bin:$PATH" \
   STEP_LOG="$test_tmp/steps" \
-    "$ROOT/bin/monarch-update" "$@"
+  MONARCH_PATH="$ROOT" \
+    "$update_script" "$@"
 }
 
 steps=(
@@ -62,10 +71,11 @@ monarch-update-git
 monarch-update-keyring
 monarch-update-system-pkgs
 monarch-reconcile
-monarch-update-aur-pkgs
 monarch-update-orphan-pkgs
 monarch-hook
 monarch-update-analyze-logs
+monarch-update-restart
+monarch-update-aur-pkgs
 monarch-update-stay-awake
 monarch-update-restart
 EOF
@@ -238,6 +248,7 @@ write_stub monarch-update-keyring 'touch "$INTERRUPT_MARKER"; sleep 30'
 write_stub monarch-update-pkg-prune 'exit 0'
 write_stub monarch-snapshot 'exit 0'
 write_stub systemd-inhibit 'exec sleep 30'
+write_sudo_stub
 interrupt_marker="$test_tmp/interrupt-started"
 TEST_AVAILABLE_BYTES=$((12 * 1024 * 1024 * 1024)) \
   INTERRUPT_MARKER="$interrupt_marker" \
@@ -246,7 +257,8 @@ TEST_AVAILABLE_BYTES=$((12 * 1024 * 1024 * 1024)) \
   MONARCH_UPDATE_LOGGED=1 \
   PATH="$stub_bin:$ROOT/bin:$PATH" \
   STEP_LOG="$test_tmp/steps" \
-  setsid "$ROOT/bin/monarch-update" -y >/dev/null 2>&1 &
+  MONARCH_PATH="$ROOT" \
+  setsid "$update_script" -y >/dev/null 2>&1 &
 interrupt_pid=$!
 for _ in {1..100}; do
   [[ -f $interrupt_marker && -s $runtime_dir/monarch-update-stay-awake/inhibit-pid ]] && break

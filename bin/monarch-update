@@ -50,15 +50,70 @@ if ! monarch-update-lock held; then
   exec monarch-update-lock run "$0" "${update_args[@]}"
 fi
 unset MONARCH_UPDATE_LOCKED
+unset MONARCH_UPDATE_SUDO_SESSION MONARCH_SUDO_NO_UPDATE
+
+runtime_root=${MONARCH_PATH:-$(dirname "$(dirname "$(readlink -e "${BASH_SOURCE[0]}")")")}
+sudo_wrapper="$runtime_root/default/monarch/sudo-no-update/sudo"
+sudo_keepalive_pid=""
+stay_awake_stopped=false
+
+authorize_update() {
+  /usr/bin/sudo /usr/bin/true || return 1
+  local update_pid=$$
+  (
+    sleep_pid=""
+    trap - EXIT HUP INT
+    trap '[[ -z $sleep_pid ]] || { kill "$sleep_pid" 2>/dev/null || true; wait "$sleep_pid" 2>/dev/null || true; }; exit 0' TERM
+    while true; do
+      sleep 60 &
+      sleep_pid=$!
+      wait "$sleep_pid"
+      kill -0 "$update_pid" 2>/dev/null || exit 0
+      /usr/bin/sudo -n /usr/bin/true 2>/dev/null || exit 0
+    done
+  ) &
+  sudo_keepalive_pid=$!
+  export MONARCH_UPDATE_SUDO_SESSION=1
+}
+
+end_update_authorization() {
+  if [[ -n $sudo_keepalive_pid ]]; then
+    kill "$sudo_keepalive_pid" 2>/dev/null || true
+    wait "$sudo_keepalive_pid" 2>/dev/null || true
+    sudo_keepalive_pid=""
+  fi
+  unset MONARCH_UPDATE_SUDO_SESSION
+  /usr/bin/sudo -k
+}
+
+cleanup_update() {
+  local status=$?
+  trap - EXIT HUP INT TERM
+  if ! end_update_authorization; then
+    echo "Could not invalidate sudo during update cleanup." >&2
+    status=1
+  fi
+  if [[ $stay_awake_stopped == "false" ]]; then
+    monarch-update-stay-awake stop || status=1
+  fi
+  exit "$status"
+}
 
 trap 'echo ""; echo -e "\033[0;31mSomething went wrong during the update!\n\nPlease review the output above carefully, correct the error, and retry the update.\n\nIf you need assistance, get help from the community at https://monarch-os.github.io\033[0m"' ERR
-trap 'monarch-update-stay-awake stop' EXIT
+trap cleanup_update EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+[[ -x $sudo_wrapper ]] || { echo "Missing no-update sudo wrapper: $sudo_wrapper" >&2; exit 1; }
+/usr/bin/sudo -k
 
 monarch-update-requires-free-space
 
 [[ $unattended == "false" ]] || export MONARCH_UPDATE_UNATTENDED=1
 
 if [[ $unattended == "true" ]] || monarch-update-confirm; then
+  authorize_update
   monarch-update-pkg-prune
   monarch-snapshot create || (($? == 127)) ||
     echo -e "\e[33mContinuing the update without a snapshot.\e[0m" >&2
@@ -69,11 +124,17 @@ if [[ $unattended == "true" ]] || monarch-update-confirm; then
   monarch-update-keyring
   monarch-update-system-pkgs
   monarch-reconcile
-  monarch-update-aur-pkgs
   monarch-update-orphan-pkgs
   monarch-hook post-update
   monarch-update-analyze-logs
+  monarch-update-restart --services-only
+
+  # AUR builds run third-party code and must not inherit the system phase's authorization.
+  end_update_authorization
+  [[ -x $sudo_wrapper ]] || { echo "The update removed the no-update sudo wrapper." >&2; exit 1; }
+  PATH="${sudo_wrapper%/*}:$PATH" MONARCH_SUDO_NO_UPDATE=1 MONARCH_PATH="$runtime_root" monarch-update-aur-pkgs
+  /usr/bin/sudo -k
   monarch-update-stay-awake stop
-  trap - EXIT
-  monarch-update-restart
+  stay_awake_stopped=true
+  monarch-update-restart --reboot-only
 fi
