@@ -61,6 +61,10 @@ remove_fingerprint_marker() {
 
 echo -e "\e[32mRemoving fingerprint scanner from authentication.\n\e[0m"
 
+if ! sudo /usr/bin/fprintd-delete "$fingerprint_user"; then
+  echo "Could not delete $fingerprint_user's fingerprints from the reader; authentication and packages were retained." >&2
+  exit 1
+fi
 sudo rm -rf -- "/var/lib/fprint/$fingerprint_user"
 
 remove_pam_config
