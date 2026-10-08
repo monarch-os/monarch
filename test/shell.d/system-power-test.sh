@@ -139,5 +139,5 @@ fi
 [[ -f $state_dir/reboot-required ]] || fail "missing boot time deletes restart markers"
 pass "boot cleanup preserves state when boot time is unavailable"
 
-grep -qxF 'spawn-at-startup "monarch-state" "clear-before-boot"' "$ROOT/default/niri/autostart.kdl" ||
-  fail "Niri startup does not clean markers from previous boots"
+grep -qxF 'started = "/usr/share/monarch/bin/monarch-state clear-before-boot"' "$ROOT/config/noctalia/config.toml" ||
+  fail "Noctalia startup does not clean markers from previous boots"
