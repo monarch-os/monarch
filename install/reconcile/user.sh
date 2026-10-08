@@ -3,6 +3,7 @@ set -euo pipefail
 echo "Reconcile Monarch user state"
 
 systemctl --user enable --now monarch-screencast-dnd.service
+systemctl --user try-restart monarch-crash-watch.service
 
 source "$MONARCH_PATH/install/reconcile/config-files.sh"
 source "$MONARCH_PATH/install/reconcile/noctalia-activation.sh"
