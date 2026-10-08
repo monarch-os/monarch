@@ -102,6 +102,7 @@ fi
 [[ ! -s $bootstrap/pacman-calls ]]
 
 export HOME="$TEST_ROOT/home"
+unset XDG_STATE_HOME
 export MONARCH_PATH="$ROOT"
 export MONARCH_RUNTIME_ROOT="$TEST_ROOT/runtime"
 export MONARCH_RECONCILE_BIN="$ROOT/bin/monarch-reconcile"
@@ -128,6 +129,67 @@ monarch_reconcile_seeded_file "$ownership/source" "$ownership/seeded"
 monarch_reconcile_managed_tree "$ownership/source-tree" "$ownership/managed-tree"
 [[ -f $ownership/managed-tree/current && ! -e $ownership/managed-tree/stale ]]
 [[ $(<"$ownership/shared/plugin") == "third-party" ]]
+
+(
+  export HOME="$TEST_ROOT/about-branding/home"
+  export MONARCH_PATH="$TEST_ROOT/about-branding/runtime"
+  export XDG_STATE_HOME="$TEST_ROOT/about-branding/state"
+  mkdir -p "$MONARCH_PATH" "$HOME/.config/monarch/branding"
+  printf '%s\n' old-stock >"$MONARCH_PATH/icon.txt"
+  target="$HOME/.config/monarch/branding/about.txt"
+  state="$XDG_STATE_HOME/monarch/branding/about.sha256"
+
+  source "$ROOT/install/reconcile/about-branding.sh"
+  cmp "$target" "$MONARCH_PATH/icon.txt"
+  [[ -f $state ]]
+  first_inode=$(stat -c %i "$target")
+  source "$ROOT/install/reconcile/about-branding.sh"
+  [[ $(stat -c %i "$target") == "$first_inode" ]]
+
+  printf '%s\n' new-stock >"$MONARCH_PATH/icon.txt"
+  source "$ROOT/install/reconcile/about-branding.sh"
+  cmp "$target" "$MONARCH_PATH/icon.txt"
+
+  printf '%s\n' custom >"$target"
+  printf '%s\n' newer-stock >"$MONARCH_PATH/icon.txt"
+  source "$ROOT/install/reconcile/about-branding.sh"
+  [[ $(<"$target") == "custom" ]]
+
+  mkdir -p "$MONARCH_PATH/install/reconcile" "$MONARCH_PATH/bin"
+  cp "$ROOT/install/reconcile/"{config-files,about-branding}.sh "$MONARCH_PATH/install/reconcile/"
+  printf '#!/bin/bash\nexit 0\n' >"$MONARCH_PATH/bin/monarch-launch-about"
+  chmod +x "$MONARCH_PATH/bin/monarch-launch-about"
+  PATH="$MONARCH_PATH/bin:$PATH" bash "$ROOT/bin/monarch-branding-about" reset
+  cmp "$target" "$MONARCH_PATH/icon.txt"
+  reset_hash=$(sha256sum "$target")
+  [[ $(<"$state") == "${reset_hash%% *}" ]]
+  printf '%s\n' latest-stock >"$MONARCH_PATH/icon.txt"
+  source "$ROOT/install/reconcile/about-branding.sh"
+  cmp "$target" "$MONARCH_PATH/icon.txt"
+  printf '%s\n' custom >"$target"
+
+  rm "$state"
+  source "$ROOT/install/reconcile/about-branding.sh"
+  [[ $(<"$target") == "custom" && ! -e $state ]]
+  cp "$MONARCH_PATH/icon.txt" "$target"
+  source "$ROOT/install/reconcile/about-branding.sh"
+  [[ -f $state ]]
+
+  rm "$target"
+  ln -s "$MONARCH_PATH/icon.txt" "$target"
+  source "$ROOT/install/reconcile/about-branding.sh"
+  [[ -L $target ]]
+  rm "$target"
+  ln -s "$HOME/missing" "$target"
+  source "$ROOT/install/reconcile/about-branding.sh"
+  [[ -L $target && ! -e $target ]]
+
+  export HOME="$TEST_ROOT/about-branding/default-state-home"
+  unset XDG_STATE_HOME
+  source "$ROOT/install/reconcile/about-branding.sh"
+  cmp "$HOME/.config/monarch/branding/about.txt" "$MONARCH_PATH/icon.txt"
+  [[ -f $HOME/.local/state/monarch/branding/about.sha256 ]]
+)
 
 mkdir -p "$TEST_ROOT/bin" "$HOME/.config/noctalia/templates" "$HOME/.config/uwsm" \
   "$HOME/.config/noctalia/colorschemes/User" "$HOME/.config/noctalia/plugins/user" \
