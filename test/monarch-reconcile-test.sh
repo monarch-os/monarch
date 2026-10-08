@@ -155,6 +155,19 @@ monarch_reconcile_managed_tree "$ownership/source-tree" "$ownership/managed-tree
   source "$ROOT/install/reconcile/about-branding.sh"
   [[ $(<"$target") == "custom" ]]
 
+  mkdir -p "$MONARCH_PATH/install/reconcile" "$MONARCH_PATH/bin"
+  cp "$ROOT/install/reconcile/"{config-files,about-branding}.sh "$MONARCH_PATH/install/reconcile/"
+  printf '#!/bin/bash\nexit 0\n' >"$MONARCH_PATH/bin/monarch-launch-about"
+  chmod +x "$MONARCH_PATH/bin/monarch-launch-about"
+  PATH="$MONARCH_PATH/bin:$PATH" bash "$ROOT/bin/monarch-branding-about" reset
+  cmp "$target" "$MONARCH_PATH/icon.txt"
+  reset_hash=$(sha256sum "$target")
+  [[ $(<"$state") == "${reset_hash%% *}" ]]
+  printf '%s\n' latest-stock >"$MONARCH_PATH/icon.txt"
+  source "$ROOT/install/reconcile/about-branding.sh"
+  cmp "$target" "$MONARCH_PATH/icon.txt"
+  printf '%s\n' custom >"$target"
+
   rm "$state"
   source "$ROOT/install/reconcile/about-branding.sh"
   [[ $(<"$target") == "custom" && ! -e $state ]]

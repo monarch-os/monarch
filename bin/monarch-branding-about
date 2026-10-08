@@ -28,7 +28,10 @@ text)
   monarch-launch-editor ~/.config/monarch/branding/about.txt >/dev/null 2>&1 && monarch-launch-about >/dev/null 2>&1
   ;;
 reset)
-  cp "$MONARCH_PATH/icon.txt" ~/.config/monarch/branding/about.txt && monarch-launch-about >/dev/null 2>&1
+  cp "$MONARCH_PATH/icon.txt" ~/.config/monarch/branding/about.txt
+  source "$MONARCH_PATH/install/reconcile/config-files.sh"
+  source "$MONARCH_PATH/install/reconcile/about-branding.sh"
+  monarch-launch-about >/dev/null 2>&1
   ;;
 *)
   echo "Usage: monarch-branding-about <image|text|reset>" >&2

@@ -21,6 +21,8 @@ About branding is seeded when missing. Reconciliation records the SHA256 of a
 recognized stock logo in the user state directory and updates it only while the
 user copy still matches that recorded version. Unrecognized logos and symlinks
 remain user-owned; existing stock logos are recognized by the packaged contents.
+`monarch branding about reset` also records the restored stock version immediately,
+so a later package update can be reconciled without an intervening reconciliation.
 
 Noctalia merges `~/.config/noctalia/*.toml`, so new Monarch-owned settings
 should normally live in a dedicated managed fragment rather than overwrite the
