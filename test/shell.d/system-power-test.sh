@@ -108,3 +108,36 @@ if (( $(wc -l <"$call_log") != 1 )); then
   fail "reboot leaves state and windows alone when scheduling fails"
 fi
 pass "reboot leaves state and windows alone when scheduling fails"
+
+state_command="$test_tmp/monarch-state"
+sed "s|/proc/stat|$test_tmp/proc-stat|" "$ROOT/bin/monarch-state" >"$state_command"
+printf 'btime 2000000000\n' >"$test_tmp/proc-stat"
+touch -d @1999999999 "$state_dir/reboot-required" "$state_dir/restart-test-required"
+touch "$state_dir/restart-current-required" "$state_dir/logout-required"
+touch -d @2000000000 "$state_dir/restart-current-required"
+touch -d @1999999999 "$state_dir/logout-required"
+bash "$state_command" clear-before-boot
+[[ ! -e $state_dir/reboot-required && ! -e $state_dir/restart-test-required ]] ||
+  fail "a new boot retains obsolete restart markers"
+[[ -f $state_dir/restart-current-required && -f $state_dir/logout-required ]] ||
+  fail "boot cleanup removed current restart markers or unrelated state"
+bash "$state_command" clear-before-boot
+[[ -f $state_dir/restart-current-required ]] || fail "same-boot login clears current restart markers"
+pass "boot cleanup removes only restart markers from earlier boots"
+
+printf 'btime 2000000001\n' >"$test_tmp/proc-stat"
+bash "$state_command" clear-before-boot
+[[ ! -e $state_dir/restart-current-required && -f $state_dir/logout-required ]] ||
+  fail "the next boot does not clear the previous boot's restart markers"
+pass "restart markers persist in the same boot and expire on the next boot"
+
+touch "$state_dir/reboot-required"
+: >"$test_tmp/proc-stat"
+if bash "$state_command" clear-before-boot >"$test_tmp/boot-output" 2>&1; then
+  fail "missing boot time reports successful cleanup"
+fi
+[[ -f $state_dir/reboot-required ]] || fail "missing boot time deletes restart markers"
+pass "boot cleanup preserves state when boot time is unavailable"
+
+grep -qxF 'spawn-at-startup "monarch-state" "clear-before-boot"' "$ROOT/default/niri/autostart.kdl" ||
+  fail "Niri startup does not clean markers from previous boots"
