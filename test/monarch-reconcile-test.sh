@@ -102,6 +102,7 @@ fi
 [[ ! -s $bootstrap/pacman-calls ]]
 
 export HOME="$TEST_ROOT/home"
+unset XDG_STATE_HOME
 export MONARCH_PATH="$ROOT"
 export MONARCH_RUNTIME_ROOT="$TEST_ROOT/runtime"
 export MONARCH_RECONCILE_BIN="$ROOT/bin/monarch-reconcile"
@@ -128,6 +129,49 @@ monarch_reconcile_seeded_file "$ownership/source" "$ownership/seeded"
 monarch_reconcile_managed_tree "$ownership/source-tree" "$ownership/managed-tree"
 [[ -f $ownership/managed-tree/current && ! -e $ownership/managed-tree/stale ]]
 [[ $(<"$ownership/shared/plugin") == "third-party" ]]
+
+(
+  source "$ROOT/install/reconcile/about-branding.sh"
+  export HOME="$TEST_ROOT/about-branding/home"
+  export MONARCH_PATH="$TEST_ROOT/about-branding/runtime"
+  export XDG_STATE_HOME="$TEST_ROOT/about-branding/state"
+  mkdir -p "$MONARCH_PATH" "$HOME/.config/monarch/branding"
+  printf '%s\n' old-stock >"$MONARCH_PATH/icon.txt"
+  target="$HOME/.config/monarch/branding/about.txt"
+  state="$XDG_STATE_HOME/monarch/branding/about.sha256"
+
+  monarch_reconcile_about_branding
+  cmp "$target" "$MONARCH_PATH/icon.txt"
+  [[ -f $state ]]
+  first_inode=$(stat -c %i "$target")
+  monarch_reconcile_about_branding
+  [[ $(stat -c %i "$target") == "$first_inode" ]]
+
+  printf '%s\n' new-stock >"$MONARCH_PATH/icon.txt"
+  monarch_reconcile_about_branding
+  cmp "$target" "$MONARCH_PATH/icon.txt"
+
+  printf '%s\n' custom >"$target"
+  printf '%s\n' newer-stock >"$MONARCH_PATH/icon.txt"
+  monarch_reconcile_about_branding
+  [[ $(<"$target") == "custom" ]]
+
+  rm "$state"
+  monarch_reconcile_about_branding
+  [[ $(<"$target") == "custom" && ! -e $state ]]
+  cp "$MONARCH_PATH/icon.txt" "$target"
+  monarch_reconcile_about_branding
+  [[ -f $state ]]
+
+  rm "$target"
+  ln -s "$MONARCH_PATH/icon.txt" "$target"
+  monarch_reconcile_about_branding
+  [[ -L $target ]]
+  rm "$target"
+  ln -s "$HOME/missing" "$target"
+  monarch_reconcile_about_branding
+  [[ -L $target && ! -e $target ]]
+)
 
 mkdir -p "$TEST_ROOT/bin" "$HOME/.config/noctalia/templates" "$HOME/.config/uwsm" \
   "$HOME/.config/noctalia/colorschemes/User" "$HOME/.config/noctalia/plugins/user" \

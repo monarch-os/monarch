@@ -6,6 +6,8 @@ systemctl --user enable --now monarch-screencast-dnd.service
 systemctl --user try-restart monarch-crash-watch.service
 
 source "$MONARCH_PATH/install/reconcile/config-files.sh"
+source "$MONARCH_PATH/install/reconcile/about-branding.sh"
+monarch_reconcile_about_branding
 source "$MONARCH_PATH/install/reconcile/noctalia-activation.sh"
 source "$MONARCH_PATH/install/reconcile/chromium-flags.sh"
 source "$MONARCH_PATH/install/reconcile/mise.sh"

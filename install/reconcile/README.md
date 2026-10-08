@@ -17,6 +17,11 @@ Every file written below the user's home must have one ownership model:
 - **Generated file:** Rebuild it from its user-owned source through the command
   that owns the format, such as `monarch-refresh-niri`.
 
+About branding is seeded when missing. Reconciliation records the SHA256 of a
+recognized stock logo in the user state directory and updates it only while the
+user copy still matches that recorded version. Unrecognized logos and symlinks
+remain user-owned; existing stock logos are recognized by the packaged contents.
+
 Noctalia merges `~/.config/noctalia/*.toml`, so new Monarch-owned settings
 should normally live in a dedicated managed fragment rather than overwrite the
 user's configuration. Its palette directory and plugin root are shared: manage
