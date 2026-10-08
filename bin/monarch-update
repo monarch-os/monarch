@@ -126,7 +126,6 @@ if [[ $unattended == "true" ]] || monarch-update-confirm; then
   monarch-reconcile
   monarch-update-orphan-pkgs
   monarch-hook post-update
-  monarch-update-analyze-logs
   monarch-update-restart --services-only
 
   # AUR builds run third-party code and must not inherit the system phase's authorization.
@@ -136,5 +135,6 @@ if [[ $unattended == "true" ]] || monarch-update-confirm; then
   /usr/bin/sudo -k
   monarch-update-stay-awake stop
   stay_awake_stopped=true
+  monarch-update-analyze-logs
   monarch-update-restart --reboot-only
 fi

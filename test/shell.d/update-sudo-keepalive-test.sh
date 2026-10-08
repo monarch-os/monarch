@@ -57,7 +57,7 @@ sys.exit(subprocess.call(args))
   shutil.copy2(root / 'bin/monarch-update-lock', tools / 'monarch-update-lock')
   shutil.copy2(root / 'bin/monarch-update-aur-pkgs', tools / 'monarch-update-aur-pkgs')
   executable(tools / 'sleep', '#!/bin/bash\nif [[ $1 == 60 ]]; then printf "%s %s\\n" "$$" "$PPID" >> "$KEEPALIVE_PIDS"; exec /usr/bin/sleep 0.05; fi\nexec /usr/bin/sleep "$@"\n')
-  steps = ('requires-free-space', 'pkg-prune', 'git', 'keyring', 'system-pkgs', 'orphan-pkgs', 'analyze-logs', 'stay-awake', 'restart')
+  steps = ('requires-free-space', 'pkg-prune', 'git', 'keyring', 'system-pkgs', 'orphan-pkgs', 'stay-awake', 'restart')
   script = '''#!/usr/bin/python3
 import json, os, subprocess, sys, time
 from pathlib import Path
@@ -74,9 +74,12 @@ if name == 'monarch-hook' and os.environ.get('BREAK_REVOKE'): Path(os.environ['F
 if name == 'monarch-update-restart' and '--reboot-only' in sys.argv:
   assert not Path(os.environ['SUDO_STATE']).exists()
   assert 'MONARCH_UPDATE_SUDO_SESSION' not in os.environ
+  print('reboot check')
 '''
   for name in [*('monarch-update-' + step for step in steps), 'monarch-reconcile', 'monarch-hook', 'monarch-snapshot']:
     executable(tools / name, script)
+  executable(tools / 'monarch-update-analyze-logs', (root / 'bin/monarch-update-analyze-logs').read_text().replace(
+    'update_log="/tmp/monarch-update.log"', 'update_log="$UPDATE_LOG"\n[[ -z ${MONARCH_UPDATE_SUDO_SESSION:-} && ! -e $SUDO_STATE ]] || exit 18'))
   executable(tools / 'pacman', '#!/bin/bash\nexit 0\n')
   executable(tools / 'monarch-pkg-aur-accessible', '#!/bin/bash\nexit 0\n')
   executable(tools / 'yay', '''#!/usr/bin/python3
@@ -92,14 +95,17 @@ with open(os.environ['EVENTS'], 'a') as log: log.write(json.dumps(['yay', args])
 for _ in range(2):
   subprocess.run([wrapper, '/usr/bin/true'], check=True)
   assert not Path(os.environ['SUDO_STATE']).exists()
+if os.environ.get('AUR_INITRAMFS_FAILURE'):
+  Path(os.environ['UPDATE_LOG']).write_text('Updating linux initcpios\\n')
 sys.exit(int(os.environ.get('YAY_EXIT', '0')))
 ''')
   env = {key: value for key, value in os.environ.items() if key not in ('BASH_ENV', 'ENV', 'MONARCH_UPDATE_LOCKED', 'MONARCH_UPDATE_SUDO_SESSION', 'MONARCH_SUDO_NO_UPDATE')}
   env.update(HOME=str(home), MONARCH_PATH=str(fixture), MONARCH_UPDATE_LOGGED='1', XDG_RUNTIME_DIR=str(runtime),
     PATH=str(tools) + ':' + str(root / 'bin') + ':' + os.environ['PATH'], SUDO_STATE=str(fixture / 'sudo-state'),
-    EVENTS=str(fixture / 'events'), ENTERED=str(fixture / 'entered'), FAIL_REVOKE=str(fixture / 'fail-revoke'), KEEPALIVE_PIDS=str(fixture / 'keepalive-pids'))
+    EVENTS=str(fixture / 'events'), ENTERED=str(fixture / 'entered'), FAIL_REVOKE=str(fixture / 'fail-revoke'), KEEPALIVE_PIDS=str(fixture / 'keepalive-pids'), UPDATE_LOG=str(fixture / 'update.log'))
 
   def run(extra=None):
+    (fixture / 'update.log').write_text('')
     for name in ('sudo-state', 'events', 'entered', 'fail-revoke', 'keepalive-pids'):
       (fixture / name).unlink(missing_ok=True)
     result = subprocess.run([str(tools / 'monarch-update'), '-y'], env={**env, **(extra or {})}, capture_output=True, text=True, timeout=15)
@@ -124,6 +130,12 @@ sys.exit(int(os.environ.get('YAY_EXIT', '0')))
   assert stages.index('monarch-update-restart') < stages.index('yay')
   assert sum(event[0] == 'sudo' and event[2] == ['-N', '/usr/bin/true'] for event in events) == 2
   print('ok - long updates share one authorization and AUR sudo calls never refresh it')
+  result, events = run({'AUR_INITRAMFS_FAILURE': '1'})
+  assert result.returncode == 0, result
+  warning = 'Initramfs generation may have failed'
+  assert warning in result.stdout, result.stdout
+  assert result.stdout.index(warning) < result.stdout.index('reboot check'), result.stdout
+  print('ok - AUR initramfs failures are reported without authorization before reboot checks')
   for stage in ('monarch-update-system-pkgs', 'monarch-reconcile', 'monarch-update-restart'):
     result, events = run({'FAIL_STAGE': stage})
     assert result.returncode == 17, result

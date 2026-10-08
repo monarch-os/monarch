@@ -73,10 +73,10 @@ monarch-update-system-pkgs
 monarch-reconcile
 monarch-update-orphan-pkgs
 monarch-hook
-monarch-update-analyze-logs
 monarch-update-restart
 monarch-update-aur-pkgs
 monarch-update-stay-awake
+monarch-update-analyze-logs
 monarch-update-restart
 EOF
 diff -u "$test_tmp/expected" "$test_tmp/names" || fail "update guardrail ordering"
