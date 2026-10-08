@@ -309,6 +309,7 @@ bash "$runtime_hook"
 bash "$ROOT/install/reconcile/schema/1-to-2/system-after-user.sh"
 bash "$ROOT/install/reconcile/user.sh"
 
+grep -qx 'systemctl --user try-restart monarch-crash-watch.service' "$TEST_LOG"
 grep -qx 'monarch-pkg-drop --keep-dependencies noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"
 grep -qx 'monarch-pkg-drop claude-code openai-codex opencode' "$TEST_LOG"
 [[ ! -e $HOME/.config/fastfetch/config.jsonc ]]
