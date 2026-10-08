@@ -15,6 +15,8 @@ sudo systemctl disable --now sshd.service 2>/dev/null || true
 if monarch-cmd-present ufw; then
   echo "Closing the SSH port in the firewall..."
   sudo ufw --force delete limit 22/tcp >/dev/null 2>&1 || true
+  sudo ufw --force delete allow 22/tcp >/dev/null 2>&1 || true
+  sudo ufw --force delete allow 22 >/dev/null 2>&1 || true
   sudo ufw reload >/dev/null
 fi
 
