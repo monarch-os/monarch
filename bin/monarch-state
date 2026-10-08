@@ -28,7 +28,13 @@ set)
     exit 2
   fi
   mkdir -p "$STATE_DIR"
-  touch -- "$STATE_DIR/$STATE_NAME"
+  if [[ $STATE_NAME == re*-required ]]; then
+    boot_id=$(cat /proc/sys/kernel/random/boot_id)
+    [[ $boot_id =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || exit 1
+    printf '%s\n' "$boot_id" >"$STATE_DIR/$STATE_NAME"
+  else
+    touch -- "$STATE_DIR/$STATE_NAME"
+  fi
   ;;
 clear)
   [[ -d $STATE_DIR ]] || exit 0
@@ -36,15 +42,17 @@ clear)
   ;;
 clear-before-boot)
   [[ -d $STATE_DIR ]] || exit 0
-  boot_time=$(awk '$1 == "btime" { print $2; exit }' /proc/stat)
-  if [[ ! $boot_time =~ ^[0-9]+$ ]] || (( boot_time == 0 )); then
-    echo "Cannot determine boot time; restart markers were retained." >&2
+  boot_id=$(cat /proc/sys/kernel/random/boot_id)
+  if [[ ! $boot_id =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+    echo "Cannot determine boot identity; restart markers were retained." >&2
     exit 1
   fi
   for state_file in "$STATE_DIR"/re*-required; do
     [[ -f $state_file && ! -L $state_file ]] || continue
-    state_time=$(stat -c %Y -- "$state_file")
-    if (( state_time < boot_time )); then
+    state_boot=$(cat -- "$state_file")
+    if [[ -z $state_boot ]]; then
+      printf '%s\n' "$boot_id" >"$state_file"
+    elif [[ $state_boot =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ && $state_boot != "$boot_id" ]]; then
       rm -f -- "$state_file"
     fi
   done

@@ -51,7 +51,6 @@ enable_community_templates = true
 enable_builtin_templates = true
 
 [hooks]
-started = "/usr/share/monarch/bin/monarch-state clear-before-boot"
 # v4's hooks.colorGeneration. Fires on every palette regeneration — where
 # monarch-theme-apply re-applies what Noctalia cannot reach itself.
 colors_changed = ["monarch-theme-apply"]

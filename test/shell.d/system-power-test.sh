@@ -110,34 +110,49 @@ fi
 pass "reboot leaves state and windows alone when scheduling fails"
 
 state_command="$test_tmp/monarch-state"
-sed "s|/proc/stat|$test_tmp/proc-stat|" "$ROOT/bin/monarch-state" >"$state_command"
-printf 'btime 2000000000\n' >"$test_tmp/proc-stat"
-touch -d @1999999999 "$state_dir/reboot-required" "$state_dir/restart-test-required"
-touch "$state_dir/restart-current-required" "$state_dir/logout-required"
-touch -d @2000000000 "$state_dir/restart-current-required"
-touch -d @1999999999 "$state_dir/logout-required"
+sed "s|/proc/sys/kernel/random/boot_id|$test_tmp/boot-id|g" "$ROOT/bin/monarch-state" >"$state_command"
+boot_one=11111111-1111-1111-1111-111111111111
+boot_two=22222222-2222-2222-2222-222222222222
+printf '%s\n' "$boot_one" >"$test_tmp/boot-id"
+bash "$state_command" set reboot-required
+bash "$state_command" set restart-test-required
+[[ $(cat "$state_dir/reboot-required") == "$boot_one" ]] || fail "restart marker lacks boot identity"
+touch -d @1000000000 "$state_dir/reboot-required"
+touch -d @2100000000 "$state_dir/restart-test-required"
 bash "$state_command" clear-before-boot
-[[ ! -e $state_dir/reboot-required && ! -e $state_dir/restart-test-required ]] ||
-  fail "a new boot retains obsolete restart markers"
-[[ -f $state_dir/restart-current-required && -f $state_dir/logout-required ]] ||
-  fail "boot cleanup removed current restart markers or unrelated state"
+[[ -f $state_dir/reboot-required && -f $state_dir/restart-test-required ]] ||
+  fail "clock corrections invalidate current restart markers"
 bash "$state_command" clear-before-boot
-[[ -f $state_dir/restart-current-required ]] || fail "same-boot login clears current restart markers"
-pass "boot cleanup removes only restart markers from earlier boots"
+[[ -f $state_dir/reboot-required ]] || fail "same-boot shell restart clears current restart markers"
+pass "restart markers survive same-boot starts regardless of wall-clock timestamps"
 
-printf 'btime 2000000001\n' >"$test_tmp/proc-stat"
+touch "$state_dir/logout-required"
+: >"$state_dir/restart-legacy-required"
 bash "$state_command" clear-before-boot
-[[ ! -e $state_dir/restart-current-required && -f $state_dir/logout-required ]] ||
+[[ $(cat "$state_dir/restart-legacy-required") == "$boot_one" ]] ||
+  fail "legacy marker is not conservatively associated with the current boot"
+pass "legacy empty markers are retained until a known boot change"
+
+printf '%s\n' "$boot_two" >"$test_tmp/boot-id"
+bash "$state_command" set restart-current-required
+bash "$state_command" clear-before-boot
+[[ ! -e $state_dir/reboot-required && ! -e $state_dir/restart-test-required && ! -e $state_dir/restart-legacy-required ]] ||
   fail "the next boot does not clear the previous boot's restart markers"
+[[ -f $state_dir/restart-current-required && -f $state_dir/logout-required ]] ||
+  fail "boot cleanup removed a current marker or unrelated state"
 pass "restart markers persist in the same boot and expire on the next boot"
 
-touch "$state_dir/reboot-required"
-: >"$test_tmp/proc-stat"
-if bash "$state_command" clear-before-boot >"$test_tmp/boot-output" 2>&1; then
-  fail "missing boot time reports successful cleanup"
-fi
-[[ -f $state_dir/reboot-required ]] || fail "missing boot time deletes restart markers"
-pass "boot cleanup preserves state when boot time is unavailable"
+printf 'unrecognized\n' >"$state_dir/restart-custom-required"
+bash "$state_command" clear-before-boot
+[[ $(cat "$state_dir/restart-custom-required") == "unrecognized" ]] ||
+  fail "boot cleanup modified an unrecognized marker"
 
-grep -qxF 'started = "/usr/share/monarch/bin/monarch-state clear-before-boot"' "$ROOT/config/noctalia/config.toml" ||
+: >"$test_tmp/boot-id"
+if bash "$state_command" clear-before-boot >"$test_tmp/boot-output" 2>&1; then
+  fail "missing boot identity reports successful cleanup"
+fi
+[[ -f $state_dir/restart-current-required ]] || fail "missing boot identity deletes restart markers"
+pass "boot cleanup preserves state when boot identity is unavailable"
+
+grep -qxF 'started = "/usr/share/monarch/bin/monarch-state clear-before-boot"' "$ROOT/config/noctalia/monarch-state.toml" ||
   fail "Noctalia startup does not clean markers from previous boots"

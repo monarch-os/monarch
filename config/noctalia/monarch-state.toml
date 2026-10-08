@@ -1,0 +1,2 @@
+[hooks]
+started = "/usr/share/monarch/bin/monarch-state clear-before-boot"
