@@ -92,6 +92,20 @@ Records regenerate on the service's interval, `refresh_interval_sec` in the
 plugin's settings (900 by default, 60 minimum). Right-clicking the bar pill
 forces a collection immediately.
 
+To hide an agent and stop its automatic usage collection without removing its
+history or credentials:
+
+```bash
+monarch agent usage disable claude
+monarch agent usage status claude
+monarch agent usage enable claude
+```
+
+The preference is stored under `$XDG_STATE_HOME/monarch/agents/disabled/`
+(`~/.local/state/monarch/agents/disabled/` by default). The panel applies it
+within its next minute tick. Explicit and forced updates also honour it;
+enabling restores the retained record and allows collection again.
+
 Claude and Codex records include `limitsFetchedAt` and `limitsStale`, so the
 panel distinguishes fresh quotas from the last known values after a failed
 check. Elapsed windows display zero usage and omit their old reset time.

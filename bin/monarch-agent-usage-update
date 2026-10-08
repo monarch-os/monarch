@@ -10,6 +10,7 @@
 # collector — both readers pick up any record that appears here.
 
 USAGE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/monarch/agents/usage"
+DISABLED_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/monarch/agents/disabled"
 mkdir -p "$USAGE_DIR"
 
 flags=()
@@ -20,6 +21,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
   --force | --limits-only) flags+=("$1") ;;
   --except)
+    (( $# >= 2 )) || { echo "--except requires an agent" >&2; exit 1; }
     excluded[$2]=1
     shift
     ;;
@@ -30,6 +32,7 @@ done
 
 wanted() {
   local agent="$1"
+  [[ -e $DISABLED_DIR/$agent ]] && return 1
   [[ -n ${excluded[$agent]} ]] && return 1
   (( ${#only[@]} == 0 )) && return 0
   local candidate
@@ -46,6 +49,8 @@ collect() {
     echo "monarch-agent-usage-update: $agent collector failed" >&2
     return 1
   fi
+  # A collector already running when disabled must not publish a fresh record.
+  [[ -e $DISABLED_DIR/$agent ]] && return 0
   tmp=$(mktemp "$USAGE_DIR/.$agent.XXXXXX")
   printf '%s\n' "$record" >"$tmp"
   mv "$tmp" "$USAGE_DIR/$agent.json"

@@ -12,12 +12,28 @@ M.KEY_WORST = "agents.worst"
 -- monarch-agent-usage-update writes one JSON record per agent here. A record
 -- that appears in this directory is an agent, whoever wrote it — the plugin
 -- never learns how the numbers were made.
-function M.usageDir(): string
+function M.stateDir(): string
   local stateHome = noctalia.getenv("XDG_STATE_HOME")
   if not stateHome or stateHome == "" then
     stateHome = noctalia.expandPath("~/.local/state")
   end
-  return stateHome .. "/monarch/agents/usage"
+  return stateHome .. "/monarch/agents"
+end
+
+function M.usageDir(): string
+  return M.stateDir() .. "/usage"
+end
+
+function M.disabledAgents(): { string }
+  local dir = M.stateDir() .. "/disabled"
+  local result: { string } = {}
+  for _, entry in ipairs(noctalia.listDir(dir) or {}) do
+    local name = if type(entry) == "table" then entry.name else entry
+    if type(name) == "string" and string.match(name, "^[a-z][a-z0-9%-]*$") then
+      table.insert(result, name)
+    end
+  end
+  return result
 end
 
 function M.pluginRoot(): string

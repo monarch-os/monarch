@@ -254,6 +254,74 @@ class UsageTests(unittest.TestCase):
     self.assertEqual(record['limits'][0]['percent'], 0.25)
     self.assertFalse(record['limitsStale'])
 
+  def usage_environment(self):
+    runtime = self.root / 'runtime'
+    (runtime / 'bin').mkdir(parents=True)
+    program = '''#!/bin/bash
+agent=${0##*monarch-agent-usage-}
+echo "$agent" >> "$COLLECTION_LOG"
+if [[ $agent == race ]]; then
+  "$USAGE_COMMAND" disable race >/dev/null
+fi
+printf '{"id":"%s","ready":true}\\n' "$agent"
+'''
+    for agent in ('claude', 'codex', 'race'):
+      path = runtime / 'bin' / ('monarch-agent-usage-' + agent)
+      path.write_text(program)
+      path.chmod(0o755)
+    self.env = dict(os.environ, HOME=str(self.root), XDG_STATE_HOME=str(self.root / 'state'),
+      MONARCH_PATH=str(runtime), COLLECTION_LOG=str(self.root / 'collections'),
+      USAGE_COMMAND=str(Path(os.environ['ROOT']) / 'bin/monarch-agent-usage'))
+    self.usage = self.root / 'state/monarch/agents/usage'
+    self.usage.mkdir(parents=True)
+
+  def run_usage(self, binary, *args, check=True):
+    return subprocess.run([str(Path(os.environ['ROOT']) / 'bin' / binary), *args],
+      env=self.env, text=True, capture_output=True, check=check)
+
+  def test_persistent_disable_and_enable_preserve_history(self):
+    self.usage_environment()
+    history = self.root / '.claude/projects/history.jsonl'
+    history.parent.mkdir(parents=True)
+    history.write_text(self.claude_line(20))
+    saved = self.usage / 'claude.json'
+    saved.write_text('{"id":"claude","ready":true,"totalPrompts":42}\n')
+    before = (history.read_bytes(), saved.read_bytes())
+    self.assertEqual(self.run_usage('monarch', 'agent', 'usage', 'disable', 'claude').stdout.strip(), 'claude: disabled')
+    self.assertEqual(self.run_usage('monarch-agent-usage', 'status', 'claude').stdout.strip(), 'claude: disabled')
+    self.run_usage('monarch-agent-usage-update', '--force', 'claude')
+    self.assertFalse((self.root / 'collections').exists())
+    self.run_usage('monarch-agent-usage-update', '--limits-only', 'codex')
+    self.assertEqual((self.root / 'collections').read_text().splitlines(), ['codex'])
+    self.assertEqual((history.read_bytes(), saved.read_bytes()), before)
+    self.run_usage('monarch', 'agent', 'usage', 'enable', 'claude')
+    self.run_usage('monarch-agent-usage-update', 'claude')
+    self.assertEqual((self.root / 'collections').read_text().splitlines(), ['codex', 'claude'])
+    self.assertEqual(history.read_bytes(), before[0])
+
+  def test_disable_during_collection_keeps_retained_record(self):
+    self.usage_environment()
+    record = self.usage / 'race.json'
+    record.write_text('{"id":"race","ready":true,"totalPrompts":42}\n')
+    before = record.read_bytes()
+    self.run_usage('monarch-agent-usage-update', 'race')
+    self.assertEqual(record.read_bytes(), before)
+    self.assertEqual(self.run_usage('monarch-agent-usage', 'status', 'race').stdout.strip(), 'race: disabled')
+
+  def test_usage_preferences_validate_ids_and_honour_state_home(self):
+    self.usage_environment()
+    for agent in ('../claude', '', '/tmp/claude', '-claude', 'claude/other'):
+      self.assertNotEqual(self.run_usage('monarch-agent-usage', 'disable', agent, check=False).returncode, 0)
+    self.assertNotEqual(self.run_usage('monarch-agent-usage', 'unknown', 'claude', check=False).returncode, 0)
+    self.assertFalse((self.root / 'state/monarch/agents/disabled').exists())
+    self.env.pop('XDG_STATE_HOME')
+    self.run_usage('monarch-agent-usage', 'disable', 'claude')
+    self.assertTrue((self.root / '.local/state/monarch/agents/disabled/claude').exists())
+    self.assertEqual(self.run_usage('monarch-agent-usage', 'status', 'claude').stdout.strip(), 'claude: disabled')
+
 
 unittest.main(verbosity=2)
 PY
+
+lua "$ROOT/test/fixtures/agent-usage-service.lua" \
+  "$ROOT/default/noctalia/plugins/monarch-agents"
