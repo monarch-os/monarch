@@ -28,6 +28,7 @@ printf 't3 %s\n' "$*" >>"$TEST_LOG"
 STUB
 cat >"$fake_bin/setsid" <<'STUB'
 #!/bin/bash
+sleep 0.1
 printf 'launch %s\n' "$*" >>"$TEST_LOG"
 STUB
 chmod +x "$fake_bin"/*
@@ -36,5 +37,11 @@ PATH="$fake_bin:/usr/bin" "$ROOT/bin/monarch-install-ai-t3-code"
 
 grep -qxF 'package t3code-bin' "$TEST_LOG"
 grep -qxF "t3 theme set monarch --base-dir $T3CODE_HOME" "$TEST_LOG"
+for (( attempt = 0; attempt < 100; attempt++ )); do
+  if grep -qxF 'launch uwsm-app -- gtk-launch t3code' "$TEST_LOG"; then
+    break
+  fi
+  sleep 0.01
+done
 grep -qxF 'launch uwsm-app -- gtk-launch t3code' "$TEST_LOG"
 echo "T3 Code is themed before its first launch"
