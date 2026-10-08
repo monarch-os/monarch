@@ -69,15 +69,32 @@ if name == 'monarch-update-system-pkgs':
   time.sleep(10 if os.environ.get('BLOCK') else 0.7)
 if name == 'monarch-reconcile' or (name == 'monarch-update-restart' and '--services-only' in sys.argv):
   assert os.environ.get('MONARCH_UPDATE_SUDO_SESSION') == '1'
+  if os.environ.get('BREAK_REVOKE'): Path(os.environ['FAIL_REVOKE']).touch()
   sys.exit(subprocess.call(['sudo', '-n', '/usr/bin/true']))
-if name == 'monarch-hook' and os.environ.get('BREAK_REVOKE'): Path(os.environ['FAIL_REVOKE']).touch()
 if name == 'monarch-update-restart' and '--reboot-only' in sys.argv:
   assert not Path(os.environ['SUDO_STATE']).exists()
   assert 'MONARCH_UPDATE_SUDO_SESSION' not in os.environ
   print('reboot check')
 '''
-  for name in [*('monarch-update-' + step for step in steps), 'monarch-reconcile', 'monarch-hook', 'monarch-snapshot']:
+  for name in [*('monarch-update-' + step for step in steps), 'monarch-reconcile', 'monarch-snapshot']:
     executable(tools / name, script)
+  shutil.copy2(root / 'bin/monarch-hook', tools / 'real-hook')
+  executable(tools / 'monarch-hook', '#!/bin/bash\nprintf \'["monarch-hook", ["post-update"]]\\n\' >> "$EVENTS"\nexec "' + str(tools / 'real-hook') + '" "$@"\n')
+  hooks = home / '.config/monarch/hooks'
+  (hooks / 'post-update.d').mkdir(parents=True)
+  hook_probe = '''[[ -z ${MONARCH_UPDATE_SUDO_SESSION:-} && ! -e $SUDO_STATE ]] || touch "$HOOK_ESCALATED"
+for pid in $(cat "$KEEPALIVE_PIDS"); do
+  [[ ! -e /proc/$pid ]] || touch "$HOOK_ESCALATED"
+done
+if "''' + str(sudo) + '''" -n /usr/bin/true; then touch "$HOOK_ESCALATED"; fi
+if sudo -n /usr/bin/true; then touch "$HOOK_ESCALATED"; fi
+sudo /usr/bin/true
+[[ ! -e $SUDO_STATE ]] || touch "$HOOK_ESCALATED"
+echo hook >> "$HOOK_RUNS"
+'''
+  (hooks / 'post-update').write_text(hook_probe)
+  (hooks / 'post-update.d/01-probe').write_text(hook_probe + '\nif [[ ${HOOK_REAUTHORIZE:-0} == 1 ]]; then "' + str(sudo) + '" /usr/bin/true; fi\n')
+  (hooks / 'post-update.d/02-skip.sample').write_text('touch "$HOOK_ESCALATED"\n')
   executable(tools / 'monarch-update-analyze-logs', (root / 'bin/monarch-update-analyze-logs').read_text().replace(
     'update_log="/tmp/monarch-update.log"', 'update_log="$UPDATE_LOG"\n[[ -z ${MONARCH_UPDATE_SUDO_SESSION:-} && ! -e $SUDO_STATE ]] || exit 18'))
   executable(tools / 'pacman', '#!/bin/bash\nexit 0\n')
@@ -102,14 +119,15 @@ sys.exit(int(os.environ.get('YAY_EXIT', '0')))
   env = {key: value for key, value in os.environ.items() if key not in ('BASH_ENV', 'ENV', 'MONARCH_UPDATE_LOCKED', 'MONARCH_UPDATE_SUDO_SESSION', 'MONARCH_SUDO_NO_UPDATE')}
   env.update(HOME=str(home), MONARCH_PATH=str(fixture), MONARCH_UPDATE_LOGGED='1', XDG_RUNTIME_DIR=str(runtime),
     PATH=str(tools) + ':' + str(root / 'bin') + ':' + os.environ['PATH'], SUDO_STATE=str(fixture / 'sudo-state'),
-    EVENTS=str(fixture / 'events'), ENTERED=str(fixture / 'entered'), FAIL_REVOKE=str(fixture / 'fail-revoke'), KEEPALIVE_PIDS=str(fixture / 'keepalive-pids'), UPDATE_LOG=str(fixture / 'update.log'))
+    EVENTS=str(fixture / 'events'), ENTERED=str(fixture / 'entered'), FAIL_REVOKE=str(fixture / 'fail-revoke'), KEEPALIVE_PIDS=str(fixture / 'keepalive-pids'), UPDATE_LOG=str(fixture / 'update.log'), HOOK_ESCALATED=str(fixture / 'hook-escalated'), HOOK_RUNS=str(fixture / 'hook-runs'))
 
   def run(extra=None):
     (fixture / 'update.log').write_text('')
-    for name in ('sudo-state', 'events', 'entered', 'fail-revoke', 'keepalive-pids'):
+    for name in ('sudo-state', 'events', 'entered', 'fail-revoke', 'keepalive-pids', 'hook-escalated', 'hook-runs'):
       (fixture / name).unlink(missing_ok=True)
     result = subprocess.run([str(tools / 'monarch-update'), '-y'], env={**env, **(extra or {})}, capture_output=True, text=True, timeout=15)
     events = [json.loads(line) for line in (fixture / 'events').read_text().splitlines()]
+    assert not (fixture / 'hook-escalated').exists(), 'a user hook inherited update authorization'
     if not (extra or {}).get('BREAK_REVOKE'):
       assert not (fixture / 'sudo-state').exists(), result
     sudo_pids = {event[1] for event in events if event[0] == 'sudo'}
@@ -128,8 +146,13 @@ sys.exit(int(os.environ.get('YAY_EXIT', '0')))
   stages = [event[0] for event in events]
   assert stages.index('monarch-update-orphan-pkgs') < stages.index('monarch-hook') < stages.index('yay')
   assert stages.index('monarch-update-restart') < stages.index('yay')
-  assert sum(event[0] == 'sudo' and event[2] == ['-N', '/usr/bin/true'] for event in events) == 2
+  assert sum(event[0] == 'sudo' and event[2] == ['-N', '/usr/bin/true'] for event in events) == 4
   print('ok - long updates share one authorization and AUR sudo calls never refresh it')
+  assert (fixture / 'hook-runs').read_text() == 'hook\nhook\n'
+  result, events = run({'HOOK_REAUTHORIZE': '1'})
+  assert result.returncode == 0, result
+  assert (fixture / 'hook-runs').read_text() == 'hook\nhook\n'
+  print('ok - both user hook slots run after revocation and fresh hook credentials are revoked before AUR')
   result, events = run({'AUR_INITRAMFS_FAILURE': '1'})
   assert result.returncode == 0, result
   warning = 'Initramfs generation may have failed'
@@ -151,7 +174,8 @@ sys.exit(int(os.environ.get('YAY_EXIT', '0')))
   print('ok - failed authorization prevents the privileged transaction')
   result, events = run({'BREAK_REVOKE': '1'})
   assert result.returncode != 0 and not any(event[0] == 'yay' for event in events)
-  print('ok - failed revocation prevents AUR execution')
+  assert not any(event[0] == 'monarch-hook' for event in events)
+  print('ok - failed revocation prevents user hooks and AUR execution')
   (fixture / 'fail-revoke').unlink()
   (fixture / 'entered').unlink(missing_ok=True)
   proc = subprocess.Popen([str(tools / 'monarch-update'), '-y'], env={**env, 'BLOCK': '1'}, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
@@ -174,11 +198,14 @@ sys.exit(int(os.environ.get('YAY_EXIT', '0')))
   print('ok - SIGTERM revokes authorization and frees the update lock')
   poison = fixture / 'poison'
   executable(fixture / 'bash-env', 'touch ' + str(poison) + '\n')
-  subprocess.run([str(wrapper), '/usr/bin/true'], env={**env, 'BASH_ENV': str(fixture / 'bash-env')}, check=True)
+  startup_env = {**env, 'BASH_ENV': str(fixture / 'bash-env'),
+    'BASH_FUNC_exec%%': '() { touch ' + str(poison) + '; }'}
+  subprocess.run([str(wrapper), '/usr/bin/true'], env=startup_env, check=True)
   assert not poison.exists()
-  unsafe = subprocess.run(['bash', str(wrapper), '/usr/bin/true'], env=env, capture_output=True)
+  unsafe = subprocess.run(['bash', str(wrapper), '/usr/bin/true'], env=startup_env, capture_output=True)
   assert unsafe.returncode == 126
-  print('ok - the no-update sudo wrapper rejects unsafe shell startup')
+  assert poison.exists(), 'BASH_ENV must demonstrate execution before the in-script guard'
+  print('ok - the no-update sudo wrapper suppresses startup hooks and imported functions before its guard')
   modules = fixture / 'modules/running'
   modules.mkdir(parents=True)
   (modules / 'vmlinuz').touch()

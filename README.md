@@ -14,9 +14,10 @@ Monarch is a fork of [Omarchy](https://omarchy.org). The `monarch` CLI and the i
 ## Updates
 
 `monarch update` authenticates sudo once for the system steps and keeps that
-authorization alive during long downloads, reconciliation, hooks and service
-restarts. AUR updates run last, after the authorization is revoked; their sudo
-calls authenticate without renewing the credential cache. Cleanup revokes sudo
+authorization alive during long downloads, reconciliation and service restarts.
+User hooks and then AUR updates run after the authorization is revoked; their
+ordinary sudo calls authenticate without renewing the credential cache. Any
+authorization created by a hook is revoked again before AUR. Cleanup revokes sudo
 and releases sleep inhibition on completion, failure or interruption.
 
 `monarch update -y` skips Monarch confirmation prompts, but sudo authentication

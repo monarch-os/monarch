@@ -72,8 +72,8 @@ monarch-update-keyring
 monarch-update-system-pkgs
 monarch-reconcile
 monarch-update-orphan-pkgs
-monarch-hook
 monarch-update-restart
+monarch-hook
 monarch-update-aur-pkgs
 monarch-update-stay-awake
 monarch-update-analyze-logs
