@@ -125,13 +125,17 @@ pass "SDDM-only apply isolates its single recoloring operation"
 cp "$MONARCH_UNLOCK_TEST_ROOT/usr/bin/magick" "$TMP_ROOT/magick.good"
 cat >"$MONARCH_UNLOCK_TEST_ROOT/usr/bin/magick" <<'EOF'
 #!/bin/bash
-head -c "$((MONARCH_UNLOCK_TEST_MAX_ASSET_SIZE * 2))" /dev/zero
+# Keep the write-limit failure while avoiding an expected crash notification.
+trap '' XFSZ
+exec head -c "$((MONARCH_UNLOCK_TEST_MAX_ASSET_SIZE * 2))" /dev/zero
 EOF
 chmod +x "$MONARCH_UNLOCK_TEST_ROOT/usr/bin/magick"
 before=$(sha256sum "$plymouth/monarch.script" "$plymouth/bullet.png" "$sddm/logo.png")
-if "$ROOT/bin/monarch-plymouth-apply" Monarch >/dev/null 2>&1; then
+if "$ROOT/bin/monarch-plymouth-apply" Monarch >/dev/null 2>"$TMP_ROOT/oversized-render.log"; then
   fail "publication accepts renderer output beyond its write-time limit"
 fi
+grep -q 'File too large' "$TMP_ROOT/oversized-render.log" ||
+  fail "oversized renderer fails for a reason other than the write-time limit"
 after=$(sha256sum "$plymouth/monarch.script" "$plymouth/bullet.png" "$sddm/logo.png")
 [[ $before == "$after" ]] || fail "oversized rendering published a partial theme"
 mv "$TMP_ROOT/magick.good" "$MONARCH_UNLOCK_TEST_ROOT/usr/bin/magick"
