@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# monarch:summary=Enable or disable an agent's usage collection and panel entry
+# monarch:args=<enable|disable|status> <agent>
+# monarch:examples=monarch agent usage disable claude | monarch agent usage enable claude | monarch agent usage status claude
+
+if (( $# != 2 )) || [[ ! $2 =~ ^[a-z][a-z0-9-]*$ ]]; then
+  echo "Usage: monarch agent usage <enable|disable|status> <agent>" >&2
+  exit 1
+fi
+
+action=$1
+agent=$2
+disabled_dir="${XDG_STATE_HOME:-$HOME/.local/state}/monarch/agents/disabled"
+
+case $action in
+disable)
+  mkdir -p "$disabled_dir" && touch "$disabled_dir/$agent" || exit 1
+  ;;
+enable)
+  rm -f -- "$disabled_dir/$agent" || exit 1
+  ;;
+status) ;;
+*)
+  echo "Usage: monarch agent usage <enable|disable|status> <agent>" >&2
+  exit 1
+  ;;
+esac
+
+if [[ -e $disabled_dir/$agent ]]; then
+  echo "$agent: disabled"
+else
+  echo "$agent: enabled"
+fi

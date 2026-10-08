@@ -50,13 +50,18 @@ local function readRecords(): { any }
   table.sort(names)
 
   local records = {}
+  local disabled: { [string]: boolean } = {}
+  for _, id in ipairs(agents.disabledAgents()) do
+    disabled[id] = true
+  end
   for _, name in ipairs(names) do
     local content = noctalia.readFile(dir .. "/" .. name)
     if content then
       local parsed = noctalia.json.decode(content)
       -- Only "ready" records can be drawn; a half-written one is skipped
       -- rather than rendered as zeroes.
-      if type(parsed) == "table" and parsed.ready == true then
+      if type(parsed) == "table" and parsed.ready == true
+        and not disabled[string.sub(name, 1, -6)] and not disabled[tostring(parsed.id or "")] then
         table.insert(records, parsed)
       end
     end
@@ -101,6 +106,11 @@ local function collect(kind: string, ids: { string }?)
     table.insert(parts, "--force")
   elseif kind == "limits" then
     table.insert(parts, "--limits-only")
+  end
+  -- Older installed collectors accept --except before they understand persistent markers.
+  for _, id in ipairs(agents.disabledAgents()) do
+    table.insert(parts, "--except")
+    table.insert(parts, agents.shellQuote(id))
   end
   for _, id in ipairs(ids or {}) do
     table.insert(parts, agents.shellQuote(id))
