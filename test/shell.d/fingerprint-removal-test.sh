@@ -41,9 +41,18 @@ case $1 in
   *) exit 99 ;;
 esac
 STUB
-for command in noctalia monarch-pkg-drop; do
+cat >"$test_tmp/bin/runuser" <<'STUB'
+#!/bin/bash
+printf '%s\n' "runuser $*" >>"$CALL_LOG"
+[[ $1 == -u && $2 == alice && $3 == -- ]] || exit 1
+shift 3
+exec "$@"
+STUB
+for command in monarch-pkg-drop; do
   printf '#!/bin/bash\nprintf "%%s\\n" "%s $*" >>"$CALL_LOG"\n' "$command" >"$test_tmp/bin/$command"
 done
+printf '#!/bin/bash\nprintf "ipc %%s %%s %%s\\n" "$HOME" "${XDG_RUNTIME_DIR:-}" "$*" >> %q\n' \
+  "$CALL_LOG" >"$test_tmp/bin/noctalia"
 chmod +x "$test_tmp/bin/"*
 python3 - "$ROOT/bin/monarch-remove-security-fingerprint" "$test_tmp/remove" "$test_tmp" "$system_root" <<'PY'
 from pathlib import Path
@@ -51,6 +60,7 @@ import sys
 source, target, temp, system = sys.argv[1:]
 s = Path(source).read_text().replace('EUID', 'FIXTURE_EUID')
 s = s.replace('/usr/bin/fprintd-delete', 'fprintd-delete')
+s = s.replace('/usr/bin/runuser', 'runuser').replace('/usr/bin/noctalia', temp + '/bin/noctalia')
 s = s.replace('/usr/bin/id', temp + '/bin/id').replace('/usr/bin/getent', temp + '/bin/getent')
 for path in ('/etc/pam.d/', '/usr/local/bin/', '/var/lib/fprint/'):
   s = s.replace(path, system + path)
@@ -81,6 +91,9 @@ bash "$test_tmp/remove" >/dev/null
 [[ $(cat "$system_root/etc/pam.d/sudo") == 'auth include system-auth' ]] ||
   fail "successful teardown does not retain the password fallback"
 device_line=$(grep -n '^device-delete alice$' "$CALL_LOG" | head -1 | cut -d: -f1)
+grep -q '^runuser -u alice -- /usr/bin/env -i ' "$CALL_LOG" || fail "sudo teardown reloads Noctalia as root"
+grep -qxF "ipc $test_tmp/alice /run/user/1001 msg config-reload" "$CALL_LOG" ||
+  fail "sudo teardown reloads Noctalia outside the invoking user's runtime"
 rm_line=$(grep -n "^rm -rf -- $system_root/var/lib/fprint/alice$" "$CALL_LOG" | cut -d: -f1)
 pkg_line=$(grep -n '^monarch-pkg-drop ' "$CALL_LOG" | cut -d: -f1)
 (( device_line < rm_line && rm_line < pkg_line )) || fail "fingerprint packages are removed before saved prints"
@@ -90,8 +103,11 @@ mkdir -p "$system_root/var/lib/fprint/alice" "$test_tmp/alice/.config/noctalia" 
   "$test_tmp/alice/.local/state/monarch"
 touch "$SENSOR_ROOT/alice/print" "$system_root/var/lib/fprint/alice/print" "$test_tmp/alice/.config/noctalia/monarch-fingerprint.toml" \
   "$test_tmp/alice/.local/state/monarch/fingerprint-enabled"
+: >"$CALL_LOG"
 FIXTURE_EUID=1000 bash "$test_tmp/remove" >/dev/null
 [[ ! -e $system_root/var/lib/fprint/alice && ! -e $test_tmp/alice/.config/noctalia/monarch-fingerprint.toml && \
   ! -e $test_tmp/alice/.local/state/monarch/fingerprint-enabled && -f $system_root/var/lib/fprint/bob/print ]] ||
   fail "ordinary teardown does not clean the caller's home and saved prints"
+! grep -q '^runuser ' "$CALL_LOG" || fail "ordinary teardown unnecessarily switches users"
+grep -q ' msg config-reload$' "$CALL_LOG" || fail "ordinary teardown omits the Noctalia reload"
 pass "ordinary teardown uses the account's home despite misleading HOME, USER and SUDO_UID"

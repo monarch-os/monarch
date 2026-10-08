@@ -52,7 +52,13 @@ remove_noctalia_lockscreen() {
   # is gone. Dropping the file is the whole revert: lockscreen.fingerprint is
   # only ever set there, so the merged config falls back to the v5 default.
   rm -f "$fingerprint_home/.config/noctalia/monarch-fingerprint.toml"
-  noctalia msg config-reload >/dev/null 2>&1 || true
+  if (( EUID == 0 )) && [[ -v SUDO_UID ]]; then
+    /usr/bin/runuser -u "$fingerprint_user" -- /usr/bin/env -i \
+      HOME="$fingerprint_home" XDG_RUNTIME_DIR="/run/user/$SUDO_UID" \
+      /usr/bin/noctalia msg config-reload >/dev/null 2>&1 || true
+  else
+    noctalia msg config-reload >/dev/null 2>&1 || true
+  fi
 }
 
 remove_fingerprint_marker() {
