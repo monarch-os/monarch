@@ -6,9 +6,9 @@ set -e
 
 echo -e "\e[32mUpdate Monarch\e[0m"
 
-monarch-update-time
+[[ ${1:-} == "--source-only" ]] || monarch-update-time
 
-if [[ ! -d $MONARCH_PATH/.git ]]; then
+if [[ ! -e $MONARCH_PATH/.git ]]; then
   echo "Monarch is managed by pacman; skipping source update."
   exit 0
 fi

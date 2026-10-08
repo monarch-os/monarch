@@ -39,7 +39,7 @@ run_update() {
   MONARCH_UPDATE_LOGGED=1 \
   PATH="$stub_bin:$ROOT/bin:$PATH" \
   STEP_LOG="$test_tmp/steps" \
-  MONARCH_PATH="$ROOT" \
+  MONARCH_PATH="${TEST_SOURCE_ROOT:-$test_tmp/runtime-tree}" \
     "$update_script" "$@"
 }
 
@@ -223,12 +223,13 @@ write_stub df 'printf "Avail\n%s\n" "$TEST_AVAILABLE_BYTES"'
 write_stub monarch-update-pkg-prune 'printf "%s unattended=%s args=%s\n" "${0##*/}" "${MONARCH_UPDATE_UNATTENDED:-}" "$*" >>"$STEP_LOG"'
 write_stub monarch-snapshot 'printf "%s unattended=%s args=%s\n" "${0##*/}" "${MONARCH_UPDATE_UNATTENDED:-}" "$*" >>"$STEP_LOG"'
 : >"$test_tmp/steps"
-TEST_AVAILABLE_BYTES=$((12 * 1024 * 1024 * 1024)) run_update -y --branch dev >/dev/null
+mkdir -p "$test_tmp/source/.git"
+TEST_SOURCE_ROOT="$test_tmp/source" TEST_AVAILABLE_BYTES=$((12 * 1024 * 1024 * 1024)) run_update -y --branch dev >/dev/null
 preflight_line=$(grep -n '^monarch-update-requires-free-space ' "$test_tmp/steps" | cut -d: -f1)
 switch_line=$(grep -n '^monarch-update-switch-branch ' "$test_tmp/steps" | cut -d: -f1)
 snapshot_line=$(grep -n '^monarch-snapshot ' "$test_tmp/steps" | cut -d: -f1)
-(( preflight_line < snapshot_line && snapshot_line < switch_line )) ||
-  fail "branch update mutates before preflight and snapshot"
+(( preflight_line < switch_line && switch_line < snapshot_line )) ||
+  fail "branch update must follow preflight and precede system authorization"
 grep -q '^monarch-update-switch-branch .*args=dev$' "$test_tmp/steps" ||
   fail "branch update does not forward its selected branch"
 pass "branch updates enter the common transaction before mutating Git state"

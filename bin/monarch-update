@@ -7,10 +7,14 @@
 
 set -e
 
+if [[ -z $MONARCH_UPDATE_SOURCE_ROOT && -e ${MONARCH_PATH:-}/.git ]]; then
+  export MONARCH_UPDATE_SOURCE_ROOT="$MONARCH_PATH"
+fi
+
 bash_startup_options=()
 while IFS= read -r -d '' entry; do
   case $entry in
-    MONARCH_UPDATE_LOGGED=* | MONARCH_UPDATE_LOCKED=* | MONARCH_UPDATE_USER_PATH=* | MONARCH_UPDATE_FORCE=*) ;;
+    MONARCH_UPDATE_LOGGED=* | MONARCH_UPDATE_LOCKED=* | MONARCH_UPDATE_USER_PATH=* | MONARCH_UPDATE_SOURCE_ROOT=* | MONARCH_UPDATE_FORCE=*) ;;
     MONARCH_*=*)
       bash_startup_options+=(-u "${entry%%=*}")
       ;;
@@ -51,6 +55,12 @@ require_trusted_runtime() {
 
 update_entry=$(/usr/bin/readlink -e -- "${BASH_SOURCE[0]}")
 runtime_root=${update_entry%/bin/monarch-update}
+if [[ -e $runtime_root/.git ]]; then
+  export MONARCH_UPDATE_SOURCE_ROOT="$runtime_root"
+  runtime_root=/usr/share/monarch
+  require_trusted_runtime || { echo "Source updates require a trusted packaged runtime." >&2; exit 1; }
+  exec /bin/bash -p "$runtime_root/bin/monarch-update" "$@"
+fi
 if [[ $runtime_root == "$update_entry" ]] || ! require_trusted_runtime; then
   echo "Updates require a packaged, root-owned runtime with no user-writable code or parent directories." >&2
   exit 1
@@ -104,6 +114,8 @@ if ! monarch-update-lock held; then
 fi
 unset MONARCH_UPDATE_LOCKED
 unset MONARCH_UPDATE_SUDO_SESSION MONARCH_SUDO_NO_UPDATE
+source_root=${MONARCH_UPDATE_SOURCE_ROOT:-$runtime_root}
+unset MONARCH_UPDATE_SOURCE_ROOT
 
 sudo_wrapper="$runtime_root/default/monarch/sudo-no-update/sudo"
 sudo_keepalive_pid=""
@@ -165,12 +177,19 @@ trap 'exit 143' TERM
 [[ $unattended == "false" ]] || export MONARCH_UPDATE_UNATTENDED=1
 
 if [[ $unattended == "true" ]] || "$runtime_root/bin/monarch-update-confirm"; then
+  if [[ -n $branch ]]; then
+    PATH="${sudo_wrapper%/*}:$runtime_root/bin:$user_path" MONARCH_SUDO_NO_UPDATE=1 MONARCH_PATH="$source_root" "$runtime_root/bin/monarch-update-switch-branch" "$branch"
+    /usr/bin/sudo -k
+  fi
+  if [[ -e $source_root/.git ]]; then
+    PATH="${sudo_wrapper%/*}:$runtime_root/bin:$user_path" MONARCH_SUDO_NO_UPDATE=1 MONARCH_PATH="$source_root" "$runtime_root/bin/monarch-update-git" --source-only
+    /usr/bin/sudo -k
+  fi
   authorize_update
   "$runtime_root/bin/monarch-update-pkg-prune"
   "$runtime_root/bin/monarch-snapshot" create || (($? == 127)) ||
     echo -e "\e[33mContinuing the update without a snapshot.\e[0m" >&2
 
-  [[ -z $branch ]] || "$runtime_root/bin/monarch-update-switch-branch" "$branch"
   "$runtime_root/bin/monarch-update-stay-awake" start
   "$runtime_root/bin/monarch-update-git"
   "$runtime_root/bin/monarch-update-keyring"

@@ -72,7 +72,7 @@ else:
   mode = subprocess.check_output(['/usr/bin/stat', '-Lc', '%a', '--', str(path)], text=True).strip() if Path(__file__).parent in path.parents else '755'
   print(('1' if os.environ.get('UNTRUSTED_PARENT') else '0') + ' ' + mode)
 ''')
-  executable(tools / 'monarch-update', (root / 'bin/monarch-update').read_text().replace('/usr/bin/sudo', str(sudo)).replace('/usr/bin/sleep', str(trusted_sleep)).replace('/usr/bin/stat', str(trust_stat)).replace('-uid 0', '-uid ' + str(os.getuid())))
+  executable(tools / 'monarch-update', (root / 'bin/monarch-update').read_text().replace('/usr/bin/sudo', str(sudo)).replace('/usr/bin/sleep', str(trusted_sleep)).replace('/usr/bin/stat', str(trust_stat)).replace('-uid 0', '-uid ' + str(os.getuid())).replace('runtime_root=/usr/share/monarch', 'runtime_root=' + str(fixture / 'missing-packaged-runtime')))
   shutil.copy2(root / 'bin/monarch-update-lock', tools / 'monarch-update-lock')
   shutil.copy2(root / 'bin/monarch-update-aur-pkgs', tools / 'monarch-update-aur-pkgs')
   reconcile = trusted_root / 'install/reconcile'
@@ -174,13 +174,13 @@ sys.exit(int(os.environ.get('YAY_EXIT', '0')))
     PATH=str(tools) + ':' + str(root / 'bin') + ':' + os.environ['PATH'], SUDO_STATE=str(fixture / 'sudo-state'),
     EVENTS=str(fixture / 'events'), ENTERED=str(fixture / 'entered'), FAIL_REVOKE=str(fixture / 'fail-revoke'), KEEPALIVE_PIDS=str(fixture / 'keepalive-pids'), UPDATE_LOG=str(fixture / 'update.log'), HOOK_ESCALATED=str(fixture / 'hook-escalated'), HOOK_RUNS=str(fixture / 'hook-runs'), RESTART_RUNS=str(fixture / 'restart-runs'), REAL_RESTART=str(restart), SLEEP_POISON=str(fixture / 'sleep-poison'), HELPER_POISON=str(fixture / 'helper-poison'))
 
-  def run(extra=None):
+  def run(extra=None, args=None, entry=None):
     (fixture / 'update.log').write_text('')
     for name in ('sudo-state', 'events', 'entered', 'fail-revoke', 'keepalive-pids', 'hook-escalated', 'hook-runs', 'restart-runs', 'sleep-poison', 'helper-poison'):
       (fixture / name).unlink(missing_ok=True)
     for marker in ('restart-a-example-required', 'restart-pwn-required'):
       (state / marker).touch()
-    result = subprocess.run([str(tools / 'monarch-update'), '-y'], env={**env, **(extra or {})}, capture_output=True, text=True, timeout=15)
+    result = subprocess.run([str(entry or tools / 'monarch-update'), '-y', *(args or [])], env={**env, **(extra or {})}, capture_output=True, text=True, timeout=15)
     events = [json.loads(line) for line in (fixture / 'events').read_text().splitlines()] if (fixture / 'events').exists() else []
     assert not (fixture / 'hook-escalated').exists(), 'a user hook or dynamic restart inherited authorization'
     if not ((extra or {}).get('BREAK_REVOKE') or (extra or {}).get('FAIL_RESTART_REVOKE')):
@@ -225,6 +225,44 @@ sys.exit(int(os.environ.get('YAY_EXIT', '0')))
     assert not (fixture / 'helper-poison').exists(), 'Python loaded user code during update authorization'
     assert 'CUSTOM = "kept"' in work_config.read_text() and '_.path = []' in work_config.read_text()
   print('ok - real mise reconciliation ignores PYTHONPATH and user site modules while preserving custom settings')
+  source = fixture / 'source'
+  source.mkdir()
+  git_env = {**env, 'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': '/dev/null'}
+  def git(*args):
+    subprocess.run(['/usr/bin/git', '-C', str(source), *args], env=git_env, check=True, capture_output=True)
+  git('init', '-b', 'main')
+  git('config', 'user.name', 'Update fixture')
+  git('config', 'user.email', 'fixture@example.invalid')
+  (source / 'tracked').write_text('source\n')
+  git('add', 'tracked')
+  git('commit', '-m', 'fixture')
+  git('branch', 'dev')
+  remote = fixture / 'source-remote'
+  subprocess.run(['/usr/bin/git', 'init', '--bare', str(remote)], env=git_env, check=True, capture_output=True)
+  git('remote', 'add', 'origin', str(remote))
+  git('push', '-u', 'origin', 'main', 'dev')
+  source_probe = '#!/bin/bash\n[[ ! -e $SUDO_STATE && -z ${MONARCH_UPDATE_SUDO_SESSION:-} ]] || touch "$HELPER_POISON"\n"' + str(sudo) + '" -n /usr/bin/true && touch "$HELPER_POISON"\necho source >> "' + str(fixture / 'source-hooks') + '"\n'
+  executable(source / '.git/hooks/post-checkout', source_probe)
+  executable(user_bin / 'git', source_probe + 'exec /usr/bin/git "$@"\n')
+  executable(tools / 'monarch-update-time', '#!/bin/bash\n[[ ${MONARCH_UPDATE_SUDO_SESSION:-0} == 1 ]] || exit 19\n')
+  executable(tools / 'niri', '#!/bin/bash\nexit 0\n')
+  shutil.copy2(root / 'bin/monarch-update-git', tools / 'monarch-update-git')
+  shutil.copy2(root / 'bin/monarch-update-switch-branch', tools / 'monarch-update-switch-branch')
+  for checkout, branch in ((source, 'dev'), (fixture / 'source-worktree', 'main')):
+    if checkout != source:
+      git('worktree', 'add', str(checkout), branch)
+    (checkout / 'bin').mkdir()
+    source_entry = checkout / 'bin/monarch-update'
+    executable(source_entry, (tools / 'monarch-update').read_text().replace('runtime_root=' + str(fixture / 'missing-packaged-runtime'), 'runtime_root=' + str(trusted_root)))
+    result, events = run({'PATH': str(user_bin) + ':' + env['PATH'], 'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': '/dev/null'}, ['--branch', branch], source_entry)
+    assert result.returncode == 0, result
+    assert not (fixture / 'helper-poison').exists(), 'source Git inherited system authorization'
+    selected = subprocess.check_output(['/usr/bin/git', '-C', str(checkout), 'branch', '--show-current'], env=git_env, text=True).strip()
+    assert selected == branch, selected
+    assert sum(event[0] == 'sudo' and event[2] == ['/usr/bin/true'] for event in events) == 1
+  assert (fixture / 'source-hooks').exists(), 'source hooks did not exercise the cold authorization boundary'
+  executable(tools / 'monarch-update-git', script)
+  print('ok - source checkout and worktree updates switch and pull without sudo, then authenticate once in the packaged runtime')
   for extra in ({'UNTRUSTED_OWNER': '1'}, {'UNTRUSTED_PARENT': '1'}):
     result, events = run(extra)
     assert result.returncode != 0 and all(event[0] == 'sudo' and event[2] == ['-k'] for event in events), result
@@ -253,7 +291,7 @@ sys.exit(int(os.environ.get('YAY_EXIT', '0')))
     assert result.returncode != 0 and all(event[0] == 'sudo' and event[2] == ['-k'] for event in events), result
   finally:
     (trusted_root / 'unsafe-link').unlink()
-  print('ok - Git checkouts and symlinks through writable parents fail before authentication')
+  print('ok - source checkouts without a trusted package and symlinks through writable parents fail before authentication')
   result, events = run({'POISON_PATH_SLEEP': '1'})
   assert result.returncode == 0, result
   assert not (fixture / 'sleep-poison').exists(), 'PATH sleep reused update authorization'
