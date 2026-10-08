@@ -125,11 +125,12 @@ if [[ $unattended == "true" ]] || monarch-update-confirm; then
   monarch-update-system-pkgs
   monarch-reconcile
   monarch-update-orphan-pkgs
-  monarch-update-restart --services-only
 
-  # User hooks and AUR builds must not inherit the system phase's authorization.
+  # User-selected restarts, hooks and AUR builds must not inherit system authorization.
   end_update_authorization
   [[ -x $sudo_wrapper ]] || { echo "The update removed the no-update sudo wrapper." >&2; exit 1; }
+  PATH="${sudo_wrapper%/*}:$PATH" MONARCH_SUDO_NO_UPDATE=1 MONARCH_PATH="$runtime_root" monarch-update-restart --services-only
+  /usr/bin/sudo -k
   PATH="${sudo_wrapper%/*}:$PATH" MONARCH_SUDO_NO_UPDATE=1 MONARCH_PATH="$runtime_root" monarch-hook post-update
   /usr/bin/sudo -k
   PATH="${sudo_wrapper%/*}:$PATH" MONARCH_SUDO_NO_UPDATE=1 MONARCH_PATH="$runtime_root" monarch-update-aur-pkgs

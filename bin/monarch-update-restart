@@ -14,7 +14,7 @@ confirm_reboot() {
     echo "$1 Run monarch system reboot when ready."
   elif gum confirm "$1"; then
     monarch-system-reboot
-    exit 0
+    exit $?
   fi
 }
 
@@ -53,8 +53,16 @@ if [[ $mode != "--reboot-only" ]]; then
       filename=$(basename "$file")
       service=$(echo "$filename" | sed 's/restart-\(.*\)-required/\1/')
       echo "Restarting $service"
-      monarch-state clear "$filename"
+      if [[ ${MONARCH_SUDO_NO_UPDATE:-0} == "1" ]]; then
+        /usr/bin/sudo -k || exit $?
+      fi
       monarch-restart-"$service"
+      restart_status=$?
+      if [[ ${MONARCH_SUDO_NO_UPDATE:-0} == "1" ]]; then
+        /usr/bin/sudo -k || exit $?
+      fi
+      (( restart_status == 0 )) || exit "$restart_status"
+      monarch-state clear "$filename" || exit $?
     fi
   done
 fi

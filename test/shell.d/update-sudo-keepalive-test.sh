@@ -49,14 +49,22 @@ noninteractive = bool(args and args[0] == '-n')
 if noninteractive: args.pop(0)
 valid = state.exists() and time.monotonic() - float(state.read_text()) < 0.3
 if noninteractive and not valid: sys.exit(1)
-if not no_update: state.write_text(str(time.monotonic()))
+if not no_update:
+  temporary = state.with_name(state.name + '.' + str(os.getpid()))
+  temporary.write_text(str(time.monotonic()))
+  temporary.replace(state)
 sys.exit(subprocess.call(args))
 ''')
   executable(wrapper, (root / 'default/monarch/sudo-no-update/sudo').read_text().replace('/usr/bin/sudo', str(sudo)))
   executable(tools / 'monarch-update', (root / 'bin/monarch-update').read_text().replace('/usr/bin/sudo', str(sudo)))
   shutil.copy2(root / 'bin/monarch-update-lock', tools / 'monarch-update-lock')
   shutil.copy2(root / 'bin/monarch-update-aur-pkgs', tools / 'monarch-update-aur-pkgs')
-  executable(tools / 'sleep', '#!/bin/bash\nif [[ $1 == 60 ]]; then printf "%s %s\\n" "$$" "$PPID" >> "$KEEPALIVE_PIDS"; exec /usr/bin/sleep 0.05; fi\nexec /usr/bin/sleep "$@"\n')
+  restart = tools / 'real-restart'
+  executable(restart, (root / 'bin/monarch-update-restart').read_text().replace('/usr/bin/sudo', str(sudo)).replace('/usr/lib/modules', str(fixture / 'modules')))
+  state = home / '.local/state/monarch'
+  state.mkdir(parents=True)
+  executable(tools / 'monarch-state', '#!/bin/bash\nrm -f "$HOME/.local/state/monarch/$2"\n')
+  executable(tools / 'sleep', '#!/bin/bash\nif [[ $1 == 60 ]]; then printf "%s\\n" "$$" >> "$KEEPALIVE_PIDS"; (( PPID == 1 )) || printf "%s\\n" "$PPID" >> "$KEEPALIVE_PIDS"; exec /usr/bin/sleep 0.05; fi\nexec /usr/bin/sleep "$@"\n')
   steps = ('requires-free-space', 'pkg-prune', 'git', 'keyring', 'system-pkgs', 'orphan-pkgs', 'stay-awake', 'restart')
   script = '''#!/usr/bin/python3
 import json, os, subprocess, sys, time
@@ -67,10 +75,14 @@ if name == os.environ.get('FAIL_STAGE'): sys.exit(17)
 if name == 'monarch-update-system-pkgs':
   Path(os.environ['ENTERED']).touch()
   time.sleep(10 if os.environ.get('BLOCK') else 0.7)
-if name == 'monarch-reconcile' or (name == 'monarch-update-restart' and '--services-only' in sys.argv):
+if name == 'monarch-reconcile':
   assert os.environ.get('MONARCH_UPDATE_SUDO_SESSION') == '1'
   if os.environ.get('BREAK_REVOKE'): Path(os.environ['FAIL_REVOKE']).touch()
   sys.exit(subprocess.call(['sudo', '-n', '/usr/bin/true']))
+if name == 'monarch-update-restart' and '--services-only' in sys.argv:
+  assert not Path(os.environ['SUDO_STATE']).exists()
+  assert 'MONARCH_UPDATE_SUDO_SESSION' not in os.environ
+  sys.exit(subprocess.call([os.environ['REAL_RESTART'], '--services-only']))
 if name == 'monarch-update-restart' and '--reboot-only' in sys.argv:
   assert not Path(os.environ['SUDO_STATE']).exists()
   assert 'MONARCH_UPDATE_SUDO_SESSION' not in os.environ
@@ -95,6 +107,8 @@ echo hook >> "$HOOK_RUNS"
   (hooks / 'post-update').write_text(hook_probe)
   (hooks / 'post-update.d/01-probe').write_text(hook_probe + '\nif [[ ${HOOK_REAUTHORIZE:-0} == 1 ]]; then "' + str(sudo) + '" /usr/bin/true; fi\n')
   (hooks / 'post-update.d/02-skip.sample').write_text('touch "$HOOK_ESCALATED"\n')
+  executable(tools / 'monarch-restart-a-example', '#!/bin/bash\nsudo /usr/bin/true\necho service >> "$RESTART_RUNS"\nif [[ ${RESTART_REAUTHORIZE:-0} == 1 ]]; then "' + str(sudo) + '" /usr/bin/true; fi\n[[ ${FAIL_RESTART_REVOKE:-0} != 1 ]] || touch "$FAIL_REVOKE"\nexit "${RESTART_EXIT:-0}"\n')
+  executable(tools / 'monarch-restart-pwn', '#!/bin/bash\n' + hook_probe.replace('echo hook >> "$HOOK_RUNS"', 'echo restart >> "$RESTART_RUNS"'))
   executable(tools / 'monarch-update-analyze-logs', (root / 'bin/monarch-update-analyze-logs').read_text().replace(
     'update_log="/tmp/monarch-update.log"', 'update_log="$UPDATE_LOG"\n[[ -z ${MONARCH_UPDATE_SUDO_SESSION:-} && ! -e $SUDO_STATE ]] || exit 18'))
   executable(tools / 'pacman', '#!/bin/bash\nexit 0\n')
@@ -119,16 +133,18 @@ sys.exit(int(os.environ.get('YAY_EXIT', '0')))
   env = {key: value for key, value in os.environ.items() if key not in ('BASH_ENV', 'ENV', 'MONARCH_UPDATE_LOCKED', 'MONARCH_UPDATE_SUDO_SESSION', 'MONARCH_SUDO_NO_UPDATE')}
   env.update(HOME=str(home), MONARCH_PATH=str(fixture), MONARCH_UPDATE_LOGGED='1', XDG_RUNTIME_DIR=str(runtime),
     PATH=str(tools) + ':' + str(root / 'bin') + ':' + os.environ['PATH'], SUDO_STATE=str(fixture / 'sudo-state'),
-    EVENTS=str(fixture / 'events'), ENTERED=str(fixture / 'entered'), FAIL_REVOKE=str(fixture / 'fail-revoke'), KEEPALIVE_PIDS=str(fixture / 'keepalive-pids'), UPDATE_LOG=str(fixture / 'update.log'), HOOK_ESCALATED=str(fixture / 'hook-escalated'), HOOK_RUNS=str(fixture / 'hook-runs'))
+    EVENTS=str(fixture / 'events'), ENTERED=str(fixture / 'entered'), FAIL_REVOKE=str(fixture / 'fail-revoke'), KEEPALIVE_PIDS=str(fixture / 'keepalive-pids'), UPDATE_LOG=str(fixture / 'update.log'), HOOK_ESCALATED=str(fixture / 'hook-escalated'), HOOK_RUNS=str(fixture / 'hook-runs'), RESTART_RUNS=str(fixture / 'restart-runs'), REAL_RESTART=str(restart))
 
   def run(extra=None):
     (fixture / 'update.log').write_text('')
-    for name in ('sudo-state', 'events', 'entered', 'fail-revoke', 'keepalive-pids', 'hook-escalated', 'hook-runs'):
+    for name in ('sudo-state', 'events', 'entered', 'fail-revoke', 'keepalive-pids', 'hook-escalated', 'hook-runs', 'restart-runs'):
       (fixture / name).unlink(missing_ok=True)
+    for marker in ('restart-a-example-required', 'restart-pwn-required'):
+      (state / marker).touch()
     result = subprocess.run([str(tools / 'monarch-update'), '-y'], env={**env, **(extra or {})}, capture_output=True, text=True, timeout=15)
     events = [json.loads(line) for line in (fixture / 'events').read_text().splitlines()]
-    assert not (fixture / 'hook-escalated').exists(), 'a user hook inherited update authorization'
-    if not (extra or {}).get('BREAK_REVOKE'):
+    assert not (fixture / 'hook-escalated').exists(), 'a user hook or dynamic restart inherited authorization'
+    if not ((extra or {}).get('BREAK_REVOKE') or (extra or {}).get('FAIL_RESTART_REVOKE')):
       assert not (fixture / 'sudo-state').exists(), result
     sudo_pids = {event[1] for event in events if event[0] == 'sudo'}
     time.sleep(0.1)
@@ -146,9 +162,25 @@ sys.exit(int(os.environ.get('YAY_EXIT', '0')))
   stages = [event[0] for event in events]
   assert stages.index('monarch-update-orphan-pkgs') < stages.index('monarch-hook') < stages.index('yay')
   assert stages.index('monarch-update-restart') < stages.index('yay')
-  assert sum(event[0] == 'sudo' and event[2] == ['-N', '/usr/bin/true'] for event in events) == 4
+  assert sum(event[0] == 'sudo' and event[2] == ['-N', '/usr/bin/true'] for event in events) == 6
   print('ok - long updates share one authorization and AUR sudo calls never refresh it')
   assert (fixture / 'hook-runs').read_text() == 'hook\nhook\n'
+  assert (fixture / 'restart-runs').read_text() == 'service\nrestart\n'
+  result, events = run({'RESTART_REAUTHORIZE': '1'})
+  assert result.returncode == 0, result
+  assert (fixture / 'restart-runs').read_text() == 'service\nrestart\n'
+  print('ok - marker-driven restarts cannot inherit update or previous restart credentials')
+  result, events = run({'RESTART_EXIT': '29', 'RESTART_REAUTHORIZE': '1'})
+  assert result.returncode == 29, result
+  assert (state / 'restart-a-example-required').exists()
+  assert (fixture / 'restart-runs').read_text() == 'service\n'
+  assert not any(event[0] in ('monarch-hook', 'yay') for event in events)
+  result, events = run({'FAIL_RESTART_REVOKE': '1', 'RESTART_REAUTHORIZE': '1'})
+  assert result.returncode != 0, result
+  assert (fixture / 'restart-runs').read_text() == 'service\n'
+  assert (state / 'restart-a-example-required').exists()
+  assert not any(event[0] in ('monarch-hook', 'yay') for event in events)
+  print('ok - restart or revocation failures preserve pending markers and stop subsequent user code')
   result, events = run({'HOOK_REAUTHORIZE': '1'})
   assert result.returncode == 0, result
   assert (fixture / 'hook-runs').read_text() == 'hook\nhook\n'
@@ -209,14 +241,13 @@ sys.exit(int(os.environ.get('YAY_EXIT', '0')))
   modules = fixture / 'modules/running'
   modules.mkdir(parents=True)
   (modules / 'vmlinuz').touch()
-  restart = tools / 'real-restart'
-  executable(restart, (root / 'bin/monarch-update-restart').read_text().replace('/usr/lib/modules', str(fixture / 'modules')))
   executable(tools / 'uname', '#!/bin/bash\necho running\n')
-  executable(tools / 'gum', '#!/bin/bash\necho prompt >> "$RESTART_LOG"\nexit 1\n')
+  executable(tools / 'gum', '#!/bin/bash\necho prompt >> "$RESTART_LOG"\nexit "${GUM_STATUS:-1}"\n')
+  executable(tools / 'monarch-system-reboot', '#!/bin/bash\necho reboot >> "$RESTART_LOG"\nexit "${REBOOT_STATUS:-0}"\n')
   executable(tools / 'monarch-restart-example', '#!/bin/bash\necho service >> "$RESTART_LOG"\n')
   executable(tools / 'monarch-state', '#!/bin/bash\nrm -f "$HOME/.local/state/monarch/$2"\n')
-  state = home / '.local/state/monarch'
-  state.mkdir(parents=True)
+  for marker in ('restart-a-example-required', 'restart-pwn-required'):
+    (state / marker).unlink(missing_ok=True)
   (state / 'restart-example-required').touch()
   (state / 'reboot-required').touch()
   restart_log = fixture / 'restart-log'
@@ -228,4 +259,10 @@ sys.exit(int(os.environ.get('YAY_EXIT', '0')))
   assert (state / 'restart-example-required').exists()
   assert restart_log.read_text() == 'service\n'
   print('ok - service restarts are separate and unattended reboot checks never prompt')
+  for status in (27, 0):
+    restart_log.write_text('')
+    result = subprocess.run([str(restart), '--reboot-only'], env={**restart_env, 'MONARCH_UPDATE_UNATTENDED': '0', 'GUM_STATUS': '0', 'REBOOT_STATUS': str(status)}, capture_output=True)
+    assert result.returncode == status, result
+    assert restart_log.read_text() == 'prompt\nreboot\n'
+  print('ok - confirmed reboot scheduling preserves both failure and success status')
 PY
