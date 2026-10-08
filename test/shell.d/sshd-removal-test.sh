@@ -30,7 +30,9 @@ cat >"$test_tmp/bin/ufw" <<'EOF'
 #!/bin/bash
 printf 'ufw %s\n' "$*" >>"$CALL_LOG"
 case "$*" in
-  "--force delete limit 22/tcp" | "--force delete allow 22/tcp" | "--force delete allow 22")
+  "--force delete limit 22/tcp" | "--force delete allow 22/tcp" | "--force delete allow 22" | \
+    "--force delete allow ssh" | "--force delete limit ssh" | \
+    "--force delete allow to any app SSH" | "--force delete limit to any app SSH")
     rule=${*:3}
     if ! grep -qxF "$rule" "$RULES"; then
       exit 1
@@ -50,11 +52,13 @@ run_removal() {
     bash "$ROOT/bin/monarch-remove-security-sshd"
 }
 
-custom_rules=$'allow from 192.0.2.0/24 to any port 22 proto tcp\nallow 2222/tcp\nallow 443/tcp'
-for rule in 'limit 22/tcp' 'allow 22/tcp' 'allow 22' mixed absent; do
+standard_rules=('limit 22/tcp' 'allow 22/tcp' 'allow 22' 'allow ssh' 'limit ssh'
+  'allow to any app SSH' 'limit to any app SSH')
+custom_rules=$'allow from 192.0.2.0/24 to any port 22 proto tcp\nallow from 192.0.2.0/24 to any app SSH\nallow 2222/tcp\nallow 443/tcp'
+for rule in "${standard_rules[@]}" mixed absent; do
   printf '%s\n' "$custom_rules" >"$test_tmp/rules"
   case $rule in
-    mixed) printf '%s\n' 'limit 22/tcp' 'allow 22/tcp' 'allow 22' >>"$test_tmp/rules" ;;
+    mixed) printf '%s\n' "${standard_rules[@]}" >>"$test_tmp/rules" ;;
     absent) ;;
     *) printf '%s\n' "$rule" >>"$test_tmp/rules" ;;
   esac
@@ -68,6 +72,10 @@ for rule in 'limit 22/tcp' 'allow 22/tcp' 'allow 22' mixed absent; do
     fail "firewall not reloaded after deletion"
   [[ $(cat "$test_tmp/home/.ssh/authorized_keys") == "saved key" ]] ||
     fail "declined key removal changed authorized keys"
+  grep -qF 'Review custom firewall rules separately.' "$test_tmp/output" ||
+    fail "removal does not explain the scope of firewall cleanup"
+  ! grep -qF 'firewall port closed' "$test_tmp/output" ||
+    fail "removal claims custom SSH rules cannot leave the port open"
   pass "SSH removal handles $rule and preserves custom rules and keys"
 done
 
@@ -75,6 +83,8 @@ done
 UFW_AVAILABLE=0 run_removal >"$test_tmp/output" 2>&1 ||
   fail "missing UFW prevents disabling sshd"
 [[ $(cat "$test_tmp/calls") == "stop" ]] || fail "missing UFW still called the firewall"
+! grep -qF 'Standard SSH firewall rules removed.' "$test_tmp/output" ||
+  fail "missing UFW still reports firewall cleanup"
 pass "SSH removal works without UFW"
 
 if UFW_RELOAD_VALID=0 run_removal >"$test_tmp/output" 2>&1; then
@@ -82,4 +92,6 @@ if UFW_RELOAD_VALID=0 run_removal >"$test_tmp/output" 2>&1; then
 fi
 ! grep -qF 'The SSH server has been disabled' "$test_tmp/output" ||
   fail "failed firewall reload printed completion"
+! grep -qF 'Standard SSH firewall rules removed.' "$test_tmp/output" ||
+  fail "failed firewall reload reported successful cleanup"
 pass "SSH removal fails when the firewall cannot reload"
