@@ -5,6 +5,20 @@
 
 set -e
 
+if (( EUID == 0 )) && [[ -v SUDO_UID ]]; then
+  [[ $SUDO_UID =~ ^[0-9]+$ ]] || { echo "Cannot identify the invoking fingerprint user" >&2; exit 1; }
+  fingerprint_user=$(/usr/bin/id -nu "+$SUDO_UID")
+else
+  fingerprint_user=$(/usr/bin/id -un)
+fi
+[[ -n $fingerprint_user && $fingerprint_user != "." && $fingerprint_user != ".." &&
+  $fingerprint_user != */* ]] || { echo "Unsafe fingerprint user name" >&2; exit 1; }
+fingerprint_home=$(/usr/bin/getent passwd "$fingerprint_user" | cut -d: -f6)
+[[ $fingerprint_home == /* && $fingerprint_home != / ]] || {
+  echo "Cannot identify the fingerprint user's home" >&2
+  exit 1
+}
+
 
 remove_pam_config() {
   # The lid gate goes with pam_fprintd: on its own it would run a helper before
@@ -32,20 +46,22 @@ remove_noctalia_lockscreen() {
     sudo rm -f /etc/pam.d/noctalia
   fi
 
-  rm -f "$HOME/.config/environment.d/noctalia-fingerprint.conf"
+  rm -f "$fingerprint_home/.config/environment.d/noctalia-fingerprint.conf"
 
   # Restore the lock-screen auth defaults so it no longer waits on a sensor that
   # is gone. Dropping the file is the whole revert: lockscreen.fingerprint is
   # only ever set there, so the merged config falls back to the v5 default.
-  rm -f "$HOME/.config/noctalia/monarch-fingerprint.toml"
+  rm -f "$fingerprint_home/.config/noctalia/monarch-fingerprint.toml"
   noctalia msg config-reload >/dev/null 2>&1 || true
 }
 
 remove_fingerprint_marker() {
-  rm -f "$HOME/.local/state/monarch/fingerprint-enabled"
+  rm -f "$fingerprint_home/.local/state/monarch/fingerprint-enabled"
 }
 
 echo -e "\e[32mRemoving fingerprint scanner from authentication.\n\e[0m"
+
+sudo rm -rf -- "/var/lib/fprint/$fingerprint_user"
 
 remove_pam_config
 remove_noctalia_lockscreen
@@ -54,4 +70,4 @@ remove_fingerprint_marker
 echo "Removing fingerprint packages..."
 monarch-pkg-drop fprintd libfprint
 
-echo -e "\e[32mFingerprint authentication has been completely removed.\e[0m"
+echo -e "\e[32mFingerprint authentication and $fingerprint_user's saved fingerprints have been removed.\e[0m"

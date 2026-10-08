@@ -139,3 +139,4 @@ test/shell.d/quattro-first-batch-test.sh	upstream-sync	high	isolated
 test/shell.d/polkit-auth-test.sh	security	high	isolated
 test/shell.d/fingerprint-activation-test.sh	security	high	isolated
 test/shell.d/factory-account-scrub-test.sh	factory-reset	high	isolated
+test/shell.d/fingerprint-removal-test.sh	security	high	isolated
