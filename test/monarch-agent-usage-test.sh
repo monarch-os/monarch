@@ -254,6 +254,48 @@ class UsageTests(unittest.TestCase):
     self.assertEqual(record['limits'][0]['percent'], 0.25)
     self.assertFalse(record['limitsStale'])
 
+  def test_codex_failed_probe_preserves_last_known_quotas(self):
+    stamp = dt.datetime.now(dt.timezone.utc).isoformat()
+    reset = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=1)).isoformat()
+    live = dict(limits=[{'label': 'Session', 'percent': 0.95, 'resetsAt': reset}],
+      limitsFetchedAt=stamp, limitsStale=False, tierLabel='pro', usageStatusText='', authHelpText='')
+    failed = dict(limits=[], limitsFetchedAt='', limitsStale=True, tierLabel='',
+      usageStatusText='Codex limits unavailable', authHelpText='RPC timeout')
+    with patch.object(self.codex, 'fetch_codex_rpc', side_effect=[live, dict(failed)]):
+      self.assertEqual(self.codex.collect_limits(), live)
+      path = self.codex.limits_cache_path()
+      before = path.read_bytes()
+      retained = self.codex.collect_limits()
+    self.assertEqual(retained['limits'], live['limits'])
+    self.assertEqual(retained['limitsFetchedAt'], stamp)
+    self.assertEqual(retained['tierLabel'], 'pro')
+    self.assertTrue(retained['limitsStale'])
+    self.assertEqual(retained['authHelpText'], 'RPC timeout')
+    self.assertEqual(path.read_bytes(), before)
+    with patch.object(self.codex, 'fetch_codex_rpc', return_value=dict(failed)), \
+         patch.object(self.codex, 'cached_local_stats', return_value={'totalPrompts': 0}), \
+         patch.object(sys, 'argv', ['monarch-agent-usage-codex', '--force']), \
+         patch('sys.stdout', new_callable=io.StringIO) as output:
+      self.codex.main()
+      record = json.loads(output.getvalue())
+    self.assertTrue(record['ready'])
+    self.assertEqual(record['limitsFetchedAt'], stamp)
+    expired = dict(live)
+    expired['limits'] = [dict(live['limits'][0], resetsAt=(dt.datetime.now(dt.timezone.utc) - dt.timedelta(seconds=1)).isoformat())]
+    self.codex.write_json(path, expired)
+    with patch.object(self.codex, 'fetch_codex_rpc', return_value=dict(failed)):
+      elapsed = self.codex.collect_limits()
+    self.assertEqual(elapsed['limits'][0]['percent'], 0)
+    self.assertEqual(elapsed['limits'][0]['resetsAt'], '')
+    self.assertEqual(elapsed['limitsFetchedAt'], stamp)
+    with patch.dict(os.environ, {'CODEX_HOME': str(self.root / 'other-codex')}), \
+         patch.object(self.codex, 'fetch_codex_rpc', return_value=dict(failed)):
+      self.assertEqual(self.codex.collect_limits(), failed)
+    for payload in ('[]', '{broken', json.dumps({'limits': [None], 'limitsFetchedAt': stamp})):
+      path.write_text(payload)
+      with patch.object(self.codex, 'fetch_codex_rpc', return_value=dict(failed)):
+        self.assertEqual(self.codex.collect_limits(), failed)
+
   def usage_environment(self):
     runtime = self.root / 'runtime'
     (runtime / 'bin').mkdir(parents=True)

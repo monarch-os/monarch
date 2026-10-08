@@ -8,9 +8,10 @@ end
 
 local function loadLuau(text, environment)
   text = text:gsub(': {%s*[^}]+%s*}%??', '')
-    :gsub(': string%??', ''):gsub(': boolean', '')
+    :gsub(': string%??', ''):gsub(': boolean', ''):gsub(': number', ''):gsub(': any', '')
     :gsub('if type%(entry%) == "table" then entry.name else entry', '(type(entry) == "table" and entry.name or entry)')
     :gsub('if #advising > 0 then noctalia.nowMs%(%) %+ 30000 else 0', '(#advising > 0 and noctalia.nowMs() + 30000 or 0)')
+    :gsub('if plan ~= "" then name %.%. " · " %.%. plan else name', '(plan ~= "" and name .. " · " .. plan or name)')
   return assert(load(text, 'agents fixture', 't', environment))()
 end
 
@@ -62,3 +63,32 @@ environment.onIpc('refresh')
 assert(#state['agents.records'] == 3, 'reenabling must reveal retained records without deleting history')
 assert(not commands[3]:find('%-%-except'), 'reenabling must allow collection again')
 print('ok - agent preferences hide records and stop collection across refreshes')
+
+local mathWithClamp = setmetatable({clamp = function(value, low, high)
+  return math.max(low, math.min(high, value))
+end}, {__index = math})
+environment.math = mathWithClamp
+environment.M = agents
+agents.timestamp = function(value) return tonumber(value) end
+local percentFunction = read(root .. '/agents.luau'):match('(function M.limitPercent.-\nend)')
+loadLuau(percentFunction .. '\nreturn M', environment)
+local tooltip
+environment.barWidget = {
+  clearTooltip = function() tooltip = nil end,
+  setVisible = function() end,
+  setGlyph = function() end,
+  setGlyphColor = function() end,
+  setColor = function() end,
+  setTooltip = function(value) tooltip = value end,
+}
+noctalia.state.get = function(key) return state[key] end
+noctalia.state.watch = function() end
+state['agents.records'] = {{id = 'codex', limits = {
+  {label = 'Elapsed', percent = 0.95, resetsAt = '999'},
+  {label = 'Boundary', percent = 0.95, resetsAt = '1000'},
+  {label = 'Current', percent = 0.95, resetsAt = '1001'},
+}}}
+loadLuau(read(root .. '/widget.luau'), environment)
+assert(tooltip:find('Elapsed: 0%%') and tooltip:find('Boundary: 0%%') and tooltip:find('Current: 95%%'),
+  'the actual bar tooltip must normalize elapsed quotas without changing current ones')
+print('ok - bar tooltip applies quota expiry consistently')

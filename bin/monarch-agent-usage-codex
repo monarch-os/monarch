@@ -778,6 +778,49 @@ def fetch_codex_rpc():
   return result
 
 
+def limits_cache_path():
+  return cache_root() / f"codex-limits-{scan_cache_digest()}.json"
+
+
+def collect_limits():
+  result = fetch_codex_rpc()
+  path = limits_cache_path()
+  if not result["limitsStale"]:
+    try:
+      write_json(path, {key: result[key] for key in ("limits", "limitsFetchedAt", "tierLabel")})
+    except Exception as exc:
+      print(f"monarch-agent-usage-codex: could not write limits cache ({exc})", file=sys.stderr)
+    return result
+
+  try:
+    cached = json.loads(path.read_text(encoding="utf-8"))
+    fetched_at = datetime.fromisoformat(cached["limitsFetchedAt"].replace("Z", "+00:00"))
+    if fetched_at.tzinfo is None or not isinstance(cached["limits"], list):
+      return result
+    limits = []
+    now = datetime.now(timezone.utc)
+    for entry in cached["limits"]:
+      if not isinstance(entry, dict):
+        continue
+      percent = float(entry.get("percent"))
+      if not math.isfinite(percent) or not 0 <= percent <= 1:
+        continue
+      entry = dict(entry, percent=percent)
+      reset = entry.get("resetsAt")
+      if reset:
+        stamp = datetime.fromisoformat(reset.replace("Z", "+00:00"))
+        if stamp.tzinfo is None:
+          continue
+        if stamp <= now:
+          entry.update(percent=0.0, resetsAt="")
+      limits.append(entry)
+    if limits:
+      result.update(limits=limits, limitsFetchedAt=cached["limitsFetchedAt"], tierLabel=str(cached.get("tierLabel") or ""))
+  except (OSError, ValueError, TypeError, KeyError, AttributeError):
+    pass
+  return result
+
+
 def main():
   parser = argparse.ArgumentParser()
   # --force rescans everything and rewrites the cache. --limits-only is kept
@@ -791,7 +834,7 @@ def main():
 
   max_age = 0 if args.force else (LIMITS_ONLY_REUSE_SECONDS if args.limits_only else SCAN_REUSE_SECONDS)
   stats = cached_local_stats(max_age, use_file_cache=not args.force)
-  rpc = fetch_codex_rpc()
+  rpc = collect_limits()
 
   record = {
     "schemaVersion": 1,
