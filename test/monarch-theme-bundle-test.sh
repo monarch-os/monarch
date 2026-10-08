@@ -24,6 +24,22 @@ cat >"$TEST_ROOT/runtime/bin/monarch-theme-set-browser-policy" <<'EOF'
 exit 0
 EOF
 chmod +x "$TEST_ROOT/runtime/bin/monarch-theme-set-browser-policy"
+cat >"$TEST_ROOT/bin/pgrep" <<'EOF'
+#!/bin/bash
+[[ $* == '-x chromium' ]]
+EOF
+for command in chromium google-chrome-stable google-chrome microsoft-edge-stable brave brave-origin-beta; do
+  cat >"$TEST_ROOT/bin/$command" <<'EOF'
+#!/bin/bash
+printf '%s\n' "${0##*/} $*" >>"$HOME/browser-calls"
+EOF
+  chmod +x "$TEST_ROOT/bin/$command"
+done
+for command in asusctl qmk_hid; do
+  printf '#!/bin/bash\nexit 0\n' >"$TEST_ROOT/bin/$command"
+  chmod +x "$TEST_ROOT/bin/$command"
+done
+chmod +x "$TEST_ROOT/bin/pgrep"
 export PATH="$TEST_ROOT/bin:$PATH"
 
 make_theme() {
@@ -53,6 +69,14 @@ printf 'Aurora\n' >"$HOME/active-theme"
 listed=$(MONARCH_PATH="$TEST_ROOT/runtime" "$ROOT/bin/monarch-theme-list")
 [[ $listed == true$'\t'Aurora$'\t'aurora$'\t'"$MONARCH_THEME_BUNDLES_DIR/aurora/preview.png" ]]
 MONARCH_PATH="$TEST_ROOT/runtime" "$ROOT/bin/monarch-theme-apply"
+for ((attempt = 0; attempt < 50; attempt++)); do
+  [[ -s $HOME/browser-calls ]] && break
+  sleep 0.02
+done
+[[ $(cat "$HOME/browser-calls") == 'chromium --refresh-platform-policy --no-startup-window' ]] || {
+  echo "Theme application did not refresh the simulated Chromium process" >&2
+  exit 1
+}
 [[ $(readlink -f "$MONARCH_THEME_BACKGROUNDS_DIR/current/wallpaper.png") == "$MONARCH_THEME_BUNDLES_DIR/aurora/backgrounds/wallpaper.png" ]]
 
 mkdir -p "$MONARCH_THEME_BACKGROUNDS_DIR/aurora"
