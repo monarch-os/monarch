@@ -4,5 +4,4 @@
 # monarch:examples=monarch shutdown | monarch system shutdown
 # monarch:aliases=monarch shutdown
 
-noctalia msg session shutdown || exit $?
-monarch-state clear 're*-required'
+noctalia msg session shutdown

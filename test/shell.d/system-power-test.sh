@@ -23,10 +23,11 @@ cat >"$mock_bin/noctalia" <<'EOF'
 #!/bin/bash
 
 printf 'noctalia %s\n' "$*" >>"$CALL_LOG"
+printf 'ok\n'
 exit "${NOCTALIA_STATUS:-0}"
 EOF
 
-for command in monarch-state monarch-niri-window-close-all sleep; do
+for command in monarch-niri-window-close-all sleep; do
   cat >"$mock_bin/$command" <<'EOF'
 #!/bin/bash
 
@@ -35,7 +36,14 @@ printf '%s' "$(basename "$0")" >>"$CALL_LOG"
 printf '\n' >>"$CALL_LOG"
 EOF
 done
+cat >"$mock_bin/monarch-state" <<'EOF'
+#!/bin/bash
+
+printf 'monarch-state %s\n' "$*" >>"$CALL_LOG"
+exec "$ROOT/bin/monarch-state" "$@"
+EOF
 chmod +x "$mock_bin"/*
+export HOME="$test_tmp/home"
 
 run_power_command() {
   local action="$1"
@@ -64,15 +72,20 @@ EOF
 run_power_command reboot
 assert_power_calls reboot reboot
 
-run_power_command shutdown
+state_dir="$HOME/.local/state/monarch"
+mkdir -p "$state_dir"
+touch "$state_dir/reboot-required" "$state_dir/restart-test-required"
+run_power_command shutdown >"$test_tmp/shutdown-output"
+[[ $(cat "$test_tmp/shutdown-output") == "ok" ]] || fail "Noctalia did not acknowledge the request"
 expected_log="$test_tmp/shutdown-expected.log"
 cat >"$expected_log" <<'EOF'
 noctalia msg session shutdown
-monarch-state clear re*-required
 EOF
 diff -u "$expected_log" "$call_log" ||
-  fail "shutdown delegates to Noctalia before clearing state"
-pass "shutdown delegates to Noctalia without a timer or manual window closure"
+  fail "IPC acceptance must not clear state or close windows before asynchronous shutdown"
+[[ -f $state_dir/reboot-required && -f $state_dir/restart-test-required ]] ||
+  fail "IPC acceptance removed restart markers without a committed shutdown"
+pass "shutdown delegates to Noctalia and preserves state after IPC acceptance"
 
 for status in 1 127; do
   : >"$call_log"
