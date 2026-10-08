@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -p
 
 # monarch:summary=Update Monarch and system packages
 # monarch:args=[-y] [--branch <main|dev>]
@@ -6,6 +6,18 @@
 # monarch:requires-sudo=true
 
 set -e
+
+bash_startup_options=()
+while IFS= read -r -d '' entry; do
+  case $entry in
+    BASH_ENV=* | ENV=* | BASH_FUNC_*=* | SHELLOPTS=* | BASHOPTS=* | CDPATH=* | GLOBIGNORE=*)
+      bash_startup_options+=(-u "${entry%%=*}")
+      ;;
+  esac
+done < <(/usr/bin/env -0)
+if (( ${#bash_startup_options[@]} > 0 )); then
+  exec /usr/bin/env "${bash_startup_options[@]}" /bin/bash -p "$0" "$@"
+fi
 
 # Run the update inside a PTY so pacman/yay keep showing download progress
 # while still logging the full session for later analysis.
@@ -65,7 +77,7 @@ authorize_update() {
     trap - EXIT HUP INT
     trap '[[ -z $sleep_pid ]] || { kill "$sleep_pid" 2>/dev/null || true; wait "$sleep_pid" 2>/dev/null || true; }; exit 0' TERM
     while true; do
-      sleep 60 &
+      /usr/bin/sleep 60 &
       sleep_pid=$!
       wait "$sleep_pid"
       kill -0 "$update_pid" 2>/dev/null || exit 0

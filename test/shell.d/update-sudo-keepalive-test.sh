@@ -56,7 +56,8 @@ if not no_update:
 sys.exit(subprocess.call(args))
 ''')
   executable(wrapper, (root / 'default/monarch/sudo-no-update/sudo').read_text().replace('/usr/bin/sudo', str(sudo)))
-  executable(tools / 'monarch-update', (root / 'bin/monarch-update').read_text().replace('/usr/bin/sudo', str(sudo)))
+  trusted_sleep = fixture / 'trusted-sleep'
+  executable(tools / 'monarch-update', (root / 'bin/monarch-update').read_text().replace('/usr/bin/sudo', str(sudo)).replace('/usr/bin/sleep', str(trusted_sleep)))
   shutil.copy2(root / 'bin/monarch-update-lock', tools / 'monarch-update-lock')
   shutil.copy2(root / 'bin/monarch-update-aur-pkgs', tools / 'monarch-update-aur-pkgs')
   restart = tools / 'real-restart'
@@ -64,7 +65,9 @@ sys.exit(subprocess.call(args))
   state = home / '.local/state/monarch'
   state.mkdir(parents=True)
   executable(tools / 'monarch-state', '#!/bin/bash\nrm -f "$HOME/.local/state/monarch/$2"\n')
-  executable(tools / 'sleep', '#!/bin/bash\nif [[ $1 == 60 ]]; then printf "%s\\n" "$$" >> "$KEEPALIVE_PIDS"; (( PPID == 1 )) || printf "%s\\n" "$PPID" >> "$KEEPALIVE_PIDS"; exec /usr/bin/sleep 0.05; fi\nexec /usr/bin/sleep "$@"\n')
+  sleep_fixture = '#!/bin/bash\nif [[ $1 == 60 ]]; then printf "%s\\n" "$$" >> "$KEEPALIVE_PIDS"; (( PPID == 1 )) || printf "%s\\n" "$PPID" >> "$KEEPALIVE_PIDS"; exec /usr/bin/sleep 0.05; fi\nexec /usr/bin/sleep "$@"\n'
+  executable(trusted_sleep, sleep_fixture)
+  executable(tools / 'sleep', '#!/bin/bash\nif [[ ${POISON_PATH_SLEEP:-0} == 1 ]]; then "' + str(sudo) + '" -n /usr/bin/true && touch "$SLEEP_POISON"; fi\nexec "' + str(trusted_sleep) + '" "$@"\n')
   steps = ('requires-free-space', 'pkg-prune', 'git', 'keyring', 'system-pkgs', 'orphan-pkgs', 'stay-awake', 'restart')
   script = '''#!/usr/bin/python3
 import json, os, subprocess, sys, time
@@ -77,6 +80,8 @@ if name == 'monarch-update-system-pkgs':
   time.sleep(10 if os.environ.get('BLOCK') else 0.7)
 if name == 'monarch-reconcile':
   assert os.environ.get('MONARCH_UPDATE_SUDO_SESSION') == '1'
+  assert not any(key.startswith('BASH_FUNC_') for key in os.environ)
+  assert 'BASH_ENV' not in os.environ and 'ENV' not in os.environ
   if os.environ.get('BREAK_REVOKE'): Path(os.environ['FAIL_REVOKE']).touch()
   sys.exit(subprocess.call(['sudo', '-n', '/usr/bin/true']))
 if name == 'monarch-update-restart' and '--services-only' in sys.argv:
@@ -133,11 +138,11 @@ sys.exit(int(os.environ.get('YAY_EXIT', '0')))
   env = {key: value for key, value in os.environ.items() if key not in ('BASH_ENV', 'ENV', 'MONARCH_UPDATE_LOCKED', 'MONARCH_UPDATE_SUDO_SESSION', 'MONARCH_SUDO_NO_UPDATE')}
   env.update(HOME=str(home), MONARCH_PATH=str(fixture), MONARCH_UPDATE_LOGGED='1', XDG_RUNTIME_DIR=str(runtime),
     PATH=str(tools) + ':' + str(root / 'bin') + ':' + os.environ['PATH'], SUDO_STATE=str(fixture / 'sudo-state'),
-    EVENTS=str(fixture / 'events'), ENTERED=str(fixture / 'entered'), FAIL_REVOKE=str(fixture / 'fail-revoke'), KEEPALIVE_PIDS=str(fixture / 'keepalive-pids'), UPDATE_LOG=str(fixture / 'update.log'), HOOK_ESCALATED=str(fixture / 'hook-escalated'), HOOK_RUNS=str(fixture / 'hook-runs'), RESTART_RUNS=str(fixture / 'restart-runs'), REAL_RESTART=str(restart))
+    EVENTS=str(fixture / 'events'), ENTERED=str(fixture / 'entered'), FAIL_REVOKE=str(fixture / 'fail-revoke'), KEEPALIVE_PIDS=str(fixture / 'keepalive-pids'), UPDATE_LOG=str(fixture / 'update.log'), HOOK_ESCALATED=str(fixture / 'hook-escalated'), HOOK_RUNS=str(fixture / 'hook-runs'), RESTART_RUNS=str(fixture / 'restart-runs'), REAL_RESTART=str(restart), SLEEP_POISON=str(fixture / 'sleep-poison'))
 
   def run(extra=None):
     (fixture / 'update.log').write_text('')
-    for name in ('sudo-state', 'events', 'entered', 'fail-revoke', 'keepalive-pids', 'hook-escalated', 'hook-runs', 'restart-runs'):
+    for name in ('sudo-state', 'events', 'entered', 'fail-revoke', 'keepalive-pids', 'hook-escalated', 'hook-runs', 'restart-runs', 'sleep-poison'):
       (fixture / name).unlink(missing_ok=True)
     for marker in ('restart-a-example-required', 'restart-pwn-required'):
       (state / marker).touch()
@@ -164,6 +169,21 @@ sys.exit(int(os.environ.get('YAY_EXIT', '0')))
   assert stages.index('monarch-update-restart') < stages.index('yay')
   assert sum(event[0] == 'sudo' and event[2] == ['-N', '/usr/bin/true'] for event in events) == 6
   print('ok - long updates share one authorization and AUR sudo calls never refresh it')
+  result, events = run({'POISON_PATH_SLEEP': '1'})
+  assert result.returncode == 0, result
+  assert not (fixture / 'sleep-poison').exists(), 'PATH sleep reused update authorization'
+  for name in ('sleep', 'wait', 'kill'):
+    delegate = '"' + str(trusted_sleep) + '"' if name == 'sleep' else 'builtin ' + name
+    function = '() { if [[ ${MONARCH_UPDATE_SUDO_SESSION:-0} == 1 ]]; then "' + str(sudo) + '" -n /usr/bin/true && touch "$SLEEP_POISON"; fi; ' + delegate + ' "$@"; }'
+    result, events = run({'BASH_FUNC_' + name + '%%': function})
+    assert result.returncode == 0, result
+    assert not (fixture / 'sleep-poison').exists(), ('imported function reused authorization', name)
+  print('ok - keepalive ignores PATH sleep and imported sleep/wait/kill functions')
+  (fixture / 'updater-bash-env').write_text('touch "$SLEEP_POISON"\n')
+  result, events = run({'BASH_ENV': str(fixture / 'updater-bash-env'), 'ENV': str(fixture / 'updater-bash-env'), 'SHELLOPTS': 'noexec', 'BASHOPTS': 'extdebug', 'CDPATH': str(fixture), 'GLOBIGNORE': '*'})
+  assert result.returncode == 0, result
+  assert not (fixture / 'sleep-poison').exists(), 'an updater startup hook executed'
+  print('ok - updater and its children ignore inherited Bash startup hooks and options')
   assert (fixture / 'hook-runs').read_text() == 'hook\nhook\n'
   assert (fixture / 'restart-runs').read_text() == 'service\nrestart\n'
   result, events = run({'RESTART_REAUTHORIZE': '1'})

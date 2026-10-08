@@ -6,7 +6,8 @@
 - Prefer `(( ))` over numeric operators inside `[[ ]]` (e.g., `(( count < 50 ))`, not `[[ $count -lt 50 ]]`)
 - For strings/paths with spaces, quote them instead of escaping spaces with `\ ` (e.g., `"$APP_DIR/Disk Usage.desktop"`, not `$APP_DIR/Disk\ Usage.desktop`)
 - Shebangs must use `#!/bin/bash` consistently (never `#!/usr/bin/env bash`)
-- Exception: `default/monarch/sudo-no-update/sudo` uses `#!/bin/bash -p` to suppress
+- Exception: `bin/monarch-update` and
+  `default/monarch/sudo-no-update/sudo` use `#!/bin/bash -p` to suppress
   `BASH_ENV` and imported functions before startup; an in-script `set -p` is too late.
 - Scripts under `install/` may be sourced and intentionally omit shebangs
 
