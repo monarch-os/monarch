@@ -10,6 +10,10 @@ set -e
 bash_startup_options=()
 while IFS= read -r -d '' entry; do
   case $entry in
+    MONARCH_UPDATE_LOGGED=* | MONARCH_UPDATE_LOCKED=* | MONARCH_UPDATE_USER_PATH=* | MONARCH_UPDATE_FORCE=*) ;;
+    MONARCH_*=*)
+      bash_startup_options+=(-u "${entry%%=*}")
+      ;;
     BASH_ENV=* | ENV=* | BASH_FUNC_*=* | SHELLOPTS=* | BASHOPTS=* | CDPATH=* | GLOBIGNORE=*)
       bash_startup_options+=(-u "${entry%%=*}")
       ;;
@@ -19,11 +23,48 @@ if (( ${#bash_startup_options[@]} > 0 )); then
   exec /usr/bin/env "${bash_startup_options[@]}" /bin/bash -p "$0" "$@"
 fi
 
+trap '/usr/bin/sudo -k || exit 1' EXIT
+/usr/bin/sudo -k
+
+require_trusted_path() {
+  local path owner mode
+  path=$(/usr/bin/readlink -e -- "$1") || return 1
+  while true; do
+    read -r owner mode < <(/usr/bin/stat -Lc '%u %a' -- "$path") || return 1
+    (( owner == 0 && (8#$mode & 022) == 0 )) || return 1
+    [[ $path != "/" ]] || return 0
+    path=${path%/*}
+    [[ -n $path ]] || path=/
+  done
+}
+
+require_trusted_runtime() {
+  local unsafe_path link
+  [[ ! -e $runtime_root/.git ]] || return 1
+  require_trusted_path "$runtime_root" || return 1
+  unsafe_path=$(/usr/bin/find -L "$runtime_root" \( ! -uid 0 -o -perm /022 \) -print -quit) || return 1
+  [[ -z $unsafe_path ]] || return 1
+  while IFS= read -r -d '' link; do
+    require_trusted_path "$link" || return 1
+  done < <(/usr/bin/find "$runtime_root" -type l -print0)
+}
+
+update_entry=$(/usr/bin/readlink -e -- "${BASH_SOURCE[0]}")
+runtime_root=${update_entry%/bin/monarch-update}
+if [[ $runtime_root == "$update_entry" ]] || ! require_trusted_runtime; then
+  echo "Updates require a packaged, root-owned runtime with no user-writable code or parent directories." >&2
+  exit 1
+fi
+user_path=${MONARCH_UPDATE_USER_PATH:-$PATH}
+unset MONARCH_UPDATE_USER_PATH
+export MONARCH_PATH="$runtime_root" MONARCH_RUNTIME_ROOT="$runtime_root"
+export PATH="$runtime_root/bin:/usr/bin:/usr/sbin:/bin:/sbin"
+
 # Run the update inside a PTY so pacman/yay keep showing download progress
 # while still logging the full session for later analysis.
 if [[ -z $MONARCH_UPDATE_LOGGED ]]; then
   script_command=$(printf '%q ' "$0" "$@")
-  exec env MONARCH_UPDATE_LOGGED=1 script -qefc "$script_command" "/tmp/monarch-update.log"
+  exec /usr/bin/env MONARCH_UPDATE_LOGGED=1 MONARCH_UPDATE_USER_PATH="$user_path" /usr/bin/script -qefc "$script_command" "/tmp/monarch-update.log"
 fi
 
 unattended=false
@@ -59,12 +100,11 @@ if ! monarch-update-lock held; then
   update_args=()
   [[ $unattended == "false" ]] || update_args+=(-y)
   [[ -z $branch ]] || update_args+=(--branch "$branch")
-  exec monarch-update-lock run "$0" "${update_args[@]}"
+  exec /usr/bin/env MONARCH_UPDATE_USER_PATH="$user_path" "$runtime_root/bin/monarch-update-lock" run "$0" "${update_args[@]}"
 fi
 unset MONARCH_UPDATE_LOCKED
 unset MONARCH_UPDATE_SUDO_SESSION MONARCH_SUDO_NO_UPDATE
 
-runtime_root=${MONARCH_PATH:-$(dirname "$(dirname "$(readlink -e "${BASH_SOURCE[0]}")")")}
 sudo_wrapper="$runtime_root/default/monarch/sudo-no-update/sudo"
 sudo_keepalive_pid=""
 stay_awake_stopped=false
@@ -106,7 +146,7 @@ cleanup_update() {
     status=1
   fi
   if [[ $stay_awake_stopped == "false" ]]; then
-    monarch-update-stay-awake stop || status=1
+    "$runtime_root/bin/monarch-update-stay-awake" stop || status=1
   fi
   exit "$status"
 }
@@ -120,35 +160,36 @@ trap 'exit 143' TERM
 [[ -x $sudo_wrapper ]] || { echo "Missing no-update sudo wrapper: $sudo_wrapper" >&2; exit 1; }
 /usr/bin/sudo -k
 
-monarch-update-requires-free-space
+"$runtime_root/bin/monarch-update-requires-free-space"
 
 [[ $unattended == "false" ]] || export MONARCH_UPDATE_UNATTENDED=1
 
-if [[ $unattended == "true" ]] || monarch-update-confirm; then
+if [[ $unattended == "true" ]] || "$runtime_root/bin/monarch-update-confirm"; then
   authorize_update
-  monarch-update-pkg-prune
-  monarch-snapshot create || (($? == 127)) ||
+  "$runtime_root/bin/monarch-update-pkg-prune"
+  "$runtime_root/bin/monarch-snapshot" create || (($? == 127)) ||
     echo -e "\e[33mContinuing the update without a snapshot.\e[0m" >&2
 
-  [[ -z $branch ]] || monarch-update-switch-branch "$branch"
-  monarch-update-stay-awake start
-  monarch-update-git
-  monarch-update-keyring
-  monarch-update-system-pkgs
-  monarch-reconcile
-  monarch-update-orphan-pkgs
+  [[ -z $branch ]] || "$runtime_root/bin/monarch-update-switch-branch" "$branch"
+  "$runtime_root/bin/monarch-update-stay-awake" start
+  "$runtime_root/bin/monarch-update-git"
+  "$runtime_root/bin/monarch-update-keyring"
+  "$runtime_root/bin/monarch-update-system-pkgs"
+  require_trusted_runtime || { echo "The package update left an untrusted runtime." >&2; exit 1; }
+  "$runtime_root/bin/monarch-reconcile"
+  "$runtime_root/bin/monarch-update-orphan-pkgs"
 
   # User-selected restarts, hooks and AUR builds must not inherit system authorization.
   end_update_authorization
   [[ -x $sudo_wrapper ]] || { echo "The update removed the no-update sudo wrapper." >&2; exit 1; }
-  PATH="${sudo_wrapper%/*}:$PATH" MONARCH_SUDO_NO_UPDATE=1 MONARCH_PATH="$runtime_root" monarch-update-restart --services-only
+  PATH="${sudo_wrapper%/*}:$runtime_root/bin:$user_path" MONARCH_SUDO_NO_UPDATE=1 "$runtime_root/bin/monarch-update-restart" --services-only
   /usr/bin/sudo -k
-  PATH="${sudo_wrapper%/*}:$PATH" MONARCH_SUDO_NO_UPDATE=1 MONARCH_PATH="$runtime_root" monarch-hook post-update
+  PATH="${sudo_wrapper%/*}:$runtime_root/bin:$user_path" MONARCH_SUDO_NO_UPDATE=1 "$runtime_root/bin/monarch-hook" post-update
   /usr/bin/sudo -k
-  PATH="${sudo_wrapper%/*}:$PATH" MONARCH_SUDO_NO_UPDATE=1 MONARCH_PATH="$runtime_root" monarch-update-aur-pkgs
+  PATH="${sudo_wrapper%/*}:$runtime_root/bin:$user_path" MONARCH_SUDO_NO_UPDATE=1 "$runtime_root/bin/monarch-update-aur-pkgs"
   /usr/bin/sudo -k
-  monarch-update-stay-awake stop
+  "$runtime_root/bin/monarch-update-stay-awake" stop
   stay_awake_stopped=true
-  monarch-update-analyze-logs
-  monarch-update-restart --reboot-only
+  "$runtime_root/bin/monarch-update-analyze-logs"
+  "$runtime_root/bin/monarch-update-restart" --reboot-only
 fi

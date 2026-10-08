@@ -7,13 +7,18 @@ source "$(dirname "$0")/base-test.sh"
 test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
 
-stub_bin="$test_tmp/bin"
+stub_bin="$test_tmp/runtime-tree/bin"
 test_home="$test_tmp/home"
 runtime_dir="$test_tmp/runtime"
 mkdir -p "$stub_bin" "$test_home" "$runtime_dir"
-update_script="$test_tmp/monarch-update"
-sed "s|/usr/bin/sudo|$stub_bin/sudo|g" "$ROOT/bin/monarch-update" >"$update_script"
+update_script="$stub_bin/monarch-update"
+printf '#!/bin/bash\nprintf "0 755\\n"\n' >"$test_tmp/trust-stat"
+chmod +x "$test_tmp/trust-stat"
+sed -e "s|/usr/bin/sudo|$stub_bin/sudo|g" -e "s|/usr/bin/stat|$test_tmp/trust-stat|g" -e "s|-uid 0|-uid $UID|g" "$ROOT/bin/monarch-update" >"$update_script"
 chmod +x "$update_script"
+cp "$ROOT/bin/monarch-update-lock" "$stub_bin/monarch-update-lock"
+mkdir -p "$test_tmp/runtime-tree/default/monarch/sudo-no-update"
+cp "$ROOT/default/monarch/sudo-no-update/sudo" "$test_tmp/runtime-tree/default/monarch/sudo-no-update/sudo"
 write_sudo_stub() {
   printf '#!/bin/bash\nexit 0\n' >"$stub_bin/sudo"
   chmod +x "$stub_bin/sudo"
@@ -243,6 +248,9 @@ pass "package cache pruning is skipped cleanly when pacman-contrib is absent"
 
 stay_awake_stub="$stub_bin/monarch-update-stay-awake"
 mv "$stay_awake_stub" "$stay_awake_stub.disabled"
+cp "$ROOT/bin/monarch-update-stay-awake" "$stay_awake_stub"
+cp "$ROOT/bin/monarch-cmd-present" "$stub_bin/monarch-cmd-present"
+cp "$ROOT/bin/monarch-toggle-idle" "$stub_bin/monarch-toggle-idle"
 rm -f "$runtime_dir/monarch/caffeine"
 write_stub monarch-update-keyring 'touch "$INTERRUPT_MARKER"; sleep 30'
 write_stub monarch-update-pkg-prune 'exit 0'
@@ -267,7 +275,6 @@ done
 [[ -f $interrupt_marker ]] || fail "interrupt test did not enter the guarded transaction"
 kill -TERM -- "-$interrupt_pid"
 wait "$interrupt_pid" 2>/dev/null || true
-mv "$stay_awake_stub.disabled" "$stay_awake_stub"
 for _ in {1..100}; do
   [[ ! -e $runtime_dir/monarch-update-stay-awake ]] && break
   sleep 0.02
@@ -277,6 +284,7 @@ if [[ -e $runtime_dir/monarch-update-stay-awake ]]; then
   fail "interrupted update left inhibitor state"
 fi
 [[ ! -e $runtime_dir/monarch/caffeine ]] || fail "interrupted update left Caffeine enabled"
+mv "$stay_awake_stub.disabled" "$stay_awake_stub"
 HOME="$test_home" XDG_RUNTIME_DIR="$runtime_dir" PATH="$stub_bin:$ROOT/bin:$PATH" \
   "$ROOT/bin/monarch-update-lock" run true
 pass "SIGTERM releases inhibitor state and the update lock"

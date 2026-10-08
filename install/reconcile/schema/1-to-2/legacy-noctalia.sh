@@ -31,7 +31,7 @@ remove_legacy_template() {
 
 pkill -f 'qs.*noctalia-shell' 2>/dev/null || true
 
-python3 "$MONARCH_PATH/install/reconcile/schema/1-to-2/noctalia-config.py"
+python3 -I "$MONARCH_PATH/install/reconcile/schema/1-to-2/noctalia-config.py"
 
 for legacy_file in "$HOME"/.config/noctalia/settings.json \
   "$HOME"/.config/noctalia/settings.json.bak.* \

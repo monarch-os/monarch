@@ -11,19 +11,21 @@ from pathlib import Path
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import time
 
 root = Path(os.environ['ROOT'])
 with tempfile.TemporaryDirectory() as directory:
   fixture = Path(directory)
-  tools = fixture / 'bin'
-  tools.mkdir()
+  trusted_root = fixture / 'runtime-tree'
+  tools = trusted_root / 'bin'
+  tools.mkdir(parents=True)
   home = fixture / 'home'
   home.mkdir()
   runtime = fixture / 'runtime'
   runtime.mkdir()
-  wrapper = fixture / 'default/monarch/sudo-no-update/sudo'
+  wrapper = trusted_root / 'default/monarch/sudo-no-update/sudo'
   wrapper.parent.mkdir(parents=True)
 
   def executable(path, text):
@@ -57,9 +59,27 @@ sys.exit(subprocess.call(args))
 ''')
   executable(wrapper, (root / 'default/monarch/sudo-no-update/sudo').read_text().replace('/usr/bin/sudo', str(sudo)))
   trusted_sleep = fixture / 'trusted-sleep'
-  executable(tools / 'monarch-update', (root / 'bin/monarch-update').read_text().replace('/usr/bin/sudo', str(sudo)).replace('/usr/bin/sleep', str(trusted_sleep)))
+  trust_stat = fixture / 'trust-stat'
+  executable(trust_stat, '''#!/usr/bin/python3
+import os, subprocess, sys
+from pathlib import Path
+path = Path(sys.argv[-1])
+tree = Path(__file__).parent / 'runtime-tree'
+if path == tree or tree in path.parents:
+  mode = subprocess.check_output(['/usr/bin/stat', '-Lc', '%a', '--', str(path)], text=True).strip()
+  print(('1' if os.environ.get('UNTRUSTED_OWNER') else '0') + ' ' + mode)
+else:
+  mode = subprocess.check_output(['/usr/bin/stat', '-Lc', '%a', '--', str(path)], text=True).strip() if Path(__file__).parent in path.parents else '755'
+  print(('1' if os.environ.get('UNTRUSTED_PARENT') else '0') + ' ' + mode)
+''')
+  executable(tools / 'monarch-update', (root / 'bin/monarch-update').read_text().replace('/usr/bin/sudo', str(sudo)).replace('/usr/bin/sleep', str(trusted_sleep)).replace('/usr/bin/stat', str(trust_stat)).replace('-uid 0', '-uid ' + str(os.getuid())))
   shutil.copy2(root / 'bin/monarch-update-lock', tools / 'monarch-update-lock')
   shutil.copy2(root / 'bin/monarch-update-aur-pkgs', tools / 'monarch-update-aur-pkgs')
+  reconcile = trusted_root / 'install/reconcile'
+  reconcile.mkdir(parents=True)
+  for name in ('mise.sh', 'mise-work-path.py'):
+    shutil.copy2(root / 'install/reconcile' / name, reconcile / name)
+  executable(tools / 'mise', '#!/bin/bash\nexit 0\n')
   restart = tools / 'real-restart'
   executable(restart, (root / 'bin/monarch-update-restart').read_text().replace('/usr/bin/sudo', str(sudo)).replace('/usr/lib/modules', str(fixture / 'modules')))
   state = home / '.local/state/monarch'
@@ -78,10 +98,19 @@ if name == os.environ.get('FAIL_STAGE'): sys.exit(17)
 if name == 'monarch-update-system-pkgs':
   Path(os.environ['ENTERED']).touch()
   time.sleep(10 if os.environ.get('BLOCK') else 0.7)
+if name == 'monarch-update-pkg-prune':
+  assert 'MONARCH_PACCACHE_BIN' not in os.environ
+if name == 'monarch-update-keyring':
+  subprocess.run(['monarch-pkg-present', 'monarch-keyring'], check=True)
 if name == 'monarch-reconcile':
   assert os.environ.get('MONARCH_UPDATE_SUDO_SESSION') == '1'
   assert not any(key.startswith('BASH_FUNC_') for key in os.environ)
   assert 'BASH_ENV' not in os.environ and 'ENV' not in os.environ
+  assert os.environ['MONARCH_PATH'] == str(Path(sys.argv[0]).parent.parent)
+  assert os.environ['MONARCH_RUNTIME_ROOT'] == os.environ['MONARCH_PATH']
+  assert 'MONARCH_PACCACHE_BIN' not in os.environ
+  if os.environ.get('RECONCILE_PYTHON'):
+    subprocess.run(['/bin/bash', '-c', 'source "$MONARCH_PATH/install/reconcile/mise.sh"'], check=True)
   if os.environ.get('BREAK_REVOKE'): Path(os.environ['FAIL_REVOKE']).touch()
   sys.exit(subprocess.call(['sudo', '-n', '/usr/bin/true']))
 if name == 'monarch-update-restart' and '--services-only' in sys.argv:
@@ -117,6 +146,7 @@ echo hook >> "$HOOK_RUNS"
   executable(tools / 'monarch-update-analyze-logs', (root / 'bin/monarch-update-analyze-logs').read_text().replace(
     'update_log="/tmp/monarch-update.log"', 'update_log="$UPDATE_LOG"\n[[ -z ${MONARCH_UPDATE_SUDO_SESSION:-} && ! -e $SUDO_STATE ]] || exit 18'))
   executable(tools / 'pacman', '#!/bin/bash\nexit 0\n')
+  executable(tools / 'monarch-pkg-present', '#!/bin/bash\nexit 0\n')
   executable(tools / 'monarch-pkg-aur-accessible', '#!/bin/bash\nexit 0\n')
   executable(tools / 'yay', '''#!/usr/bin/python3
 import json, os, shutil, subprocess, sys
@@ -136,18 +166,22 @@ if os.environ.get('AUR_INITRAMFS_FAILURE'):
 sys.exit(int(os.environ.get('YAY_EXIT', '0')))
 ''')
   env = {key: value for key, value in os.environ.items() if key not in ('BASH_ENV', 'ENV', 'MONARCH_UPDATE_LOCKED', 'MONARCH_UPDATE_SUDO_SESSION', 'MONARCH_SUDO_NO_UPDATE')}
-  env.update(HOME=str(home), MONARCH_PATH=str(fixture), MONARCH_UPDATE_LOGGED='1', XDG_RUNTIME_DIR=str(runtime),
+  user_bin = fixture / 'user-bin'
+  user_bin.mkdir()
+  for name in ('monarch-update-pkg-prune', 'monarch-snapshot', 'monarch-update-keyring', 'monarch-update-system-pkgs', 'monarch-reconcile', 'monarch-update-orphan-pkgs', 'monarch-pkg-present', 'sudo'):
+    executable(user_bin / name, '#!/bin/bash\n"' + str(sudo) + '" -n /usr/bin/true && touch "$HELPER_POISON"\nexec "' + str(tools / name) + '" "$@"\n')
+  env.update(HOME=str(home), MONARCH_PATH=str(trusted_root), MONARCH_RUNTIME_ROOT=str(trusted_root), MONARCH_UPDATE_LOGGED='1', XDG_RUNTIME_DIR=str(runtime),
     PATH=str(tools) + ':' + str(root / 'bin') + ':' + os.environ['PATH'], SUDO_STATE=str(fixture / 'sudo-state'),
-    EVENTS=str(fixture / 'events'), ENTERED=str(fixture / 'entered'), FAIL_REVOKE=str(fixture / 'fail-revoke'), KEEPALIVE_PIDS=str(fixture / 'keepalive-pids'), UPDATE_LOG=str(fixture / 'update.log'), HOOK_ESCALATED=str(fixture / 'hook-escalated'), HOOK_RUNS=str(fixture / 'hook-runs'), RESTART_RUNS=str(fixture / 'restart-runs'), REAL_RESTART=str(restart), SLEEP_POISON=str(fixture / 'sleep-poison'))
+    EVENTS=str(fixture / 'events'), ENTERED=str(fixture / 'entered'), FAIL_REVOKE=str(fixture / 'fail-revoke'), KEEPALIVE_PIDS=str(fixture / 'keepalive-pids'), UPDATE_LOG=str(fixture / 'update.log'), HOOK_ESCALATED=str(fixture / 'hook-escalated'), HOOK_RUNS=str(fixture / 'hook-runs'), RESTART_RUNS=str(fixture / 'restart-runs'), REAL_RESTART=str(restart), SLEEP_POISON=str(fixture / 'sleep-poison'), HELPER_POISON=str(fixture / 'helper-poison'))
 
   def run(extra=None):
     (fixture / 'update.log').write_text('')
-    for name in ('sudo-state', 'events', 'entered', 'fail-revoke', 'keepalive-pids', 'hook-escalated', 'hook-runs', 'restart-runs', 'sleep-poison'):
+    for name in ('sudo-state', 'events', 'entered', 'fail-revoke', 'keepalive-pids', 'hook-escalated', 'hook-runs', 'restart-runs', 'sleep-poison', 'helper-poison'):
       (fixture / name).unlink(missing_ok=True)
     for marker in ('restart-a-example-required', 'restart-pwn-required'):
       (state / marker).touch()
     result = subprocess.run([str(tools / 'monarch-update'), '-y'], env={**env, **(extra or {})}, capture_output=True, text=True, timeout=15)
-    events = [json.loads(line) for line in (fixture / 'events').read_text().splitlines()]
+    events = [json.loads(line) for line in (fixture / 'events').read_text().splitlines()] if (fixture / 'events').exists() else []
     assert not (fixture / 'hook-escalated').exists(), 'a user hook or dynamic restart inherited authorization'
     if not ((extra or {}).get('BREAK_REVOKE') or (extra or {}).get('FAIL_RESTART_REVOKE')):
       assert not (fixture / 'sudo-state').exists(), result
@@ -169,6 +203,57 @@ sys.exit(int(os.environ.get('YAY_EXIT', '0')))
   assert stages.index('monarch-update-restart') < stages.index('yay')
   assert sum(event[0] == 'sudo' and event[2] == ['-N', '/usr/bin/true'] for event in events) == 6
   print('ok - long updates share one authorization and AUR sudo calls never refresh it')
+  result, events = run({'PATH': str(user_bin) + ':' + env['PATH']})
+  assert result.returncode == 0, result
+  assert not (fixture / 'helper-poison').exists(), 'a PATH helper reused update authorization'
+  result, events = run({'MONARCH_PATH': str(user_bin), 'MONARCH_RUNTIME_ROOT': str(user_bin), 'MONARCH_PACCACHE_BIN': str(user_bin / 'sudo')})
+  assert result.returncode == 0, result
+  assert not (fixture / 'helper-poison').exists(), 'a PATH or runtime override reused update authorization'
+  print('ok - direct and transitive helpers ignore caller PATH and executable/runtime overrides')
+  work_config = home / 'Work/.mise.toml'
+  work_config.parent.mkdir()
+  python_poison = fixture / 'python-poison'
+  python_poison.mkdir()
+  (python_poison / 'sitecustomize.py').write_text('import os, sys\nfrom pathlib import Path\nif sys.argv[0].endswith("mise-work-path.py"):\n  Path(os.environ["HELPER_POISON"]).touch()\n')
+  user_site = home / '.local/lib' / ('python' + str(sys.version_info.major) + '.' + str(sys.version_info.minor)) / 'site-packages'
+  user_site.mkdir(parents=True)
+  shutil.copy2(python_poison / 'sitecustomize.py', user_site / 'sitecustomize.py')
+  for extra in ({}, {'PYTHONPATH': str(python_poison)}):
+    work_config.write_text('[env]\n_.path = "{{ cwd }}/bin"\nCUSTOM = "kept"\n')
+    result, events = run({'RECONCILE_PYTHON': '1', **extra})
+    assert result.returncode == 0, result
+    assert not (fixture / 'helper-poison').exists(), 'Python loaded user code during update authorization'
+    assert 'CUSTOM = "kept"' in work_config.read_text() and '_.path = []' in work_config.read_text()
+  print('ok - real mise reconciliation ignores PYTHONPATH and user site modules while preserving custom settings')
+  for extra in ({'UNTRUSTED_OWNER': '1'}, {'UNTRUSTED_PARENT': '1'}):
+    result, events = run(extra)
+    assert result.returncode != 0 and all(event[0] == 'sudo' and event[2] == ['-k'] for event in events), result
+  for path in (trusted_root, tools / 'monarch-reconcile'):
+    original_mode = path.stat().st_mode & 0o777
+    try:
+      path.chmod(0o777)
+      result, events = run()
+      assert result.returncode != 0 and all(event[0] == 'sudo' and event[2] == ['-k'] for event in events), result
+    finally:
+      path.chmod(original_mode)
+  print('ok - untrusted runtime owners, parents, directories and helper modes fail before authentication')
+  (trusted_root / '.git').mkdir()
+  try:
+    result, events = run()
+    assert result.returncode != 0 and all(event[0] == 'sudo' and event[2] == ['-k'] for event in events), result
+  finally:
+    (trusted_root / '.git').rmdir()
+  unsafe_parent = fixture / 'unsafe-parent'
+  unsafe_parent.mkdir()
+  unsafe_parent.chmod(0o777)
+  (unsafe_parent / 'payload').write_text('unsafe\n')
+  (trusted_root / 'unsafe-link').symlink_to(unsafe_parent / 'payload')
+  try:
+    result, events = run()
+    assert result.returncode != 0 and all(event[0] == 'sudo' and event[2] == ['-k'] for event in events), result
+  finally:
+    (trusted_root / 'unsafe-link').unlink()
+  print('ok - Git checkouts and symlinks through writable parents fail before authentication')
   result, events = run({'POISON_PATH_SLEEP': '1'})
   assert result.returncode == 0, result
   assert not (fixture / 'sleep-poison').exists(), 'PATH sleep reused update authorization'

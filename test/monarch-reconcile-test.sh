@@ -559,7 +559,7 @@ if find "$ROOT/migrations" -type f -name '*.sh' -print -quit 2>/dev/null | grep 
   exit 1
 fi
 
-grep -q '^  monarch-reconcile$' "$ROOT/bin/monarch-update"
+grep -qF '  "$runtime_root/bin/monarch-reconcile"' "$ROOT/bin/monarch-update"
 grep -qF 'install/config/enable-services.sh' "$ROOT/install/reconcile/system.sh"
 
 echo "All reconciliation tests passed."
