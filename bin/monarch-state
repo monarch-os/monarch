@@ -4,11 +4,12 @@
 # monarch:args=<set|clear> <state-name-or-pattern>
 # monarch:hidden=true
 
-STATE_DIR="$HOME/.local/state/monarch"
-mkdir -p "$STATE_DIR"
+set -e
 
-COMMAND="$1"
-STATE_NAME="$2"
+STATE_DIR="$HOME/.local/state/monarch"
+
+COMMAND="${1:-}"
+STATE_NAME="${2:-}"
 
 if [[ -z $COMMAND ]]; then
   echo "Usage: monarch-state <set|clear> <state-name-or-pattern>"
@@ -21,6 +22,20 @@ if [[ -z $STATE_NAME ]]; then
 fi
 
 case "$COMMAND" in
-set) touch "$STATE_DIR/$STATE_NAME" ;;
-clear) find "$STATE_DIR" -maxdepth 1 -type f -name "$STATE_NAME" -delete ;;
+set)
+  if [[ $STATE_NAME == */* || $STATE_NAME == "." || $STATE_NAME == ".." ]]; then
+    echo "Invalid state name: $STATE_NAME" >&2
+    exit 2
+  fi
+  mkdir -p "$STATE_DIR"
+  touch -- "$STATE_DIR/$STATE_NAME"
+  ;;
+clear)
+  [[ -d $STATE_DIR ]] || exit 0
+  find "$STATE_DIR" -maxdepth 1 -type f -name "$STATE_NAME" -delete
+  ;;
+*)
+  echo "Unknown state command: $COMMAND" >&2
+  exit 2
+  ;;
 esac

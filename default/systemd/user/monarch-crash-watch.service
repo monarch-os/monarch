@@ -1,5 +1,5 @@
 [Unit]
-Description=Announce process crashes and offer an AI diagnosis
+Description=Announce process crashes and open their history
 After=graphical-session.target
 PartOf=graphical-session.target
 ConditionEnvironment=WAYLAND_DISPLAY

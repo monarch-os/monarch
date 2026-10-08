@@ -8,26 +8,40 @@ set -euo pipefail
 
 root=${MONARCH_PATH:-/usr/share/monarch}
 rules=$root/default/niri/chat-privacy.kdl
-state=$HOME/.local/state/monarch/chat-privacy.kdl
+config=$HOME/.config/niri/chat-privacy.kdl
+flag=$HOME/.local/state/monarch/toggles/chat-privacy-off
 
 enabled() {
-  [[ -f $state ]] && grep -Fxq "include \"$rules\"" "$state"
+  [[ ! -f $flag ]]
 }
 
-write_state() {
+write_config() (
   local value=$1 temporary
-  mkdir -p "${state%/*}"
-  temporary=$(mktemp "${state%/*}/.chat-privacy.XXXXXX")
+  if [[ $value == "on" && ! -f $rules ]]; then
+    echo "Missing chat privacy rules: $rules" >&2
+    return 1
+  fi
+  mkdir -p "${config%/*}" || return 1
+  temporary=$(mktemp "${config%/*}/.chat-privacy.XXXXXX") || return 1
   trap 'rm -f "$temporary"' EXIT
   if [[ $value == "on" ]]; then
-    [[ -f $rules ]] || {
-      echo "Missing chat privacy rules: $rules" >&2
-      return 1
-    }
-    printf 'include "%s"\n' "$rules" >"$temporary"
+    cp "$rules" "$temporary" || return 1
   fi
-  mv -f "$temporary" "$state"
-  trap - EXIT
+  cmp -s "$temporary" "$config" && return 0
+  mv -f "$temporary" "$config" || return 1
+)
+
+set_state() {
+  local desired=$1 current=on changed=false
+  [[ -f $flag ]] && current=off
+  if [[ $current != "$desired" ]]; then
+    "$root/bin/monarch-toggle" chat-privacy-off
+    changed=true
+  fi
+  if ! write_config "$desired"; then
+    [[ $changed == "false" ]] || "$root/bin/monarch-toggle" chat-privacy-off
+    return 1
+  fi
 }
 
 case ${1:-toggle} in
@@ -39,19 +53,23 @@ case ${1:-toggle} in
     fi
     ;;
   init)
-    [[ -e $state || -L $state ]] || write_state on
+    if enabled; then
+      set_state on
+    else
+      set_state off
+    fi
     ;;
   on)
-    enabled || write_state on
+    set_state on
     ;;
   off)
-    [[ -f $state && ! -s $state ]] || write_state off
+    set_state off
     ;;
   toggle)
     if enabled; then
-      write_state off
+      set_state off
     else
-      write_state on
+      set_state on
     fi
     ;;
   *)

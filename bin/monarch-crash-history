@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # monarch:summary=Browse crashes and export a diagnostic report
-# monarch:args=[open [id]|list [--json]|report <id> [--json]|export <id> [--stdin]]
+# monarch:args=[open [id]|list [--json]|show <id> --json|report <id> [--json]|export <id> [--stdin]]
 # monarch:examples=monarch crash history | monarch crash history list | monarch crash history report <id>
 
 set -euo pipefail
@@ -12,7 +12,7 @@ readonly history_limit=100
 readonly fields="_BOOT_ID,COREDUMP_UID,COREDUMP_PID,COREDUMP_TIMESTAMP,COREDUMP_COMM,COREDUMP_EXE,COREDUMP_SIGNAL,COREDUMP_SIGNAL_NAME,COREDUMP_FILENAME,COREDUMP_TRUNCATED,COREDUMP_PACKAGE_NAME,COREDUMP_PACKAGE_VERSION"
 
 usage() {
-  echo "Usage: monarch crash history [open [id]|list [--json]|report <id> [--json]|export <id> [--stdin]]" >&2
+  echo "Usage: monarch crash history [open [id]|list [--json]|show <id> --json|report <id> [--json]|export <id> [--stdin]]" >&2
   return 1
 }
 
@@ -84,6 +84,14 @@ list_crashes() {
   fi
 }
 
+show_crash() {
+  local entries crash
+  entries=$(read_entries "$1")
+  crash=$(summaries "$entries" | jq -s '.[0] // empty')
+  [[ -n $crash ]] || { echo "This crash is no longer available in the journal." >&2; return 1; }
+  printf '%s\n' "$crash"
+}
+
 report_json() {
   local id=$1 entries entry crash trace exe package_name package_version source="journal"
   local installed="" monarch_version="unknown" kernel architecture
@@ -147,9 +155,12 @@ export_report() {
 }
 
 open_history() {
-  local id=${1:-} context attempt
+  local id=${1:-} context attempt agent=false agent_name
   [[ -z $id ]] || validate_id "$id"
-  context=$(jq -cn --arg root "$runtime" --arg id "$id" '{root:$root,id:$id}')
+  agent_name=$(monarch-default-agent)
+  if [[ -n $agent_name ]] && monarch-cmd-present "$agent_name"; then agent=true; fi
+  context=$(jq -cn --arg root "$runtime" --arg id "$id" --argjson agent "$agent" \
+    '{root:$root,id:$id,agent:$agent}')
   source "$runtime/install/reconcile/noctalia-wait.sh"
   monarch_noctalia_wait || { echo "Noctalia is not ready." >&2; return 1; }
   noctalia msg plugins enable monarch/crashes >/dev/null
@@ -166,6 +177,10 @@ case ${1:-open} in
   list)
     (($# <= 2)) && [[ -z ${2:-} || $2 == "--json" ]] || usage
     list_crashes "${2:-}"
+    ;;
+  show)
+    (($# == 3)) && [[ $3 == "--json" ]] || usage
+    show_crash "$2"
     ;;
   report)
     (($# >= 2 && $# <= 3)) && [[ -z ${3:-} || $3 == "--json" ]] || usage

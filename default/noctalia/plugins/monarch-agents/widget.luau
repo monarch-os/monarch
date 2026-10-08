@@ -20,7 +20,7 @@ local function tooltipFor(records: { any }): string
     local name = tostring(record.name or record.id or "")
     table.insert(lines, if plan ~= "" then name .. " · " .. plan else name)
     for _, limit in ipairs(record.limits or {}) do
-      local percent = tonumber(limit.percent)
+      local percent = agents.limitPercent(limit)
       if percent and percent >= 0 then
         local title = tostring(limit.title or limit.label or "")
         table.insert(lines, "  " .. title .. ": " .. tostring(math.floor(percent * 100 + 0.5)) .. "%")

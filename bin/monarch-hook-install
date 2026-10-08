@@ -15,6 +15,11 @@ fi
 
 HOOK_TYPE=$1
 HOOK_FILE=$2
+if [[ -z $HOOK_TYPE || $HOOK_TYPE == */* || $HOOK_TYPE == "." || $HOOK_TYPE == ".." ]]; then
+  echo "Invalid hook name: $HOOK_TYPE" >&2
+  exit 2
+fi
+
 HOOK_DIR="$HOME/.config/monarch/hooks/$HOOK_TYPE.d"
 HOOK_NAME=$(basename -- "$HOOK_FILE")
 HOOK_PATH="$HOOK_DIR/$HOOK_NAME"

@@ -2,7 +2,7 @@
 
 // 1Password / Bitwarden — block screen-share + treat as floating.
 window-rule {
-    match app-id=r#"^1[pP]assword$"#
+    match app-id=r#"^(1[pP]assword|com\.onepassword\.OnePassword)$"#
     block-out-from "screencast"
     open-floating true
     default-column-width { fixed 875; }
@@ -15,14 +15,14 @@ window-rule {
     default-column-width { fixed 875; }
 }
 
+// Bitwarden's Chrome extension pop-out, limited to the Default profile.
 window-rule {
     match app-id=r#"^chrome-nngceckbapebfimnlniiiahkandclblb-Default$"#
     block-out-from "screencast"
     open-floating true
 }
 
-// The Security menu can switch this include without changing packaged rules.
-include optional=true "~/.local/state/monarch/chat-privacy.kdl"
+include optional=true "~/.config/niri/chat-privacy.kdl"
 
 // Force tile for chromium-based browser app windows (workaround for --app bug).
 window-rule {

@@ -11,6 +11,11 @@ if (( $# < 1 )); then
 fi
 
 HOOK=$1
+if [[ -z $HOOK || $HOOK == */* || $HOOK == "." || $HOOK == ".." ]]; then
+  echo "Invalid hook name: $HOOK" >&2
+  exit 2
+fi
+
 HOOK_PATH="$HOME/.config/monarch/hooks/$1"
 HOOK_DIR="$HOOK_PATH.d"
 shift

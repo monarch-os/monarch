@@ -74,6 +74,18 @@ assert_detection "NVIDIA audio functions are not GPUs" no no no
 write_pci_devices
 assert_detection "an empty PCI tree detects no NVIDIA GPU" no no no
 
+write_pci_devices 0x1002:0x15e7:0x030000 0x10de:0x2560:0x030200
+printf '1\n' >"$tmp_dir/devices/0000:00:00.0/boot_vga"
+printf '0\n' >"$tmp_dir/devices/0000:01:00.0/boot_vga"
+if hw_nvidia nvidia-display; then
+  fail "hybrid graphics force the NVIDIA desktop environment"
+fi
+printf '1\n' >"$tmp_dir/devices/0000:01:00.0/boot_vga"
+hw_nvidia nvidia-display || fail "NVIDIA display ownership is ignored"
+write_pci_devices 0x10de:0x1e00:0x030000
+hw_nvidia nvidia-display || fail "unknown display ownership loses discrete NVIDIA defaults"
+pass "display ownership uses cached boot_vga without waking PCI devices"
+
 fake_bin="$tmp_dir/bin"
 mkdir -p "$fake_bin"
 
@@ -150,7 +162,9 @@ pass "hybrid detection kills a wedged supergfxctl query and falls back"
 nvidia_bin="$tmp_dir/nvidia-bin"
 nvidia_home="$tmp_dir/nvidia-home"
 nvidia_packages="$tmp_dir/nvidia-packages"
+export NVIDIA_INSTALLED_PACKAGES="$tmp_dir/nvidia-installed-packages"
 mkdir -p "$nvidia_bin" "$nvidia_home"
+: >"$NVIDIA_INSTALLED_PACKAGES"
 
 cat >"$nvidia_bin/monarch-hw-nvidia" <<'STUB'
 #!/bin/bash
@@ -171,6 +185,12 @@ STUB
 cat >"$nvidia_bin/monarch-pkg-add" <<'STUB'
 #!/bin/bash
 printf '%s\n' "$@" >"$NVIDIA_PACKAGES_LOG"
+printf '%s\n' "$@" >>"$NVIDIA_INSTALLED_PACKAGES"
+STUB
+cat >"$nvidia_bin/pacman" <<'STUB'
+#!/bin/bash
+[[ $1 == "-Q" && $2 == "--" ]] || exit 64
+grep -Fxq -- "$3" "$NVIDIA_INSTALLED_PACKAGES"
 STUB
 cat >"$nvidia_bin/lspci" <<'STUB'
 #!/bin/bash
@@ -187,7 +207,8 @@ run_nvidia_installer() {
   local mode=$1
 
   NVIDIA_TEST_MODE="$mode" NVIDIA_PACKAGES_LOG="$nvidia_packages" \
-    HOME="$nvidia_home" MONARCH_INSTALL=1 PATH="$nvidia_bin:/usr/bin" \
+    HOME="$nvidia_home" MONARCH_INSTALL=1 MONARCH_PATH="$ROOT" \
+    MONARCH_PCI_DEVICES_PATH="$tmp_dir/devices" PATH="$nvidia_bin:$ROOT/bin:/usr/bin" \
     "$ROOT/bin/monarch-install-nvidia"
 }
 
@@ -198,6 +219,60 @@ run_gaming_driver_installer() {
     PATH="$nvidia_bin:/usr/bin" "$ROOT/bin/monarch-install-gaming-gpu-lib32" \
     >/dev/null
 }
+
+source "$ROOT/install/reconcile/nvidia-env.sh"
+export HOME="$nvidia_home" MONARCH_PCI_DEVICES_PATH="$tmp_dir/devices"
+export PATH="$nvidia_bin:$ROOT/bin:/usr/bin"
+nvidia_env="$HOME/.config/environment.d/nvidia.conf"
+pending_driver="$HOME/.local/state/monarch/nvidia-driver-pending"
+mkdir -p "${pending_driver%/*}" "${nvidia_env%/*}"
+for mode in gsp legacy; do
+  export NVIDIA_TEST_MODE="$mode"
+  if [[ $mode == "gsp" ]]; then
+    required_packages=(nvidia-open-dkms nvidia-utils libva-nvidia-driver)
+    other_packages=(nvidia-580xx-dkms nvidia-580xx-utils)
+    write_pci_devices 0x10de:0x1e00:0x030000
+  else
+    required_packages=(nvidia-580xx-dkms nvidia-580xx-utils)
+    other_packages=(nvidia-open-dkms nvidia-utils libva-nvidia-driver)
+    write_pci_devices 0x10de:0x1d81:0x030000
+  fi
+  rm -f "$nvidia_env"
+  touch "$pending_driver"
+  : >"$NVIDIA_INSTALLED_PACKAGES"
+  monarch_reconcile_nvidia_environment
+  [[ ! -e $nvidia_env ]] || fail "missing $mode driver still publishes NVIDIA environment"
+  for known_architecture in turing_plus maxwell_pascal_volta; do
+    for known_display in true false; do
+      monarch_nvidia_environment "$known_architecture" "$known_display" >"$nvidia_env"
+      monarch_reconcile_nvidia_environment
+      [[ ! -e $nvidia_env ]] || fail "missing $mode driver retains a managed NVIDIA environment"
+    done
+  done
+  printf '%s\n' CUSTOM=value >"$nvidia_env"
+  before=$(sha256sum "$nvidia_env")
+  monarch_reconcile_nvidia_environment
+  [[ $(sha256sum "$nvidia_env") == "$before" ]] || fail "missing driver removes custom NVIDIA settings"
+  mv "$nvidia_env" "$nvidia_home/custom-pending"
+  ln -s "$nvidia_home/custom-pending" "$nvidia_env"
+  monarch_reconcile_nvidia_environment
+  [[ -L $nvidia_env ]] || fail "missing driver removes a custom NVIDIA symlink"
+  rm -f "$nvidia_env"
+  printf '%s\n' "${other_packages[@]}" >"$NVIDIA_INSTALLED_PACKAGES"
+  monarch_reconcile_nvidia_environment
+  [[ ! -e $nvidia_env ]] || fail "the wrong driver generation publishes $mode environment"
+  for missing_package in "${required_packages[@]}"; do
+    for package in "${required_packages[@]}"; do
+      [[ $package == "$missing_package" ]] || printf '%s\n' "$package"
+    done >"$NVIDIA_INSTALLED_PACKAGES"
+    monarch_reconcile_nvidia_environment
+    [[ ! -e $nvidia_env ]] || fail "missing $missing_package still publishes NVIDIA environment"
+  done
+  run_nvidia_installer "$mode" >/dev/null
+  grep -Fqx '__GLX_VENDOR_LIBRARY_NAME=nvidia' "$nvidia_env" || fail "driver retry does not publish $mode environment"
+  [[ ! -e $pending_driver ]] || fail "successful driver retry leaves its pending marker"
+  pass "$mode environment requires matching installed packages and recovers after a pending install"
+done
 
 run_nvidia_installer gsp
 [[ $(paste -sd ' ' "$nvidia_packages") == "linux-cachyos-headers nvidia-open-dkms nvidia-utils libva-nvidia-driver" ]] ||
@@ -223,3 +298,26 @@ if grep -Eq '^[^#[:space:]]*lib32-nvidia' "$ROOT/install/monarch-other.packages"
   fail "the offline ISO excludes NVIDIA gaming libraries"
 fi
 pass "the offline ISO excludes NVIDIA gaming libraries"
+
+source "$ROOT/install/reconcile/nvidia-env.sh"
+export HOME="$nvidia_home" MONARCH_PCI_DEVICES_PATH="$tmp_dir/devices"
+export PATH="$nvidia_bin:$ROOT/bin:/usr/bin"
+write_pci_devices 0x1002:0x15e7:0x030000 0x10de:0x2560:0x030200
+printf '1\n' >"$tmp_dir/devices/0000:00:00.0/boot_vga"
+monarch_nvidia_environment turing_plus true >"$HOME/.config/environment.d/nvidia.conf"
+monarch_reconcile_nvidia_environment turing_plus >/dev/null
+grep -Fqx 'NVD_BACKEND=direct' "$HOME/.config/environment.d/nvidia.conf" || fail "hybrid NVIDIA loses video decoder settings"
+! grep -Eq 'LIBVA_DRIVER_NAME|__GLX_VENDOR_LIBRARY_NAME' "$HOME/.config/environment.d/nvidia.conf" ||
+  fail "hybrid NVIDIA still forces the renderer on integrated graphics"
+inode=$(stat -c '%i' "$HOME/.config/environment.d/nvidia.conf")
+monarch_reconcile_nvidia_environment turing_plus
+[[ $(stat -c '%i' "$HOME/.config/environment.d/nvidia.conf") == "$inode" ]] || fail "NVIDIA reconciliation is not idempotent"
+printf '%s\n' CUSTOM=value >>"$HOME/.config/environment.d/nvidia.conf"
+before=$(sha256sum "$HOME/.config/environment.d/nvidia.conf")
+monarch_reconcile_nvidia_environment maxwell_pascal_volta 2>/dev/null
+[[ $(sha256sum "$HOME/.config/environment.d/nvidia.conf") == "$before" ]] || fail "NVIDIA reconciliation overwrites custom settings"
+mv "$HOME/.config/environment.d/nvidia.conf" "$nvidia_home/custom"
+ln -s "$nvidia_home/custom" "$HOME/.config/environment.d/nvidia.conf"
+monarch_reconcile_nvidia_environment turing_plus 2>/dev/null
+[[ -L $HOME/.config/environment.d/nvidia.conf ]] || fail "NVIDIA reconciliation replaces custom symlinks"
+pass "hybrid NVIDIA repairs only recognized generated environments and preserves customization"

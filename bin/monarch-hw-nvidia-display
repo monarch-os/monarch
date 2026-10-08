@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# monarch:summary=Detect whether NVIDIA drives the display rather than an integrated GPU
+# monarch:hidden=true
+
+pci_devices_path="${MONARCH_PCI_DEVICES_PATH:-/sys/bus/pci/devices}"
+shopt -s nullglob
+
+nvidia_boot=0
+other_boot=0
+for device in "$pci_devices_path"/*; do
+  [[ -r $device/class && $(<"$device/class") == 0x03* ]] || continue
+  [[ -r $device/boot_vga && $(<"$device/boot_vga") == "1" ]] || continue
+  [[ -r $device/vendor ]] || continue
+  if [[ $(<"$device/vendor") == "0x10de" ]]; then
+    nvidia_boot=1
+  else
+    other_boot=1
+  fi
+done
+
+# Unknown display ownership keeps the existing discrete-GPU behavior.
+(( other_boot == 0 || nvidia_boot == 1 ))

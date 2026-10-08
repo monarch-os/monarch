@@ -4,11 +4,13 @@ test/shell.d/mise-runtime-test.sh	developer-agents	medium	isolated
 test/shell.d/update-pacman-test.sh	updates	high	isolated
 test/shell.d/terminal-presentation-test.sh	command-presentation	medium	isolated
 test/shell.d/launch-or-focus-test.sh	command-launch	high	isolated
+test/shell.d/launch-editor-test.sh	command-launch	medium	isolated
 test/shell.d/test-runner-test.sh	test-runner	medium	isolated
 test/shell.d/noctalia-restart-test.sh	desktop-shell	medium	isolated
 test/shell.d/acceptance-target-test.sh	acceptance-security	high	isolated
 test/monarch-about-test.sh	about	low	isolated
 test/monarch-agent-usage-codex-test.sh	agent-usage	medium	isolated
+test/monarch-agent-usage-test.sh	agent-usage	medium	isolated
 test/monarch-bar-position-test.sh	desktop-bar	medium	isolated
 test/shell.d/browser-policy-hardening-test.sh	browser-security	high	isolated
 test/shell.d/browser-defaults-test.sh	browser-security	high	isolated
@@ -16,6 +18,7 @@ test/shell.d/browser-translate-policy-test.sh	browser-security	high	isolated
 test/shell.d/brightness-display-apple-test.sh	display-security	high	isolated
 test/shell.d/cups-browsed-retirement-test.sh	printing-security	high	isolated
 test/monarch-cli-test.sh	cli-routing	high	isolated
+test/monarch-agent-crash-test.sh	crash-reporting	high	isolated
 test/monarch-crash-capture-test.sh	crash-reporting	high	isolated
 test/monarch-crash-history-test.sh	crash-reporting	high	isolated
 test/monarch-crash-submit-test.sh	crash-reporting	high	isolated
@@ -131,3 +134,8 @@ test/shell.d/windows-vm-reconcile-test.sh	virtualization-security	high	isolated
 test/shell.d/wpa-supplicant-reconcile-test.sh	network	high	isolated
 test/shell.d/workspace-names-test.sh	workspaces	low	isolated
 test/shell.d/fuzzel-retirement-test.sh	package-install	medium	isolated
+test/shell.d/capture-state-test.sh	capture	high	isolated
+test/shell.d/quattro-first-batch-test.sh	upstream-sync	high	isolated
+test/shell.d/polkit-auth-test.sh	security	high	isolated
+test/shell.d/fingerprint-activation-test.sh	security	high	isolated
+test/shell.d/factory-account-scrub-test.sh	factory-reset	high	isolated

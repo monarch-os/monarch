@@ -72,10 +72,10 @@ setup_pam_config() {
     sudo tee /etc/pam.d/polkit-1 >/dev/null <<EOF
 $FPRINTD_GATE
 auth      sufficient pam_fprintd.so
-auth      required pam_unix.so
-account   required pam_unix.so
-password  required pam_unix.so
-session   required pam_unix.so
+auth      include system-auth
+account   include system-auth
+password  include system-auth
+session   include system-auth
 EOF
   fi
   add_gate_to /etc/pam.d/polkit-1 polkit
@@ -117,27 +117,24 @@ if ! check_fingerprint_hardware; then
   exit 1
 fi
 
-# Configure PAM
-setup_pam_config
-
-# Arm the reader on the Noctalia lock screen
-setup_noctalia_lockscreen
-
 # Enroll first fingerprint
 echo -e "\e[32m\nLet's setup your right index finger as the first fingerprint.\e[0m"
 echo -e "Keep moving the finger around on sensor until the process completes.\n"
 
 if sudo fprintd-enroll "$USER"; then
-  add_fingerprint_marker
   echo -e "\e[32m\nFingerprint enrolled successfully!\e[0m"
 
   # Verify
   echo -e "\nNow let's verify that it's working correctly.\n"
   if fprintd-verify; then
+    setup_pam_config
+    setup_noctalia_lockscreen
+    add_fingerprint_marker
     echo -e "\e[32m\nPerfect! Fingerprint authentication is now configured.\e[0m"
     echo "You can use your fingerprint for sudo, polkit, and the lock screen (Super + L)."
   else
     echo -e "\e[31m\nVerification failed. You may want to try enrolling again.\e[0m"
+    exit 1
   fi
 else
   echo -e "\e[31m\nEnrollment failed. Please try again.\e[0m"
