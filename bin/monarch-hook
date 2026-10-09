@@ -20,6 +20,10 @@ HOOK_PATH="$HOME/.config/monarch/hooks/$1"
 HOOK_DIR="$HOOK_PATH.d"
 shift
 
+if [[ $HOOK == "post-boot" ]]; then
+  monarch-state clear-stale-restarts || echo "Restart marker cleanup failed" >&2
+fi
+
 if [[ -f $HOOK_PATH ]]; then
   bash "$HOOK_PATH" "$@" || echo "Hook failed: $HOOK_PATH"
 fi
