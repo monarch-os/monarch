@@ -75,7 +75,7 @@ grep -qF 'match app-id="org.monarch.disk-usage"' "$ROOT/default/niri/windows.kdl
 [[ ! -v all_packages[cups-browsed] ]] || fail "automatic printer discovery is not a default package"
 
 for package in claude-code opencode; do
-  [[ ! -v all_packages[$package] ]] || fail "$package is mise-managed, not a pacman base package"
+  [[ ! -v all_packages[$package] ]] || fail "$package must remain optional, not a pacman base package"
 done
 
 if ((${#all[@]} != $(printf '%s\n' "${all[@]}" | sort -u | wc -l))); then

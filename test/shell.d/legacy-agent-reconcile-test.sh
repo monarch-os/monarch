@@ -15,6 +15,7 @@ mkdir -p "$stub_bin"
 cat >"$stub_bin/mise" <<'EOF'
 #!/bin/bash
 printf '%s\n' "$*" >>"$TEST_MISE_CALLS"
+[[ $1 != "ls" ]] || printf '%s\n' '[]'
 EOF
 cat >"$stub_bin/monarch-pkg-drop" <<'EOF'
 #!/bin/bash
@@ -130,7 +131,7 @@ assert_v5_catalog() {
   assert_mise_wrapper "$home" crush crush
   assert_mise_wrapper "$home" agy antigravity-cli
   assert_mise_wrapper "$home" copilot copilot
-  assert_mise_wrapper "$home" opencode opencode
+  [[ ! -e $home/.local/bin/opencode ]] || fail "the retired OpenCode wrapper remains"
   assert_mise_wrapper "$home" pi pi
   assert_mise_wrapper "$home" omp github:can1357/oh-my-pi
   assert_mise_wrapper "$home" grok npm:@xai-official/grok
@@ -150,6 +151,7 @@ prepare_home() {
 run_reconciler() {
   HOME="$1" bash "$agent_reconciler"
   HOME="$1" bash "$system_reconciler"
+  HOME="$1" bash -euc 'source "$MONARCH_PATH/install/reconcile/mise.sh"'
 }
 
 direct_home="$test_tmp/direct"
@@ -254,7 +256,7 @@ mkdir -p "$failure_bin"
 cat >"$failure_bin/monarch-mise-install" <<'EOF'
 #!/bin/bash
 command=${2:-$1}
-[[ $command != "opencode" ]] || exit 75
+[[ $command != "copilot" ]] || exit 75
 exec "$REAL_MISE_INSTALL" "$@"
 EOF
 chmod +x "$failure_bin/monarch-mise-install"
@@ -275,7 +277,7 @@ run_reconciler "$failure_home"
 assert_v5_catalog "$failure_home"
 [[ $(<"$failure_home/.config/monarch/defaults/agent") == "agy" ]] ||
   fail "retrying the wrapper refresh did not normalize the default agent"
-grep -qxF 'claude-code openai-codex opencode' "$TEST_DROP_CALLS" ||
+grep -qxF 'claude-code openai-codex' "$TEST_DROP_CALLS" ||
   fail "packaged agent commands were not retired after their replacements succeeded"
 pass "an interrupted agent refresh keeps every command recoverable"
 
@@ -283,7 +285,7 @@ retirement_failure_home="$test_tmp/interrupted-package-retirement"
 prepare_home "$retirement_failure_home" claude
 HOME="$retirement_failure_home" bash "$agent_reconciler"
 : >"$TEST_DROP_CALLS"
-if TEST_DROP_FAILURE='claude-code openai-codex opencode' TEST_DROP_STATUS=23 \
+if TEST_DROP_FAILURE='claude-code openai-codex' TEST_DROP_STATUS=23 \
   HOME="$retirement_failure_home" bash "$system_reconciler"; then
   fail "a failed packaged-agent retirement returned success"
 fi
@@ -293,7 +295,7 @@ retirement_state="$retirement_failure_home/.local/state/monarch/reconcile/1-to-2
 HOME="$retirement_failure_home" bash "$system_reconciler"
 [[ -f $retirement_state ]] ||
   fail "retrying packaged-agent retirement did not publish transition readiness"
-(( $(grep -xcF 'claude-code openai-codex opencode' "$TEST_DROP_CALLS") == 2 )) ||
+(( $(grep -xcF 'claude-code openai-codex' "$TEST_DROP_CALLS") == 2 )) ||
   fail "packaged-agent retirement did not retry the same package set"
 pass "runtime readiness waits for packaged-agent retirement"
 
@@ -303,7 +305,7 @@ mkdir -p "$blocked_home/user-codex-directory"
 ln -s "$blocked_home/user-codex-directory" "$blocked_home/.local/bin/codex"
 : >"$TEST_DROP_CALLS"
 run_reconciler "$blocked_home"
-grep -qxF 'claude-code opencode' "$TEST_DROP_CALLS" ||
+grep -qxF 'claude-code' "$TEST_DROP_CALLS" ||
   fail "a packaged command was removed without an executable user replacement"
 [[ -L $blocked_home/.local/bin/codex ]] ||
   fail "a user-owned Codex symlink was overwritten"
@@ -325,13 +327,18 @@ cat >"$custom_home/.local/bin/claude" <<'EOF'
 #!/bin/bash
 echo user-claude
 EOF
+cat >"$custom_home/.local/bin/opencode" <<'EOF'
+#!/bin/bash
+echo user-opencode
+EOF
 chmod +x "$custom_home/.local/bin/codex" "$custom_home/.local/bin/gemini" \
-  "$custom_home/.local/bin/claude"
+  "$custom_home/.local/bin/claude" "$custom_home/.local/bin/opencode"
 ln -s /opt/user-ori "$custom_home/.local/bin/ori"
 ln -s /missing/user-omp "$custom_home/.local/bin/omp"
 cp "$custom_home/.local/bin/codex" "$test_tmp/custom-codex"
 cp "$custom_home/.local/bin/gemini" "$test_tmp/custom-gemini"
 cp "$custom_home/.local/bin/claude" "$test_tmp/custom-claude"
+cp "$custom_home/.local/bin/opencode" "$test_tmp/custom-opencode"
 
 run_reconciler "$custom_home"
 cmp "$custom_home/.local/bin/codex" "$test_tmp/custom-codex" ||
@@ -340,6 +347,8 @@ cmp "$custom_home/.local/bin/gemini" "$test_tmp/custom-gemini" ||
   fail "a custom Gemini command was removed by a partial signature"
 cmp "$custom_home/.local/bin/claude" "$test_tmp/custom-claude" ||
   fail "a custom V5-only command was overwritten"
+cmp "$custom_home/.local/bin/opencode" "$test_tmp/custom-opencode" ||
+  fail "a custom OpenCode command was removed"
 [[ -L $custom_home/.local/bin/ori && $(readlink "$custom_home/.local/bin/ori") == "/opt/user-ori" ]] ||
   fail "a user symlink was overwritten"
 [[ -L $custom_home/.local/bin/omp && $(readlink "$custom_home/.local/bin/omp") == "/missing/user-omp" ]] ||
@@ -353,6 +362,10 @@ run_reconciler "$custom_home"
   fail "repeating agent reconciliation changed a canonical wrapper"
 cmp "$custom_home/.local/bin/codex" "$test_tmp/custom-codex" ||
   fail "repeating agent reconciliation overwrote a custom command"
-[[ $(sort -u "$TEST_MISE_CALLS") == "settings set upgrade.auto_prune false" ]] ||
-  fail "agent reconciliation invoked mise beyond the persistent Quattro setting"
+rm "$custom_home/.local/bin/opencode"
+ln -s /opt/user-opencode "$custom_home/.local/bin/opencode"
+run_reconciler "$custom_home"
+[[ -L $custom_home/.local/bin/opencode ]] || fail "a user OpenCode symlink was removed"
+[[ $(sort -u "$TEST_MISE_CALLS") == $'ls --global --json opencode\nsettings set upgrade.auto_prune false' ]] ||
+  fail "agent reconciliation installed a tool instead of only checking OpenCode and mise settings"
 pass "custom commands survive strict ownership checks and repeated reconciliation"

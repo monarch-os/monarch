@@ -40,6 +40,7 @@ credentials.
 | --- | --- |
 | `mpv-mpris` | Included so the default video player participates in Noctalia's media controls. |
 | `dua-cli` | Included with its launcher so disk usage is a discoverable desktop tool. |
+| `opencode` | Optional official Arch package, installed when explicitly selected as the default agent. No launcher wrapper. Reconciliation migrates only an already installed global mise version. |
 | `udiskie` | Outside the defaults while the existing removable-media stack meets the need. Reconsider after a reproduced automount failure. |
 | `yt-dlp` | Optional software. Browser extension and native-messaging integration require a separate product and security decision. |
 | Docker QEMU binfmt | Optional because system-wide foreign-architecture emulators are unnecessary for most desktop users. |
