@@ -14,13 +14,19 @@ sudo systemctl disable --now sshd.service 2>/dev/null || true
 
 if monarch-cmd-present ufw; then
   echo "Removing standard SSH firewall rules..."
-  sudo ufw --force delete limit 22/tcp >/dev/null 2>&1 || true
-  sudo ufw --force delete allow 22/tcp >/dev/null 2>&1 || true
-  sudo ufw --force delete allow 22 >/dev/null 2>&1 || true
-  sudo ufw --force delete allow ssh >/dev/null 2>&1 || true
-  sudo ufw --force delete limit ssh >/dev/null 2>&1 || true
-  sudo ufw --force delete allow to any app SSH >/dev/null 2>&1 || true
-  sudo ufw --force delete limit to any app SSH >/dev/null 2>&1 || true
+  for logging in "" "log" "log-all"; do
+    logging_args=()
+    if [[ -n $logging ]]; then
+      logging_args=("$logging")
+    fi
+    sudo ufw --force delete limit "${logging_args[@]}" 22/tcp >/dev/null
+    sudo ufw --force delete allow "${logging_args[@]}" 22/tcp >/dev/null
+    sudo ufw --force delete allow "${logging_args[@]}" 22 >/dev/null
+    sudo ufw --force delete allow "${logging_args[@]}" ssh >/dev/null
+    sudo ufw --force delete limit "${logging_args[@]}" ssh >/dev/null
+    sudo ufw --force delete allow "${logging_args[@]}" to any app SSH >/dev/null
+    sudo ufw --force delete limit "${logging_args[@]}" to any app SSH >/dev/null
+  done
   sudo ufw reload >/dev/null
   echo "Standard SSH firewall rules removed. Review custom firewall rules separately."
 fi
