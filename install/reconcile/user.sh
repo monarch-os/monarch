@@ -33,9 +33,6 @@ monarch_reconcile_managed_file \
   "$MONARCH_PATH/config/noctalia/monarch-widgets.toml" \
   "$HOME/.config/noctalia/monarch-widgets.toml"
 
-monarch_reconcile_managed_file \
-  "$MONARCH_PATH/config/noctalia/monarch-state.toml" \
-  "$HOME/.config/noctalia/monarch-state.toml"
 "$MONARCH_PATH/bin/monarch-state" clear-before-boot
 
 for palette in "$MONARCH_PATH"/config/noctalia/palettes/*.json; do

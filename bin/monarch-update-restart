@@ -2,6 +2,8 @@
 
 # monarch:summary=Prompt for required reboot or service restarts after updates
 
+monarch-state clear-before-boot || exit $?
+
 echo
 
 running_kernel=$(uname -r)

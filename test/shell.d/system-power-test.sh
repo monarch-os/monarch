@@ -154,5 +154,45 @@ fi
 [[ -f $state_dir/restart-current-required ]] || fail "missing boot identity deletes restart markers"
 pass "boot cleanup preserves state when boot identity is unavailable"
 
-grep -qxF 'started = "/usr/share/monarch/bin/monarch-state clear-before-boot"' "$ROOT/config/noctalia/monarch-state.toml" ||
-  fail "Noctalia startup does not clean markers from previous boots"
+cat >"$mock_bin/monarch-state" <<'EOF'
+#!/bin/bash
+printf 'monarch-state %s\n' "$*" >>"$CALL_LOG"
+exit 42
+EOF
+: >"$call_log"
+status=0
+PATH="$mock_bin:$PATH" CALL_LOG="$call_log" "$ROOT/bin/monarch-update-restart" >"$test_tmp/restart-output" || status=$?
+(( status == 42 )) || fail "update continues when stale-marker cleanup fails"
+[[ $(cat "$call_log") == "monarch-state clear-before-boot" && ! -s $test_tmp/restart-output ]] ||
+  fail "update reads restart requirements before clearing obsolete markers"
+pass "update clears obsolete markers before inspecting restart requirements"
+
+cat >"$mock_bin/monarch-state" <<'EOF'
+#!/bin/bash
+exec bash "$TEST_STATE_COMMAND" "$@"
+EOF
+cat >"$mock_bin/gum" <<'EOF'
+#!/bin/bash
+printf 'gum %s\n' "$*" >>"$CALL_LOG"
+exit 1
+EOF
+printf '#!/bin/bash\nexit 0\n' >"$mock_bin/pacman"
+printf '#!/bin/bash\nexit 1\n' >"$mock_bin/pgrep"
+cat >"$mock_bin/monarch-restart-test" <<'EOF'
+#!/bin/bash
+printf 'restart test\n' >>"$CALL_LOG"
+EOF
+chmod +x "$mock_bin/"*
+consumer_home="$test_tmp/consumer"
+mkdir -p "$consumer_home/.local/state/monarch"
+printf '%s\n' "$boot_one" >"$consumer_home/.local/state/monarch/reboot-required"
+printf '%s\n' "$boot_one" >"$consumer_home/.local/state/monarch/restart-test-required"
+printf '%s\n' "$boot_two" >"$test_tmp/boot-id"
+: >"$call_log"
+HOME="$consumer_home" PATH="$mock_bin:$PATH" CALL_LOG="$call_log" TEST_STATE_COMMAND="$state_command" \
+  "$ROOT/bin/monarch-update-restart" >"$test_tmp/restart-output"
+[[ ! -e $consumer_home/.local/state/monarch/reboot-required && ! -e $consumer_home/.local/state/monarch/restart-test-required ]] ||
+  fail "update retains requirements from a completed power cycle"
+! grep -qE 'Updates require reboot|restart test' "$call_log" ||
+  fail "update prompts or restarts a service because of obsolete markers"
+pass "update removes previous-boot markers without a redundant reboot prompt or service restart"

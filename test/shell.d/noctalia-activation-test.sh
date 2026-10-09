@@ -30,7 +30,7 @@ for entrypoint in first-run reconcile deferred; do
   export XDG_STATE_HOME="$HOME/.local/state"
   if [[ $entrypoint == "reconcile" ]]; then
     mkdir -p "$HOME/.config/noctalia"
-    printf '[hooks]\ncolors_changed = "my-theme-command"\n' >"$HOME/.config/noctalia/config.toml"
+    printf '[hooks]\nstarted = "my-startup-command"\ncolors_changed = "my-theme-command"\n' >"$HOME/.config/noctalia/config.toml"
     cp "$HOME/.config/noctalia/config.toml" "$test_tmp/user-config"
     mkdir -p "$HOME/.local/state/monarch"
     touch "$HOME/.local/state/monarch/reboot-required"
@@ -48,13 +48,13 @@ for entrypoint in first-run reconcile deferred; do
   : >"$test_tmp/calls"
   bash "$script" >/dev/null
   if [[ $entrypoint == "reconcile" ]]; then
-    cmp "$HOME/.config/noctalia/monarch-state.toml" "$ROOT/config/noctalia/monarch-state.toml" ||
-      fail "existing users do not receive the Noctalia state cleanup hook"
+    [[ ! -e $HOME/.config/noctalia/monarch-state.toml ]] ||
+      fail "reconciliation installs a fragment overriding the user's started hook"
     cmp "$HOME/.config/noctalia/config.toml" "$test_tmp/user-config" ||
       fail "state cleanup hook installation rewrites user configuration"
     [[ $(cat "$HOME/.local/state/monarch/reboot-required") == $(cat /proc/sys/kernel/random/boot_id) ]] ||
       fail "reconciliation does not associate legacy markers with the boot before the next restart"
-    pass "reconciliation installs the state cleanup fragment without changing user config"
+    pass "reconciliation adopts legacy markers without changing user hooks"
   fi
   [[ $(grep -c '^msg plugins enable ' "$test_tmp/calls") == 9 ]]
   grep -qx 'msg plugins enable monarch/theme' "$test_tmp/calls"
