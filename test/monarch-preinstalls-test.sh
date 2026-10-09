@@ -21,7 +21,7 @@ grep -qFx xournalpp "$PACKAGES"
 
 for package in claude-code opencode; do
   if grep -qxF "$package" "$PACKAGES"; then
-    echo "$package is mise-managed and must not be a removable pacman preinstall" >&2
+    echo "$package is optional and must not be a pacman preinstall" >&2
     exit 1
   fi
 done

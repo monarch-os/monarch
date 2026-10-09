@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # monarch:summary=Manage persistent state files for Monarch toggles and settings.
-# monarch:args=<set|clear> <state-name-or-pattern>
+# monarch:args=<set|clear|clear-stale-restarts> [state-name-or-pattern]
 # monarch:hidden=true
 
 set -e
@@ -12,11 +12,11 @@ COMMAND="${1:-}"
 STATE_NAME="${2:-}"
 
 if [[ -z $COMMAND ]]; then
-  echo "Usage: monarch-state <set|clear> <state-name-or-pattern>"
+  echo "Usage: monarch-state <set|clear> <state-name-or-pattern> | monarch-state clear-stale-restarts"
   exit 1
 fi
 
-if [[ -z $STATE_NAME ]]; then
+if [[ -z $STATE_NAME && $COMMAND != "clear-stale-restarts" ]]; then
   echo "Usage: monarch-state $COMMAND <state-name>"
   exit 1
 fi
@@ -28,11 +28,34 @@ set)
     exit 2
   fi
   mkdir -p "$STATE_DIR"
-  touch -- "$STATE_DIR/$STATE_NAME"
+  if [[ $STATE_NAME == re*-required ]]; then
+    boot_id=$(cat /proc/sys/kernel/random/boot_id)
+    [[ $boot_id =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || exit 1
+    printf '%s\n' "$boot_id" >"$STATE_DIR/$STATE_NAME"
+  else
+    touch -- "$STATE_DIR/$STATE_NAME"
+  fi
   ;;
 clear)
   [[ -d $STATE_DIR ]] || exit 0
   find "$STATE_DIR" -maxdepth 1 -type f -name "$STATE_NAME" -delete
+  ;;
+clear-stale-restarts)
+  [[ -d $STATE_DIR ]] || exit 0
+  boot_id=$(cat /proc/sys/kernel/random/boot_id)
+  if [[ ! $boot_id =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+    echo "Cannot determine boot identity; restart markers were retained." >&2
+    exit 1
+  fi
+  for state_file in "$STATE_DIR"/re*-required; do
+    [[ -f $state_file && ! -L $state_file ]] || continue
+    state_boot=$(cat -- "$state_file")
+    if [[ -z $state_boot ]]; then
+      printf '%s\n' "$boot_id" >"$state_file"
+    elif [[ $state_boot =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ && $state_boot != "$boot_id" ]]; then
+      rm -f -- "$state_file"
+    fi
+  done
   ;;
 *)
   echo "Unknown state command: $COMMAND" >&2

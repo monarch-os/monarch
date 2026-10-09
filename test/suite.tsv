@@ -1,6 +1,7 @@
 path	feature	risk	environment
 test/shell.d/sleep-transition-test.sh	power	high	isolated
 test/shell.d/mise-runtime-test.sh	developer-agents	medium	isolated
+test/shell.d/opencode-reconcile-test.sh	developer-agents	high	isolated
 test/shell.d/update-pacman-test.sh	updates	high	isolated
 test/shell.d/terminal-presentation-test.sh	command-presentation	medium	isolated
 test/shell.d/launch-or-focus-test.sh	command-launch	high	isolated
