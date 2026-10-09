@@ -20,6 +20,8 @@ fi
 
 if [[ ${CODEX_FAKE_FAILURE:-} == "1" ]]; then
   echo "error: approval policy changed again" >&2
+  exec 1>&-
+  /usr/bin/sleep 0.2
   exit 2
 fi
 
