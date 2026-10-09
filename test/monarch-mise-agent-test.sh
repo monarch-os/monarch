@@ -24,6 +24,16 @@ x)
 esac
 EOF
 
+cat >"$TMP/bin/monarch-pkg-present" <<'EOF'
+#!/bin/bash
+[[ ${ARCH_OPENCODE_INSTALLED:-false} == "true" ]]
+EOF
+cat >"$TMP/bin/monarch-pkg-add" <<'EOF'
+#!/bin/bash
+printf 'pkg-add %s\n' "$*" >>"$TEST_LOG"
+exit "${PKG_ADD_STATUS:-0}"
+EOF
+
 cat > "$TMP/bin/monarch-launch-floating-terminal-with-presentation" <<'EOF'
 #!/bin/bash
 printf 'launch %s\n' "$*" >> "$TEST_LOG"
@@ -106,5 +116,34 @@ for case in \
   grep -qxF "mise use -g $package" "$TEST_LOG"
   [[ $(<"$HOME/.config/monarch/defaults/agent") == $expected ]]
 done
+
+: >"$TEST_LOG"
+ARCH_OPENCODE_INSTALLED=false "$ROOT/bin/monarch-default-agent" opencode
+grep -qx 'launch monarch-default-agent --install opencode' "$TEST_LOG"
+[[ $(<"$HOME/.config/monarch/defaults/agent") == "muse" ]]
+
+: >"$TEST_LOG"
+ARCH_OPENCODE_INSTALLED=true "$ROOT/bin/monarch-default-agent" open-code
+grep -qx 'pkg-add opencode' "$TEST_LOG"
+grep -qx 'agent ' "$TEST_LOG"
+[[ $(<"$HOME/.config/monarch/defaults/agent") == "opencode" ]]
+if grep -qE '^mise (where|use|x) .*opencode' "$TEST_LOG"; then
+  echo "Choosing OpenCode still installs it through mise" >&2
+  exit 1
+fi
+
+printf '%s\n' codex >"$HOME/.config/monarch/defaults/agent"
+: >"$TEST_LOG"
+if PKG_ADD_STATUS=23 "$ROOT/bin/monarch-default-agent" --install opencode; then
+  echo "A failed OpenCode installation returned success" >&2
+  exit 1
+fi
+[[ $(<"$HOME/.config/monarch/defaults/agent") == "codex" ]]
+
+: >"$TEST_LOG"
+"$ROOT/bin/monarch-default-agent" --install opencode >/dev/null
+grep -qx 'pkg-add opencode' "$TEST_LOG"
+grep -qx 'agent --inline' "$TEST_LOG"
+[[ $(<"$HOME/.config/monarch/defaults/agent") == "opencode" ]]
 
 echo "All mise agent tests passed."
