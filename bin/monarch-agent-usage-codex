@@ -757,9 +757,12 @@ def fetch_codex_rpc():
       result["limitsStale"] = False
   except Exception as exc:
     result["usageStatusText"] = "Codex limits unavailable"
-    stderr_file.seek(0, os.SEEK_END)
-    stderr_file.seek(max(0, stderr_file.tell() - 8192))
-    details = stderr_file.read().strip()
+    if proc.poll() is not None:
+      stderr_file.seek(0, os.SEEK_END)
+      stderr_file.seek(max(0, stderr_file.tell() - 8192))
+      details = stderr_file.read().strip()
+    else:
+      details = ""
     result["authHelpText"] = details or str(exc)
   finally:
     try:
