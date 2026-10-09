@@ -11,14 +11,6 @@ mock_bin="$test_tmp/bin"
 call_log="$test_tmp/calls.log"
 mkdir -p "$mock_bin"
 
-cat >"$mock_bin/systemd-run" <<'EOF'
-#!/bin/bash
-
-printf 'systemd-run %s\n' "$*" >>"$CALL_LOG"
-[[ ${FAIL_SYSTEMD_RUN:-false} == "true" ]] && exit 1
-exit 0
-EOF
-
 cat >"$mock_bin/noctalia" <<'EOF'
 #!/bin/bash
 
@@ -27,7 +19,7 @@ printf 'ok\n'
 exit "${NOCTALIA_STATUS:-0}"
 EOF
 
-for command in monarch-niri-window-close-all sleep; do
+for command in systemd-run systemctl monarch-niri-window-close-all sleep; do
   cat >"$mock_bin/$command" <<'EOF'
 #!/bin/bash
 
@@ -52,66 +44,31 @@ run_power_command() {
   PATH="$mock_bin:$PATH" CALL_LOG="$call_log" "$ROOT/bin/monarch-system-$action"
 }
 
-assert_power_calls() {
-  local action="$1"
-  local systemctl_action="$2"
-  local expected_log="$test_tmp/$action-expected.log"
-
-  cat >"$expected_log" <<EOF
-systemd-run --user --collect --quiet --on-active=2s systemctl $systemctl_action --no-wall
-monarch-niri-window-close-all
-sleep 1
-EOF
-
-  diff -u "$expected_log" "$call_log" ||
-    fail "$action runs after being scheduled outside the terminal scope"
-  pass "$action runs after being scheduled outside the terminal scope"
-}
-
 state_dir="$HOME/.local/state/monarch"
 mkdir -p "$state_dir"
 touch "$state_dir/reboot-required" "$state_dir/restart-test-required"
-run_power_command reboot
-[[ -f $state_dir/reboot-required && -f $state_dir/restart-test-required ]] ||
-  fail "scheduling a reboot removed restart markers before a boot change"
-assert_power_calls reboot reboot
-pass "scheduled reboot preserves restart markers until an actual boot change"
+for action in shutdown reboot; do
+  run_power_command "$action" >"$test_tmp/$action-output"
+  [[ $(cat "$test_tmp/$action-output") == "ok" ]] || fail "Noctalia did not acknowledge $action"
+  [[ $(cat "$call_log") == "noctalia msg session $action" ]] ||
+    fail "$action must delegate without clearing state, closing windows or scheduling another action"
+  [[ -f $state_dir/reboot-required && -f $state_dir/restart-test-required ]] ||
+    fail "$action removed restart markers without a boot change"
+  pass "$action delegates to Noctalia and preserves state after IPC acceptance"
 
-run_power_command shutdown >"$test_tmp/shutdown-output"
-[[ $(cat "$test_tmp/shutdown-output") == "ok" ]] || fail "Noctalia did not acknowledge the request"
-expected_log="$test_tmp/shutdown-expected.log"
-cat >"$expected_log" <<'EOF'
-noctalia msg session shutdown
-EOF
-diff -u "$expected_log" "$call_log" ||
-  fail "IPC acceptance must not clear state or close windows before asynchronous shutdown"
-[[ -f $state_dir/reboot-required && -f $state_dir/restart-test-required ]] ||
-  fail "IPC acceptance removed restart markers without a committed shutdown"
-pass "shutdown delegates to Noctalia and preserves state after IPC acceptance"
-
-for status in 1 127; do
-  : >"$call_log"
-  actual_status=0
-  PATH="$mock_bin:$PATH" CALL_LOG="$call_log" NOCTALIA_STATUS="$status" \
-    "$ROOT/bin/monarch-system-shutdown" || actual_status=$?
-  (( actual_status == status )) || fail "shutdown propagates IPC error $status"
-  [[ $(cat "$call_log") == "noctalia msg session shutdown" ]] ||
-    fail "shutdown leaves state and windows alone after IPC error $status"
-  pass "shutdown preserves state and propagates IPC error $status"
+  for status in 1 127; do
+    : >"$call_log"
+    actual_status=0
+    PATH="$mock_bin:$PATH" CALL_LOG="$call_log" NOCTALIA_STATUS="$status" \
+      "$ROOT/bin/monarch-system-$action" >"$test_tmp/$action-output" || actual_status=$?
+    (( actual_status == status )) || fail "$action propagates IPC error $status"
+    [[ $(cat "$call_log") == "noctalia msg session $action" ]] ||
+      fail "$action leaves state and windows alone after IPC error $status"
+    [[ -f $state_dir/reboot-required && -f $state_dir/restart-test-required ]] ||
+      fail "$action removed restart markers after IPC error $status"
+    pass "$action preserves state and propagates IPC error $status"
+  done
 done
-
-: >"$call_log"
-if PATH="$mock_bin:$PATH" CALL_LOG="$call_log" FAIL_SYSTEMD_RUN=true \
-  "$ROOT/bin/monarch-system-reboot"; then
-  fail "reboot aborts when scheduling fails"
-fi
-
-if (( $(wc -l <"$call_log") != 1 )); then
-  fail "reboot leaves state and windows alone when scheduling fails"
-fi
-[[ -f $state_dir/reboot-required && -f $state_dir/restart-test-required ]] ||
-  fail "failed reboot scheduling removed restart markers"
-pass "reboot leaves state and windows alone when scheduling fails"
 
 state_command="$test_tmp/monarch-state"
 sed "s|/proc/sys/kernel/random/boot_id|$test_tmp/boot-id|g" "$ROOT/bin/monarch-state" >"$state_command"
