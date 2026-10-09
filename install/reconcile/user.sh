@@ -33,7 +33,7 @@ monarch_reconcile_managed_file \
   "$MONARCH_PATH/config/noctalia/monarch-widgets.toml" \
   "$HOME/.config/noctalia/monarch-widgets.toml"
 
-"$MONARCH_PATH/bin/monarch-state" clear-before-boot
+"$MONARCH_PATH/bin/monarch-state" clear-stale-restarts
 
 for palette in "$MONARCH_PATH"/config/noctalia/palettes/*.json; do
   monarch_reconcile_managed_file "$palette" \

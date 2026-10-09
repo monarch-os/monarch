@@ -59,7 +59,6 @@ assert_power_calls() {
 
   cat >"$expected_log" <<EOF
 systemd-run --user --collect --quiet --on-active=2s systemctl $systemctl_action --no-wall
-monarch-state clear re*-required
 monarch-niri-window-close-all
 sleep 1
 EOF
@@ -69,12 +68,15 @@ EOF
   pass "$action runs after being scheduled outside the terminal scope"
 }
 
-run_power_command reboot
-assert_power_calls reboot reboot
-
 state_dir="$HOME/.local/state/monarch"
 mkdir -p "$state_dir"
 touch "$state_dir/reboot-required" "$state_dir/restart-test-required"
+run_power_command reboot
+[[ -f $state_dir/reboot-required && -f $state_dir/restart-test-required ]] ||
+  fail "scheduling a reboot removed restart markers before a boot change"
+assert_power_calls reboot reboot
+pass "scheduled reboot preserves restart markers until an actual boot change"
+
 run_power_command shutdown >"$test_tmp/shutdown-output"
 [[ $(cat "$test_tmp/shutdown-output") == "ok" ]] || fail "Noctalia did not acknowledge the request"
 expected_log="$test_tmp/shutdown-expected.log"
@@ -107,6 +109,8 @@ fi
 if (( $(wc -l <"$call_log") != 1 )); then
   fail "reboot leaves state and windows alone when scheduling fails"
 fi
+[[ -f $state_dir/reboot-required && -f $state_dir/restart-test-required ]] ||
+  fail "failed reboot scheduling removed restart markers"
 pass "reboot leaves state and windows alone when scheduling fails"
 
 state_command="$test_tmp/monarch-state"
@@ -119,23 +123,23 @@ bash "$state_command" set restart-test-required
 [[ $(cat "$state_dir/reboot-required") == "$boot_one" ]] || fail "restart marker lacks boot identity"
 touch -d @1000000000 "$state_dir/reboot-required"
 touch -d @2100000000 "$state_dir/restart-test-required"
-bash "$state_command" clear-before-boot
+bash "$state_command" clear-stale-restarts
 [[ -f $state_dir/reboot-required && -f $state_dir/restart-test-required ]] ||
   fail "clock corrections invalidate current restart markers"
-bash "$state_command" clear-before-boot
+bash "$state_command" clear-stale-restarts
 [[ -f $state_dir/reboot-required ]] || fail "same-boot shell restart clears current restart markers"
 pass "restart markers survive same-boot starts regardless of wall-clock timestamps"
 
 touch "$state_dir/logout-required"
 : >"$state_dir/restart-legacy-required"
-bash "$state_command" clear-before-boot
+bash "$state_command" clear-stale-restarts
 [[ $(cat "$state_dir/restart-legacy-required") == "$boot_one" ]] ||
   fail "legacy marker is not conservatively associated with the current boot"
 pass "legacy empty markers are retained until a known boot change"
 
 printf '%s\n' "$boot_two" >"$test_tmp/boot-id"
 bash "$state_command" set restart-current-required
-bash "$state_command" clear-before-boot
+bash "$state_command" clear-stale-restarts
 [[ ! -e $state_dir/reboot-required && ! -e $state_dir/restart-test-required && ! -e $state_dir/restart-legacy-required ]] ||
   fail "the next boot does not clear the previous boot's restart markers"
 [[ -f $state_dir/restart-current-required && -f $state_dir/logout-required ]] ||
@@ -143,12 +147,12 @@ bash "$state_command" clear-before-boot
 pass "restart markers persist in the same boot and expire on the next boot"
 
 printf 'unrecognized\n' >"$state_dir/restart-custom-required"
-bash "$state_command" clear-before-boot
+bash "$state_command" clear-stale-restarts
 [[ $(cat "$state_dir/restart-custom-required") == "unrecognized" ]] ||
   fail "boot cleanup modified an unrecognized marker"
 
 : >"$test_tmp/boot-id"
-if bash "$state_command" clear-before-boot >"$test_tmp/boot-output" 2>&1; then
+if bash "$state_command" clear-stale-restarts >"$test_tmp/boot-output" 2>&1; then
   fail "missing boot identity reports successful cleanup"
 fi
 [[ -f $state_dir/restart-current-required ]] || fail "missing boot identity deletes restart markers"
@@ -163,7 +167,7 @@ EOF
 status=0
 PATH="$mock_bin:$PATH" CALL_LOG="$call_log" "$ROOT/bin/monarch-update-restart" >"$test_tmp/restart-output" || status=$?
 (( status == 42 )) || fail "update continues when stale-marker cleanup fails"
-[[ $(cat "$call_log") == "monarch-state clear-before-boot" && ! -s $test_tmp/restart-output ]] ||
+[[ $(cat "$call_log") == "monarch-state clear-stale-restarts" && ! -s $test_tmp/restart-output ]] ||
   fail "update reads restart requirements before clearing obsolete markers"
 pass "update clears obsolete markers before inspecting restart requirements"
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # monarch:summary=Manage persistent state files for Monarch toggles and settings.
-# monarch:args=<set|clear|clear-before-boot> [state-name-or-pattern]
+# monarch:args=<set|clear|clear-stale-restarts> [state-name-or-pattern]
 # monarch:hidden=true
 
 set -e
@@ -12,11 +12,11 @@ COMMAND="${1:-}"
 STATE_NAME="${2:-}"
 
 if [[ -z $COMMAND ]]; then
-  echo "Usage: monarch-state <set|clear> <state-name-or-pattern> | monarch-state clear-before-boot"
+  echo "Usage: monarch-state <set|clear> <state-name-or-pattern> | monarch-state clear-stale-restarts"
   exit 1
 fi
 
-if [[ -z $STATE_NAME && $COMMAND != "clear-before-boot" ]]; then
+if [[ -z $STATE_NAME && $COMMAND != "clear-stale-restarts" ]]; then
   echo "Usage: monarch-state $COMMAND <state-name>"
   exit 1
 fi
@@ -40,7 +40,7 @@ clear)
   [[ -d $STATE_DIR ]] || exit 0
   find "$STATE_DIR" -maxdepth 1 -type f -name "$STATE_NAME" -delete
   ;;
-clear-before-boot)
+clear-stale-restarts)
   [[ -d $STATE_DIR ]] || exit 0
   boot_id=$(cat /proc/sys/kernel/random/boot_id)
   if [[ ! $boot_id =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then

@@ -7,6 +7,5 @@
 # The user-manager timer survives the terminal app scope closed below.
 systemd-run --user --collect --quiet --on-active="2s" systemctl reboot --no-wall || exit 1
 
-monarch-state clear re*-required
 monarch-niri-window-close-all
 sleep 1 # Allow apps like Chrome to shutdown correctly
