@@ -24,7 +24,6 @@ case $1 in
     ;;
   -m)
     [[ ${HANG_REQUEST:-0} == 0 ]] || exec /usr/bin/sleep 30
-    /usr/bin/sleep 0.15
     [[ ${FAIL_REQUEST:-} != $2 ]] || exit 23
     echo 0 >"$SLEEP_TEST_DIR/queries"
     echo "$2" >"$SLEEP_TEST_DIR/requested"
@@ -41,6 +40,8 @@ sed \
   -e "s|/usr/bin/supergfxctl|$test_tmp/bin/supergfxctl|g" \
   -e "s|restore_marker=/run/monarch-force-igpu|restore_marker=$test_tmp/marker|" \
   -e "s|/etc/supergfxd.conf|$test_tmp/supergfxd.conf|" \
+  -e "s|--kill-after=1s 3s|--kill-after=1s 0.1s|" \
+  -e "s|--kill-after=1s 2s|--kill-after=1s 0.1s|" \
   -e "s|-o root -g root|-o $(id -u) -g $(id -g)|" \
   "$ROOT/default/systemd/system-sleep/force-igpu" >"$test_tmp/hook"
 
@@ -90,7 +91,7 @@ pass "mode confirmation gives up after a bounded number of polls"
 for stalled in HANG_QUERY HANG_REQUEST; do
   prepare
   result=0
-  env "$stalled=1" /usr/bin/timeout 30s bash "$test_tmp/hook" pre hibernate 2>"$test_tmp/error" || result=$?
+  env "$stalled=1" /usr/bin/timeout 8s bash "$test_tmp/hook" pre hibernate 2>"$test_tmp/error" || result=$?
   ((result == 1)) || fail "$stalled was not handled by the hook's own timeout (exit $result)"
 done
 pass "blocked daemon reads and requests terminate within the hook's own deadline"
