@@ -200,3 +200,72 @@ HOME="$consumer_home" PATH="$mock_bin:$PATH" CALL_LOG="$call_log" TEST_STATE_COM
 ! grep -qE 'Updates require reboot|restart test' "$call_log" ||
   fail "update prompts or restarts a service because of obsolete markers"
 pass "update removes previous-boot markers without a redundant reboot prompt or service restart"
+
+session_home="$test_tmp/session"
+session_state="$session_home/.local/state/monarch"
+mkdir -p "$session_state"
+printf '%s\n' "$boot_one" >"$session_state/reboot-required"
+printf '%s\n' "$boot_one" >"$session_state/restart-test-required"
+printf '%s\n' "$boot_two" >"$session_state/restart-current-required"
+touch "$session_state/logout-required"
+
+run_session_start() {
+  HOME="$session_home" PATH="$mock_bin:$PATH" TEST_STATE_COMMAND="$state_command" CALL_LOG="$call_log" \
+    "$ROOT/bin/monarch-hook" post-boot "$@"
+}
+
+run_session_start
+[[ ! -e $session_state/reboot-required && ! -e $session_state/restart-test-required ]] ||
+  fail "session startup retains restart requirements from a previous boot"
+[[ -f $session_state/restart-current-required && -f $session_state/logout-required ]] ||
+  fail "session startup removes current requirements or unrelated state"
+pass "session startup clears old restart markers without requiring user hooks"
+
+HOME="$session_home" bash "$state_command" set reboot-required
+run_session_start
+[[ -f $session_state/reboot-required && -f $session_state/restart-current-required ]] ||
+  fail "a same-boot login removes current restart requirements"
+pass "logging in again during the same boot preserves restart requirements"
+
+printf '%s\n' "$boot_one" >"$test_tmp/boot-id"
+run_session_start
+[[ ! -e $session_state/reboot-required && ! -e $session_state/restart-current-required ]] ||
+  fail "logging in after a new boot retains obsolete restart requirements"
+pass "logging in after a boot change removes the previous boot's requirements"
+
+mkdir -p "$session_home/.config/monarch/hooks/post-boot.d"
+cat >"$session_home/.config/monarch/hooks/post-boot" <<'EOF'
+#!/bin/bash
+printf 'personal %s\n' "$*" >>"$CALL_LOG"
+EOF
+cat >"$session_home/.config/monarch/hooks/post-boot.d/personal" <<'EOF'
+#!/bin/bash
+printf 'fragment %s\n' "$*" >>"$CALL_LOG"
+EOF
+cat >"$mock_bin/monarch-state" <<'EOF'
+#!/bin/bash
+printf 'monarch-state %s\n' "$*" >>"$CALL_LOG"
+exec bash "$TEST_STATE_COMMAND" "$@"
+EOF
+: >"$call_log"
+run_session_start 'argument with spaces'
+[[ $(cat "$call_log") == $'monarch-state clear-stale-restarts\npersonal argument with spaces\nfragment argument with spaces' ]] ||
+  fail "session cleanup changes personal hooks, arguments or execution order"
+pass "session cleanup runs before personal hooks and preserves their arguments"
+
+printf '%s\n' "$boot_two" >"$session_state/reboot-required"
+: >"$call_log"
+HOME="$session_home" PATH="$mock_bin:$PATH" TEST_STATE_COMMAND="$state_command" CALL_LOG="$call_log" \
+  "$ROOT/bin/monarch-hook" post-update
+[[ -f $session_state/reboot-required && ! -s $call_log ]] ||
+  fail "an unrelated hook unexpectedly clears restart markers"
+pass "other hooks leave restart requirements untouched"
+
+: >"$test_tmp/boot-id"
+: >"$call_log"
+run_session_start 'argument with spaces' >"$test_tmp/session-output" 2>&1
+[[ -f $session_state/reboot-required ]] || fail "failed session cleanup deletes restart requirements"
+grep -q 'cleanup failed' "$test_tmp/session-output" || fail "failed session cleanup is not reported"
+[[ $(cat "$call_log") == $'monarch-state clear-stale-restarts\npersonal argument with spaces\nfragment argument with spaces' ]] ||
+  fail "failed session cleanup prevents personal startup hooks"
+pass "failed cleanup retains markers and still runs personal startup hooks"
