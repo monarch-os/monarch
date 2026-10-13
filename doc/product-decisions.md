@@ -22,6 +22,29 @@ NetworkManager's connectivity state and open a fixed HTTP probe only on an
 explicit sign-in action. Never execute a portal-provided URL or send saved
 credentials.
 
+Limited connectivity is a failed or stale connectivity check, not proof of a
+captive portal. Offer an explicit NetworkManager recheck without reconnecting
+the link; reserve browser sign-in for the `portal` connectivity state.
+
+The network panel manages Ethernet connections and offers an explicit Wi-Fi
+rescan alongside automatic scans. Internet priority changes IPv4 and IPv6 route
+metrics in currently connected Ethernet/Wi-Fi profiles that already have a default
+route: 50 for the preferred connection, 600 for its fallbacks. These settings
+persist in those profiles; Auto restores NetworkManager's automatic metrics
+(-1), not earlier custom values. Do not change VPN routing, local-only profiles,
+gateways or disconnected profiles. Reapply without tearing down connections.
+
+Keep connection actions ahead of diagnostics. Hide virtual and unmanaged
+interfaces in the panel, label connect/disconnect actions explicitly, and show
+saved Internet priority separately from the route currently in use. Statistics,
+Wi-Fi band and DNS live in a secondary details view, opened directly with
+`noctalia msg panel-open monarch/network:panel details`.
+
+Details show every connected physical Ethernet/Wi-Fi interface, including
+local-only links, with all assigned IPv4/IPv6 addresses and default gateways.
+Label IPv6 link-local addresses and distinguish the active Internet output;
+latency and throughput remain scoped to that output, not to every interface.
+
 ## Compositor workflows
 
 - Preserve Monarch's screenshot capture and editing pipeline. A second default

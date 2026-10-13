@@ -13,6 +13,7 @@
 set -uo pipefail
 
 INTERNET_PROBE=${MONARCH_NETWORK_PROBE:-1.1.1.1}
+INTERNET_PROBE6=${MONARCH_NETWORK_PROBE6:-2606:4700:4700::1111}
 RESOLVED_CONF=${MONARCH_RESOLVED_CONF:-/etc/systemd/resolved.conf}
 SYS_NET=${MONARCH_SYS_NET:-/sys/class/net}
 
@@ -27,7 +28,14 @@ case "${1:-}" in
 esac
 
 route_device() {
-  ip route get "$INTERNET_PROBE" 2>/dev/null |
+  local device
+  device=$(ip route get "$INTERNET_PROBE" 2>/dev/null |
+    awk '{ for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit } }')
+  if [[ -n $device ]]; then
+    printf '%s\n' "$device"
+    return
+  fi
+  ip -6 route get "$INTERNET_PROBE6" 2>/dev/null |
     awk '{ for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit } }'
 }
 
@@ -109,6 +117,7 @@ ping_latency_ms() {
 # the other would double the panel's time to first paint.
 print_ping_samples() {
   local gateway=$1
+  local probe=$2
   local tmpdir router_pid=""
 
   monarch-cmd-present ping || return 0
@@ -118,7 +127,7 @@ print_ping_samples() {
     ping_latency_ms "$gateway" >"$tmpdir/router" &
     router_pid=$!
   fi
-  ping_latency_ms "$INTERNET_PROBE" >"$tmpdir/internet" &
+  ping_latency_ms "$probe" >"$tmpdir/internet" &
 
   if [[ -n $router_pid ]]; then
     wait "$router_pid"
@@ -131,19 +140,26 @@ print_ping_samples() {
 
 print_verbose() {
   local route iface gw src prefix link stats
+  local probe=$INTERNET_PROBE family=inet
 
-  route=$(ip -j route get "$INTERNET_PROBE" 2>/dev/null)
+  [[ $probe != *:* ]] || family=inet6
+  route=$(ip -j route get "$probe" 2>/dev/null)
+  iface=$(jq -r '.[0].dev // ""' <<<"$route" 2>/dev/null)
+  if [[ -z $iface ]]; then
+    probe=$INTERNET_PROBE6
+    family=inet6
+    route=$(ip -j -6 route get "$probe" 2>/dev/null)
+    iface=$(jq -r '.[0].dev // ""' <<<"$route" 2>/dev/null)
+  fi
   print_connectivity
   print_dns
-  [[ -n $route ]] || return 0
-
-  iface=$(jq -r '.[0].dev // ""' <<<"$route" 2>/dev/null)
-  gw=$(jq -r '.[0].gateway // ""' <<<"$route" 2>/dev/null)
-  src=$(jq -r '.[0].prefsrc // ""' <<<"$route" 2>/dev/null)
   [[ -n $iface ]] || return 0
 
+  gw=$(jq -r '.[0].gateway // ""' <<<"$route" 2>/dev/null)
+  src=$(jq -r '.[0].prefsrc // .[0].src // ""' <<<"$route" 2>/dev/null)
+
   prefix=$(ip -j addr show "$iface" 2>/dev/null |
-    jq -r '.[0].addr_info[]? | select(.family == "inet") | .prefixlen // ""' 2>/dev/null | head -n 1)
+    jq -r --arg family "$family" '.[0].addr_info[]? | select(.family == $family) | .prefixlen // ""' 2>/dev/null | head -n 1)
 
   printf 'iface\t%s\n' "$iface"
   printf 'ip\t%s\n' "$src"
@@ -172,7 +188,10 @@ print_verbose() {
     [[ -r $SYS_NET/$iface/duplex ]] && printf 'duplex\t%s\n' "$(<"$SYS_NET/$iface/duplex")"
   fi
 
-  print_ping_samples "$gw"
+  if [[ ${gw,,} == fe[89ab]*:* && $gw != *%* ]]; then
+    gw+="%$iface"
+  fi
+  print_ping_samples "$gw" "$probe"
 }
 
 if [[ $verbose == "true" ]]; then

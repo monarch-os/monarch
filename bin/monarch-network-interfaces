@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# monarch:summary=List Ethernet and Wi-Fi interfaces as JSON
+# monarch:group=network
+# monarch:examples=monarch network interfaces
+
+set -euo pipefail
+export LC_ALL=C
+
+(($# == 0)) || { echo "Usage: monarch-network-interfaces" >&2; exit 2; }
+
+devices=$(nmcli -t -e no -f DEVICE,TYPE,STATE device status)
+routes=$( { ip -j -4 route show default; ip -j -6 route show default; } | jq -s 'add // []')
+addresses=$(ip -j address show)
+rows=""
+sys_net=${MONARCH_SYS_NET:-/sys/class/net}
+while IFS=: read -r device type state; do
+  [[ $type == "ethernet" || $type == "wifi" ]] || continue
+  uuid=$(nmcli -g GENERAL.CON-UUID device show "$device")
+  [[ $uuid != "--" ]] || uuid=""
+  metrics=""
+  if [[ -n $uuid && $state == "connected" ]]; then
+    metrics=$(nmcli -g ipv4.route-metric,ipv6.route-metric connection show uuid "$uuid")
+  fi
+  virtual=false
+  if [[ -d $sys_net/$device && ! -e $sys_net/$device/device ]]; then
+    virtual=true
+  fi
+  rows+=$(jq -cn --arg iface "$device" --arg type "$type" --arg state "$state" --arg uuid "$uuid" \
+    --argjson routes "$routes" --argjson addresses "$addresses" --argjson virtual "$virtual" --arg metrics "$metrics" \
+    '{iface: $iface, type: $type, state: $state, uuid: $uuid,
+      virtual: $virtual, metrics: ($metrics | split("\n") | map(tonumber?)),
+      connected: ($state == "connected" or ($state | startswith("connected ("))),
+      connecting: ($state == "connecting" or ($state | startswith("connecting ("))),
+      managed: ($state != "unmanaged" and $state != "connected (externally)"),
+      routable: any($routes[]; .dev == $iface),
+      addresses: [$addresses[] | select(.ifname == $iface) | .addr_info[]?
+        | select((.family == "inet" or .family == "inet6") and (.tentative != true) and (.dadfailed != true))
+        | {family: .family, address: .local, prefix: .prefixlen, scope: .scope}],
+      gateways: ([$routes[] | select(.dev == $iface and .gateway != null)
+        | {family: (if (.gateway | contains(":")) then "inet6" else "inet" end), address: .gateway}]
+        | unique_by([.family, .address]))}')$'\n'
+done <<<"$devices"
+printf '%s' "$rows" | jq -s .
