@@ -24,6 +24,7 @@ case "$*" in
   *"ipv4.route-metric,ipv6.route-metric connection show uuid wired-uuid") printf '%s\n%s\n' "${WIRED_METRIC:--1}" "${WIRED_METRIC:--1}" ;;
   *"ipv4.route-metric,ipv6.route-metric connection show uuid"*) printf '%s\n' -1 -1 ;;
   *"connection modify"*) exit "${MODIFY_STATUS:-0}" ;;
+  *"networking connectivity check") echo full; exit "${CHECK_STATUS:-0}" ;;
   *"device reapply"*) exit "${REAPPLY_STATUS:-0}" ;;
   *"device connect"*|*"device disconnect"*) exit "${DEVICE_STATUS:-0}" ;;
   *) exit 2 ;;
@@ -159,3 +160,13 @@ if grep -Eq 'connection modify uuid local-uuid|device reapply lan0' "$CALLS"; th
   fail "automatic metrics rewrite a hidden virtual profile"
 fi
 pass "priority and Auto exclude virtual profiles even when they have default routes"
+
+: >"$CALLS"
+"$ROOT/bin/monarch-network-check" >/dev/null
+assert_call "networking connectivity check"
+if grep -Eq 'connection modify|device (connect|disconnect|reapply)' "$CALLS"; then
+  fail "connectivity check reconfigures a link"
+fi
+if CHECK_STATUS=1 "$ROOT/bin/monarch-network-check" >/dev/null 2>&1; then fail "ignored check failure"; fi
+reject "$ROOT/bin/monarch-network-check" extra
+pass "connectivity recheck runs only the NetworkManager probe and propagates failures"

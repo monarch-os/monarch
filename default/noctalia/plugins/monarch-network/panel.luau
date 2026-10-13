@@ -22,6 +22,7 @@ local DISCONNECT_CMD = shared.bin("monarch-wifi-disconnect")
 local RADIO_CMD = shared.bin("monarch-toggle-wifi")
 local DNS_CMD = shared.bin("monarch-setup-dns")
 local PORTAL_CMD = shared.bin("monarch-network-captive-portal")
+local CHECK_CMD = shared.bin("monarch-network-check")
 local INTERFACES_CMD = shared.bin("monarch-network-interfaces")
 local ETHERNET_CMD = shared.bin("monarch-network-ethernet")
 local ROUTE_CMD = shared.bin("monarch-network-route")
@@ -500,7 +501,8 @@ local function captivePortal(): { any }
     return {}
   end
 
-  local title = info.connectivity == "portal" and "Sign-in required" or "Limited connectivity"
+  local portal = info.connectivity == "portal"
+  local title = portal and "Sign-in required" or "Limited connectivity"
   return {
     ui.row({
       key = "portal",
@@ -513,7 +515,10 @@ local function captivePortal(): { any }
     }, {
       ui.glyph({ key = "icon", name = "alert-triangle", color = "error" }),
       ui.label({ key = "title", text = title, fontSize = 12, color = "on_surface", flexGrow = 1 }),
-      ui.button({ key = "open", text = "Sign in", controlSize = "sm", onClick = "onPortalClicked" }),
+      ui.button({ key = "open", text = portal and "Sign in" or (busy == "connectivity" and "Checking…" or "Check again"),
+        controlSize = "sm", enabled = busy == "",
+        tooltip = portal and "Open the captive network sign-in page" or "Repeat NetworkManager's Internet access check without reconnecting",
+        onClick = portal and "onPortalClicked" or "onConnectivityCheckClicked" }),
     }),
   }
 end
@@ -1062,7 +1067,13 @@ function onSpeedTestClicked()
 end
 
 function onPortalClicked()
+  if info.connectivity ~= "portal" or busy ~= "" then return end
   noctalia.runAsync(PORTAL_CMD)
+end
+
+function onConnectivityCheckClicked()
+  if info.connectivity ~= "limited" or busy ~= "" then return end
+  runAction("connectivity", "", CHECK_CMD, "Could not recheck Internet access")
 end
 
 function onRadioChanged(checked)

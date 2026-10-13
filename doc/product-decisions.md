@@ -22,6 +22,10 @@ NetworkManager's connectivity state and open a fixed HTTP probe only on an
 explicit sign-in action. Never execute a portal-provided URL or send saved
 credentials.
 
+Limited connectivity is a failed or stale connectivity check, not proof of a
+captive portal. Offer an explicit NetworkManager recheck without reconnecting
+the link; reserve browser sign-in for the `portal` connectivity state.
+
 The network panel manages Ethernet connections and offers an explicit Wi-Fi
 rescan alongside automatic scans. Internet priority changes IPv4 and IPv6 route
 metrics in currently connected Ethernet/Wi-Fi profiles that already have a default
