@@ -21,13 +21,37 @@ if [[ $1 != "auto" ]] && ! jq -e --arg iface "$1" \
   exit 1
 fi
 
+if ! jq -e 'all(.[]; (.metrics | length) == 2)' <<<"$interfaces" >/dev/null; then
+  echo "Error: cannot capture original route metrics; no changes applied" >&2
+  exit 1
+fi
+
+devices=() uuids=() metrics4=() metrics6=()
+restore_metrics() {
+  local i
+  for ((i = ${#devices[@]} - 1; i >= 0; i--)); do
+    if ! nmcli connection modify uuid "${uuids[i]}" ipv4.route-metric "${metrics4[i]}" ipv6.route-metric "${metrics6[i]}"; then
+      echo "Error: could not restore saved metrics for ${devices[i]}" >&2
+      continue
+    fi
+    if ! nmcli device reapply "${devices[i]}"; then
+      echo "Error: saved metrics restored, but could not reapply ${devices[i]}" >&2
+    fi
+  done
+}
+
 # Reapply changes metrics without tearing down the link. Never touch VPN profiles
 # or enable a default route on a connection deliberately kept local-only.
-while IFS=$'\t' read -r device uuid; do
+while IFS=$'\t' read -r device uuid original4 original6; do
   [[ -n $device && -n $uuid ]] || continue
   metric=600
   [[ $device != $1 ]] || metric=50
   [[ $1 != "auto" ]] || metric=-1
-  nmcli connection modify uuid "$uuid" ipv4.route-metric "$metric" ipv6.route-metric "$metric"
-  nmcli device reapply "$device"
-done < <(jq -r '.[] | [.iface, .uuid] | @tsv' <<<"$interfaces")
+  devices+=("$device") uuids+=("$uuid") metrics4+=("$original4") metrics6+=("$original6")
+  if ! nmcli connection modify uuid "$uuid" ipv4.route-metric "$metric" ipv6.route-metric "$metric" ||
+    ! nmcli device reapply "$device"; then
+    echo "Error: route update failed; restoring original metrics" >&2
+    restore_metrics
+    exit 1
+  fi
+done < <(jq -r '.[] | [.iface, .uuid, .metrics[0], .metrics[1]] | @tsv' <<<"$interfaces")

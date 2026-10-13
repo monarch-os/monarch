@@ -14,6 +14,13 @@ export PATH="$TMP/bin:$PATH"
 cat >"$TMP/bin/nmcli" <<'STUB'
 #!/bin/bash
 printf '%s\n' "$*" >>"$CALLS"
+if [[ -n ${FAIL_ON_CALL:-} && $* == "$FAIL_ON_CALL" && ! -e $METRIC_STATE/failed ]]; then
+  touch "$METRIC_STATE/failed"
+  exit 1
+fi
+if [[ ${FAIL_RESTORE:-false} == "true" && $* == "connection modify uuid wifi-uuid ipv4.route-metric -1 ipv6.route-metric -1" && -e $METRIC_STATE/failed ]]; then
+  exit 1
+fi
 case "$*" in
   *"DEVICE,TYPE,STATE device status")
     printf 'eth0:ethernet:%s\nwlan0:wifi:connected\neth1:ethernet:disconnected\neth2:ethernet:unmanaged\ntun0:tun:connected\nlan0:ethernet:connected\n' "${WIRED_STATE:-connected}" ;;
@@ -21,9 +28,11 @@ case "$*" in
   *"GENERAL.CON-UUID device show wlan0") echo wifi-uuid ;;
   *"GENERAL.CON-UUID device show lan0") echo local-uuid ;;
   *"GENERAL.CON-UUID device show"*) echo -- ;;
-  *"ipv4.route-metric,ipv6.route-metric connection show uuid wired-uuid") printf '%s\n%s\n' "${WIRED_METRIC:--1}" "${WIRED_METRIC:--1}" ;;
+  *"ipv4.route-metric,ipv6.route-metric connection show uuid wired-uuid") printf '%s\n%s\n' "${WIRED_METRIC:--1}" "${WIRED_METRIC6:-${WIRED_METRIC:--1}}" ;;
   *"ipv4.route-metric,ipv6.route-metric connection show uuid"*) printf '%s\n' -1 -1 ;;
-  *"connection modify"*) exit "${MODIFY_STATUS:-0}" ;;
+  *"connection modify"*)
+    if [[ -n ${METRIC_STATE:-} ]]; then printf '%s\n%s\n' "$6" "$8" >"$METRIC_STATE/$4"; fi
+    exit "${MODIFY_STATUS:-0}" ;;
   *"device reapply"*) exit "${REAPPLY_STATUS:-0}" ;;
   *"device connect"*|*"device disconnect"*) exit "${DEVICE_STATUS:-0}" ;;
   *) exit 2 ;;
@@ -183,3 +192,37 @@ for state in 'connecting' 'connecting (getting IP configuration)' 'connecting (p
   WIRED_STATE=$state reject "$ROOT/bin/monarch-network-ethernet" eth0 on
 done
 pass "connecting states are normalized and reject duplicate Ethernet activation"
+
+export METRIC_STATE="$TMP/metrics"
+mkdir -p "$METRIC_STATE"
+for target in wlan0 auto; do
+  metric=50
+  [[ $target != "auto" ]] || metric=-1
+  for failure in 'device reapply eth0' \
+    "connection modify uuid wifi-uuid ipv4.route-metric $metric ipv6.route-metric $metric" \
+    'device reapply wlan0'; do
+    rm -f "$METRIC_STATE/failed"
+    printf '123\n456\n' >"$METRIC_STATE/wired-uuid"
+    printf '%s\n' -1 -1 >"$METRIC_STATE/wifi-uuid"
+    : >"$CALLS"
+    if WIRED_METRIC=123 WIRED_METRIC6=456 FAIL_ON_CALL=$failure "$ROOT/bin/monarch-network-route" "$target" >"$TMP/out" 2>"$TMP/err"; then
+      fail "accepted failed route update: $failure"
+    fi
+    [[ $(cat "$METRIC_STATE/wired-uuid") == $'123\n456' ]] || fail "did not restore original dual-stack metrics: $failure"
+    [[ $(cat "$METRIC_STATE/wifi-uuid") == $'-1\n-1' ]] || fail "did not restore selected profile: $failure"
+    assert_call "device reapply eth0"
+  done
+done
+pass "failed priority and Auto updates restore every attempted profile's original dual-stack metrics"
+
+WIRED_METRIC=unknown reject "$ROOT/bin/monarch-network-route" wlan0
+pass "missing original metrics prevent any route mutation"
+
+rm -f "$METRIC_STATE/failed"
+: >"$CALLS"
+if WIRED_METRIC=123 WIRED_METRIC6=456 FAIL_ON_CALL='device reapply wlan0' FAIL_RESTORE=true \
+  "$ROOT/bin/monarch-network-route" wlan0 >"$TMP/out" 2>"$TMP/err"; then fail "ignored rollback failure"; fi
+grep -Fq 'could not restore saved metrics for wlan0' "$TMP/err" || fail "silent rollback failure"
+assert_call "connection modify uuid wired-uuid ipv4.route-metric 123 ipv6.route-metric 456"
+[[ $(cat "$METRIC_STATE/wired-uuid") == $'123\n456' ]] || fail "rollback stopped after one restoration failure"
+pass "rollback failures are reported without skipping restoration of earlier profiles"
