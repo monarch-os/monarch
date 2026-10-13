@@ -84,6 +84,22 @@ class GitTest(unittest.TestCase):
     self.assertRegex(self.cli().stdout.strip(), r"^2026\.10\.2\.r1\.g[0-9a-f]+$")
     self.assertEqual(self.cli("--commit").stdout.strip(), self.git("rev-parse", "HEAD"))
 
+  def test_source_ignores_legacy_and_invalid_calver_tags(self):
+    for tag in ["v4.0.4", "v0.12.0", "v9999.13.0", "v9999.10.01", "v9999.10.1-rc1"]:
+      self.git("tag", tag)
+    self.commit()
+    self.assertEqual(self.cli().stdout, "0.12.0\n")
+    self.git("tag", "v2026.10.0")
+    self.assertEqual(self.cli().stdout, "2026.10.0\n")
+
+  def test_source_ignores_unreachable_calver_tag(self):
+    self.git("tag", "v4.0.4")
+    first = self.git("rev-parse", "HEAD")
+    self.commit()
+    self.git("tag", "v2026.10.0")
+    self.git("checkout", "--quiet", first)
+    self.assertEqual(self.cli().stdout, "0.12.0\n")
+
   def test_legacy_and_packaged_identity(self):
     self.assertEqual(self.cli().stdout, "0.12.0\n")
     self.assertEqual(self.cli("--invalid").returncode, 2)

@@ -57,6 +57,8 @@ Untagged builds retain a Git distance and hash suffix. The source `version` file
 is a legacy fallback for source archives, not a monthly bump target.
 Builds use the numerically greatest reachable version tag, so a delayed CI job
 tagging an older ancestor cannot make a descendant build regress in version.
+Only canonical `vYYYY.MM.N` tags qualify; legacy Omarchy tags, prereleases and
+malformed CalVer tags are ignored.
 
 Tags do not publish packages. The package builder remains responsible for build,
 signing and delivery. Merge the corresponding `monarch-pkgs` packaging change

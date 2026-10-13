@@ -10,7 +10,8 @@ set -o pipefail
 case "${1:-}" in
   "")
     if [[ -d $MONARCH_PATH/.git || -f $MONARCH_PATH/.git ]]; then
-      tag=$(git -C "$MONARCH_PATH" tag --merged HEAD --list 'v[0-9]*' --sort=-version:refname | head -n 1)
+      tag=$(git -C "$MONARCH_PATH" tag --merged HEAD --list 'v[0-9]*' --sort=-version:refname |
+        awk '/^v[1-9][0-9]{3}\.(0[1-9]|1[0-2])\.(0|[1-9][0-9]*)$/ && !found { print; found=1 }')
       if [[ -n $tag ]]; then
         git -C "$MONARCH_PATH" describe --tags --match "$tag" 2>/dev/null |
           sed 's/^v//;s/-/.r/;s/-/./' && exit 0
