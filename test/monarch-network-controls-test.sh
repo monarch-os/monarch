@@ -121,6 +121,7 @@ assert_call "connection modify uuid wired-uuid ipv4.route-metric -1 ipv6.route-m
 pass "automatic routing restores NetworkManager metrics"
 
 reject "$ROOT/bin/monarch-network-route" eth1
+reject "$ROOT/bin/monarch-network-route" eth2
 reject "$ROOT/bin/monarch-network-route" lan0
 reject "$ROOT/bin/monarch-network-route" tun0
 reject "$ROOT/bin/monarch-network-route" missing
@@ -145,3 +146,16 @@ pass "panel hides virtual devices, collapses details and distinguishes preferenc
 grep -Fq 'for _, node in ipairs(interfaceDetails())' "$PANEL" || fail "missing per-interface detail cards"
 grep -Fq 'local active = device.iface == info.iface' "$PANEL" || fail "missing active output marker"
 pass "details render every connected physical interface separately and identify the active Internet output"
+
+: >"$CALLS"
+ROUTES4='[{"dev":"eth0"},{"dev":"wlan0"},{"dev":"lan0"}]' "$ROOT/bin/monarch-network-route" wlan0
+if grep -Eq 'connection modify uuid local-uuid|device reapply lan0' "$CALLS"; then
+  fail "preferring a physical link rewrites a hidden virtual profile"
+fi
+ROUTES4='[{"dev":"eth0"},{"dev":"wlan0"},{"dev":"lan0"}]' reject "$ROOT/bin/monarch-network-route" lan0
+: >"$CALLS"
+ROUTES4='[{"dev":"eth0"},{"dev":"wlan0"},{"dev":"lan0"}]' "$ROOT/bin/monarch-network-route" auto
+if grep -Eq 'connection modify uuid local-uuid|device reapply lan0' "$CALLS"; then
+  fail "automatic metrics rewrite a hidden virtual profile"
+fi
+pass "priority and Auto exclude virtual profiles even when they have default routes"

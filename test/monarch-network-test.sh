@@ -43,6 +43,8 @@ assert_equals() {
 cat >"$TMP/bin/ip" <<'STUB'
 #!/bin/bash
 case "$*" in
+  *"-j -6 route get"*) printf '%s' "${IP_ROUTE_JSON6:-}" ;;
+  *"-6 route get"*) [[ -z ${IP_DEV6:-} ]] || printf 'x via fe80::1 dev %s src 2001:db8::50\n' "$IP_DEV6" ;;
   *"-j route get"*) printf '%s' "$IP_ROUTE_JSON" ;;
   *"route get"*)    [[ -n $IP_DEV ]] && printf 'x via y dev %s src z\n' "$IP_DEV" ;;
   *"-j addr show"*) printf '%s' "$IP_ADDR_JSON" ;;
@@ -78,7 +80,12 @@ printf 'Connected to 00:11 (on wlan0)\n\tSSID: %s\n\tfreq: %s\n\tsignal: -42 dBm
   "$IW_SSID" "$IW_FREQ"
 STUB
 
-printf '#!/bin/bash\nexit 0\n' >"$TMP/bin/ping"
+cat >"$TMP/bin/ping" <<'STUB'
+#!/bin/bash
+printf '%s\n' "$*" >>"$PING_CALLS"
+exit 0
+STUB
+export PING_CALLS="$TMP/pings"
 cat >"$TMP/bin/uuidgen" <<'STUB'
 #!/bin/bash
 echo fixed-uuid
@@ -427,6 +434,22 @@ assert_equals "toggle falls back and turns a disabled radio on" \
 NOCTALIA_UP=no "$RADIO" on
 assert_equals "on falls back to nmcli" \
   "$(grep -c 'radio wifi on' "$NM_CALLS")" "1"
+
+export IP_DEV="" IP_ROUTE_JSON="" IP_DEV6=eth0
+export IP_ROUTE_JSON6='[{"dev":"eth0","gateway":"fe80::1","src":"2001:db8::50"}]'
+export IP_ADDR_JSON='[{"addr_info":[{"family":"inet6","prefixlen":64}]}]'
+assert_equals "an IPv6-only route keeps the bar connected" \
+  "$("$STATUS" | cat -A | head -1)" 'ethernet^Ieth0^I^I$'
+ipv6=$("$STATUS" --verbose)
+assert_equals "an IPv6-only route identifies the active interface" \
+  "$(awk '$1=="iface" {print $2}' <<<"$ipv6")" "eth0"
+assert_equals "an IPv6-only route reports its source address" \
+  "$(awk '$1=="ip" {print $2}' <<<"$ipv6")" "2001:db8::50"
+assert_equals "an IPv6-only route reports the IPv6 prefix" \
+  "$(awk '$1=="prefix" {print $2}' <<<"$ipv6")" "64"
+grep -Fq '2606:4700:4700::1111' "$PING_CALLS" || fail "IPv6-only connectivity is probed over IPv4"
+grep -Fq 'fe80::1%eth0' "$PING_CALLS" || fail "link-local router ping has no interface scope"
+pass "IPv6-only latency probes use an IPv6 destination and scope the link-local gateway"
 
 echo
 echo "All network tests passed."

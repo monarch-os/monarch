@@ -61,6 +61,7 @@ local busy = ""
 local busySsid = ""
 local failedSsid = ""
 local errorText = ""
+local scanErrorText = ""
 
 -- Throughput is a delta between two samples and packet loss is a window of
 -- them, so neither exists until the panel has polled twice. Both are cleared on
@@ -243,9 +244,9 @@ local function pollNetworks(rescan: boolean)
     -- neighbourhood that emptied out.
     if result and result.exitCode == 0 then
       networks = shared.parseNetworks(result.stdout or "")
+      if rescan then scanErrorText = "" end
     elseif rescan then
-      failedSsid = ""
-      errorText = shared.errorFrom(result, "Could not rescan Wi-Fi")
+      scanErrorText = shared.errorFrom(result, "Could not rescan Wi-Fi")
     end
     render()
   end)
@@ -966,6 +967,11 @@ function render()
     }))
   end
 
+  if scanErrorText ~= "" then
+    table.insert(body, ui.label({ key = "scan-error", text = scanErrorText,
+      fontSize = 12, color = "error", maxWidth = TEXT_WIDTH }))
+  end
+
   if detailsOpen then
     table.insert(body, sectionHeader("details-head", "CONNECTION DETAILS"))
     for _, node in ipairs(interfaceDetails()) do table.insert(body, node) end
@@ -1010,6 +1016,7 @@ function onOpen(context)
   identity = ""
   busy, busySsid = "", ""
   failedSsid, errorText = "", ""
+  scanErrorText = ""
   ticks = 0
   sample = { iface = "", rx = 0, tx = 0, at = 0 }
   rxRate, txRate = 0, 0
@@ -1064,7 +1071,7 @@ end
 
 function onRescanClicked()
   if not radioPresent or not radioOn or scanning or busy ~= "" then return end
-  failedSsid, errorText = "", ""
+  scanErrorText = ""
   pollNetworks(true)
 end
 

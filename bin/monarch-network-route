@@ -14,8 +14,9 @@ if (($# != 1)); then
 fi
 
 interfaces=$("$(dirname -- "$0")/monarch-network-interfaces")
+interfaces=$(jq -c '[.[] | select(.managed and .virtual == false and .connected and .routable and .uuid != "")]' <<<"$interfaces")
 if [[ $1 != "auto" ]] && ! jq -e --arg iface "$1" \
-  'any(.[]; .iface == $iface and .connected and .routable and .uuid != "")' <<<"$interfaces" >/dev/null; then
+  'any(.[]; .iface == $iface)' <<<"$interfaces" >/dev/null; then
   echo "Error: interface has no active default route: $1" >&2
   exit 1
 fi
@@ -29,4 +30,4 @@ while IFS=$'\t' read -r device uuid; do
   [[ $1 != "auto" ]] || metric=-1
   nmcli connection modify uuid "$uuid" ipv4.route-metric "$metric" ipv6.route-metric "$metric"
   nmcli device reapply "$device"
-done < <(jq -r '.[] | select(.connected and .routable and .uuid != "") | [.iface, .uuid] | @tsv' <<<"$interfaces")
+done < <(jq -r '.[] | [.iface, .uuid] | @tsv' <<<"$interfaces")
