@@ -79,7 +79,7 @@ jobs:
       group: monarch-calver
       queue: max
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
       - name: Allocate version and publish monthly notes when requested

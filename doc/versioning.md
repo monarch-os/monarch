@@ -43,6 +43,8 @@ a new one.
 Workflow dispatch requires this workflow to be present on the repository's
 default branch. GitHub Actions must be permitted to write repository contents;
 tag rules must allow the workflow token to create these tags.
+The write-enabled version job pins checkout to a full immutable commit SHA;
+review dependency updates before changing that pin.
 
 Patch notes describe changes actually delivered through the package repository,
 not merely merged changes. Check package availability before monthly publication.

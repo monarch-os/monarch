@@ -1,6 +1,7 @@
 import importlib.util
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import unittest
@@ -13,6 +14,13 @@ SPEC.loader.exec_module(CALVER)
 
 
 class AllocationTest(unittest.TestCase):
+  def test_write_enabled_checkout_is_immutable(self):
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    version_job = workflow.split("  version:\n", 1)[1]
+    refs = re.findall(r"uses: actions/checkout@([^\s]+)", version_job)
+    self.assertEqual(len(refs), 1)
+    self.assertRegex(refs[0], r"^[0-9a-f]{40}$")
+
   def test_bootstrap_ignores_upstream_tags(self):
     self.assertEqual(CALVER.next_tag(["v4.0.4", "v0.12.0"], []), "v2026.10.0")
 
