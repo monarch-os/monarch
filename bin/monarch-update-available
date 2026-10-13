@@ -1,24 +1,40 @@
 #!/bin/bash
 
-# monarch:summary=Get remote tag
+# monarch:summary=Check whether a newer Monarch package is available
 
-latest_tag=$(git -C "$MONARCH_PATH" ls-remote --tags origin | grep -v "{}" | awk '{print $2}' | sed 's#refs/tags/##' | sort -V | tail -n 1)
-if [[ -z $latest_tag ]]; then
-  echo "Error: Could not retrieve latest tag."
-  exit 1
+set -euo pipefail
+
+if monarch-cmd-missing checkupdates fakeroot; then
+  echo "Cannot check updates: pacman-contrib and fakeroot are required." >&2
+  exit 2
 fi
 
-# Get local tag
-current_tag=$(git -C "$MONARCH_PATH" describe --tags $(git -C "$MONARCH_PATH" rev-list --tags --max-count=1))
-if [[ -z $current_tag ]]; then
-  echo "Error: Could not retrieve current tag."
-  exit 1
-fi
+db=$(mktemp -d) || { echo "Cannot create the update-check database." >&2; exit 2; }
+trap 'rm -rf -- "$db"' EXIT
 
-if [[ $current_tag != $latest_tag ]]; then
-  echo "Monarch update available ($latest_tag)"
+status=0
+updates=$(LC_ALL=C CHECKUPDATES_DB="$db" timeout --kill-after=5s 120s checkupdates --nocolor) || status=$?
+case $status in
+  0) ;;
+  2)
+    echo "No Monarch package update available."
+    exit 1
+    ;;
+  *)
+    echo "Could not check available package updates." >&2
+    exit 2
+    ;;
+esac
+
+while read -r package installed arrow available; do
+  [[ $package == "monarch" ]] || continue
+  if [[ $arrow != "->" || -z $installed || -z $available ]]; then
+    echo "Invalid Monarch update information." >&2
+    exit 2
+  fi
+  printf 'Monarch update available (%s -> %s)\n' "$installed" "$available"
   exit 0
-else
-  echo "Monarch is up to date ($current_tag)"
-  exit 1
-fi
+done <<<"$updates"
+
+echo "No Monarch package update available."
+exit 1

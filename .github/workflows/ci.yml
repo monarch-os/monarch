@@ -4,6 +4,19 @@ on:
   push:
     branches: [dev, main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      month:
+        description: 'Monthly milestone (YYYY.MM, for example 2026.11)'
+        required: true
+        type: string
+      notes:
+        description: 'Reviewed monthly patch notes (Markdown)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
 
 jobs:
   integration-tests:
@@ -54,3 +67,24 @@ jobs:
 
       - name: Lint test entry points
         run: shellcheck --severity=error test/run test/acceptance test/acceptance.d/*.sh
+
+  version:
+    name: Tag tested dev revision
+    needs: [integration-tests, repository-tests, shellcheck]
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/dev') || (github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/dev' || startsWith(github.ref, 'refs/tags/v')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: monarch-calver
+      queue: max
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Allocate version and publish monthly notes when requested
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_MONTH: ${{ inputs.month }}
+          RELEASE_NOTES: ${{ inputs.notes }}
+        run: python3 .github/scripts/calver.py

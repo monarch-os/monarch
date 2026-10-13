@@ -1,5 +1,36 @@
 #!/bin/bash
 
 # monarch:summary=Print the installed Monarch version
+# monarch:args=[--commit]
 
-cat $MONARCH_PATH/version
+set -o pipefail
+
+(( $# <= 1 )) || { echo "Usage: monarch version [--commit]" >&2; exit 2; }
+
+case "${1:-}" in
+  "")
+    if [[ -d $MONARCH_PATH/.git || -f $MONARCH_PATH/.git ]]; then
+      tag=$(git -C "$MONARCH_PATH" tag --merged HEAD --list 'v[0-9]*' --sort=-version:refname |
+        awk '/^v[1-9][0-9]{3}\.(0[1-9]|1[0-2])\.(0|[1-9][0-9]*)$/ && !found { print; found=1 }')
+      if [[ -n $tag ]]; then
+        git -C "$MONARCH_PATH" describe --tags --match "$tag" 2>/dev/null |
+          sed 's/^v//;s/-/.r/;s/-/./' && exit 0
+      fi
+    fi
+    cat "$MONARCH_PATH/version"
+    ;;
+  --commit)
+    if [[ -f $MONARCH_PATH/revision ]]; then
+      cat "$MONARCH_PATH/revision"
+    elif [[ -d $MONARCH_PATH/.git || -f $MONARCH_PATH/.git ]]; then
+      git -C "$MONARCH_PATH" rev-parse HEAD
+    else
+      echo "Source commit is unavailable for this installation." >&2
+      exit 1
+    fi
+    ;;
+  *)
+    echo "Usage: monarch version [--commit]" >&2
+    exit 2
+    ;;
+esac
