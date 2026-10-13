@@ -1,0 +1,147 @@
+#!/bin/bash
+
+set -euo pipefail
+
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+mkdir -p "$TMP/bin"
+mkdir -p "$TMP/sys/eth0/device" "$TMP/sys/wlan0/device" "$TMP/sys/lan0"
+export MONARCH_SYS_NET="$TMP/sys"
+export CALLS="$TMP/calls"
+export PATH="$TMP/bin:$PATH"
+
+cat >"$TMP/bin/nmcli" <<'STUB'
+#!/bin/bash
+printf '%s\n' "$*" >>"$CALLS"
+case "$*" in
+  *"DEVICE,TYPE,STATE device status")
+    printf 'eth0:ethernet:connected\nwlan0:wifi:connected\neth1:ethernet:disconnected\neth2:ethernet:unmanaged\ntun0:tun:connected\nlan0:ethernet:connected\n' ;;
+  *"GENERAL.CON-UUID device show eth0") echo wired-uuid ;;
+  *"GENERAL.CON-UUID device show wlan0") echo wifi-uuid ;;
+  *"GENERAL.CON-UUID device show lan0") echo local-uuid ;;
+  *"GENERAL.CON-UUID device show"*) echo -- ;;
+  *"ipv4.route-metric,ipv6.route-metric connection show uuid wired-uuid") printf '%s\n%s\n' "${WIRED_METRIC:--1}" "${WIRED_METRIC:--1}" ;;
+  *"ipv4.route-metric,ipv6.route-metric connection show uuid"*) printf '%s\n' -1 -1 ;;
+  *"connection modify"*) exit "${MODIFY_STATUS:-0}" ;;
+  *"device reapply"*) exit "${REAPPLY_STATUS:-0}" ;;
+  *"device connect"*|*"device disconnect"*) exit "${DEVICE_STATUS:-0}" ;;
+  *) exit 2 ;;
+esac
+STUB
+
+cat >"$TMP/bin/ip" <<'STUB'
+#!/bin/bash
+case "$*" in
+  *"-4 route show default")
+    fallback='[{"dev":"eth0","metric":100},{"dev":"wlan0","metric":600}]'
+    printf '%s\n' "${ROUTES4:-$fallback}" ;;
+  *"-6 route show default") printf '%s\n' "${ROUTES6:-[]}" ;;
+  *"-j address show")
+    fallback='[{"ifname":"eth0","addr_info":[{"family":"inet","local":"192.168.1.20","prefixlen":24,"scope":"global"},{"family":"inet","local":"192.168.1.21","prefixlen":24,"scope":"global"},{"family":"inet6","local":"2001:db8::20","prefixlen":64,"scope":"global"},{"family":"inet6","local":"fe80::20","prefixlen":64,"scope":"link"},{"family":"inet6","local":"2001:db8::99","prefixlen":64,"scope":"global","tentative":true}]},{"ifname":"wlan0","addr_info":[{"family":"inet","local":"10.0.0.5","prefixlen":24,"scope":"global"}]}]'
+    printf '%s\n' "${ADDRESSES:-$fallback}" ;;
+  *) exit 2 ;;
+esac
+STUB
+chmod +x "$TMP/bin/"*
+
+pass() { printf 'ok - %s\n' "$1"; }
+fail() { printf 'not ok - %s\n' "$1" >&2; exit 1; }
+assert_call() { grep -Fxq -- "$1" "$CALLS" || fail "missing call: $1"; }
+reject() {
+  : >"$CALLS"
+  if "$@" >"$TMP/out" 2>"$TMP/err"; then fail "accepted invalid action: $*"; fi
+  if grep -Eq 'connection modify|device (connect|disconnect|reapply)' "$CALLS"; then
+    fail "invalid action changed network state"
+  fi
+}
+
+interfaces=$("$ROOT/bin/monarch-network-interfaces")
+jq -e 'length == 5 and any(.[]; .iface == "eth1" and .connected == false and .uuid == "")
+  and any(.[]; .iface == "eth2" and .managed == false)
+   and any(.[]; .iface == "lan0" and .routable == false and .virtual)
+   and any(.[]; .iface == "eth0" and .virtual == false and .metrics == [-1, -1])' <<<"$interfaces" >/dev/null || fail "interface state"
+pass "lists disconnected and unmanaged Ethernet, excludes tunnels and distinguishes local-only links"
+
+ROUTES4='[]' ROUTES6='[{"dev":"wlan0"}]' "$ROOT/bin/monarch-network-interfaces" |
+  jq -e 'any(.[]; .iface == "wlan0" and .routable)' >/dev/null || fail "IPv6 default route"
+pass "IPv6-only Internet connections are eligible"
+
+WIRED_METRIC=50 "$ROOT/bin/monarch-network-interfaces" |
+  jq -e 'any(.[]; .iface == "eth0" and .metrics == [50, 50])' >/dev/null || fail "saved priority"
+pass "reports saved priority independently of the route currently in use"
+
+jq -e 'any(.[]; .iface == "eth0" and (.addresses | length) == 4
+    and any(.addresses[]; .address == "192.168.1.21" and .prefix == 24)
+    and any(.addresses[]; .address == "fe80::20" and .scope == "link"))
+  and any(.[]; .iface == "wlan0" and .addresses[0].address == "10.0.0.5")
+  and any(.[]; .iface == "eth1" and .addresses == [])' <<<"$interfaces" >/dev/null || fail "per-interface addresses"
+pass "keeps multiple IPv4 and IPv6 addresses on their owning interface and excludes tentative addresses"
+
+ROUTES4='[{"dev":"eth0","gateway":"192.168.1.1"}]' \
+  ROUTES6='[{"dev":"eth0","gateway":"fe80::1"},{"dev":"eth0","gateway":"fe80::1"}]' \
+  "$ROOT/bin/monarch-network-interfaces" >"$TMP/gateways"
+jq -e 'any(.[]; .iface == "eth0" and (.gateways | length) == 2
+    and any(.gateways[]; .family == "inet" and .address == "192.168.1.1")
+    and any(.gateways[]; .family == "inet6" and .address == "fe80::1"))
+  and any(.[]; .iface == "wlan0" and .routable == false and .gateways == []
+    and .addresses[0].address == "10.0.0.5")' "$TMP/gateways" >/dev/null || fail "per-interface gateways"
+pass "reports dual-stack gateways without duplicates and still shows local-only connection addresses"
+
+ADDRESSES='[]' "$ROOT/bin/monarch-network-interfaces" |
+  jq -e 'all(.[]; .addresses == [])' >/dev/null || fail "missing addresses"
+pass "an interface with no address has an empty address list"
+
+for action in on off; do
+  : >"$CALLS"
+  "$ROOT/bin/monarch-network-ethernet" eth1 "$action"
+  if [[ $action == "on" ]]; then assert_call "device connect eth1"; else assert_call "device disconnect eth1"; fi
+done
+pass "Ethernet activation and deactivation address the selected device"
+reject "$ROOT/bin/monarch-network-ethernet" wlan0 off
+reject "$ROOT/bin/monarch-network-ethernet" eth2 on
+reject "$ROOT/bin/monarch-network-ethernet" missing off
+reject "$ROOT/bin/monarch-network-ethernet" eth0 invalid
+reject "$ROOT/bin/monarch-network-ethernet" eth0 on extra
+pass "refuses Wi-Fi, unmanaged and nonexistent devices and invalid arguments"
+
+: >"$CALLS"
+"$ROOT/bin/monarch-network-route" wlan0
+assert_call "connection modify uuid wifi-uuid ipv4.route-metric 50 ipv6.route-metric 50"
+assert_call "connection modify uuid wired-uuid ipv4.route-metric 600 ipv6.route-metric 600"
+assert_call "device reapply eth0"
+assert_call "device reapply wlan0"
+if grep -Eq 'connection modify uuid local-uuid|device reapply lan0|tun0|connection (up|down)|never-default' "$CALLS"; then fail "modified unrelated routing"; fi
+pass "saves dual-stack priority with fallback, reapplies links and leaves VPN and local-only profiles alone"
+
+: >"$CALLS"
+"$ROOT/bin/monarch-network-route" auto
+assert_call "connection modify uuid wifi-uuid ipv4.route-metric -1 ipv6.route-metric -1"
+assert_call "connection modify uuid wired-uuid ipv4.route-metric -1 ipv6.route-metric -1"
+pass "automatic routing restores NetworkManager metrics"
+
+reject "$ROOT/bin/monarch-network-route" eth1
+reject "$ROOT/bin/monarch-network-route" lan0
+reject "$ROOT/bin/monarch-network-route" tun0
+reject "$ROOT/bin/monarch-network-route" missing
+reject "$ROOT/bin/monarch-network-route" wlan0 extra
+pass "priority requires a connected physical interface with a default route"
+
+if MODIFY_STATUS=1 "$ROOT/bin/monarch-network-route" wlan0 >/dev/null 2>&1; then fail "ignored modify failure"; fi
+if REAPPLY_STATUS=1 "$ROOT/bin/monarch-network-route" wlan0 >/dev/null 2>&1; then fail "ignored reapply failure"; fi
+if DEVICE_STATUS=1 "$ROOT/bin/monarch-network-ethernet" eth0 off >/dev/null 2>&1; then fail "ignored device failure"; fi
+pass "NetworkManager failures propagate to the panel"
+
+PANEL="$ROOT/default/noctalia/plugins/monarch-network/panel.luau"
+grep -Fq 'onClick = "onRescanClicked"' "$PANEL" || fail "missing manual rescan"
+grep -Fq 'if scanning then return end' "$PANEL" || fail "overlapping scans"
+grep -Fq 'radioPresent and radioOn and busy == ""' "$PANEL" || fail "scan on disabled radio"
+pass "panel exposes manual rescan and guards overlapping and disabled-radio scans"
+grep -Fq 'device.managed and not device.virtual' "$PANEL" || fail "virtual device clutter"
+grep -Fq 'onClick = "onDetailsClicked"' "$PANEL" || fail "missing details disclosure"
+grep -Fq 'detailsOpen = context == "details"' "$PANEL" || fail "missing direct details view"
+grep -Fq 'variant = preferred and "primary" or "outline"' "$PANEL" || fail "priority confused with active route"
+pass "panel hides virtual devices, collapses details and distinguishes preference from active route"
+grep -Fq 'for _, node in ipairs(interfaceDetails())' "$PANEL" || fail "missing per-interface detail cards"
+grep -Fq 'local active = device.iface == info.iface' "$PANEL" || fail "missing active output marker"
+pass "details render every connected physical interface separately and identify the active Internet output"

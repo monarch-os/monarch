@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# monarch:summary=Prefer an Internet interface or restore automatic route metrics
+# monarch:group=network
+# monarch:args=<interface|auto>
+# monarch:examples=monarch network route wlan0 | monarch network route auto
+
+set -euo pipefail
+export LC_ALL=C
+
+if (($# != 1)); then
+  echo "Usage: monarch-network-route <interface|auto>" >&2
+  exit 2
+fi
+
+interfaces=$("$(dirname -- "$0")/monarch-network-interfaces")
+if [[ $1 != "auto" ]] && ! jq -e --arg iface "$1" \
+  'any(.[]; .iface == $iface and .connected and .routable and .uuid != "")' <<<"$interfaces" >/dev/null; then
+  echo "Error: interface has no active default route: $1" >&2
+  exit 1
+fi
+
+# Reapply changes metrics without tearing down the link. Never touch VPN profiles
+# or enable a default route on a connection deliberately kept local-only.
+while IFS=$'\t' read -r device uuid; do
+  [[ -n $device && -n $uuid ]] || continue
+  metric=600
+  [[ $device != "$1" ]] || metric=50
+  [[ $1 != "auto" ]] || metric=-1
+  nmcli connection modify uuid "$uuid" ipv4.route-metric "$metric" ipv6.route-metric "$metric"
+  nmcli device reapply "$device"
+done < <(jq -r '.[] | select(.connected and .routable and .uuid != "") | [.iface, .uuid] | @tsv' <<<"$interfaces")

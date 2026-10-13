@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# monarch:summary=Connect or disconnect an Ethernet interface
+# monarch:group=network
+# monarch:args=<interface> <on|off>
+# monarch:examples=monarch network ethernet enp3s0 on | monarch network ethernet enp3s0 off
+
+set -euo pipefail
+export LC_ALL=C
+
+if (($# != 2)) || [[ $2 != "on" && $2 != "off" ]]; then
+  echo "Usage: monarch-network-ethernet <interface> <on|off>" >&2
+  exit 2
+fi
+
+interfaces=$("$(dirname -- "$0")/monarch-network-interfaces")
+if ! jq -e --arg iface "$1" 'any(.[]; .iface == $iface and .type == "ethernet" and .managed)' <<<"$interfaces" >/dev/null; then
+  echo "Error: not a managed Ethernet interface: $1" >&2
+  exit 1
+fi
+
+if [[ $2 == "on" ]]; then
+  nmcli device connect "$1"
+else
+  nmcli device disconnect "$1"
+fi

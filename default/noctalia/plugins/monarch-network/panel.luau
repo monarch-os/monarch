@@ -22,6 +22,9 @@ local DISCONNECT_CMD = shared.bin("monarch-wifi-disconnect")
 local RADIO_CMD = shared.bin("monarch-toggle-wifi")
 local DNS_CMD = shared.bin("monarch-setup-dns")
 local PORTAL_CMD = shared.bin("monarch-network-captive-portal")
+local INTERFACES_CMD = shared.bin("monarch-network-interfaces")
+local ETHERNET_CMD = shared.bin("monarch-network-ethernet")
+local ROUTE_CMD = shared.bin("monarch-network-route")
 local TERMINAL_CMD = shared.bin("monarch-launch-floating-terminal-with-presentation")
 -- The Monarch runtime installs this path root-owned, and monarch-settings
 -- grants the three fixed providers passwordless in etc/sudoers.d/monarch-dns.
@@ -36,26 +39,17 @@ local DNS_PROVIDERS = {
 }
 -- Roughly the last half-minute of probes, at one per tick.
 local PING_WINDOW = 24
--- Rescans while the panel is open, which is why it has no refresh button.
 local RESCAN_TICKS = 10
-local PHRASE_TICKS = 3
-local PHRASES = {
-  "Wiring bits",
-  "Handling packets",
-  "Sorting frames",
-  "Hauling bytes",
-  "Routing crumbs",
-  "Counting collisions",
-  "Bending light",
-}
 
 local info = {}
 local band = { band = "", selected = "auto", available = {} }
 local networks = {}
+local interfaces = {}
 local radioOn = true
 local radioPresent = true
 local scanning = false
 local loaded = false
+local detailsOpen = false
 
 -- One action at a time, so every button's disabled state derives from one value.
 -- The two SSIDs say which row owns the token and the message; empty means the
@@ -77,7 +71,6 @@ local pings = {}
 local pingIface = ""
 local statusInFlight = false
 local ticks = 0
-local phrase = 1
 
 -- Reads and writes both take a ticket: a refresh started before the last click
 -- must not land its stale answer on top of the newer state.
@@ -234,6 +227,7 @@ local function pollBand()
 end
 
 local function pollNetworks(rescan: boolean)
+  if scanning then return end
   local ticket = generation
 
   if rescan then
@@ -249,6 +243,22 @@ local function pollNetworks(rescan: boolean)
     -- neighbourhood that emptied out.
     if result and result.exitCode == 0 then
       networks = shared.parseNetworks(result.stdout or "")
+    elseif rescan then
+      failedSsid = ""
+      errorText = shared.errorFrom(result, "Could not rescan Wi-Fi")
+    end
+    render()
+  end)
+end
+
+local function pollInterfaces()
+  local ticket = generation
+  noctalia.runAsync(INTERFACES_CMD, function(result)
+    if ticket ~= generation then return end
+    if result and result.exitCode == 0 then
+      interfaces = noctalia.json.decode(result.stdout or "") or {}
+    else
+      interfaces = {}
     end
     render()
   end)
@@ -261,8 +271,10 @@ local function refresh(rescan: boolean)
   -- Whatever was in flight is already disowned by the bump above, so the guard
   -- it set must not keep this read from starting.
   statusInFlight = false
+  scanning = false
   pollStatus()
   pollBand()
+  pollInterfaces()
 
   noctalia.runAsync(RADIO_CMD .. " status", function(result)
     if ticket ~= generation then return end
@@ -438,9 +450,9 @@ local function heroCaption(): string
   if not loaded then
     return ""
   elseif info.iface == nil or info.iface == "" then
-    return "NOT CONNECTED"
+    return "No Internet route"
   end
-  return PHRASES[phrase]:upper()
+  return "Internet via " .. info.iface
 end
 
 local function hero(): any
@@ -479,10 +491,6 @@ local function hero(): any
       onClick = "onSpeedTestClicked",
     }))
   end
-  if radioPresent then
-    table.insert(children, ui.toggle({ key = "radio", checked = radioOn, onChange = "onRadioChanged" }))
-  end
-
   return ui.row({ key = "hero", align = "center", gap = 12 }, children)
 end
 
@@ -543,10 +551,6 @@ local function connectionBlock(): { any }
       stat("Downloaded", counted and formatBytes(tonumber(info.rx_bytes) or 0) or "—"),
       stat("Uploaded", counted and formatBytes(tonumber(info.tx_bytes) or 0) or "—")
     ),
-    statRow("stat-route",
-      stat("IP address", shown(info.ip)),
-      stat("Gateway", shown(info.gateway))
-    ),
   }
 
   if info.type == "wifi" then
@@ -559,6 +563,64 @@ local function connectionBlock(): { any }
   end
 
   return rows
+end
+
+local function interfaceDetails(): { any }
+  local cards = {}
+  for _, device in ipairs(interfaces) do
+    if device.connected and device.managed and not device.virtual then
+      local active = device.iface == info.iface
+      local title = (device.type == "wifi" and "Wi-Fi" or "Ethernet") .. " · " .. device.iface
+      local fields = {
+        ui.row({ key = "title", gap = 8, align = "center" }, {
+          ui.glyph({ key = "icon", name = device.type == "wifi" and "wifi" or "ethernet",
+            color = active and "primary" or "on_surface_variant" }),
+          ui.label({ key = "name", text = title, fontSize = 12, fontWeight = "medium", flexGrow = 1, maxLines = 1 }),
+        }),
+        ui.label({ key = "route", text = active and "Active Internet output" or "Connected · secondary link",
+          fontSize = 11, color = active and "primary" or "on_surface_variant" }),
+      }
+      for _, family in ipairs({ "inet", "inet6" }) do
+        local label = family == "inet" and "IPv4" or "IPv6"
+        local addresses = {}
+        for _, address in ipairs(device.addresses or {}) do
+          if address.family == family then
+            local text = address.address .. "/" .. tostring(address.prefix)
+            if address.scope == "link" then text ..= " (link-local)" end
+            table.insert(addresses, ui.label({ key = "address:" .. (#addresses + 1), text = text,
+              fontSize = 12, maxLines = 2 }))
+          end
+        end
+        if #addresses == 0 then
+          table.insert(addresses, ui.label({ key = "none", text = "Not assigned", fontSize = 12, color = "on_surface_variant" }))
+        end
+        table.insert(fields, ui.column({ key = family, gap = 3 }, {
+          ui.label({ key = "label", text = label, fontSize = 11, color = "on_surface_variant" }),
+          ui.column({ key = "addresses", gap = 2 }, addresses),
+        }))
+      end
+      local gateways = device.gateways or {}
+      if #gateways == 0 then
+        table.insert(fields, ui.label({ key = "gateway-none", text = "No default gateway",
+          fontSize = 11, color = "on_surface_variant" }))
+      else
+        for index, gateway in ipairs(gateways) do
+          table.insert(fields, ui.column({ key = "gateway:" .. index, gap = 3 }, {
+            ui.label({ key = "label", text = gateway.family == "inet6" and "IPv6 gateway" or "IPv4 gateway",
+              fontSize = 11, color = "on_surface_variant" }),
+            ui.label({ key = "address", text = gateway.address, fontSize = 12, maxLines = 2 }),
+          }))
+        end
+      end
+      table.insert(cards, ui.column({ key = "interface:" .. device.iface, gap = 8,
+        paddingH = 10, paddingV = 10, radius = 8, fill = "surface_variant" }, fields))
+    end
+  end
+  if #cards == 0 then
+    table.insert(cards, ui.label({ key = "no-interfaces", text = "No connected Ethernet or Wi-Fi interfaces",
+      fontSize = 12, color = "on_surface_variant" }))
+  end
+  return cards
 end
 
 local function bandSection(): { any }
@@ -636,8 +698,80 @@ local function dnsSection(): { any }
   return {
     ui.separator({ key = "dns-rule" }),
     sectionHeader("dns-head", busy == "dns" and "DNS PROVIDER — APPLYING…" or "DNS PROVIDER"),
-    ui.row({ key = "dns-pills", gap = 6 }, pills),
+    ui.row({ key = "dns-pills-main", gap = 6 }, { pills[1], pills[2] }),
+    ui.row({ key = "dns-pills-other", gap = 6 }, { pills[3], pills[4] }),
   }
+end
+
+local function interfaceSections(): { any }
+  local wired, routes = {}, {}
+  local automatic = true
+  local counts = { ethernet = 0, wifi = 0 }
+  for _, device in ipairs(interfaces) do
+    if device.connected and device.routable and device.managed and not device.virtual then
+      counts[device.type] = (counts[device.type] or 0) + 1
+    end
+  end
+  for _, device in ipairs(interfaces) do
+    if device.type == "ethernet" and device.managed and not device.virtual then
+      local state = device.connected and "Connected" or "Disconnected"
+      if device.state == "unavailable" then state = "No cable or link" end
+      if device.state == "connecting" then state = "Connecting…" end
+      table.insert(wired, ui.row({ key = device.iface, align = "center", gap = 10,
+        paddingH = 10, paddingV = 8, radius = 8, fill = "surface_variant" }, {
+        ui.glyph({ key = "icon", name = "ethernet", color = device.connected and "primary" or "on_surface_variant" }),
+        ui.column({ key = "labels", gap = 2, flexGrow = 1 }, {
+          ui.label({ key = "name", text = "Ethernet · " .. device.iface, fontSize = 12, maxLines = 1 }),
+          ui.label({ key = "state", text = state, fontSize = 11, color = "on_surface_variant" }),
+        }),
+        ui.button({
+          key = "connect", text = device.connected and "Disconnect" or "Connect",
+          variant = "outline", controlSize = "sm",
+          enabled = busy == "" and device.state ~= "unavailable" and device.state ~= "connecting",
+          onClick = function()
+            runAction("ethernet", "", ETHERNET_CMD .. " " .. shared.shellQuote(device.iface)
+              .. (device.connected and " off" or " on"), "Could not switch " .. device.iface)
+          end,
+        }),
+      }))
+    end
+    if device.connected and device.routable and device.uuid ~= "" and device.managed and not device.virtual then
+      local metrics = device.metrics or {}
+      local preferred = #metrics == 2 and metrics[1] == 50 and metrics[2] == 50
+      automatic = automatic and #metrics == 2 and metrics[1] == -1 and metrics[2] == -1
+      local label = device.type == "wifi" and "Wi-Fi" or "Ethernet"
+      if counts[device.type] > 1 then label ..= " · " .. device.iface end
+      table.insert(routes, ui.button({
+        key = device.iface, text = label,
+        variant = preferred and "primary" or "outline",
+        controlSize = "sm", flexGrow = 1, enabled = busy == "",
+        tooltip = "Prefer " .. device.iface .. " for Internet; keep other links as fallback",
+        onClick = function()
+          runAction("route", "", ROUTE_CMD .. " " .. shared.shellQuote(device.iface), "Could not change the default route")
+        end,
+      }))
+    end
+  end
+  local nodes = {}
+  if #wired > 0 then
+    table.insert(nodes, sectionHeader("ethernet-head", "WIRED CONNECTIONS"))
+    for _, row in ipairs(wired) do table.insert(nodes, row) end
+  end
+  if #routes > 0 then
+    table.insert(nodes, ui.separator({ key = "route-rule" }))
+    table.insert(nodes, sectionHeader("route-head", busy == "route" and "INTERNET PRIORITY — APPLYING…" or "INTERNET PRIORITY"))
+    table.insert(routes, 1, ui.button({ key = "auto", text = "Auto", controlSize = "sm",
+        variant = automatic and "primary" or "outline", flexGrow = 1, enabled = busy == "",
+        tooltip = "Restore automatic metrics for connected profiles, not earlier custom values",
+        onClick = function()
+          runAction("route", "", ROUTE_CMD .. " auto", "Could not restore automatic routing")
+        end,
+      }))
+    table.insert(nodes, ui.row({ key = "routes", gap = 6 }, routes))
+    table.insert(nodes, ui.label({ key = "active-route", text = "Currently using: " .. shown(info.iface),
+      fontSize = 11, color = "on_surface_variant", maxLines = 1 }))
+  end
+  return nodes
 end
 
 local function rowStatus(network): (string, string)
@@ -658,7 +792,7 @@ local function rowStatus(network): (string, string)
   elseif network.connected then
     return "Connected", "on_surface"
   end
-  return "", "on_surface_variant"
+  return network.saved and "Saved" or (shared.isSecured(network) and "Encrypted network" or "Open network"), "on_surface_variant"
 end
 
 local function credentials(network): any
@@ -714,8 +848,6 @@ end
 local function networkRow(network): any
   local status, statusColor = rowStatus(network)
 
-  -- One slot at the right edge, a lock or the way off. Quattro swaps the two on
-  -- hover; nothing here is cheap to redraw on hover, so the row says which it is.
   local trailing
   if network.saved and not network.connected then
     trailing = ui.button({
@@ -744,9 +876,6 @@ local function networkRow(network): any
       paddingV = 6,
       radius = 8,
       fill = network.connected and "surface_variant" or nil,
-      onClick = function()
-        activate(network)
-      end,
     }, {
       ui.glyph({
         key = "signal",
@@ -771,7 +900,12 @@ local function networkRow(network): any
           maxLines = 1,
         }),
       }),
-      trailing,
+      ui.row({ key = "actions", gap = 4, align = "center" }, {
+        trailing,
+        ui.button({ key = "connect", text = network.connected and "Disconnect" or "Connect",
+          controlSize = "sm", variant = "outline", enabled = busy == "",
+          onClick = function() activate(network) end }),
+      }),
     }),
   }
 
@@ -816,18 +950,9 @@ local function networkList(): { any }
 end
 
 function render()
-  local body = { hero() }
+  local body = {}
 
   for _, node in ipairs(captivePortal()) do
-    table.insert(body, node)
-  end
-  for _, node in ipairs(connectionBlock()) do
-    table.insert(body, node)
-  end
-  for _, node in ipairs(bandSection()) do
-    table.insert(body, node)
-  end
-  for _, node in ipairs(dnsSection()) do
     table.insert(body, node)
   end
 
@@ -841,23 +966,45 @@ function render()
     }))
   end
 
-  if radioPresent then
-    table.insert(body, ui.separator({ key = "list-rule" }))
-    if scanning then
-      table.insert(body, sectionHeader("scanning", "SCANNING WI-FI…"))
+  if detailsOpen then
+    table.insert(body, sectionHeader("details-head", "CONNECTION DETAILS"))
+    for _, node in ipairs(interfaceDetails()) do table.insert(body, node) end
+    if info.iface ~= nil and info.iface ~= "" then
+      table.insert(body, sectionHeader("statistics-head", "INTERNET LINK · " .. info.iface))
     end
+    for _, node in ipairs(connectionBlock()) do table.insert(body, node) end
+    for _, node in ipairs(bandSection()) do table.insert(body, node) end
+    for _, node in ipairs(dnsSection()) do table.insert(body, node) end
+  else
+    for _, node in ipairs(interfaceSections()) do table.insert(body, node) end
+    if radioPresent then
+      table.insert(body, ui.separator({ key = "list-rule" }))
+      table.insert(body, sectionHeader("wifi-head", scanning and "WI-FI — SCANNING…" or "WI-FI",
+        ui.row({ key = "controls", gap = 8, align = "center" }, {
+          ui.button({ key = "rescan", glyph = "refresh", text = "Rescan", controlSize = "sm", variant = "ghost",
+            enabled = radioOn and not scanning and busy == "", onClick = "onRescanClicked" }),
+          ui.toggle({ key = "radio", checked = radioOn, enabled = busy == "", onChange = "onRadioChanged" }),
+        })))
+    end
+    for _, node in ipairs(networkList()) do table.insert(body, node) end
   end
-
-  table.insert(body, ui.scroll({ key = "list", flexGrow = 1, gap = 6 }, networkList()))
-
-  panel.render(ui.column({ flexGrow = 1, gap = 12 }, body))
+  panel.render(ui.column({ flexGrow = 1, gap = 12 }, {
+    hero(),
+    ui.scroll({ key = detailsOpen and "details-content" or "connections-content", flexGrow = 1, gap = 12 }, body),
+    ui.button({ key = "details", text = detailsOpen and "Back to connections" or "Connection details & DNS",
+      glyph = detailsOpen and "arrow-left" or "chevron-right", variant = "ghost", controlSize = "sm",
+      onClick = "onDetailsClicked" }),
+  }))
 end
 
 -- Every open re-reads: the panel is only right about the connection the machine
 -- is on at the moment it is summoned. The list comes from NetworkManager's
 -- cache, so it paints at once; the tick below is what rescans.
-function onOpen(_context)
+function onOpen(context)
   loaded = false
+  detailsOpen = context == "details"
+  scanning = false
+  interfaces = {}
   promptSsid = ""
   password = ""
   identity = ""
@@ -883,13 +1030,10 @@ function update()
   -- it costs several nmcli calls, so it does not ride every tick.
   if ticks % 4 == 0 then
     pollBand()
+    pollInterfaces()
   end
-  if radioPresent and ticks % RESCAN_TICKS == 0 then
+  if radioPresent and radioOn and busy == "" and ticks % RESCAN_TICKS == 0 then
     pollNetworks(true)
-  end
-  if ticks % PHRASE_TICKS == 0 then
-    phrase = phrase % #PHRASES + 1
-    render()
   end
 end
 
@@ -916,6 +1060,17 @@ end
 
 function onRadioChanged(checked)
   runAction("radio", "", RADIO_CMD .. (checked and " on" or " off"), "Could not switch the Wi-Fi radio")
+end
+
+function onRescanClicked()
+  if not radioPresent or not radioOn or scanning or busy ~= "" then return end
+  failedSsid, errorText = "", ""
+  pollNetworks(true)
+end
+
+function onDetailsClicked()
+  detailsOpen = not detailsOpen
+  render()
 end
 
 -- Switching Automatic off has to commit to something, so it pins the band the
