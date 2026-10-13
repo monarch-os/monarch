@@ -2,6 +2,10 @@ set -euo pipefail
 
 echo "Reconcile Monarch system state"
 
+if mise ls --global --installed --json opencode | jq -e 'length > 0' >/dev/null; then
+  monarch-pkg-add opencode
+fi
+
 sudo bash "$MONARCH_PATH/install/reconcile/cups-browsed.sh"
 sudo bash "$MONARCH_PATH/install/reconcile/fuzzel.sh"
 sudo bash "$MONARCH_PATH/install/reconcile/wpa-supplicant.sh"

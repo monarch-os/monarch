@@ -15,6 +15,7 @@ export MISE_TEST_LOG="$test_tmp/mise-calls"
 cat >"$test_tmp/bin/mise" <<'STUB'
 #!/bin/bash
 printf '%s\n' "$*" >>"$MISE_TEST_LOG"
+[[ $1 != "ls" ]] || printf '%s\n' '[]'
 STUB
 cat >"$test_tmp/bin/monarch-mise-install" <<'STUB'
 #!/bin/bash
@@ -41,7 +42,7 @@ source "$ROOT/install/user/mise.sh"
 
 : >"$MISE_TEST_LOG"
 bash "$ROOT/install/reconcile/mise.sh"
-[[ $(<"$MISE_TEST_LOG") == "settings set upgrade.auto_prune false" ]] || fail "reconcile does not persist the mise setting"
+[[ $(<"$MISE_TEST_LOG") == $'settings set upgrade.auto_prune false\nls --global --json opencode' ]] || fail "reconcile does not persist the mise setting or check the optional OpenCode installation"
 pass "install and reconcile disable mise auto-pruning in the user settings"
 
 mkdir -p "$HOME/Work"

@@ -306,6 +306,7 @@ EOF
 
 cat >"$TEST_ROOT/bin/mise" <<'EOF'
 #!/bin/bash
+[[ $1 != "ls" ]] || printf '%s\n' '[]'
 exit 0
 EOF
 
@@ -373,7 +374,7 @@ bash "$ROOT/install/reconcile/user.sh"
 
 grep -qx 'systemctl --user try-restart monarch-crash-watch.service' "$TEST_LOG"
 grep -qx 'monarch-pkg-drop --keep-dependencies noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"
-grep -qx 'monarch-pkg-drop claude-code openai-codex opencode' "$TEST_LOG"
+grep -qx 'monarch-pkg-drop claude-code openai-codex' "$TEST_LOG"
 [[ ! -e $HOME/.config/fastfetch/config.jsonc ]]
 if grep -qx 'monarch-provision-first-run' "$TEST_LOG"; then
   echo "First-run provisioning ran before Noctalia became ready" >&2
