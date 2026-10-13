@@ -16,7 +16,7 @@ cat >"$TMP/bin/nmcli" <<'STUB'
 printf '%s\n' "$*" >>"$CALLS"
 case "$*" in
   *"DEVICE,TYPE,STATE device status")
-    printf 'eth0:ethernet:connected\nwlan0:wifi:connected\neth1:ethernet:disconnected\neth2:ethernet:unmanaged\ntun0:tun:connected\nlan0:ethernet:connected\n' ;;
+    printf 'eth0:ethernet:%s\nwlan0:wifi:connected\neth1:ethernet:disconnected\neth2:ethernet:unmanaged\ntun0:tun:connected\nlan0:ethernet:connected\n' "${WIRED_STATE:-connected}" ;;
   *"GENERAL.CON-UUID device show eth0") echo wired-uuid ;;
   *"GENERAL.CON-UUID device show wlan0") echo wifi-uuid ;;
   *"GENERAL.CON-UUID device show lan0") echo local-uuid ;;
@@ -170,3 +170,18 @@ fi
 if CHECK_STATUS=1 "$ROOT/bin/monarch-network-check" >/dev/null 2>&1; then fail "ignored check failure"; fi
 reject "$ROOT/bin/monarch-network-check" extra
 pass "connectivity recheck runs only the NetworkManager probe and propagates failures"
+
+WIRED_STATE='connected (externally)' "$ROOT/bin/monarch-network-interfaces" |
+  jq -e 'any(.[]; .iface == "eth0" and .connected and .managed == false and .metrics == [])' >/dev/null || fail "external connection state"
+for action in on off; do
+  WIRED_STATE='connected (externally)' reject "$ROOT/bin/monarch-network-ethernet" eth0 "$action"
+done
+WIRED_STATE='connected (externally)' reject "$ROOT/bin/monarch-network-route" eth0
+for target in wlan0 auto; do
+  : >"$CALLS"
+  WIRED_STATE='connected (externally)' "$ROOT/bin/monarch-network-route" "$target"
+  if grep -Eq 'connection modify uuid wired-uuid|device reapply eth0' "$CALLS"; then
+    fail "priority rewrites an externally configured connection"
+  fi
+done
+pass "external connections stay connected but are excluded from activation and route changes"

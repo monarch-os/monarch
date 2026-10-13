@@ -30,7 +30,8 @@ while IFS=: read -r device type state; do
     --argjson routes "$routes" --argjson addresses "$addresses" --argjson virtual "$virtual" --arg metrics "$metrics" \
     '{iface: $iface, type: $type, state: $state, uuid: $uuid,
       virtual: $virtual, metrics: ($metrics | split("\n") | map(tonumber?)),
-      connected: ($state == "connected"), managed: ($state != "unmanaged"),
+      connected: ($state == "connected" or ($state | startswith("connected ("))),
+      managed: ($state != "unmanaged" and $state != "connected (externally)"),
       routable: any($routes[]; .dev == $iface),
       addresses: [$addresses[] | select(.ifname == $iface) | .addr_info[]?
         | select((.family == "inet" or .family == "inet6") and (.tentative != true) and (.dadfailed != true))

@@ -26,7 +26,7 @@ fi
 while IFS=$'\t' read -r device uuid; do
   [[ -n $device && -n $uuid ]] || continue
   metric=600
-  [[ $device != "$1" ]] || metric=50
+  [[ $device != $1 ]] || metric=50
   [[ $1 != "auto" ]] || metric=-1
   nmcli connection modify uuid "$uuid" ipv4.route-metric "$metric" ipv6.route-metric "$metric"
   nmcli device reapply "$device"
