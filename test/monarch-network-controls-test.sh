@@ -24,7 +24,6 @@ case "$*" in
   *"ipv4.route-metric,ipv6.route-metric connection show uuid wired-uuid") printf '%s\n%s\n' "${WIRED_METRIC:--1}" "${WIRED_METRIC:--1}" ;;
   *"ipv4.route-metric,ipv6.route-metric connection show uuid"*) printf '%s\n' -1 -1 ;;
   *"connection modify"*) exit "${MODIFY_STATUS:-0}" ;;
-  *"networking connectivity check") echo full; exit "${CHECK_STATUS:-0}" ;;
   *"device reapply"*) exit "${REAPPLY_STATUS:-0}" ;;
   *"device connect"*|*"device disconnect"*) exit "${DEVICE_STATUS:-0}" ;;
   *) exit 2 ;;
@@ -101,6 +100,8 @@ done
 pass "Ethernet activation and deactivation address the selected device"
 reject "$ROOT/bin/monarch-network-ethernet" wlan0 off
 reject "$ROOT/bin/monarch-network-ethernet" eth2 on
+reject "$ROOT/bin/monarch-network-ethernet" lan0 on
+reject "$ROOT/bin/monarch-network-ethernet" lan0 off
 reject "$ROOT/bin/monarch-network-ethernet" missing off
 reject "$ROOT/bin/monarch-network-ethernet" eth0 invalid
 reject "$ROOT/bin/monarch-network-ethernet" eth0 on extra
@@ -161,16 +162,6 @@ if grep -Eq 'connection modify uuid local-uuid|device reapply lan0' "$CALLS"; th
 fi
 pass "priority and Auto exclude virtual profiles even when they have default routes"
 
-: >"$CALLS"
-"$ROOT/bin/monarch-network-check" >/dev/null
-assert_call "networking connectivity check"
-if grep -Eq 'connection modify|device (connect|disconnect|reapply)' "$CALLS"; then
-  fail "connectivity check reconfigures a link"
-fi
-if CHECK_STATUS=1 "$ROOT/bin/monarch-network-check" >/dev/null 2>&1; then fail "ignored check failure"; fi
-reject "$ROOT/bin/monarch-network-check" extra
-pass "connectivity recheck runs only the NetworkManager probe and propagates failures"
-
 WIRED_STATE='connected (externally)' "$ROOT/bin/monarch-network-interfaces" |
   jq -e 'any(.[]; .iface == "eth0" and .connected and .managed == false and .metrics == [])' >/dev/null || fail "external connection state"
 for action in on off; do
@@ -185,3 +176,10 @@ for target in wlan0 auto; do
   fi
 done
 pass "external connections stay connected but are excluded from activation and route changes"
+
+for state in 'connecting' 'connecting (getting IP configuration)' 'connecting (prepare)'; do
+  WIRED_STATE=$state "$ROOT/bin/monarch-network-interfaces" |
+    jq -e 'any(.[]; .iface == "eth0" and .connecting and .connected == false)' >/dev/null || fail "connecting state"
+  WIRED_STATE=$state reject "$ROOT/bin/monarch-network-ethernet" eth0 on
+done
+pass "connecting states are normalized and reject duplicate Ethernet activation"

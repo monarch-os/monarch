@@ -14,8 +14,10 @@ if (($# != 2)) || [[ $2 != "on" && $2 != "off" ]]; then
 fi
 
 interfaces=$("$(dirname -- "$0")/monarch-network-interfaces")
-if ! jq -e --arg iface "$1" 'any(.[]; .iface == $iface and .type == "ethernet" and .managed)' <<<"$interfaces" >/dev/null; then
-  echo "Error: not a managed Ethernet interface: $1" >&2
+if ! jq -e --arg iface "$1" --arg action "$2" \
+  'any(.[]; .iface == $iface and .type == "ethernet" and .managed and .virtual == false
+    and ($action == "off" or .connecting == false))' <<<"$interfaces" >/dev/null; then
+  echo "Error: Ethernet interface is not controllable or is already connecting: $1" >&2
   exit 1
 fi
 

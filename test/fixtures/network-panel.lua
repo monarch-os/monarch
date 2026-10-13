@@ -10,6 +10,7 @@ source = source:gsub(': {%s*[^}]+%s*}%??', '')
 local scanCallbacks, rendered, failRadio = {}, nil, false
 local activeStatus, interfaceRecords = {}, {}
 local checkCallback, checkCalls, portalCalls = nil, 0, 0
+local ethernetCalls = 0
 local shared = {
   bin = function(name) return name end,
   parseKeyValue = function(value) return value end,
@@ -18,6 +19,7 @@ local shared = {
   signalGlyph = function() return 'wifi' end,
   bandLabel = function(value) return value end,
   errorFrom = function(result, fallback) return result.stderr or fallback end,
+  shellQuote = function(value) return "'" .. value .. "'" end,
 }
 local ui = setmetatable({}, {__index = function(_, kind)
   return function(properties, children) return {kind = kind, properties = properties, children = children} end
@@ -33,11 +35,13 @@ local environment = setmetatable({
     runAsync = function(command, callback)
       if command == 'monarch-wifi-list --rescan' then
         scanCallbacks[#scanCallbacks + 1] = callback
-      elseif command == 'monarch-network-check' then
+      elseif command == 'LC_ALL=C /usr/bin/nmcli networking connectivity check' then
         checkCalls = checkCalls + 1
         checkCallback = callback
       elseif command == 'monarch-network-captive-portal' then
         portalCalls = portalCalls + 1
+      elseif command:find('monarch-network-ethernet', 1, true) then
+        ethernetCalls = ethernetCalls + 1
       elseif command == 'monarch-toggle-wifi off' and failRadio then
         callback({exitCode = 1, stderr = 'radio failed'})
       elseif command == 'monarch-network-status --verbose' then
@@ -139,3 +143,13 @@ environment.onPortalClicked()
 environment.onConnectivityCheckClicked()
 assert(portalCalls == 1 and checkCalls == 2, 'stale banner callbacks must not launch actions after recovery')
 print('ok - failed checks remain retryable and captive sign-in is restricted to portal state')
+
+interfaceRecords = {{iface = 'eth0', type = 'ethernet', connected = false, connecting = true,
+  state = 'connecting (getting IP configuration)', managed = true, virtual = false,
+  routable = false, uuid = '', metrics = {}, addresses = {}, gateways = {}}}
+environment.onOpen()
+assert(hasText('Connecting…'), 'compound activation state must be displayed as connecting')
+assert(assert(button('Connect')).enabled == false, 'connecting interface must disable duplicate activation')
+button('Connect').onClick()
+assert(ethernetCalls == 0, 'connecting interface callbacks must not invoke activation')
+print('ok - compound connecting states display progress and disable Ethernet activation')

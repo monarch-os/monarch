@@ -31,6 +31,7 @@ while IFS=: read -r device type state; do
     '{iface: $iface, type: $type, state: $state, uuid: $uuid,
       virtual: $virtual, metrics: ($metrics | split("\n") | map(tonumber?)),
       connected: ($state == "connected" or ($state | startswith("connected ("))),
+      connecting: ($state == "connecting" or ($state | startswith("connecting ("))),
       managed: ($state != "unmanaged" and $state != "connected (externally)"),
       routable: any($routes[]; .dev == $iface),
       addresses: [$addresses[] | select(.ifname == $iface) | .addr_info[]?

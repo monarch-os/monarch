@@ -22,7 +22,7 @@ local DISCONNECT_CMD = shared.bin("monarch-wifi-disconnect")
 local RADIO_CMD = shared.bin("monarch-toggle-wifi")
 local DNS_CMD = shared.bin("monarch-setup-dns")
 local PORTAL_CMD = shared.bin("monarch-network-captive-portal")
-local CHECK_CMD = shared.bin("monarch-network-check")
+local CHECK_CMD = "LC_ALL=C /usr/bin/nmcli networking connectivity check"
 local INTERFACES_CMD = shared.bin("monarch-network-interfaces")
 local ETHERNET_CMD = shared.bin("monarch-network-ethernet")
 local ROUTE_CMD = shared.bin("monarch-network-route")
@@ -722,7 +722,7 @@ local function interfaceSections(): { any }
     if device.type == "ethernet" and device.managed and not device.virtual then
       local state = device.connected and "Connected" or "Disconnected"
       if device.state == "unavailable" then state = "No cable or link" end
-      if device.state == "connecting" then state = "Connecting…" end
+      if device.connecting then state = "Connecting…" end
       table.insert(wired, ui.row({ key = device.iface, align = "center", gap = 10,
         paddingH = 10, paddingV = 8, radius = 8, fill = "surface_variant" }, {
         ui.glyph({ key = "icon", name = "ethernet", color = device.connected and "primary" or "on_surface_variant" }),
@@ -733,8 +733,9 @@ local function interfaceSections(): { any }
         ui.button({
           key = "connect", text = device.connected and "Disconnect" or "Connect",
           variant = "outline", controlSize = "sm",
-          enabled = busy == "" and device.state ~= "unavailable" and device.state ~= "connecting",
+          enabled = busy == "" and device.state ~= "unavailable" and not device.connecting,
           onClick = function()
+            if device.connecting or device.state == "unavailable" then return end
             runAction("ethernet", "", ETHERNET_CMD .. " " .. shared.shellQuote(device.iface)
               .. (device.connected and " off" or " on"), "Could not switch " .. device.iface)
           end,
