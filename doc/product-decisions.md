@@ -62,6 +62,7 @@ latency and throughput remain scoped to that output, not to every interface.
 | Software | Choice and reason |
 | --- | --- |
 | `mpv-mpris` | Included so the default video player participates in Noctalia's media controls. |
+| `monarch-agents` | Monarch's Noctalia panel displays quotas collected by CodexBar CLI, without local collectors or histories. Keep the coding-agent launcher independent. |
 | `dua-cli` | Included with its launcher so disk usage is a discoverable desktop tool. |
 | `opencode` | Optional official Arch package, installed when explicitly selected as the default agent. No launcher wrapper. Reconciliation migrates only an already installed global mise version. |
 | `udiskie` | Outside the defaults while the existing removable-media stack meets the need. Reconsider after a reproduced automount failure. |

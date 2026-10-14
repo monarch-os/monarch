@@ -40,6 +40,13 @@ Reconciliation probes readiness once, first-run waits up to 60 seconds and the
 deferred hook up to 30 seconds. Failed enablement or reload stays retryable;
 first-run reports failure and deferred activation retains its hook.
 
+`agent-usage.sh` only prepares the transition when the shipped legacy
+`monarch-agents/service.luau` is present. It imports old preferences into CodexBar
+without replacing an existing configuration and validates before copying the
+collector into its archive. The live tree remains until the common managed-tree
+loop stages and publishes its replacement, with its normal rollback on failure. Current
+plugins and fresh installs require no special backend validation or seeding.
+
 A schema bump changes which input states are supported. Permanent invariants
 stay in `system.sh` and `user.sh`; historical transformations live under
 `schema/<from>-to-<to>/` and run only while crossing that boundary. Once the

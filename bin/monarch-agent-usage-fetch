@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# monarch:summary=Stream one bounded CodexBar result to the Monarch Agents service
+# monarch:hidden=true
+
+exec python3 - <<'PY'
+import json
+import subprocess
+
+try:
+  result = subprocess.run(
+    ['/usr/bin/codexbar', 'usage', '--format', 'json', '--json-only'],
+    capture_output=True, text=True, timeout=120,
+  )
+  payload = json.loads(result.stdout)
+  if isinstance(payload, dict):
+    payload = payload.get('providers', [payload] if 'provider' in payload else [])
+  if not isinstance(payload, list):
+    raise ValueError('Invalid provider envelope')
+  print(json.dumps({'providers': payload, 'ok': result.returncode == 0}))
+except (OSError, ValueError, subprocess.TimeoutExpired):
+  print(json.dumps({'providers': [], 'ok': False}))
+PY

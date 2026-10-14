@@ -75,14 +75,6 @@ fi
 mkdir -p "$(dirname "$agent_file")"
 printf '%s\n' "$agent" >"$agent_file"
 
-# Collect usage now rather than leaving the bar empty until the shell's own
-# refresh comes round. Detached and quiet: the collectors reach the network and
-# walk the transcripts, and neither the agent launch below nor the terminal it
-# runs in should wait on that.
-if monarch-cmd-present monarch-agent-usage-update; then
-  setsid --fork monarch-agent-usage-update --force >/dev/null 2>&1 &
-fi
-
 if [[ $installing == "true" ]]; then
   printf '\033[2J\033[3J\033[H'
   exec monarch-agent --inline

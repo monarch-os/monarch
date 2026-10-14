@@ -1,12 +1,24 @@
 {
   "settings": {
-    "refresh-interval": {
-      "label": "Refresh interval",
-      "description": "Seconds between collector runs. Discovering newly configured agents stays on its own one-minute tick, so a new agent still appears promptly."
-    },
-    "warning-threshold": {
-      "label": "Warning threshold",
-      "description": "Fraction of an allowance past which the bar mark is tinted. The bar carries no number, so this is the only at-a-glance warning."
-    }
+    "refresh": "Refresh interval (seconds)"
+  },
+  "ui": {
+    "title": "Agents",
+    "refresh": "Refresh quotas",
+    "resets": "Resets {time}",
+    "balance": "Balance remaining: {amount}",
+    "credits": "Credits remaining: {amount}",
+    "spend": "Spent: {used} {currency}",
+    "spend_limit": "Spent: {used} / {limit} {currency}",
+    "no_quota": "No quota reported",
+    "stale": "Last known data",
+    "no_provider": "No provider enabled. Configure one below.",
+    "manage": "Manage providers",
+    "used": "{percent}% used",
+    "status": "Status",
+    "waiting": "Waiting for provider data",
+    "no_usage": "No enabled provider has reported usage",
+    "refresh_failed": "CodexBar could not refresh; showing last known data",
+    "launch_failed": "CodexBar could not start; refresh to retry"
   }
 }

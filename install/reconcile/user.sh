@@ -41,7 +41,10 @@ for palette in "$MONARCH_PATH"/config/noctalia/palettes/*.json; do
 done
 
 plugins_changed=false
+source "$MONARCH_PATH/install/reconcile/agent-usage.sh"
+monarch_prepare_agent_usage_transition
 for plugin in "$MONARCH_PATH"/default/noctalia/plugins/monarch-*; do
+  [[ -f $plugin/plugin.toml ]] || continue
   monarch_reconcile_managed_tree "$plugin" \
     "$HOME/.local/share/noctalia/plugins/$(basename "$plugin")" \
     plugins_changed
