@@ -310,7 +310,7 @@
   "install.ai.lm-studio": {"icon":"󱚤","action":"monarch-install-app 'LM Studio' lmstudio-bin","disabled":"monarch-pkg-present lmstudio-bin"},
   "install.ai.ollama": {"icon":"󱚤","action":"if monarch-cmd-present nvidia-smi; then ollama_pkg=ollama-cuda; elif monarch-cmd-present rocminfo; then ollama_pkg=ollama-rocm; else ollama_pkg=ollama; fi; monarch-install-app Ollama \"$ollama_pkg\"","disabled":"monarch-cmd-present ollama"},
   "install.ai.t3-code": {"icon":"󰚩","disabled":"monarch-pkg-present t3code-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-install-ai-t3-code"},
-  "install.ai.hermes": {"icon":"󰚩","disabled":"monarch-pkg-present hermes-desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-install-ai-hermes"},
+  "install.ai.hermes": {"icon":"󰚩","disabled":"monarch-pkg-present hermes-agent-desktop-bin || monarch-pkg-present hermes-agent-desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-install-ai-hermes"},
 
   // Install > Gaming
   "install.gaming.steam": {"icon":"","action":"monarch-launch-floating-terminal-with-presentation monarch-install-gaming-steam","disabled":"monarch-pkg-present steam"},
@@ -387,7 +387,7 @@
   "remove.ai.lm-studio": {"icon":"󱚤","when":"monarch-pkg-present lmstudio-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-lm-studio"},
   "remove.ai.ollama": {"icon":"󱚤","when":"monarch-cmd-present ollama","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-ollama"},
   "remove.ai.t3-code": {"icon":"󰚩","when":"monarch-pkg-present t3code-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-t3-code"},
-  "remove.ai.hermes": {"icon":"󰚩","when":"monarch-pkg-present hermes-desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-hermes"},
+  "remove.ai.hermes": {"icon":"󰚩","when":"monarch-pkg-present hermes-agent-desktop-bin || monarch-pkg-present hermes-agent-desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-hermes"},
 
   "remove.service.tailscale": {"icon":"","when":"monarch-pkg-present tailscale","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-service-tailscale"},
   "remove.service.lazyvpn": {"icon":"󰖂","when":"monarch-pkg-present monarch-lazyvpn","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-lazyvpn"},

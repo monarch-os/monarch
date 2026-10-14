@@ -2,11 +2,7 @@
   "strings": {
     "hermes.noRoot": "Lancez cette commande avec votre compte utilisateur, sans sudo.",
     "hermes.profileTheme": "Le thème Monarch a été généré pour le profil Hermes par défaut. Votre profil personnalisé actif reste inchangé.",
-    "hermes.customHome": "L’installateur Monarch utilise ~/.hermes. Conservez votre installation Hermes personnalisée et installez le paquet Desktop séparément.",
-    "hermes.existingRuntime": "Une installation Hermes existante nécessite une intervention. Lancez 'hermes desktop --build-only', puis réessayez ; les fichiers existants sont conservés.",
-    "hermes.existingCommand": "Le fichier existant %1 serait remplacé. Déplacez-le avant d’installer Hermes.",
-    "hermes.existingBuild": "Une compilation Desktop existe déjà ; elle est conservée. Vérifiez l’installation Hermes avant de réessayer.",
-    "hermes.notReady": "Hermes est installé, mais le CLI n’est pas prêt ou une autre commande hermes le masque dans le PATH. Vérifiez votre PATH et réessayez.",
+    "hermes.notReady": "Le runtime Hermes empaqueté n’est pas prêt. Vérifiez les paquets hermes-agent et hermes-agent-desktop avant de réessayer.",
     "hermes.themePending": "Hermes est installé. Le thème reste à configurer ; lancez 'monarch theme hermes --activate' lorsque Noctalia est disponible.",
     "hermes.removed": "Hermes Desktop supprimé. Votre runtime Hermes, vos identifiants et vos sessions sont conservés.",
     "hermes.keepSkin": "Le thème Hermes '%1' est conservé. Pour sélectionner Monarch : hermes config set display.skin monarch",
@@ -432,7 +428,7 @@
     "windows": "Gestion de la VM Windows"
   },
   "commands": {
-    "monarch-install-hermes-cli": "Préparer le runtime partagé entre Hermes Desktop et le terminal",
+    "monarch-install-hermes-cli": "Installer les paquets partagés entre Hermes Desktop et le terminal",
     "monarch-install-ai-hermes": "Installer et ouvrir Hermes Desktop",
     "monarch-remove-ai-hermes": "Supprimer Hermes Desktop en conservant les sessions et le runtime",
     "monarch-theme-hermes": "Générer le thème Monarch pour Hermes avec Noctalia",

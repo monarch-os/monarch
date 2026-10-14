@@ -25,9 +25,9 @@ if [[ $activate == "true" ]]; then
     echo "$(monarch-i18n hermes.profileTheme)"
     exit 0
   fi
-  current=$(timeout 15 hermes config get display.skin)
+  current=$(timeout 15 /usr/bin/hermes config get display.skin)
   case "$current" in
-    "" | null | default | monarch) timeout 30 hermes config set display.skin monarch ;;
+    "" | null | default | monarch) timeout 30 /usr/bin/hermes config set display.skin monarch ;;
     *) echo "$(monarch-i18n hermes.keepSkin "$current")" ;;
   esac
 fi

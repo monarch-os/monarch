@@ -56,7 +56,7 @@ fi
 # Most agents use their automatic approval mode; Hermes keeps its approvals.
 case "$agent" in
 hermes)
-  command=(hermes chat --tui)
+  command=(/usr/bin/hermes chat --tui)
   [[ -n ${prompt:-} ]] && command+=(--query "$prompt")
   ;;
 opencode)

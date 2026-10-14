@@ -2,11 +2,7 @@
   "strings": {
     "hermes.noRoot": "Run this command as your desktop user, without sudo.",
     "hermes.profileTheme": "The Monarch skin was rendered for the default Hermes profile. Your active custom profile has been left unchanged.",
-    "hermes.customHome": "Monarch's installer uses ~/.hermes. Keep your custom Hermes installation and install the desktop package separately.",
-    "hermes.existingRuntime": "An existing Hermes runtime needs attention. Run 'hermes desktop --build-only', then retry; existing files have been kept.",
-    "hermes.existingCommand": "An existing %1 would be replaced. Move it aside before installing Hermes.",
-    "hermes.existingBuild": "A desktop build already exists; it has been kept. Retry after checking Hermes setup.",
-    "hermes.notReady": "Hermes setup finished, but the CLI is not ready or another hermes shadows it on PATH. Check your PATH and retry.",
+    "hermes.notReady": "The packaged Hermes runtime is not ready. Check the hermes-agent and hermes-agent-desktop packages before retrying.",
     "hermes.themePending": "Hermes is installed. Theme setup is pending; run 'monarch theme hermes --activate' once Noctalia is available.",
     "hermes.removed": "Hermes Desktop removed. Your Hermes runtime, credentials and sessions have been kept.",
     "hermes.keepSkin": "Keeping the Hermes skin '%1'. Select Monarch with: hermes config set display.skin monarch",

@@ -25,7 +25,7 @@ window-rule {
 include optional=true "~/.config/niri/chat-privacy.kdl"
 
 window-rule {
-    match app-id="^Hermes$" title="^Hermes HUD$"
+    match app-id=r#"^(Hermes|com\.nousresearch\.hermes)$"# title="^Hermes HUD$"
     open-floating true
     border { off; }
 }
