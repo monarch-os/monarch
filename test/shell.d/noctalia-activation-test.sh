@@ -40,6 +40,8 @@ bash "$ROOT/install/reconcile/user.sh" >/dev/null
 [[ $(cat "$XDG_STATE_HOME/monarch/backups/noctalia/monarch-agents/service.luau") == "legacy collector" ]] ||
   fail "successful migration archives the collector before replacement"
 [[ -f $legacy/data.luau && ! -f $legacy/service.luau ]] || fail "successful migration installs the replacement"
+TEST_CODEXBAR_FAILURE=1 bash "$ROOT/install/reconcile/user.sh" >/dev/null
+pass "invalid provider configuration no longer blocks ordinary plugin reconciliation"
 pass "CodexBar migration validates before replacement and archives the legacy collector"
 
 for entrypoint in first-run reconcile deferred; do

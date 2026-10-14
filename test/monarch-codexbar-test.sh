@@ -10,19 +10,22 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
-import tomllib
 import unittest
 
 
-class MigrationTests(unittest.TestCase):
+class TransitionTests(unittest.TestCase):
   def setUp(self):
     self.temporary = tempfile.TemporaryDirectory()
     self.addCleanup(self.temporary.cleanup)
     self.home = Path(self.temporary.name)
     self.config = self.home / 'config'
     self.state = self.home / 'state'
+    self.plugin = self.home / '.local/share/noctalia/plugins/monarch-agents'
+    self.backup = self.state / 'monarch/backups/noctalia/monarch-agents'
+    binary = self.put(self.home / 'bin/codexbar', '#!/bin/bash\nexit "${TEST_CLI_STATUS:-0}"\n')
+    binary.chmod(0o755)
     self.env = dict(os.environ, HOME=str(self.home), XDG_CONFIG_HOME=str(self.config),
-                    XDG_STATE_HOME=str(self.state))
+                    XDG_STATE_HOME=str(self.state), PATH=str(binary.parent) + ':/usr/bin')
     for name in ('CODEXBAR_CONFIG', 'CLAUDE_CONFIG_DIR', 'CODEX_HOME'):
       self.env.pop(name, None)
 
@@ -31,24 +34,25 @@ class MigrationTests(unittest.TestCase):
     path.write_text(content)
     return path
 
-  def run_migration(self):
-    subprocess.run(['python3', os.environ['ROOT'] + '/install/reconcile/codexbar.py'],
-                   env=self.env, check=True)
+  def seed_legacy(self):
+    self.put(self.plugin / 'plugin.toml', 'id = "monarch/agents"')
+    self.put(self.plugin / 'service.luau', 'legacy collector')
 
-  def test_migration_preserves_history_and_backs_up_layout(self):
+  def run_transition(self, success=True):
+    result = subprocess.run(['python3', os.environ['ROOT'] + '/install/reconcile/agent-usage.py'],
+                            env=self.env, capture_output=True, text=True)
+    self.assertEqual(result.returncode == 0, success, result.stderr)
+
+  def test_transition_preserves_credentials_history_and_noctalia_configuration(self):
+    self.seed_legacy()
     (self.home / '.claude').mkdir()
     (self.home / '.codex').mkdir()
     disabled = self.put(self.state / 'monarch/agents/disabled/claude', '')
     history = self.put(self.state / 'monarch/agents/usage/codex.json', '{"ready":true}')
     key = self.put(self.config / 'monarch/agents/synthetic.json', '{"apiKey":"test-secret"}')
-    layout = self.put(self.config / 'noctalia/config.toml',
-                      '[bar.default]\nend = ["tray", "monarch/agents:usage", "volume"]\n')
-    mutable = self.put(self.state / 'noctalia/settings.toml', layout.read_text())
-    mutable.write_text(mutable.read_text() + '\n[plugins]\nenabled = ["monarch/menu", "monarch/agents", "salemsayed/codexbar-meter"]\n')
-    plugin = self.put(self.home / '.local/share/noctalia/plugins/monarch-agents/plugin.toml',
-                       'id = "monarch/agents"')
-    self.put(plugin.parent / 'service.luau', 'legacy collector')
-    self.run_migration()
+    layout_text = '[bar.default]\nend = ["tray", "monarch/agents:usage", "volume"]\n'
+    layout = self.put(self.config / 'noctalia/config.toml', layout_text)
+    self.run_transition()
     target = self.config / 'codexbar/config.json'
     providers = {p['id']: p for p in json.loads(target.read_text())['providers']}
     self.assertFalse(providers['claude']['enabled'])
@@ -56,59 +60,53 @@ class MigrationTests(unittest.TestCase):
     self.assertEqual(providers['codex']['source'], 'cli')
     self.assertEqual(providers['synthetic']['apiKey'], 'test-secret')
     self.assertEqual(target.stat().st_mode & 0o777, 0o600)
-    self.assertIn('monarch/agents:usage', layout.read_text())
-    self.assertEqual(tomllib.loads(mutable.read_text())['bar'], tomllib.loads(layout.read_text())['bar'])
-    self.assertEqual(tomllib.loads(mutable.read_text())['plugins']['enabled'],
-                     ['monarch/menu', 'monarch/agents'])
-    self.assertTrue(mutable.with_name('settings.toml.before-codexbar').exists())
-    self.assertFalse(plugin.exists())
-    self.assertTrue((self.state / 'monarch/backups/noctalia/monarch-agents/plugin.toml').exists())
+    self.assertEqual(layout.read_text(), layout_text)
+    self.assertEqual((self.backup / 'service.luau').read_text(), 'legacy collector')
+    self.assertFalse(self.plugin.exists())
     self.assertTrue(history.exists() and disabled.exists() and key.exists())
     inode = target.stat().st_ino
-    self.run_migration()
+    self.run_transition()
     self.assertEqual(target.stat().st_ino, inode)
 
-  def test_existing_config_is_not_overwritten(self):
-    path = self.put(self.config / 'codexbar/config.json', '{"custom":"keep"}')
-    self.run_migration()
-    self.assertEqual(path.read_text(), '{"custom":"keep"}')
+  def test_existing_codexbar_configuration_is_not_overwritten(self):
+    self.seed_legacy()
+    path = self.put(self.config / 'codexbar/config.json', '{"version":1,"providers":[]}')
+    self.run_transition()
+    self.assertEqual(path.read_text(), '{"version":1,"providers":[]}')
 
-  def test_current_plugin_is_not_archived(self):
-    plugin = self.put(self.home / '.local/share/noctalia/plugins/monarch-agents/plugin.toml',
-                      'id = "monarch/agents"')
-    self.run_migration()
-    self.run_migration()
-    self.assertTrue(plugin.exists())
-    self.assertFalse((self.state / 'monarch/backups/noctalia/monarch-agents').exists())
-
-  def test_singular_plugin_references_migrate(self):
-    layout = self.put(self.config / 'noctalia/config.toml',
-                     '[bar.default]\nend = ["monarch/agent:usage"]\n'
-                     '[plugins]\nenabled = ["monarch/agent", "monarch/agents"]\n'
-                     '[plugin_settings."monarch/agent"]\nrefreshIntervalSec = 120\n')
-    self.run_migration()
-    migrated = tomllib.loads(layout.read_text())
-    self.assertEqual(migrated['bar']['default']['end'], ['monarch/agents:usage'])
-    self.assertEqual(migrated['plugins']['enabled'], ['monarch/agents'])
-    self.assertEqual(migrated['plugin_settings']['monarch/agents']['refreshIntervalSec'], 120)
-
-  def test_legacy_config_is_not_shadowed(self):
-    self.put(self.home / '.codexbar/config.json', '{"custom":"keep"}')
-    self.run_migration()
+  def test_legacy_codexbar_configuration_is_not_shadowed(self):
+    self.seed_legacy()
+    self.put(self.home / '.codexbar/config.json', '{"version":1,"providers":[]}')
+    self.run_transition()
     self.assertFalse((self.config / 'codexbar/config.json').exists())
 
-  def test_fresh_install_has_no_enabled_providers(self):
-    self.run_migration()
-    data = json.loads((self.config / 'codexbar/config.json').read_text())
-    self.assertFalse(any(p['enabled'] for p in data['providers']))
+  def test_fresh_install_does_not_create_provider_configuration(self):
+    self.run_transition()
+    self.assertFalse((self.config / 'codexbar/config.json').exists())
 
-  def test_symlinked_layout_is_untouched(self):
-    target = self.put(self.home / 'custom.toml', 'end = ["monarch/agents:usage"]')
-    link = self.config / 'noctalia/config.toml'
-    link.parent.mkdir(parents=True)
-    link.symlink_to(target)
-    self.run_migration()
-    self.assertEqual(target.read_text(), 'end = ["monarch/agents:usage"]')
+  def test_current_plugin_does_not_run_backend_validation(self):
+    self.put(self.plugin / 'plugin.toml', 'id = "monarch/agents"')
+    self.env['TEST_CLI_STATUS'] = '1'
+    self.run_transition()
+    self.assertTrue((self.plugin / 'plugin.toml').exists())
+    self.assertFalse(self.backup.exists())
+
+  def test_invalid_backend_keeps_the_old_collector_and_can_retry(self):
+    self.seed_legacy()
+    self.env['TEST_CLI_STATUS'] = '1'
+    self.run_transition(success=False)
+    self.assertTrue((self.plugin / 'service.luau').exists())
+    self.assertFalse(self.backup.exists())
+    self.env['TEST_CLI_STATUS'] = '0'
+    self.run_transition()
+    self.assertTrue((self.backup / 'service.luau').exists())
+
+  def test_backup_collision_preserves_both_plugins(self):
+    self.seed_legacy()
+    self.put(self.backup / 'service.luau', 'previous archive')
+    self.run_transition(success=False)
+    self.assertEqual((self.plugin / 'service.luau').read_text(), 'legacy collector')
+    self.assertEqual((self.backup / 'service.luau').read_text(), 'previous archive')
 
 
 unittest.main()
@@ -118,25 +116,16 @@ TEST_ROOT=$(mktemp -d)
 trap 'rm -rf "$TEST_ROOT"' EXIT
 export HOME="$TEST_ROOT/home" MONARCH_PATH="$ROOT"
 export XDG_CONFIG_HOME="$HOME/.config" XDG_STATE_HOME="$HOME/.local/state"
-export MONARCH_CODEXBAR_PLUGIN_ROOT="$TEST_ROOT/plugins"
 unset CODEXBAR_CONFIG CLAUDE_CONFIG_DIR CODEX_HOME
-source "$ROOT/install/reconcile/config-files.sh"
-source "$ROOT/install/reconcile/codexbar.sh"
-monarch-cmd-present() { [[ ${cli_ready:-false} == "true" ]]; }
-codexbar() { return 0; }
-plugins_changed=false
-if monarch_reconcile_codexbar 2>/dev/null; then
-  echo "Migration succeeded without its replacement" >&2
+source "$ROOT/install/reconcile/agent-usage.sh"
+monarch-cmd-present() { return 1; }
+monarch_prepare_agent_usage_transition
+[[ ! -e $XDG_CONFIG_HOME/codexbar/config.json ]]
+mkdir -p "$HOME/.local/share/noctalia/plugins/monarch-agents"
+printf 'legacy collector\n' >"$HOME/.local/share/noctalia/plugins/monarch-agents/service.luau"
+if monarch_prepare_agent_usage_transition 2>/dev/null; then
+  echo "Transition succeeded without its backend" >&2
   exit 1
 fi
-[[ ! -e $XDG_CONFIG_HOME/codexbar/config.json ]]
-mkdir -p "$MONARCH_CODEXBAR_PLUGIN_ROOT/monarch-agents"
-printf 'id = "monarch/agents"\n' >"$MONARCH_CODEXBAR_PLUGIN_ROOT/monarch-agents/plugin.toml"
-cli_ready=true
-monarch_reconcile_codexbar
-[[ $plugins_changed == "true" ]]
-[[ -f $HOME/.local/share/noctalia/plugins/monarch-agents/plugin.toml ]]
-plugins_changed=false
-monarch_reconcile_codexbar
-[[ $plugins_changed == "false" ]]
-echo "CodexBar migration tests passed"
+[[ -f $HOME/.local/share/noctalia/plugins/monarch-agents/service.luau ]]
+echo "Agent usage transition tests passed"

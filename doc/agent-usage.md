@@ -45,11 +45,17 @@ Codex uses the CLI's read-only app-server RPC, retaining support for credentials
 stored in its keyring. Claude reads its existing OAuth credentials without
 launching an interactive authentication fallback.
 
-On upgrade, reconciliation preserves existing CodexBar configuration. Otherwise
-it enables Claude/Codex when their local directories exist, honours Monarch's
-disabled-provider markers, and imports the existing Synthetic key. Credentials
-and history stay untouched. Bar references migrate with a `.before-codexbar`
-backup; the old plugin is archived rather than deleted.
+When the old Monarch collector is present, reconciliation prepares its transition
+before the common plugin update. It preserves existing CodexBar configuration;
+otherwise it enables Claude/Codex when their local directories exist, honours
+disabled-provider markers, and imports the existing Synthetic key. Credentials,
+history and Noctalia configuration stay untouched. The old plugin is archived
+only after CodexBar validates the configuration.
+
+After this transition, the plugin follows the same managed-tree reconciliation
+as every other Monarch plugin. Backend authentication/configuration errors do not
+block ordinary updates. Fresh installs leave provider configuration to CodexBar
+and `monarch agent usage setup`; first-run only activates the plugin inventory.
 
 Monarch Agents shows quotas, resets and credits, not Monarch's former local charts.
 Use `codexbar cost --provider claude --format json` or the Codex equivalent for

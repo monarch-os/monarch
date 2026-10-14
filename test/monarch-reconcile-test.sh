@@ -200,10 +200,6 @@ mkdir -p "$TEST_ROOT/bin" "$HOME/.config/noctalia/templates" "$HOME/.config/uwsm
   "$HOME/.local/share/noctalia/plugins/third-party" \
   "$HOME/.local/share/noctalia/plugins/monarch-theme" "$HOME/dotfiles"
 touch "$MONARCH_RUNTIME_ROOT/bin/monarch"
-export MONARCH_CODEXBAR_PLUGIN_ROOT="$TEST_ROOT/packaged-plugins"
-mkdir -p "$MONARCH_CODEXBAR_PLUGIN_ROOT/monarch-agents"
-printf 'id = "monarch/agents"\n' >"$MONARCH_CODEXBAR_PLUGIN_ROOT/monarch-agents/plugin.toml"
-printf '#!/bin/bash\nexit 0\n' >"$TEST_ROOT/bin/codexbar"
 chmod +x "$MONARCH_RUNTIME_ROOT/bin/monarch"
 printf '%s\n' keep >"$HOME/.local/share/noctalia/plugins/third-party/plugin.toml"
 printf '%s\n' stale >"$HOME/.local/share/noctalia/plugins/monarch-theme/removed.luau"
