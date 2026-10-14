@@ -426,6 +426,7 @@
     "monarch-agent-crash": "Diagnostiquer un plantage avec l’agent de code par défaut",
     "monarch-agent-prompt": "Lancer l’agent de code par défaut avec une consigne",
     "monarch-agent-usage": "Gérer l’utilisation des fournisseurs de code via CodexBar",
+    "monarch-agent-usage-fetch": "Transmettre un résultat CodexBar borné au service Monarch Agents",
     "monarch-apply-hardware": "Appliquer les paquets et la configuration propres au matériel",
     "monarch-apply-system": "Appliquer la configuration système à l’installation cible",
     "monarch-audio-input-mute": "Couper ou rétablir le microphone et son voyant matériel",

@@ -36,6 +36,17 @@ if TEST_CODEXBAR_FAILURE=1 bash "$ROOT/install/reconcile/user.sh" >/dev/null 2>&
 fi
 [[ $(cat "$legacy/service.luau") == "legacy collector" ]] || fail "failed migration preserves the old collector"
 [[ ! -f $legacy/data.luau ]] || fail "failed migration does not seed the replacement"
+cat >"$test_tmp/bin/cp" <<'EOF'
+#!/bin/bash
+if [[ ${TEST_AGENTS_COPY_FAIL:-0} == "1" && $* == *"monarch-agents/."* ]]; then exit 1; fi
+exec /usr/bin/cp "$@"
+EOF
+chmod +x "$test_tmp/bin/cp"
+if TEST_AGENTS_COPY_FAIL=1 bash "$ROOT/install/reconcile/user.sh" >/dev/null 2>&1; then
+  fail "replacement copy failure stops reconciliation"
+fi
+[[ $(cat "$legacy/service.luau") == "legacy collector" ]] || fail "replacement copy failure retains the live collector"
+[[ -f $XDG_STATE_HOME/monarch/backups/noctalia/monarch-agents/service.luau ]] || fail "archive is retained for a retry"
 bash "$ROOT/install/reconcile/user.sh" >/dev/null
 [[ $(cat "$XDG_STATE_HOME/monarch/backups/noctalia/monarch-agents/service.luau") == "legacy collector" ]] ||
   fail "successful migration archives the collector before replacement"

@@ -8,6 +8,8 @@
     "resets": "Resets {time}",
     "balance": "Balance remaining: {amount}",
     "credits": "Credits remaining: {amount}",
+    "spend": "Spent: {used} {currency}",
+    "spend_limit": "Spent: {used} / {limit} {currency}",
     "no_quota": "No quota reported",
     "stale": "Last known data",
     "no_provider": "No provider enabled. Configure one below.",

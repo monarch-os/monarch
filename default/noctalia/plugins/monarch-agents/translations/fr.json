@@ -8,6 +8,8 @@
     "resets": "Réinitialisation : {time}",
     "balance": "Solde restant : {amount}",
     "credits": "Crédits restants : {amount}",
+    "spend": "Dépenses : {used} {currency}",
+    "spend_limit": "Dépenses : {used} / {limit} {currency}",
     "no_quota": "Aucun quota communiqué",
     "stale": "Dernières données connues",
     "no_provider": "Aucun fournisseur activé. Configurez-en un ci-dessous.",

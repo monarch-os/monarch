@@ -3,11 +3,14 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 python3 - "$ROOT" <<'PY'
 import json
+import contextlib
+import io
 from pathlib import Path
 import re
 import subprocess
 import sys
 import tempfile
+from unittest.mock import patch
 
 root = Path(sys.argv[1])
 plugin = root / 'default/noctalia/plugins/monarch-agents'
@@ -39,4 +42,20 @@ with tempfile.TemporaryDirectory() as directory:
       '[' + quote(key) + '] = ' + quote(value) for key, value in entries.items()) + '\n}'
     for lang, entries in catalogs.items()) + '\n}\n')
   subprocess.run(['lua', str(root / 'test/monarch-agent-plugin-test.lua'), str(plugin), str(path)], check=True)
+
+bridge = (root / 'bin/monarch-agent-usage-fetch').read_text().split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
+result = subprocess.CompletedProcess([], 1, '[{"provider":"synthetic"}]', 'private diagnostics')
+with patch('subprocess.run', return_value=result) as run:
+  output = io.StringIO()
+  with contextlib.redirect_stdout(output):
+    exec(compile(bridge, 'usage-fetch', 'exec'), {})
+  assert run.call_args.kwargs['timeout'] >= 90
+  assert json.loads(output.getvalue()) == {'providers': [{'provider': 'synthetic'}], 'ok': False}
+  assert 'private diagnostics' not in output.getvalue()
+with patch('subprocess.run', side_effect=subprocess.TimeoutExpired('codexbar', 120)):
+  output = io.StringIO()
+  with contextlib.redirect_stdout(output):
+    exec(compile(bridge, 'usage-fetch', 'exec'), {})
+  assert json.loads(output.getvalue()) == {'providers': [], 'ok': False}
+print('CodexBar streaming bridge tests passed')
 PY

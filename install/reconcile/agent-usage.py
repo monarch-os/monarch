@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 
@@ -27,7 +28,10 @@ state_home = Path(os.environ.get("XDG_STATE_HOME") or home / ".local/state")
 config = Path(os.environ.get("CODEXBAR_CONFIG") or config_home / "codexbar/config.json")
 legacy = home / ".codexbar/config.json"
 backup = state_home / "monarch/backups/noctalia/monarch-agents"
-if backup.exists() or backup.is_symlink():
+if backup.is_symlink() or (backup.exists() and subprocess.run(
+  ["diff", "-qr", "--no-dereference", str(plugin), str(backup)],
+  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+).returncode != 0):
   raise RuntimeError(f"Legacy agent plugin backup already exists: {backup}")
 
 if not config.exists() and not config.is_symlink() and not legacy.exists() and not legacy.is_symlink():
@@ -49,4 +53,11 @@ if not config.exists() and not config.is_symlink() and not legacy.exists() and n
 
 subprocess.run(["codexbar", "config", "validate"], check=True, stdout=subprocess.DEVNULL)
 backup.parent.mkdir(parents=True, exist_ok=True)
-plugin.rename(backup)
+if not backup.exists():
+  staging = Path(tempfile.mkdtemp(prefix=".monarch-agents-", dir=backup.parent))
+  try:
+    shutil.copytree(plugin, staging, dirs_exist_ok=True, symlinks=True)
+    staging.rename(backup)
+  finally:
+    if staging.exists():
+      shutil.rmtree(staging)

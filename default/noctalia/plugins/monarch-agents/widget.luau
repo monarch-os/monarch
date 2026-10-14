@@ -1,5 +1,4 @@
 local data = require("./data.luau")
-local inFlight = false
 
 local function render()
   barWidget.render(ui.glyph({ name = "robot", size = 16, color = "on_surface" }))
@@ -13,55 +12,21 @@ local function render()
     end
     local balance = data.balance(provider)
     if balance then lines[#lines + 1] = noctalia.tr("ui.balance", { amount = balance }) end
+    local spend = data.spend(provider)
+    if spend then
+      lines[#lines + 1] = data.spendText(spend)
+      if spend.period ~= "" then lines[#lines + 1] = spend.period end
+    end
     tooltip[#tooltip + 1] = { key = data.name(provider), value = table.concat(lines, "\n") }
   end
   local issue = noctalia.state.get("error") or ""
-  if issue ~= "" then tooltip[#tooltip + 1] = { key = noctalia.tr("ui.status"), value = issue } end
+  if issue ~= "" then tooltip[#tooltip + 1] = { key = noctalia.tr("ui.status"), value = noctalia.tr(issue) } end
   if #tooltip == 0 then tooltip[1] = { key = noctalia.tr("ui.title"), value = noctalia.tr("ui.waiting") } end
   barWidget.setTooltip(tooltip)
 end
 
-local function refresh()
-  if inFlight then return end
-  inFlight = true
-  local started = noctalia.runAsync("/usr/bin/timeout 30s /usr/bin/codexbar usage --format json --json-only", function(result)
-    inFlight = false
-    local decoded = result and noctalia.json.decode(result.stdout or "")
-    if type(decoded) == "table" then
-      local providers = decoded.providers or (decoded.provider and { decoded }) or decoded
-      if #providers > 0 then
-        noctalia.state.set("providers", providers)
-        noctalia.state.set("error", "")
-        render()
-        return
-      end
-      if result.exitCode == 0 then
-        noctalia.state.set("providers", {})
-        noctalia.state.set("error", noctalia.tr("ui.no_usage"))
-        render()
-        return
-      end
-    end
-    noctalia.state.set("error", noctalia.tr("ui.refresh_failed"))
-    render()
-  end, 30000)
-  if started == false then
-    inFlight = false
-    noctalia.state.set("error", noctalia.tr("ui.launch_failed"))
-    render()
-  end
-end
-
-function update() refresh() end
 function onClick() noctalia.togglePanel("monarch/agents:details") end
-function onRightClick() refresh() end
-function onIpc(event)
-  if event == "refresh" then refresh() end
-end
-
-noctalia.state.watch("command", function(value)
-  if type(value) == "table" and value.action == "refresh" then refresh() end
-end)
-noctalia.setUpdateInterval(math.max(60, tonumber(noctalia.getConfig("refreshIntervalSec")) or 60) * 1000)
+function onRightClick() noctalia.state.set("command", { action = "refresh" }) end
+noctalia.state.watch("providers", render)
+noctalia.state.watch("error", render)
 render()
-refresh()

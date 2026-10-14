@@ -20,7 +20,7 @@ monarch-cmd-present codexbar || {
 }
 
 refresh() {
-  noctalia msg plugin monarch/agents:usage all refresh >/dev/null 2>&1 || true
+  noctalia msg plugin monarch/agents:collector all refresh >/dev/null 2>&1 || true
 }
 
 catalog() {

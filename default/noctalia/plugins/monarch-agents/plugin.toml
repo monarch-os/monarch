@@ -18,6 +18,10 @@ min = 60
 id = "usage"
 entry = "widget.luau"
 
+[[service]]
+id = "collector"
+entry = "collector.luau"
+
 [[panel]]
 id = "details"
 entry = "panel.luau"

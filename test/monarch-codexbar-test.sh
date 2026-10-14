@@ -62,7 +62,7 @@ class TransitionTests(unittest.TestCase):
     self.assertEqual(target.stat().st_mode & 0o777, 0o600)
     self.assertEqual(layout.read_text(), layout_text)
     self.assertEqual((self.backup / 'service.luau').read_text(), 'legacy collector')
-    self.assertFalse(self.plugin.exists())
+    self.assertTrue((self.plugin / 'service.luau').exists())
     self.assertTrue(history.exists() and disabled.exists() and key.exists())
     inode = target.stat().st_ino
     self.run_transition()

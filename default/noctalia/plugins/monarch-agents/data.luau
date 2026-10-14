@@ -54,4 +54,20 @@ function M.color(used)
   return "primary"
 end
 
+function M.spend(provider)
+  local cost = (provider.usage or {}).providerCost
+  if type(cost) ~= "table" or tonumber(cost.used) == nil then return nil end
+  local used = tonumber(cost.used)
+  local limit = tonumber(cost.limit)
+  if cost.balance ~= nil and used == 0 and (limit == nil or limit == 0) then return nil end
+  return { used = used, limit = limit, currency = cost.currencyCode or "", period = cost.period or "" }
+end
+
+function M.spendText(spend)
+  if spend.limit and spend.limit > 0 then
+    return noctalia.tr("ui.spend_limit", { used = spend.used, limit = spend.limit, currency = spend.currency })
+  end
+  return noctalia.tr("ui.spend", { used = spend.used, currency = spend.currency })
+end
+
 return M

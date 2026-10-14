@@ -40,13 +40,20 @@ local function providerSection(provider)
   end
   local credits = provider.credits or usage.credits
   local balance = data.balance(provider)
+  local spend = data.spend(provider)
+  if spend then
+    children[#children + 1] = ui.label({ text = data.spendText(spend) })
+    if spend.period ~= "" then
+      children[#children + 1] = ui.label({ text = spend.period, fontSize = 11, color = "on_surface/0.6" })
+    end
+  end
   if balance then
     children[#children + 1] = ui.label({ text = noctalia.tr("ui.balance", { amount = balance }) })
   end
   if type(credits) == "table" and credits.remaining ~= nil then
     children[#children + 1] = ui.label({ text = noctalia.tr("ui.credits", { amount = tostring(credits.remaining) }) })
   end
-  if #data.windows(provider) == 0 and issue == "" and not credits and not balance then
+  if #data.windows(provider) == 0 and issue == "" and not credits and not balance and not spend then
     children[#children + 1] = ui.label({ text = noctalia.tr("ui.no_quota"), color = "on_surface/0.6" })
   end
   if provider.stale then
@@ -95,7 +102,7 @@ render = function()
   })
   local issue = noctalia.state.get("error") or ""
   if issue ~= "" then
-    children[#children + 1] = ui.label({ text = issue, fontSize = 11, color = "error", maxLines = 2 })
+    children[#children + 1] = ui.label({ text = noctalia.tr(issue), fontSize = 11, color = "error", maxLines = 2 })
   end
   children[#children + 1] = ui.button({ text = noctalia.tr("ui.manage"), glyph = "settings", onClick = "onManageProviders" })
   panel.render(ui.column({ flexGrow = 1, gap = 12, padding = 16 }, children))

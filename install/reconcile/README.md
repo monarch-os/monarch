@@ -42,8 +42,9 @@ first-run reports failure and deferred activation retains its hook.
 
 `agent-usage.sh` only prepares the transition when the shipped legacy
 `monarch-agents/service.luau` is present. It imports old preferences into CodexBar
-without replacing an existing configuration and validates before archiving the
-collector. The common managed-tree loop then installs the replacement. Current
+without replacing an existing configuration and validates before copying the
+collector into its archive. The live tree remains until the common managed-tree
+loop stages and publishes its replacement, with its normal rollback on failure. Current
 plugins and fresh installs require no special backend validation or seeding.
 
 A schema bump changes which input states are supported. Permanent invariants
