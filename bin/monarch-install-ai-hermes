@@ -5,7 +5,6 @@
 
 set -euo pipefail
 
-monarch-install-hermes-cli --now
 if ! monarch-pkg-present hermes-agent-desktop-bin && ! monarch-pkg-present hermes-agent-desktop; then
   monarch-pkg-add hermes-agent-desktop-bin
 fi

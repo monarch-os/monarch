@@ -16,4 +16,10 @@ case "${1:-}" in
   *) echo "Usage: monarch-install-hermes-cli <--check|--now>" >&2; exit 1 ;;
 esac
 
-runtime_present || monarch-pkg-add hermes-agent-bin
+if monarch-pkg-present hermes-agent-bin; then
+  sudo pacman -D --asexplicit hermes-agent-bin
+elif monarch-pkg-present hermes-agent; then
+  sudo pacman -D --asexplicit hermes-agent
+else
+  monarch-pkg-add hermes-agent-bin
+fi

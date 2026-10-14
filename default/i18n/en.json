@@ -1,6 +1,6 @@
 {
   "strings": {
-    "hermes.removed": "Hermes Desktop removed. Your Hermes runtime, credentials and sessions have been kept.",
+    "hermes.removed": "Hermes Desktop removed. Unneeded dependencies were removed; explicitly installed packages and your personal data were kept.",
     "cli.title": "Monarch command center",
     "cli.usage": "Usage:",
     "cli.commonCommands": "Common commands:",

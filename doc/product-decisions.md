@@ -87,7 +87,8 @@ ONCE and Dropbox will not be integrated into Monarch.
 Hermes CLI and Desktop are optional; choosing the terminal agent installs only
 the CLI. Monarch selects no agent automatically and does not enable Hermes YOLO
 mode. Hermes owns its appearance; Monarch theme integration is deferred.
-Removing the desktop package preserves the runtime, credentials and sessions.
+Removing Desktop also removes its unneeded dependencies. An explicitly selected
+CLI and user data are preserved.
 
 ## Deferred integrations
 

@@ -10,11 +10,13 @@ export MONARCH_PATH="$ROOT"
 export MONARCH_LANGUAGE=en
 export TEST_LOG="$TMP/calls"
 export TEST_PACKAGES="$TMP/packages"
+export TEST_EXPLICIT="$TMP/explicit"
 export PATH="$TMP/bin:$HOME/.local/bin:$ROOT/bin:/usr/bin:/bin"
 system="$TMP/system"
 mkdir -p "$TMP/bin" "$HOME/.local/bin" "$HOME/.config/monarch/defaults" \
   "$system/usr/bin"
 touch "$TEST_PACKAGES"
+touch "$TEST_EXPLICIT"
 sed "s|/usr/bin/hermes|$system/usr/bin/hermes|g" \
   "$ROOT/bin/monarch-agent" >"$TMP/bin/monarch-agent"
 
@@ -27,13 +29,27 @@ cat >"$TMP/bin/monarch-pkg-add" <<'EOF'
 printf 'pkg-add %s\n' "$*" >>"$TEST_LOG"
 [[ ${INSTALL_STATUS:-0} == 0 ]] || exit "$INSTALL_STATUS"
 printf '%s\n' "$@" >>"$TEST_PACKAGES"
+printf '%s\n' "$@" >>"$TEST_EXPLICIT"
+if [[ $1 == "hermes-agent-desktop-bin" ]] && ! grep -qx hermes-agent-bin "$TEST_PACKAGES"; then
+  echo hermes-agent-bin >>"$TEST_PACKAGES"
+fi
+EOF
+cat >"$TMP/bin/sudo" <<'EOF'
+#!/bin/bash
+[[ $1 == "pacman" && $2 == "-D" && $3 == "--asexplicit" ]] || exit 1
+printf 'explicit %s\n' "$4" >>"$TEST_LOG"
+echo "$4" >>"$TEST_EXPLICIT"
 EOF
 cat >"$TMP/bin/monarch-pkg-drop" <<'EOF'
 #!/bin/bash
 printf 'pkg-drop %s\n' "$*" >>"$TEST_LOG"
 [[ ${REMOVE_STATUS:-0} == 0 ]] || exit "$REMOVE_STATUS"
-[[ ${1:-} == "--keep-dependencies" ]] && shift
 sed -i "/^$1\$/d" "$TEST_PACKAGES"
+for runtime in hermes-agent-bin hermes-agent; do
+  if ! grep -qx "$runtime" "$TEST_EXPLICIT"; then
+    sed -i "/^$runtime\$/d" "$TEST_PACKAGES"
+  fi
+done
 EOF
 cat >"$TMP/bin/monarch-launch-floating-terminal-with-presentation" <<'EOF'
 #!/bin/bash
@@ -114,8 +130,8 @@ grep -qx -- '--ozone-platform=x11' "$HOME/.config/hermes-desktop-flags.conf"
 if REMOVE_STATUS=23 "$ROOT/bin/monarch-remove-ai-hermes"; then exit 1; fi
 [[ $(<"$HOME/.config/monarch/defaults/agent") == hermes ]]
 "$ROOT/bin/monarch-remove-ai-hermes"
-grep -qx 'pkg-drop --keep-dependencies hermes-agent-desktop-bin' "$TEST_LOG"
-[[ ! -e $HOME/.config/monarch/defaults/agent ]]
+grep -qx 'pkg-drop hermes-agent-desktop-bin' "$TEST_LOG"
+[[ $(<"$HOME/.config/monarch/defaults/agent") == hermes ]]
 grep -qx hermes-agent-bin "$TEST_PACKAGES"
 [[ -f $HOME/.hermes/config.yaml && -f $HOME/.hermes/sessions.db && -f $HOME/.hermes/hermes-agent/keep ]]
 [[ $(sha256sum "$HOME/.local/bin/hermes") == "$foreign_hash" ]]
@@ -128,7 +144,25 @@ monarch-install-hermes-cli --check
 "$ROOT/bin/monarch-install-ai-hermes"
 if grep -q 'pkg-add' "$TEST_LOG"; then exit 1; fi
 "$ROOT/bin/monarch-remove-ai-hermes"
-grep -qx 'pkg-drop --keep-dependencies hermes-agent-desktop' "$TEST_LOG"
+grep -qx 'pkg-drop hermes-agent-desktop' "$TEST_LOG"
 [[ $(<"$HOME/.config/monarch/defaults/agent") == codex ]]
 grep -qx hermes-agent "$TEST_PACKAGES"
+
+: >"$TEST_PACKAGES"
+: >"$TEST_EXPLICIT"
+: >"$TEST_LOG"
+"$ROOT/bin/monarch-install-ai-hermes"
+grep -qx hermes-agent-bin "$TEST_PACKAGES"
+if grep -qE '^pkg-add hermes-agent-bin$|^explicit ' "$TEST_LOG"; then exit 1; fi
+printf '%s\n' hermes >"$HOME/.config/monarch/defaults/agent"
+"$ROOT/bin/monarch-remove-ai-hermes"
+[[ ! -s $TEST_PACKAGES && ! -e $HOME/.config/monarch/defaults/agent ]]
+[[ -f $HOME/.hermes/config.yaml && -f $HOME/.hermes/sessions.db ]]
+
+"$ROOT/bin/monarch-install-ai-hermes"
+"$ROOT/bin/monarch-default-agent" --install hermes
+grep -qx 'explicit hermes-agent-bin' "$TEST_LOG"
+"$ROOT/bin/monarch-remove-ai-hermes"
+grep -qx hermes-agent-bin "$TEST_PACKAGES"
+[[ $(<"$HOME/.config/monarch/defaults/agent") == hermes ]]
 echo 'All Hermes integration tests passed.'

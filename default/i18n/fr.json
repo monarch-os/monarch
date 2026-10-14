@@ -1,6 +1,6 @@
 {
   "strings": {
-    "hermes.removed": "Hermes Desktop supprimé. Votre runtime Hermes, vos identifiants et vos sessions sont conservés.",
+    "hermes.removed": "Hermes Desktop supprimé. Les dépendances inutilisées ont été supprimées ; les paquets installés explicitement et vos données personnelles sont conservés.",
     "cli.title": "Centre de commandes Monarch",
     "cli.usage": "Utilisation :",
     "cli.commonCommands": "Commandes courantes :",
@@ -425,7 +425,7 @@
   "commands": {
     "monarch-install-hermes-cli": "Installer le CLI Hermes",
     "monarch-install-ai-hermes": "Installer et ouvrir Hermes Desktop",
-    "monarch-remove-ai-hermes": "Supprimer Hermes Desktop en conservant les sessions et le runtime",
+    "monarch-remove-ai-hermes": "Supprimer Hermes Desktop et ses dépendances inutilisées",
     "monarch-language": "Choisir la langue des menus et commandes Monarch",
     "monarch-i18n": "Traduire un message destiné à l’utilisateur",
     "monarch-ac-present": "Vérifier si l’alimentation secteur est branchée",
