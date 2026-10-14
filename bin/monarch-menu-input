@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-prompt="${1:-Input}"
+prompt="${1:-}"
 
 selection_file=$(mktemp)
 done_file=$(mktemp)
@@ -21,7 +21,8 @@ payload=$(jq -nc \
   --arg prompt "$prompt" \
   --arg selectionFile "$selection_file" \
   --arg doneFile "$done_file" \
-  '{mode: $mode, prompt: $prompt, selectionFile: $selectionFile, doneFile: $doneFile, strings: $strings}')
+  '{mode: $mode, selectionFile: $selectionFile, doneFile: $doneFile, strings: $strings}
+   + (if $prompt == "" then {} else {prompt: $prompt} end)')
 
 noctalia msg panel-open monarch/menu:input "$payload" >/dev/null
 
