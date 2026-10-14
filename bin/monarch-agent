@@ -53,9 +53,12 @@ if monarch-cmd-missing "$agent"; then
   exit 1
 fi
 
-# Agents launched from the keybinding or menu run unattended, so each one starts
-# with its own spelling of "don't stop to ask". Pi and Ori have none to skip.
+# Most agents use their automatic approval mode; Hermes keeps its approvals.
 case "$agent" in
+hermes)
+  command=(hermes chat --tui)
+  [[ -n ${prompt:-} ]] && command+=(--query "$prompt")
+  ;;
 opencode)
   command=(opencode --auto)
   [[ -n ${prompt:-} ]] && command+=(--prompt "$prompt")

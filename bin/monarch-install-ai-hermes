@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# monarch:summary=Install and open Hermes Desktop
+# monarch:requires-sudo=true
+
+set -euo pipefail
+
+monarch-install-hermes-cli --now
+setsid uwsm-app -- /usr/bin/hermes-desktop >/dev/null 2>&1 &

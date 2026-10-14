@@ -25,6 +25,12 @@ monarch_reconcile_seeded_file \
 monarch_reconcile_managed_file \
   "$MONARCH_PATH/config/noctalia/monarch-herdr.toml" \
   "$HOME/.config/noctalia/monarch-herdr.toml"
+monarch_reconcile_seeded_file \
+  "$MONARCH_PATH/config/noctalia/templates/hermes.yaml" \
+  "$HOME/.config/noctalia/templates/hermes.yaml"
+monarch_reconcile_managed_file \
+  "$MONARCH_PATH/config/noctalia/monarch-hermes.toml" \
+  "$HOME/.config/noctalia/monarch-hermes.toml"
 monarch_reconcile_managed_file \
   "$MONARCH_PATH/config/noctalia/monarch-workspaces.toml" \
   "$HOME/.config/noctalia/monarch-workspaces.toml"

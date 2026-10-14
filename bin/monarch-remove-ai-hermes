@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# monarch:summary=Remove Hermes Desktop while preserving sessions and runtime
+# monarch:requires-sudo=true
+
+set -euo pipefail
+
+monarch-pkg-drop hermes-desktop
+if [[ $(monarch-default-agent) == "hermes" ]]; then
+  rm -f "$HOME/.config/monarch/defaults/agent"
+fi
+echo "$(monarch-i18n hermes.removed)"

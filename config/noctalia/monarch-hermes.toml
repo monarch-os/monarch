@@ -1,0 +1,4 @@
+[theme.templates.user.hermes]
+enabled = true
+input_path = "$XDG_CONFIG_HOME/noctalia/templates/hermes.yaml"
+output_path = "~/.hermes/skins/monarch.yaml"

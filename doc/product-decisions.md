@@ -79,7 +79,14 @@ Pacman's error output does not authorize moving system state into quarantine.
 
 ## Excluded integrations
 
-ONCE, Dropbox and Hermes will not be integrated into Monarch.
+ONCE and Dropbox will not be integrated into Monarch.
+
+## Optional agent integrations
+
+Hermes Desktop and its shared terminal runtime are optional. Monarch selects no
+agent automatically and does not enable Hermes YOLO mode. Noctalia renders the
+Monarch skin; a skin explicitly chosen in Hermes is preserved. Removing the
+desktop package preserves the user runtime, credentials and sessions.
 
 ## Deferred integrations
 

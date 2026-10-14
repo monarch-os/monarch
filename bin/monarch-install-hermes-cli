@@ -1,0 +1,96 @@
+#!/bin/bash
+
+# monarch:summary=Prepare the shared Hermes Desktop and terminal runtime
+# monarch:args=<--check|--now>
+# monarch:requires-sudo=true
+
+set -euo pipefail
+
+export HERMES_HOME=${HERMES_HOME:-$HOME/.hermes}
+runtime="$HERMES_HOME/hermes-agent"
+native="$runtime/apps/desktop/release/linux-unpacked"
+cli="$HOME/.local/bin/hermes"
+
+ready() {
+  local help found
+  monarch-pkg-present hermes-desktop || return 1
+  [[ -f $runtime/.hermes-bootstrap-complete && -f $native/resources/app.asar && -f $native/resources/install-stamp.json && -f $native/Hermes && -x $native/Hermes && -f $cli && -x $cli ]] || return 1
+  found=$(type -P hermes) || return 1
+  [[ $(realpath -m -- "$found") == "$(realpath -m -- "$cli")" ]] || return 1
+  help=$(timeout 15 "$cli" chat --help) || return 1
+  grep -qE -- '--tui(]|[[:space:]]{2}|$)' <<<"$help" &&
+    grep -qE -- '--query(]|[[:space:]][[:upper:]]|[[:space:]]{2}|$)' <<<"$help"
+}
+
+case "${1:-}" in
+  --check) ready; exit $? ;;
+  --now) ;;
+  *) echo "Usage: monarch-install-hermes-cli <--check|--now>" >&2; exit 1 ;;
+esac
+
+if (( EUID == 0 )); then
+  echo "$(monarch-i18n hermes.noRoot)" >&2
+  exit 1
+fi
+if [[ $HERMES_HOME != "$HOME/.hermes" ]]; then
+  echo "$(monarch-i18n hermes.customHome)" >&2
+  exit 1
+fi
+
+if ready; then
+  monarch-theme-hermes --activate || echo "$(monarch-i18n hermes.themePending)" >&2
+  exit 0
+fi
+monarch-pkg-add hermes-desktop
+
+commit=$(jq -er 'select(.branch == "main") | .commit | select(test("^[0-9a-f]{40}$"))' /opt/hermes-desktop/resources/install-stamp.json)
+
+# Never ask upstream's installer to reset an existing user checkout.
+if [[ -e $runtime || -L $runtime ]]; then
+  if [[ ! -f $runtime/.hermes-bootstrap-complete || -L $runtime ]] ||
+    ! runtime_commit=$(git -C "$runtime" rev-parse HEAD) || [[ $runtime_commit != "$commit" ]] ||
+    ! changes=$(git -C "$runtime" status --porcelain --untracked-files=all -- apps/desktop package.json package-lock.json) || [[ -n $changes ]] ||
+    [[ ! -f $cli || -L $cli ]] || ! grep -qF "$runtime/" "$cli"; then
+    echo "$(monarch-i18n hermes.existingRuntime)" >&2
+    exit 1
+  fi
+else
+  for command in hermes hermes-agent hermes-acp; do
+    if [[ -e $HOME/.local/bin/$command || -L $HOME/.local/bin/$command ]]; then
+      echo "$(monarch-i18n hermes.existingCommand "$HOME/.local/bin/$command")" >&2
+      exit 1
+    fi
+  done
+  npm_config_yes=true bash /usr/share/hermes-desktop/install.sh \
+    --skip-setup --branch main --commit "$commit" --force-commit --dir "$runtime" --hermes-home "$HERMES_HOME"
+fi
+
+[[ -f $runtime/.hermes-bootstrap-complete ]]
+mkdir -p "${native%/*}"
+if [[ -e $native || -L $native ]]; then
+  echo "$(monarch-i18n hermes.existingBuild)" >&2
+  exit 1
+fi
+staging=$(mktemp -d "${native%/*}/.linux-unpacked.XXXXXX")
+trap 'rm -rf -- "$staging"' EXIT
+cp -a /opt/hermes-desktop/. "$staging/"
+chmod 0755 "$staging/chrome-sandbox"
+mv -T --no-clobber -- "$staging" "$native"
+[[ ! -e $staging ]]
+trap - EXIT
+
+env -u PYTHONPATH -u PYTHONHOME "$runtime/venv/bin/python" - "$runtime" <<'PY'
+import sys
+from pathlib import Path
+
+sys.path.insert(0, sys.argv[1])
+from hermes_cli.main_desktop import _write_desktop_build_stamp
+
+_write_desktop_build_stamp(Path(sys.argv[1]), source_mode=False)
+PY
+
+if ! ready; then
+  echo "$(monarch-i18n hermes.notReady)" >&2
+  exit 1
+fi
+monarch-theme-hermes --activate || echo "$(monarch-i18n hermes.themePending)" >&2
