@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-prompt="${1:-Input}"
+prompt="${1:-}"
 
 selection_file=$(mktemp)
 done_file=$(mktemp)
@@ -16,11 +16,13 @@ rm -f "$done_file"
 trap 'rm -f "$selection_file" "$done_file"' EXIT
 
 payload=$(jq -nc \
+  --argjson strings "$("${BASH_SOURCE[0]%/*}/monarch-menu" --strings)" \
   --arg mode input \
   --arg prompt "$prompt" \
   --arg selectionFile "$selection_file" \
   --arg doneFile "$done_file" \
-  '{mode: $mode, prompt: $prompt, selectionFile: $selectionFile, doneFile: $doneFile}')
+  '{mode: $mode, selectionFile: $selectionFile, doneFile: $doneFile, strings: $strings}
+   + (if $prompt == "" then {} else {prompt: $prompt} end)')
 
 noctalia msg panel-open monarch/menu:input "$payload" >/dev/null
 

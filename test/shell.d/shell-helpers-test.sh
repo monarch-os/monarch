@@ -14,7 +14,8 @@ import subprocess
 import tempfile
 
 root = Path(os.environ["ROOT"])
-environment = {**os.environ, "MONARCH_PATH": str(root)}
+environment = {**os.environ, "MONARCH_PATH": str(root), "MONARCH_LANGUAGE": "en"}
+environment.pop("MONARCH_COMMAND_PICKER_BIN", None)
 
 
 def run(command, data=b"", env=None, success=True):
@@ -33,7 +34,9 @@ with tempfile.TemporaryDirectory() as directory:
     tools.mkdir()
     runtime = fixture / "runtime"
     (runtime / "bin").mkdir(parents=True)
+    shutil.copytree(root / "default/i18n", runtime / "default/i18n")
     shutil.copy(root / "bin/monarch", runtime / "bin/monarch")
+    shutil.copy(root / "bin/monarch-i18n", runtime / "bin/monarch-i18n")
     fixture_command = runtime / "bin/monarch-show-fixture"
     fixture_command.write_text(
         '#!/bin/bash\n# monarch:summary=Fixture command description\n'

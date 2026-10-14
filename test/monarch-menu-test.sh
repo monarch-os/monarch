@@ -12,6 +12,7 @@ TMPDIR=""
 
 export PATH="$ROOT/bin:$PATH"
 export MONARCH_PATH="$ROOT"
+export MONARCH_LANGUAGE=en
 
 pass() {
   printf 'ok - %s\n' "$1"
@@ -308,7 +309,7 @@ EOF
 output=$("$MENU" --rows learn | cut -f2 | tr '\n' ' ')
 assert_contains "an overridden label is used" "$output" "Shell"
 assert_equals "an overridden entry keeps its position" "${output% }" \
-  "Premiers pas Keybindings Monarch Niri Noctalia Arch Neovim Shell Herdr About"
+  "First steps Keybindings Monarch Niri Noctalia Arch Neovim Shell Herdr About"
 
 output=$("$MENU" --rows '' | cut -f1 | tr '\n' ' ')
 assert_contains "a new top-level id appends to the root menu" "$output" "personal"

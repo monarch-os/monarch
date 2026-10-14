@@ -7,6 +7,7 @@ CLI="$ROOT/bin/monarch"
 TMPDIR=""
 
 export PATH="$ROOT/bin:$PATH"
+export MONARCH_LANGUAGE=en
 
 pass() {
   printf 'ok - %s\n' "$1"

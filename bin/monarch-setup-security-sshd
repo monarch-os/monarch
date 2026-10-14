@@ -64,7 +64,7 @@ require_firewall() {
     return 1
   fi
 
-  if ! sudo env LC_ALL=C ufw status | grep -qx 'Status: active'; then
+  if ! sudo env LC_ALL=C ufw status | grep -x 'Status: active' >/dev/null; then
     echo -e "\e[31mUFW is inactive; refusing to start an unfiltered SSH server.\e[0m" >&2
     echo "Enable it with: sudo ufw enable" >&2
     return 1

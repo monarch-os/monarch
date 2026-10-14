@@ -11,6 +11,19 @@ local model = require("./model.luau")
 
 local HOME = noctalia.getenv("HOME") or ""
 local MONARCH_BIN = "/usr/bin"
+local strings = {}
+local loadErrors = {
+  ["menu.stateFailed"] = "monarch-menu --state failed",
+  ["menu.initialFailed"] = "monarch-menu --initial failed",
+  ["menu.parseFailed"] = "The menu data did not parse",
+}
+
+local function t(key, ...)
+  local values = { ... }
+  return ((strings[key] or loadErrors[key] or key):gsub("%%([1-9]%d*)", function(index)
+    return tostring(values[tonumber(index)] or ("%" .. index))
+  end))
+end
 
 local menu = nil
 local guards = {}
@@ -175,21 +188,22 @@ local render
 local function refreshState(onDone)
   noctalia.runAsync(monarchShell("monarch-menu --state"), function(result)
     if not result or result.exitCode ~= 0 then
-      status = "monarch-menu --state failed"
+      status = t("menu.stateFailed")
       render()
       return
     end
 
     local payload = noctalia.json.decode(result.stdout or "")
     if type(payload) ~= "table" then
-      status = "The menu data did not parse"
+      status = t("menu.parseFailed")
       render()
       return
     end
 
-    local parsed = model.fromArray(payload.tree)
+    strings = payload.strings or {}
+    local parsed = model.fromArray(payload.tree, strings)
     if not parsed then
-      status = "The menu data did not parse"
+      status = t("menu.parseFailed")
       render()
       return
     end
@@ -205,18 +219,21 @@ local function refreshState(onDone)
 end
 
 local function refreshInitial(context, onDone)
-  noctalia.runAsync(monarchShell("monarch-menu --initial " .. shellQuote(context or "")), function(result)
+  noctalia.runAsync(monarchShell("monarch-menu --initial-state " .. shellQuote(context or "")), function(result)
     if not result or result.exitCode ~= 0 then
-      status = "monarch-menu --initial failed"
+      status = t("menu.initialFailed")
       render()
       onDone(false)
       return
     end
 
     local payload = noctalia.json.decode(result.stdout or "")
-    local parsed = type(payload) == "table" and model.fromArray(payload) or nil
+    if type(payload) == "table" then
+      strings = payload.strings or {}
+    end
+    local parsed = type(payload) == "table" and model.fromArray(payload.tree, strings) or nil
     if not parsed then
-      status = "The menu data did not parse"
+      status = t("menu.parseFailed")
       render()
       onDone(false)
       return
@@ -316,7 +333,7 @@ local function rowFor(row, index: number)
     naming = ui.column({ flexGrow = 1, gap = 1 }, {
       ui.label({ text = label, color = tint }),
       ui.label({
-        text = entry.disabledLabel or "Installed",
+        text = entry.disabledLabel or t("menu.installed"),
         fontSize = 11,
         color = "on_surface/0.55",
         maxLines = 1,
@@ -360,8 +377,7 @@ end
 local function headerText(): string
   if mode ~= "menu" then
     if mode == "select" and query ~= "" then
-      local noun = if #rows == 1 then "result" else "results"
-      return requestPrompt .. "  ·  " .. tostring(#rows) .. " " .. noun
+      return requestPrompt .. "  ·  " .. t(if #rows == 1 then "menu.result" else "menu.results", #rows)
     end
     return requestPrompt
   end
@@ -369,11 +385,10 @@ local function headerText(): string
   local level = currentLevel()
   local where = if query == "" then
       model.breadcrumb(menu, level)
-    elseif level == "root" then "Search"
-    else "Search in " .. model.breadcrumb(menu, level)
+    elseif level == "root" then t("menu.search")
+    else t("menu.searchIn", model.breadcrumb(menu, level))
   if query ~= "" then
-    local noun = if #rows == 1 then "result" else "results"
-    return where .. "  ·  " .. tostring(#rows) .. " " .. noun
+    return where .. "  ·  " .. t(if #rows == 1 then "menu.result" else "menu.results", #rows)
   end
   if #rows > windowRows() then
     return where .. "  ·  " .. tostring(cursor) .. "/" .. tostring(#rows)
@@ -391,7 +406,7 @@ function render()
 
   local children = {}
   if #rows == 0 and mode ~= "input" then
-    table.insert(children, ui.label({ text = "Nothing here", color = "on_surface_variant" }))
+    table.insert(children, ui.label({ text = t("menu.empty"), color = "on_surface_variant" }))
   else
     revealCursor()
     for index = windowStart, math.min(#rows, windowStart + windowRows() - 1) do
@@ -423,7 +438,7 @@ function render()
 
     ui.input({
       key = "search-" .. searchRevision,
-      placeholder = if mode == "menu" then "Search the menu…" else requestPrompt .. "…",
+      placeholder = if mode == "menu" then t("menu.searchPlaceholder") else requestPrompt .. "…",
       focus = true,
       onChange = "onQueryChanged",
       onSubmit = "onQuerySubmitted",
@@ -433,13 +448,13 @@ function render()
 
     ui.row({ align = "center", gap = 14 }, {
       ui.label({
-        text = if mode == "input" then "↵ Confirm" else "↑↓ Navigate",
+        text = t(if mode == "input" then "menu.confirmHint" else "menu.navigateHint"),
         fontSize = 11,
         color = "on_surface/0.55",
       }),
-      mode ~= "input" and ui.label({ text = "↵ Open", fontSize = 11, color = "on_surface/0.55" })
-        or ui.label({ text = "Esc Cancel", fontSize = 11, color = "on_surface/0.55" }),
-      mode == "menu" and ui.label({ text = "← Back", fontSize = 11, color = "on_surface/0.55" })
+      mode ~= "input" and ui.label({ text = t("menu.openHint"), fontSize = 11, color = "on_surface/0.55" })
+        or ui.label({ text = t("menu.cancelHint"), fontSize = 11, color = "on_surface/0.55" }),
+      mode == "menu" and ui.label({ text = t("menu.backHint"), fontSize = 11, color = "on_surface/0.55" })
         or ui.label({ text = "" }),
     }),
   }))
@@ -643,7 +658,7 @@ local function openAt(context: string?)
   local route = model.resolveRoute(menu, context)
 
   if route ~= "root" and not menu.entries[route] then
-    noctalia.notifyError("Unknown menu route", route)
+    noctalia.notifyError(t("menu.routeErrorTitle"), route)
     panel.close()
     return
   end
@@ -667,8 +682,9 @@ local function openAt(context: string?)
 end
 
 local function openRequest(payload)
+  strings = payload.strings or {}
   mode = payload.mode == "input" and "input" or "select"
-  requestPrompt = tostring(payload.prompt or (mode == "input" and "Input" or "Select"))
+  requestPrompt = tostring(payload.prompt or t(mode == "input" and "menu.input" or "menu.select"))
   selectionFile = tostring(payload.selectionFile or "")
   doneFile = tostring(payload.doneFile or "")
   requestActive = doneFile ~= ""

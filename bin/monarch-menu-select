@@ -64,12 +64,13 @@ printf '%s\0' "${options[@]}" | jq -Rsc '
 ' >"$options_file"
 
 payload=$(jq -nc \
+  --argjson strings "$("${BASH_SOURCE[0]%/*}/monarch-menu" --strings)" \
   --arg mode select \
   --arg prompt "$prompt" \
   --arg optionsFile "$options_file" \
   --arg selectionFile "$selection_file" \
   --arg doneFile "$done_file" \
-  '{mode: $mode, prompt: $prompt, optionsFile: $optionsFile, selectionFile: $selectionFile, doneFile: $doneFile}')
+  '{mode: $mode, prompt: $prompt, optionsFile: $optionsFile, selectionFile: $selectionFile, doneFile: $doneFile, strings: $strings}')
 
 noctalia msg panel-open monarch/menu:select "$payload" >/dev/null
 

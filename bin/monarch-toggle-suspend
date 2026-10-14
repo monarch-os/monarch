@@ -2,7 +2,8 @@
 
 # monarch:summary=Toggle suspend availability in the system menu
 
+
 monarch-toggle \
-  --enabled-notification "󰒲   Suspend removed from system menu" \
-  --disabled-notification "󰒲   Suspend now available in system menu" \
+  --enabled-notification "󰒲   $(monarch-i18n 'suspend.disabled')" \
+  --disabled-notification "󰒲   $(monarch-i18n 'suspend.enabled')" \
   suspend-off

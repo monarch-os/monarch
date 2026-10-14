@@ -9,24 +9,17 @@
 # schema. The menu is drawn by the monarch/menu Noctalia panel; this command
 # loads the data for it, evaluates the guards, and routes the keybinds to it.
 
-MONARCH_ROOT="${MONARCH_PATH:-/usr/share/monarch}"
-
 # Guard expressions call monarch-* commands, and this runs from a keybind, from
 # the Noctalia panel and from a plain shell — none of which can be relied on to
 # have Monarch's bin on PATH. Without this every guard fails and rows silently
 # vanish, differently depending on the caller.
 PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd):$PATH"
 
-# Fall back to the checkout this script lives in when the installed tree has no
-# menu data. That is the case in CI and whenever a developer runs bin/monarch-menu
-# straight out of a clone, where relying on MONARCH_PATH being exported is a trap:
-# the test suite sets it, a bare invocation does not, and the two disagree.
-if [[ ! -f "$MONARCH_ROOT/default/monarch/monarch-menu.jsonc" ]]; then
-  MONARCH_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-fi
+MONARCH_ROOT=$("$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/monarch-i18n" --root)
 
 DEFAULT_MENU="$MONARCH_ROOT/default/monarch/monarch-menu.jsonc"
 USER_MENU="$HOME/.config/monarch/extensions/monarch-menu.jsonc"
+source "$MONARCH_ROOT/default/i18n/i18n.sh"
 
 # Row sources the data cannot express: `list` enumerates values, `current` names
 # the selected one, `action` receives it. Declared here rather than in the panel
@@ -58,9 +51,12 @@ declare -A PROVIDER_ACTION=(
 # while new ids append. A user file that does not parse contributes nothing
 # rather than taking the whole menu down with it.
 load_menu() {
-  MENU_JSON=$(
-    python - "$DEFAULT_MENU" "$USER_MENU" <<'PY'
+  local payload
+  payload=$(
+    python -B - "$DEFAULT_MENU" "$USER_MENU" "$MONARCH_ROOT" <<'PY'
 import json, re, sys
+sys.path.insert(0, sys.argv[3] + "/default/i18n")
+from i18n import Translator
 
 def load(path):
     try:
@@ -80,18 +76,35 @@ defaults = load(sys.argv[1])
 if defaults is None:
     sys.exit(1)
 
+translator = Translator()
+for entry_id, entry in defaults.items():
+    if not isinstance(entry, dict):
+        continue
+    original = []
+    for field in ("label", "title", "description", "disabledLabel"):
+        key = entry_id + "." + field
+        source = translator.entry(translator.english, "menu", key)
+        if isinstance(source, str):
+            entry[field] = translator.get("menu", key, source)
+            if entry[field] != source:
+                original.append(source)
+    if original:
+        entry["keywords"] = entry.get("keywords", []) + original
+
 for key, entry in (load(sys.argv[2]) or {}).items():
     if key in defaults and isinstance(entry, dict) and isinstance(defaults[key], dict):
         defaults[key].update(entry)
     else:
         defaults[key] = entry
 
-json.dump(defaults, sys.stdout)
+json.dump({"menu": defaults, "strings": translator.ui()}, sys.stdout)
 PY
   ) || {
-    echo "monarch-menu: cannot read $DEFAULT_MENU" >&2
+    monarch_message 'menu.readFailed' "$DEFAULT_MENU" >&2
     exit 1
   }
+  MENU_JSON=$(jq -c '.menu' <<<"$payload")
+  MENU_STRINGS=$(jq -c '.strings' <<<"$payload")
 }
 
 ids() { jq -r 'keys_unsorted[]' <<<"$MENU_JSON"; }
@@ -151,7 +164,7 @@ initial_payload() {
 
 menu_title() {
   [[ $1 == root ]] && {
-    echo Go
+    monarch_message 'menu.root'
     return
   }
   local title
@@ -393,18 +406,26 @@ check_menu() {
     return 1
   fi
 
-  echo "Menu data check passed ($(jq -r 'length' <<<"$MENU_JSON") entries)"
+  monarch_message 'menu.checkPassed' "$(jq -r 'length' <<<"$MENU_JSON")"
 }
 
 case "${1:-}" in
---initial)
+--strings)
+  exec python "$MONARCH_ROOT/default/i18n/i18n.py" --ui
+  ;;
+--initial | --initial-state)
+  initial_mode=$1
   load_menu
   route=$(resolve_route "${2:-}")
   if [[ $route != root ]] && ! jq -e --arg route "$route" 'has($route)' <<<"$MENU_JSON" >/dev/null; then
-    echo "monarch-menu: unknown route '$route'" >&2
+    monarch_message 'menu.unknownRoute' "$route" >&2
     exit 1
   fi
-  initial_payload
+  if [[ $initial_mode == "--initial-state" ]]; then
+    jq -nc --argjson tree "$(initial_payload)" --argjson strings "$MENU_STRINGS" '{tree: $tree, strings: $strings}'
+  else
+    initial_payload
+  fi
   exit 0
   ;;
 --tree)
@@ -452,8 +473,9 @@ case "${1:-}" in
   )
   jq -nc \
     --argjson tree "$(tree_payload)" \
+    --argjson strings "$MENU_STRINGS" \
     --argjson guards "$(printf '%s' "$guard_pairs" | jq -R -s 'split("\n") | map(select(length > 0) | split("\t")) | map({key: .[0], value: (.[1] == "true")}) | from_entries')" \
-    '{tree: $tree, guards: $guards}'
+    '{tree: $tree, guards: $guards, strings: $strings}'
   exit 0
   ;;
 --provider)
@@ -464,11 +486,12 @@ case "${1:-}" in
   list=""
   [[ -n $provider ]] && list="${PROVIDER_LIST[$provider]:-}"
   if [[ -z $list ]]; then
-    echo "monarch-menu: ${2:-} has no known provider" >&2
+    monarch_message 'menu.unknownProvider' "${2:-}" >&2
     exit 1
   fi
   current=$(${PROVIDER_CURRENT[$provider]} 2>/dev/null)
-  $list | jq -R --arg current "$current" '{label: ., value: ., current: (. == $current)}' | jq -sc .
+  $list | jq -R --arg current "$current" '{label: ., value: ., current: (. == $current)}' | jq -sc . |
+    python "$MONARCH_ROOT/default/i18n/i18n.py" --provider "$provider"
   exit 0
   ;;
 --provider-set)
@@ -477,7 +500,7 @@ case "${1:-}" in
   action=""
   [[ -n $provider ]] && action="${PROVIDER_ACTION[$provider]:-}"
   if [[ -z $action ]]; then
-    echo "monarch-menu: ${2:-} has no known provider" >&2
+    monarch_message 'menu.unknownProvider' "${2:-}" >&2
     exit 1
   fi
   exec $action "${3:-}"
@@ -516,7 +539,7 @@ close) exec noctalia msg panel-close "$PANEL" ;;
 --*)
   # Anything else starting with a dash is a typo, not a route: without this it
   # would fall through and toggle the panel, which looks like the flag worked.
-  echo "monarch-menu: unknown option '$1'" >&2
+  monarch_message 'menu.unknownOption' "$1" >&2
   exit 2
   ;;
 esac

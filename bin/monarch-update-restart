@@ -2,6 +2,9 @@
 
 # monarch:summary=Prompt for required reboot or service restarts after updates
 
+source "$("$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/monarch-i18n" --helper)"
+monarch_i18n_load
+
 monarch-state clear-stale-restarts || exit $?
 
 echo
@@ -21,21 +24,21 @@ for kernel in /usr/lib/modules/*/vmlinuz; do
 done
 
 if [[ $kernel_updated == "true" ]]; then
-  gum confirm "Linux kernel has been updated. Reboot?" && monarch-system-reboot
+  gum confirm "$(monarch_t 'update.kernelReboot')" && monarch-system-reboot
 elif [[ -f $HOME/.local/state/monarch/reboot-required ]]; then
-  gum confirm "Updates require reboot. Ready?" && monarch-system-reboot
+  gum confirm "$(monarch_t 'update.rebootRequired')" && monarch-system-reboot
 fi
 
 running_niri=$(readlink /proc/$(pgrep -x niri)/exe 2>/dev/null)
 if [[ $running_niri == *"(deleted)"* ]]; then
-  gum confirm "Niri has been updated. Reboot?" && monarch-system-reboot
+  gum confirm "$(monarch_t 'update.niriReboot')" && monarch-system-reboot
 fi
 
 for file in "$HOME"/.local/state/monarch/restart-*-required; do
   if [[ -f $file ]]; then
     filename=$(basename "$file")
     service=$(echo "$filename" | sed 's/restart-\(.*\)-required/\1/')
-    echo "Restarting $service"
+    monarch_message 'service.restarting' "$service"
     monarch-state clear "$filename"
     monarch-restart-"$service"
   fi

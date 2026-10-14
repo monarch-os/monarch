@@ -60,7 +60,7 @@ local function load()
     if result and result.exitCode == 0 then
       local payload = noctalia.json.decode(result.stdout or "")
       if type(payload) == "table" and type(payload.tree) == "table" then
-        menu = model.fromArray(payload.tree)
+        menu = model.fromArray(payload.tree, payload.strings)
         guards = payload.guards or {}
       end
     end

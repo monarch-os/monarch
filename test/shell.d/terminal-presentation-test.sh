@@ -2,6 +2,7 @@
 
 set -euo pipefail
 source "$(dirname "$0")/base-test.sh"
+export MONARCH_LANGUAGE=en
 
 test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT

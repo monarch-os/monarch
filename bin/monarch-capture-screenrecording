@@ -15,11 +15,14 @@
 
 umask 077
 
+source "$("$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/monarch-i18n" --helper)"
+monarch_i18n_load
+
 [[ -f ~/.config/user-dirs.dirs ]] && source ~/.config/user-dirs.dirs
 OUTPUT_DIR="${MONARCH_SCREENRECORD_DIR:-${XDG_VIDEOS_DIR:-$HOME/Videos}}"
 
 if [[ ! -d $OUTPUT_DIR ]]; then
-  notify-send "Screen recording directory does not exist: $OUTPUT_DIR" -u critical -t 3000
+  notify-send "$(monarch_t 'capture.recordingDirectoryMissing' "$OUTPUT_DIR")" -u critical -t 3000
   exit 1
 fi
 
@@ -54,12 +57,12 @@ done
 
 case $WEBCAM_SIZE in
 small | medium | large) ;;
-*) echo "Invalid webcam size: $WEBCAM_SIZE (expected small, medium, or large)" >&2; exit 1 ;;
+*) monarch_message 'capture.invalidWebcamSize' "$WEBCAM_SIZE" >&2; exit 1 ;;
 esac
 
 case $WEBCAM_SHAPE in
 circle | rectangle) ;;
-*) echo "Invalid webcam shape: $WEBCAM_SHAPE (expected circle or rectangle)" >&2; exit 1 ;;
+*) monarch_message 'capture.invalidWebcamShape' "$WEBCAM_SHAPE" >&2; exit 1 ;;
 esac
 
 start_webcam_overlay() {
@@ -70,7 +73,7 @@ start_webcam_overlay() {
   if [[ -z $WEBCAM_DEVICE ]]; then
     WEBCAM_DEVICE=$(v4l2-ctl --list-devices 2>/dev/null | grep -m1 "^[[:space:]]*/dev/video" | tr -d '\t')
     if [[ -z $WEBCAM_DEVICE ]]; then
-      notify-send "No webcam devices found" -u critical -t 3000
+      notify-send "$(monarch_t 'capture.noWebcam')" -u critical -t 3000
       return 1
     fi
   fi
@@ -114,7 +117,7 @@ start_webcam_overlay() {
   fi
 
   if ! monarch-capture-webcam-resize "$WEBCAM_SIZE"; then
-    notify-send "Webcam overlay failed to open" -u critical -t 3000
+    notify-send "$(monarch_t 'capture.webcamFailed')" -u critical -t 3000
     cleanup_webcam
     return 1
   fi
@@ -287,7 +290,7 @@ stop_screenrecording() {
 
   if pgrep -u "$UID" -f "^gpu-screen-recorder" >/dev/null; then
     pkill -9 -u "$UID" -f "^gpu-screen-recorder"
-    notify-send "Screen recording error" "Recording process had to be force-killed. Video may be corrupted." -u critical -t 5000
+    notify-send "$(monarch_t 'capture.recordingError')" "$(monarch_t 'capture.recordingKilled')" -u critical -t 5000
   else
     finalize_recording
     local filename=$(cat "$RECORDING_FILE" 2>/dev/null)
@@ -297,8 +300,8 @@ stop_screenrecording() {
     ffmpeg -y -i "$filename" -ss 00:00:00.1 -vframes 1 -q:v 2 "$preview" -loglevel quiet 2>/dev/null
 
     monarch-notification-send -t 10000 --image "${preview:-$filename}" \
-      "Screen recording saved" "Open with Super + Alt + , (or click this)" \
-      --action "Open" mpv -- "$filename"
+      "$(monarch_t 'capture.recordingSaved')" "$(monarch_t 'capture.openRecordingHint')" \
+      --action "$(monarch_t 'common.open')" mpv -- "$filename"
 
     (
       sleep 2
