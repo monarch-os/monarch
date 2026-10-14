@@ -6,6 +6,17 @@ source "${BASH_SOURCE[0]%/*}/base-test.sh"
 test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
 
+if ((EUID == 0)); then
+  # Root reconcilers ignore test overrides; exercise the fixture unprivileged.
+  mkdir -p "$test_tmp/checkout/install/reconcile" "$test_tmp/checkout/test/shell.d"
+  cp "$ROOT/install/reconcile/"{package-permissions,system}.sh "$test_tmp/checkout/install/reconcile/"
+  cp "$SHELL_TEST_DIR/"{base,package-permissions}-test.sh "$test_tmp/checkout/test/shell.d/"
+  chown -R 65534:65534 "$test_tmp"
+  setpriv --reuid 65534 --regid 65534 --clear-groups \
+    bash "$test_tmp/checkout/test/shell.d/package-permissions-test.sh"
+  exit 0
+fi
+
 mkdir -p "$test_tmp/etc/NetworkManager/conf.d" "$test_tmp/etc/docker" \
   "$test_tmp/usr/share/monarch/config" "$test_tmp/outside" "$test_tmp/etc/private"
 printf '%s\n' custom >"$test_tmp/etc/docker/daemon.json"
