@@ -1,34 +1,134 @@
 #!/bin/bash
 
-# monarch:summary=Enable or disable an agent's usage collection and panel entry
-# monarch:args=<enable|disable|status> <agent>
-# monarch:examples=monarch agent usage disable claude | monarch agent usage enable claude | monarch agent usage status claude
+# monarch:summary=Manage coding-provider usage through CodexBar
+# monarch:args=[providers|status|enable|disable|setup|manage] [provider]
+# monarch:examples=monarch agent usage status | monarch agent usage enable claude | monarch agent usage setup synthetic | monarch agent usage manage
 
-if (( $# != 2 )) || [[ ! $2 =~ ^[a-z][a-z0-9-]*$ ]]; then
-  echo "Usage: monarch agent usage <enable|disable|status> <agent>" >&2
+set +x
+set -euo pipefail
+
+action=${1:-status}
+provider=${2:-}
+if (( $# > 2 )); then
+  echo "Usage: monarch agent usage [providers|status|enable|disable|setup|manage] [provider]" >&2
   exit 1
 fi
 
-action=$1
-agent=$2
-disabled_dir="${XDG_STATE_HOME:-$HOME/.local/state}/monarch/agents/disabled"
-
-case $action in
-disable)
-  mkdir -p "$disabled_dir" && touch "$disabled_dir/$agent" || exit 1
-  ;;
-enable)
-  rm -f -- "$disabled_dir/$agent" || exit 1
-  ;;
-status) ;;
-*)
-  echo "Usage: monarch agent usage <enable|disable|status> <agent>" >&2
+monarch-cmd-present codexbar || {
+  echo "Install codexbar-cli before managing provider usage" >&2
   exit 1
+}
+
+refresh() {
+  noctalia msg plugin monarch/agent:usage all refresh >/dev/null 2>&1 || true
+}
+
+catalog() {
+  codexbar config providers --json
+}
+
+validate_provider() {
+  local providers
+  providers=$(catalog) || return
+  jq -e --arg provider "$1" 'any(.[]; .provider == $provider)' >/dev/null <<<"$providers" || {
+    echo "Unknown provider: $1. List providers with: monarch agent usage providers" >&2
+    return 1
+  }
+}
+
+select_provider() {
+  local providers selection
+  providers=$(catalog) || return
+  selection=$(jq -r '.[] | .provider + " | " + .displayName + " | " + (if .enabled then "enabled" else "disabled" end)' \
+    <<<"$providers" | gum filter --height 14 --header "Choose a provider (type to search)") || return 130
+  [[ -n $selection ]] || return 130
+  printf '%s\n' "${selection%% |*}"
+}
+
+setup_provider() {
+  local provider="$1" method key
+  validate_provider "$provider" || return
+
+  case "$provider" in
+  claude | codex)
+    method=oauth
+    [[ $provider != "codex" ]] || method=cli
+    codexbar config set-source --provider "$provider" --source "$method" || return
+    codexbar config enable --provider "$provider" || return
+    echo "Start $provider and sign in if needed; CodexBar reuses its existing authentication."
+    refresh
+    return
+    ;;
+  synthetic) method="API key" ;;
+  *)
+    method=$(gum choose --header "Authentication for $provider" "API key" "Existing authentication") || return 130
+    ;;
+  esac
+
+  if [[ $method == "Existing authentication" ]]; then
+    codexbar config enable --provider "$provider" || return
+    echo "CodexBar will use the provider's existing credentials and configured source."
+    refresh
+    return
+  fi
+
+  key=$(gum input --password --char-limit=4096 --header.foreground=7 --header "API key for $provider" \
+    --placeholder "Stored only in CodexBar; Esc to cancel") || return 130
+  if [[ -z ${key//[[:space:]]/} ]]; then
+    unset key
+    echo "API key cannot be empty" >&2
+    return 1
+  fi
+  if printf '%s' "$key" | codexbar config set-api-key --provider "$provider" --stdin; then
+    unset key
+    codexbar config set-source --provider "$provider" --source api || return
+    refresh
+    echo "Provider configured. Some providers also require endpoint or workspace settings in CodexBar."
+  else
+    unset key
+    return 1
+  fi
+}
+
+interactive() {
+  [[ -t 0 && -t 1 ]] || {
+    echo "Open a terminal to configure providers interactively" >&2
+    return 1
+  }
+}
+
+case "$action" in
+providers)
+  [[ -z $provider ]] || { echo "providers takes no argument" >&2; exit 1; }
+  exec codexbar config providers
   ;;
+status)
+  [[ -z $provider ]] || validate_provider "$provider"
+  catalog | jq -r --arg provider "$provider" '.[] | select($provider == "" or .provider == $provider) |
+    .provider + ": " + (if .enabled then "enabled" else "disabled" end)'
+  ;;
+enable | disable)
+  [[ -n $provider ]] || { echo "$action requires a provider" >&2; exit 1; }
+  validate_provider "$provider"
+  codexbar config "$action" --provider "$provider"
+  refresh
+  ;;
+setup)
+  interactive
+  [[ -n $provider ]] || provider=$(select_provider)
+  setup_provider "$provider"
+  ;;
+manage)
+  [[ -z $provider ]] || { echo "manage takes no argument" >&2; exit 1; }
+  interactive
+  while provider=$(select_provider); do
+    choice=$(gum choose --header "$provider" "Configure authentication" "Enable" "Disable" "Back") || continue
+    case "$choice" in
+    "Configure authentication") setup_provider "$provider" || true ;;
+    "Enable") codexbar config enable --provider "$provider" && refresh || true ;;
+    "Disable") codexbar config disable --provider "$provider" && refresh || true ;;
+    esac
+  done
+  ;;
+*) echo "Unknown usage action: $action" >&2; exit 1 ;;
 esac
-
-if [[ -e $disabled_dir/$agent ]]; then
-  echo "$agent: disabled"
-else
-  echo "$agent: enabled"
-fi

@@ -1,0 +1,27 @@
+id = "monarch/agent"
+name = "Monarch Agent"
+version = "1.0.0"
+plugin_api = 22
+author = "monarch"
+license = "MIT"
+description = "Coding-provider quotas collected by CodexBar CLI."
+icon = "ai"
+
+[[setting]]
+key = "refreshIntervalSec"
+type = "int"
+label_key = "settings.refresh"
+default = 60
+min = 60
+
+[[widget]]
+id = "usage"
+entry = "widget.luau"
+
+[[panel]]
+id = "details"
+entry = "panel.luau"
+width = 420
+height = 540
+placement = "attached"
+open_near_click = true

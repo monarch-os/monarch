@@ -42,10 +42,14 @@ done
 
 plugins_changed=false
 for plugin in "$MONARCH_PATH"/default/noctalia/plugins/monarch-*; do
+  [[ -f $plugin/plugin.toml ]] || continue
   monarch_reconcile_managed_tree "$plugin" \
     "$HOME/.local/share/noctalia/plugins/$(basename "$plugin")" \
     plugins_changed
 done
+
+source "$MONARCH_PATH/install/reconcile/codexbar.sh"
+monarch_reconcile_codexbar
 
 plugin_hook="$HOME/.config/monarch/hooks/post-boot.d/noctalia-v5-plugins"
 defer_plugin_activation() {
