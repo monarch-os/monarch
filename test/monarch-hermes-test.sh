@@ -13,15 +13,10 @@ export TEST_PACKAGES="$TMP/packages"
 export PATH="$TMP/bin:$HOME/.local/bin:$ROOT/bin:/usr/bin:/bin"
 system="$TMP/system"
 mkdir -p "$TMP/bin" "$HOME/.local/bin" "$HOME/.config/monarch/defaults" \
-  "$system/usr/bin" "$system/usr/lib/hermes-agent-desktop"
+  "$system/usr/bin"
 touch "$TEST_PACKAGES"
-printf '%s\n' fixture >"$system/usr/lib/hermes-agent-desktop/app.asar"
-cp /usr/bin/true "$system/usr/bin/hermes-desktop"
-for command in monarch-install-hermes-cli monarch-agent monarch-theme-hermes; do
-  sed -e "s|/usr/bin/hermes|$system/usr/bin/hermes|g" \
-    -e "s|/usr/lib/hermes-agent-desktop|$system/usr/lib/hermes-agent-desktop|g" \
-    "$ROOT/bin/$command" >"$TMP/bin/$command"
-done
+sed "s|/usr/bin/hermes|$system/usr/bin/hermes|g" \
+  "$ROOT/bin/monarch-agent" >"$TMP/bin/monarch-agent"
 
 cat >"$TMP/bin/monarch-pkg-present" <<'EOF'
 #!/bin/bash
@@ -44,20 +39,9 @@ cat >"$TMP/bin/monarch-launch-floating-terminal-with-presentation" <<'EOF'
 #!/bin/bash
 printf 'launch %s\n' "$*" >>"$TEST_LOG"
 EOF
-cat >"$TMP/bin/noctalia" <<'EOF'
+cat >"$TMP/bin/setsid" <<'EOF'
 #!/bin/bash
-printf 'noctalia %s\n' "$*" >>"$TEST_LOG"
-[[ ${THEME_STATUS:-0} == 0 ]] || exit "$THEME_STATUS"
-if [[ $* == 'msg templates-apply' ]]; then
-  grep -qx 'output_path = "~/.hermes/skins/monarch.yaml"' "$HOME/.config/noctalia/monarch-hermes.toml"
-  if [[ ${THEME_SKIP_OUTPUT:-false} != "true" ]]; then
-    (
-      sleep "${THEME_DELAY:-0}"
-      mkdir -p "$HOME/.hermes/skins"
-      printf '%s\n' 'name: monarch' >"$HOME/.hermes/skins/monarch.yaml"
-    ) &
-  fi
-fi
+exit 0
 EOF
 cat >"$TMP/bin/notify-send" <<'EOF'
 #!/bin/bash
@@ -78,17 +62,7 @@ cp "$MONARCH_PATH/config/$1" "$HOME/.config/$1"
 EOF
 cat >"$system/usr/bin/hermes" <<'EOF'
 #!/bin/bash
-if [[ $* == 'chat --help' ]]; then
-  if [[ ${HELP_READY:-true} == true ]]; then
-    printf '%s\n' '  --tui  Interactive TUI' '  --query QUERY  Seed prompt'
-  else
-    printf '%s\n' 'Old release: --tui and --query are not available here'
-  fi
-elif [[ $* == 'config get display.skin' ]]; then
-  printf '%s\n' "${CURRENT_SKIN:-default}"
-else
-  printf 'hermes %s\n' "$*" >>"$TEST_LOG"
-fi
+printf 'hermes %s\n' "$*" >>"$TEST_LOG"
 EOF
 cat >"$HOME/.local/bin/hermes" <<'EOF'
 #!/bin/bash
@@ -108,20 +82,16 @@ grep -qx 'launch monarch-default-agent --install hermes' "$TEST_LOG"
 [[ $(<"$HOME/.config/monarch/defaults/agent") == codex ]]
 if INSTALL_STATUS=23 "$ROOT/bin/monarch-default-agent" --install hermes; then exit 1; fi
 [[ $(<"$HOME/.config/monarch/defaults/agent") == codex ]]
-THEME_STATUS=1 monarch-install-hermes-cli --now
+monarch-install-hermes-cli --now
 grep -qx 'pkg-add hermes-agent-bin' "$TEST_LOG"
-grep -qx 'pkg-add hermes-agent-desktop-bin' "$TEST_LOG"
-grep -qx -- '--ozone-platform=wayland' "$HOME/.config/hermes-desktop-flags.conf"
-printf '%s\n' '--ozone-platform=x11' >"$HOME/.config/hermes-desktop-flags.conf"
+if grep -q 'hermes-agent-desktop' "$TEST_PACKAGES"; then exit 1; fi
+[[ ! -e $HOME/.config/hermes-desktop-flags.conf ]]
 monarch-install-hermes-cli --check
-if HELP_READY=false monarch-install-hermes-cli --check; then exit 1; fi
 [[ $(sha256sum "$HOME/.local/bin/hermes") == "$foreign_hash" ]]
 [[ -f $HOME/.hermes/hermes-agent/keep ]]
 
 : >"$TEST_LOG"
-THEME_DELAY=0.2 "$ROOT/bin/monarch-default-agent" --install hermes
-grep -qx 'hermes config set display.skin monarch' "$TEST_LOG"
-grep -qx -- '--ozone-platform=x11' "$HOME/.config/hermes-desktop-flags.conf"
+"$ROOT/bin/monarch-default-agent" --install hermes
 grep -qx 'hermes chat --tui' "$TEST_LOG"
 [[ $(<"$HOME/.config/monarch/defaults/agent") == hermes ]]
 monarch-agent --inline --prompt 'spaces; $(never execute)'
@@ -130,16 +100,16 @@ monarch-agent
 grep -qxF "tui --app-id=org.monarch.agent $system/usr/bin/hermes chat --tui" "$TEST_LOG"
 if grep -qE 'yolo|mise|foreign-cli|pkg-add' "$TEST_LOG"; then exit 1; fi
 
-printf '%s\n' '# User template' >>"$HOME/.config/noctalia/templates/hermes.yaml"
-template_hash=$(sha256sum "$HOME/.config/noctalia/templates/hermes.yaml")
 : >"$TEST_LOG"
-CURRENT_SKIN=custom monarch-theme-hermes --activate
-[[ $(sha256sum "$HOME/.config/noctalia/templates/hermes.yaml") == "$template_hash" ]]
-if grep -q 'config set' "$TEST_LOG"; then exit 1; fi
-printf '%s\n' work >"$HOME/.hermes/active_profile"
-monarch-theme-hermes --activate
-if grep -q 'config set' "$TEST_LOG"; then exit 1; fi
-rm "$HOME/.hermes/active_profile"
+if INSTALL_STATUS=23 "$ROOT/bin/monarch-install-ai-hermes"; then exit 1; fi
+"$ROOT/bin/monarch-install-ai-hermes"
+grep -qx 'pkg-add hermes-agent-desktop-bin' "$TEST_LOG"
+grep -qx -- '--ozone-platform=wayland' "$HOME/.config/hermes-desktop-flags.conf"
+printf '%s\n' '--ozone-platform=x11' >"$HOME/.config/hermes-desktop-flags.conf"
+"$ROOT/bin/monarch-install-ai-hermes"
+grep -qx -- '--ozone-platform=x11' "$HOME/.config/hermes-desktop-flags.conf"
+[[ $(<"$HOME/.config/monarch/defaults/agent") == hermes ]]
+[[ ! -d $HOME/.config/noctalia && ! -d $HOME/.hermes/skins ]]
 
 if REMOVE_STATUS=23 "$ROOT/bin/monarch-remove-ai-hermes"; then exit 1; fi
 [[ $(<"$HOME/.config/monarch/defaults/agent") == hermes ]]
@@ -154,13 +124,11 @@ printf '%s\n' hermes-agent hermes-agent-desktop >"$TEST_PACKAGES"
 printf '%s\n' codex >"$HOME/.config/monarch/defaults/agent"
 : >"$TEST_LOG"
 monarch-install-hermes-cli --now
+monarch-install-hermes-cli --check
+"$ROOT/bin/monarch-install-ai-hermes"
 if grep -q 'pkg-add' "$TEST_LOG"; then exit 1; fi
 "$ROOT/bin/monarch-remove-ai-hermes"
 grep -qx 'pkg-drop --keep-dependencies hermes-agent-desktop' "$TEST_LOG"
 [[ $(<"$HOME/.config/monarch/defaults/agent") == codex ]]
 grep -qx hermes-agent "$TEST_PACKAGES"
-rm "$HOME/.hermes/skins/monarch.yaml"
-: >"$TEST_LOG"
-if THEME_SKIP_OUTPUT=true monarch-theme-hermes --activate; then exit 1; fi
-if grep -q 'config set' "$TEST_LOG"; then exit 1; fi
 echo 'All Hermes integration tests passed.'

@@ -1,77 +1,51 @@
 # Hermes
 
-Hermes is optional. Install and open its desktop app with
-`monarch install ai hermes`, or choose the terminal agent with
-`monarch default agent hermes`. Choosing it installs the same packages without
-opening the desktop app. Installation does not select a default agent unless
-the user explicitly chooses one.
+Hermes is optional. `monarch default agent hermes` installs only the CLI
+(`hermes-agent-bin`) and selects it as the terminal agent.
+`monarch install ai hermes` installs the CLI and Desktop
+(`hermes-agent-desktop-bin`) and opens Desktop without changing the default agent.
+Existing AUR source variants are recognized and preserved.
 
 ## Packaging
 
-Monarch tracks the unmodified AUR recipes `hermes-agent-desktop-bin` and
-`hermes-agent-bin`, currently 0.22.0 for x86_64. Their metadata uses `source: aur`
-and pins the imported AUR commits so the usual AUR sync can propose updates.
-The recipes verify and repackage binaries built by the AUR maintainer's GitHub
-CI; these are not binaries published by Nous Research itself. This adds the
-maintainer's build infrastructure to the normal AUR trust boundary.
+Monarch tracks the unmodified AUR binary recipes through its normal AUR sync.
+The artifacts are built by the AUR maintainer's GitHub CI, not published by
+Nous Research itself. Desktop uses Arch's `electron42` and `/usr/bin/hermes`,
+whose runtime lives in `/opt/hermes-agent`. Both packages are updated by pacman.
 
-Desktop uses Arch's `electron42` and starts its backend through `/usr/bin/hermes`.
-On first installation, Monarch seeds `~/.config/hermes-desktop-flags.conf` with
-`--ozone-platform=wayland` for Niri. Existing flags files are preserved.
-That packaged CLI uses `/opt/hermes-agent`; Desktop and CLI share the user's
-configuration, credentials, sessions and skills. Updates belong to pacman,
-not an in-app updater or a source checkout under `~/.hermes/hermes-agent`.
-The source variants `hermes-agent` and `hermes-agent-desktop` are also recognized
-when already installed and are not replaced automatically.
-
-Monarch always invokes the packaged CLI for this integration, even when an old
-`~/.local/bin/hermes` shadows it on PATH. Existing user commands and private
-runtime checkouts are preserved; no automatic cleanup or reset is performed.
-The former local `hermes-desktop` test package must be removed explicitly before
-installing the AUR desktop package because both ship `/usr/bin/hermes-desktop`.
+The integrated terminal agent also invokes `/usr/bin/hermes` explicitly so an
+older user CLI cannot redirect it. Existing private runtime checkouts and user
+commands are preserved. The former local `hermes-desktop` test package must be
+removed before installing the AUR Desktop because they share a launcher path.
 
 ## Desktop integration
 
-Monarch never passes `--yolo` or changes Hermes' safety configuration. An
-explicitly enabled Hermes YOLO setting remains the user's choice.
+Monarch seeds `~/.config/hermes-desktop-flags.conf` with
+`--ozone-platform=wayland` only when no flags file exists. The Niri rule recognizes
+`Hermes` and `com.nousresearch.hermes` and floats only the `Hermes HUD` window.
 
-Noctalia renders `~/.hermes/skins/monarch.yaml` from
-`~/.config/noctalia/templates/hermes.yaml`. `monarch theme hermes --activate`
-retries theme setup when Noctalia was unavailable during installation. It
-activates Monarch only when the default profile uses its default skin or Monarch
-already; other selected skins, custom Hermes homes and custom profiles are left
-unchanged. For an explicit switch on the default profile, run
-`/usr/bin/hermes config set display.skin monarch`.
+Hermes manages its own appearance. Desktop defaults to following the system's
+light/dark preference; Monarch does not generate or activate a custom skin.
+Palette synchronization with Noctalia is deferred. Monarch does not enable YOLO
+or change Hermes configuration.
 
-The Niri rule recognizes both `Hermes` and the AUR app id
-`com.nousresearch.hermes`, and floats only the window titled `Hermes HUD`. Global shortcuts,
-pointer snapping and pinning across workspaces are compositor-dependent;
-Hyprland-specific Hermes IPC does not apply to Niri.
+`monarch remove ai hermes` removes Desktop while retaining its runtime and
+dependencies, credentials, sessions and other user data. It clears the default
+agent only if Hermes was selected.
 
-`monarch remove ai hermes` removes only the desktop package and clears the
-default agent only if it was Hermes. It keeps the runtime package and all
-user-owned data. This is not a full uninstall of Hermes.
+## Validation
 
-## Publication checks
+The AUR 0.22.0 artifacts passed their recipe checksums and repackaged successfully
+in the builder container. Both packages installed in the provisioned Monarch VM.
+Desktop opened under Wayland and Ctrl+Shift+H produced a floating `Hermes HUD`;
+the screenshot was inspected. The backend resolved to `/opt/hermes-agent`.
+No provider credentials were configured.
 
-Both AUR recipes match their imported commits byte for byte, and both artifacts
-pass their declared SHA-256 checksums. The recipes repackage successfully in the
-builder container; dependency checks were skipped for that packaging-only test
-and the declared dependencies were installed separately in the VM.
+Integration tests cover separate CLI/Desktop installation, source variants,
+installation/removal failures, preserving user data and flags, prompt forwarding
+and dependency-preserving removal.
 
-In the provisioned, unencrypted Monarch VM, both packages installed and the
-readiness probe passed. Desktop opened natively under Wayland, the backend module
-resolved to `/opt/hermes-agent/hermes_cli/main.py`, and Ctrl+Shift+H produced a
-floating `Hermes HUD` with app id `com.nousresearch.hermes`. The screenshot was
-captured and inspected. The earlier private runtime and command were preserved,
-and the default agent remained unset. No provider credentials were configured.
-
-The earlier Noctalia Miasma/Nord skin regeneration check remains applicable to
-the unchanged template. The packaged CLI activated that skin successfully.
-
-Dependency review remains a rollout check. On 2026-10-15, `npm audit --omit=dev`
-against the lock shipped in the AUR runtime artifact reported four high-severity
-entries and no critical entries. One entry concerns the locked npm Electron,
-which Desktop does not ship: it uses Arch's `electron42`. These results are not
-four demonstrated vulnerabilities in the installed app. The previous critical
-alert counts referred to the superseded 2026.9.7 workspace lock.
+Dependency review remains a rollout check: the workspace lock shipped in the
+AUR runtime reported four high-severity npm entries and no critical entries on
+2026-10-15. The locked npm Electron entry does not describe the system Electron
+used by Desktop; these findings do not establish installed-app exploitability.

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Install the shared package-managed Hermes Desktop and CLI
+# monarch:summary=Install the Hermes CLI
 # monarch:args=<--check|--now>
 # monarch:requires-sudo=true
 
@@ -10,38 +10,10 @@ runtime_present() {
   monarch-pkg-present hermes-agent-bin || monarch-pkg-present hermes-agent
 }
 
-desktop_present() {
-  monarch-pkg-present hermes-agent-desktop-bin || monarch-pkg-present hermes-agent-desktop
-}
-
-ready() {
-  local help
-  runtime_present && desktop_present || return 1
-  [[ -x /usr/bin/hermes && -x /usr/bin/hermes-desktop && -s /usr/lib/hermes-agent-desktop/app.asar ]] || return 1
-  help=$(timeout 15 /usr/bin/hermes chat --help) || return 1
-  grep -qE -- '--tui(]|[[:space:]]{2}|$)' <<<"$help" &&
-    grep -qE -- '--query(]|[[:space:]][[:upper:]]|[[:space:]]{2}|$)' <<<"$help"
-}
-
 case "${1:-}" in
-  --check) ready; exit $? ;;
+  --check) runtime_present; exit $? ;;
   --now) ;;
   *) echo "Usage: monarch-install-hermes-cli <--check|--now>" >&2; exit 1 ;;
 esac
 
-if (( EUID == 0 )); then
-  echo "$(monarch-i18n hermes.noRoot)" >&2
-  exit 1
-fi
-
 runtime_present || monarch-pkg-add hermes-agent-bin
-desktop_present || monarch-pkg-add hermes-agent-desktop-bin
-flags="$HOME/.config/hermes-desktop-flags.conf"
-if [[ ! -e $flags && ! -L $flags ]]; then
-  monarch-refresh-config hermes-desktop-flags.conf
-fi
-if ! ready; then
-  echo "$(monarch-i18n hermes.notReady)" >&2
-  exit 1
-fi
-monarch-theme-hermes --activate || echo "$(monarch-i18n hermes.themePending)" >&2

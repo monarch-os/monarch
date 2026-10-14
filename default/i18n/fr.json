@@ -1,11 +1,6 @@
 {
   "strings": {
-    "hermes.noRoot": "Lancez cette commande avec votre compte utilisateur, sans sudo.",
-    "hermes.profileTheme": "Le thème Monarch a été généré pour le profil Hermes par défaut. Votre profil personnalisé actif reste inchangé.",
-    "hermes.notReady": "Le runtime Hermes empaqueté n’est pas prêt. Vérifiez les paquets hermes-agent et hermes-agent-desktop avant de réessayer.",
-    "hermes.themePending": "Hermes est installé. Le thème reste à configurer ; lancez 'monarch theme hermes --activate' lorsque Noctalia est disponible.",
     "hermes.removed": "Hermes Desktop supprimé. Votre runtime Hermes, vos identifiants et vos sessions sont conservés.",
-    "hermes.keepSkin": "Le thème Hermes '%1' est conservé. Pour sélectionner Monarch : hermes config set display.skin monarch",
     "cli.title": "Centre de commandes Monarch",
     "cli.usage": "Utilisation :",
     "cli.commonCommands": "Commandes courantes :",
@@ -428,10 +423,9 @@
     "windows": "Gestion de la VM Windows"
   },
   "commands": {
-    "monarch-install-hermes-cli": "Installer les paquets partagés entre Hermes Desktop et le terminal",
+    "monarch-install-hermes-cli": "Installer le CLI Hermes",
     "monarch-install-ai-hermes": "Installer et ouvrir Hermes Desktop",
     "monarch-remove-ai-hermes": "Supprimer Hermes Desktop en conservant les sessions et le runtime",
-    "monarch-theme-hermes": "Générer le thème Monarch pour Hermes avec Noctalia",
     "monarch-language": "Choisir la langue des menus et commandes Monarch",
     "monarch-i18n": "Traduire un message destiné à l’utilisateur",
     "monarch-ac-present": "Vérifier si l’alimentation secteur est branchée",
