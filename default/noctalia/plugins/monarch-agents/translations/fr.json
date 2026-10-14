@@ -1,0 +1,24 @@
+{
+  "settings": {
+    "refresh": "Intervalle d’actualisation (secondes)"
+  },
+  "ui": {
+    "title": "Agents",
+    "refresh": "Actualiser les quotas",
+    "resets": "Réinitialisation : {time}",
+    "balance": "Solde restant : {amount}",
+    "credits": "Crédits restants : {amount}",
+    "spend": "Dépenses : {used} {currency}",
+    "spend_limit": "Dépenses : {used} / {limit} {currency}",
+    "no_quota": "Aucun quota communiqué",
+    "stale": "Dernières données connues",
+    "no_provider": "Aucun fournisseur activé. Configurez-en un ci-dessous.",
+    "manage": "Gérer les fournisseurs",
+    "used": "{percent} % utilisés",
+    "status": "État",
+    "waiting": "En attente des données des fournisseurs",
+    "no_usage": "Aucun fournisseur activé n’a communiqué son utilisation",
+    "refresh_failed": "Échec de l’actualisation CodexBar ; affichage des dernières données connues",
+    "launch_failed": "Impossible de démarrer CodexBar ; actualisez pour réessayer"
+  }
+}

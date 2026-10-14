@@ -7,6 +7,8 @@ test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
 export MONARCH_PATH="$ROOT" TEST_ACTIVATION="$test_tmp"
 mkdir -p "$test_tmp/bin"
+ln -s "$ROOT/bin/monarch-cmd-present" "$test_tmp/bin/monarch-cmd-present"
+printf '#!/bin/bash\nexit "${TEST_CODEXBAR_FAILURE:-0}"\n' >"$test_tmp/bin/codexbar"
 cat >"$test_tmp/bin/noctalia" <<'EOF'
 #!/bin/bash
 printf '%s\n' "$*" >>"$TEST_ACTIVATION/calls"
@@ -24,6 +26,34 @@ printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/monarch-theme-apply"
 printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/systemctl"
 chmod +x "$test_tmp/bin/"*
 export PATH="$test_tmp/bin:/usr/bin" MONARCH_RECONCILE_BIN="$test_tmp/bin/complete"
+
+export HOME="$test_tmp/legacy" XDG_STATE_HOME="$test_tmp/legacy/.local/state"
+legacy="$HOME/.local/share/noctalia/plugins/monarch-agents"
+mkdir -p "$legacy"
+printf 'legacy collector\n' >"$legacy/service.luau"
+if TEST_CODEXBAR_FAILURE=1 bash "$ROOT/install/reconcile/user.sh" >/dev/null 2>&1; then
+  fail "invalid CodexBar configuration stops reconciliation"
+fi
+[[ $(cat "$legacy/service.luau") == "legacy collector" ]] || fail "failed migration preserves the old collector"
+[[ ! -f $legacy/data.luau ]] || fail "failed migration does not seed the replacement"
+cat >"$test_tmp/bin/cp" <<'EOF'
+#!/bin/bash
+if [[ ${TEST_AGENTS_COPY_FAIL:-0} == "1" && $* == *"monarch-agents/."* ]]; then exit 1; fi
+exec /usr/bin/cp "$@"
+EOF
+chmod +x "$test_tmp/bin/cp"
+if TEST_AGENTS_COPY_FAIL=1 bash "$ROOT/install/reconcile/user.sh" >/dev/null 2>&1; then
+  fail "replacement copy failure stops reconciliation"
+fi
+[[ $(cat "$legacy/service.luau") == "legacy collector" ]] || fail "replacement copy failure retains the live collector"
+[[ -f $XDG_STATE_HOME/monarch/backups/noctalia/monarch-agents/service.luau ]] || fail "archive is retained for a retry"
+bash "$ROOT/install/reconcile/user.sh" >/dev/null
+[[ $(cat "$XDG_STATE_HOME/monarch/backups/noctalia/monarch-agents/service.luau") == "legacy collector" ]] ||
+  fail "successful migration archives the collector before replacement"
+[[ -f $legacy/data.luau && ! -f $legacy/service.luau ]] || fail "successful migration installs the replacement"
+TEST_CODEXBAR_FAILURE=1 bash "$ROOT/install/reconcile/user.sh" >/dev/null
+pass "invalid provider configuration no longer blocks ordinary plugin reconciliation"
+pass "CodexBar migration validates before replacement and archives the legacy collector"
 
 for entrypoint in first-run reconcile deferred; do
   export HOME="$test_tmp/$entrypoint"
