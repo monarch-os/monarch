@@ -6,11 +6,11 @@ wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle >/dev/null
 
 if pactl get-source-mute @DEFAULT_SOURCE@ | rg -q 'yes'; then
   led=on
-  osd_message='Microphone muted'
+  osd_message='audio.microphoneMuted'
   osd_icon='microphone-sensitivity-muted'
 else
   led=off
-  osd_message='Microphone on'
+  osd_message='audio.microphoneOn'
   osd_icon='audio-input-microphone'
 fi
 
@@ -28,4 +28,4 @@ osd_icon_path=$(find \
   /usr/share/icons/Yaru \
   -name "${osd_icon}.*" 2>/dev/null | head -n1)
 
-notify-send -u low -i "$osd_icon_path" "$osd_message"
+notify-send -u low -i "$osd_icon_path" "$(monarch-i18n "$osd_message")"

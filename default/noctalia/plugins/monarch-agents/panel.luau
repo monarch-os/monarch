@@ -39,10 +39,14 @@ local function providerSection(provider)
     children[#children + 1] = ui.column({ gap = 4 }, rows)
   end
   local credits = provider.credits or usage.credits
+  local balance = data.balance(provider)
+  if balance then
+    children[#children + 1] = ui.label({ text = "Balance remaining: " .. balance })
+  end
   if type(credits) == "table" and credits.remaining ~= nil then
     children[#children + 1] = ui.label({ text = "Credits remaining: " .. tostring(credits.remaining) })
   end
-  if #data.windows(provider) == 0 and issue == "" and not credits then
+  if #data.windows(provider) == 0 and issue == "" and not credits and not balance then
     children[#children + 1] = ui.label({ text = "No quota reported", color = "on_surface/0.6" })
   end
   if provider.stale then

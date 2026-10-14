@@ -11,6 +11,8 @@ local function render()
     for _, window in ipairs(data.windows(provider)) do
       lines[#lines + 1] = window.title .. ": " .. string.format("%.1f%% used", window.used)
     end
+    local balance = data.balance(provider)
+    if balance then lines[#lines + 1] = "Balance remaining: " .. balance end
     tooltip[#tooltip + 1] = { key = data.name(provider), value = table.concat(lines, "\n") }
   end
   local issue = noctalia.state.get("error") or ""
@@ -22,7 +24,7 @@ end
 local function refresh()
   if inFlight then return end
   inFlight = true
-  noctalia.runAsync("/usr/bin/timeout 30s /usr/bin/codexbar usage --format json --json-only", function(result)
+  local started = noctalia.runAsync("/usr/bin/timeout 30s /usr/bin/codexbar usage --format json --json-only", function(result)
     inFlight = false
     local decoded = result and noctalia.json.decode(result.stdout or "")
     if type(decoded) == "table" then
@@ -43,6 +45,11 @@ local function refresh()
     noctalia.state.set("error", "CodexBar could not refresh; showing last known data")
     render()
   end, 30000)
+  if started == false then
+    inFlight = false
+    noctalia.state.set("error", "CodexBar could not start; refresh to retry")
+    render()
+  end
 end
 
 function update() refresh() end

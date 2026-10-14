@@ -4,6 +4,11 @@ set -o pipefail
 
 MONARCH_BIN_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 METADATA_SCAN_LIMIT=80
+i18n_command=$MONARCH_BIN_DIR/monarch-i18n
+if [[ ! -x $i18n_command ]]; then
+  i18n_command=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/monarch-i18n
+fi
+source "$("$i18n_command" --helper)"
 
 COMMAND_KEYS=()
 ROUTE_COLLISIONS=()
@@ -51,6 +56,8 @@ GROUP_DESCRIPTIONS[hw]="Hardware detection and controls"
 GROUP_DESCRIPTIONS[niri]="Niri window, monitor, and toggle controls"
 GROUP_DESCRIPTIONS[install]="Optional software installers"
 GROUP_DESCRIPTIONS[launch]="Application launchers"
+GROUP_DESCRIPTIONS[language]="Monarch interface language"
+GROUP_DESCRIPTIONS[i18n]="Translation helpers"
 GROUP_DESCRIPTIONS[menu]="Monarch menu commands"
 GROUP_DESCRIPTIONS[migrate]="Reconciliation compatibility aliases"
 GROUP_DESCRIPTIONS[notification]="Notification helpers"
@@ -474,54 +481,57 @@ pipe_values_as_lines() {
 
 show_group_list() {
   local sorted_group=""
+  monarch_i18n_load
 
   printf '%s\n' "${!GROUP_DESCRIPTIONS[@]}" | sort | while IFS= read -r sorted_group; do
     [[ -n $sorted_group ]] || continue
-    printf '  %-14s %s\n' "$sorted_group" "${GROUP_DESCRIPTIONS[$sorted_group]}"
+    printf '  %-14s %s\n' "$sorted_group" "$(monarch_i18n_get groups "$sorted_group" "${GROUP_DESCRIPTIONS[$sorted_group]}")"
   done
 }
 
 show_main_help() {
-  cat <<'EOF'
-Monarch command center
+  monarch_i18n_load
+  cat <<EOF
+$(monarch_t 'cli.title')
 
-Usage:
+$(monarch_t 'cli.usage')
   monarch <command> [args...]
   monarch commands [--all] [--json] [--check]
   monarch <group> --help
   monarch <group> <command> --help
 
-Common commands:
-  monarch update              Update Monarch and system packages
-  monarch font list           List available fonts
-  monarch screenshot          Take a screenshot
-  monarch debug               Print debugging information
+$(monarch_t 'cli.commonCommands')
+  monarch update              $(monarch_t 'cli.update')
+  monarch font list           $(monarch_t 'cli.listFonts')
+  monarch screenshot          $(monarch_t 'cli.screenshot')
+  monarch debug               $(monarch_t 'cli.debug')
 
-Groups:
+$(monarch_t 'cli.groups')
 EOF
   show_group_list
-  cat <<'EOF'
+  cat <<EOF
 
-Discovery:
-  monarch commands            List all commands
-  monarch commands --all      Include commands explicitly marked hidden
-  monarch commands --json     Machine-readable command list
-  monarch commands --check    Validate command metadata and routes
+$(monarch_t 'cli.discovery')
+  monarch commands            $(monarch_t 'cli.listCommands')
+  monarch commands --all      $(monarch_t 'cli.includeHidden')
+  monarch commands --json     $(monarch_t 'cli.machineList')
+  monarch commands --check    $(monarch_t 'cli.validateMetadata')
 EOF
 }
 
 show_commands_help() {
-  cat <<'EOF'
-Usage:
+  monarch_i18n_load
+  cat <<EOF
+$(monarch_t 'cli.usage')
   monarch commands [--all] [--json] [--markdown] [--check]
 
-List commands known to the Monarch command center.
+$(monarch_t 'cli.commandsDescription')
 
-Options:
-  --all       Include commands explicitly marked hidden
-  --json      Emit machine-readable JSON
-  --markdown  Emit a Markdown command table
-  --check     Validate command metadata and route collisions
+$(monarch_t 'cli.options')
+  --all       $(monarch_t 'cli.includeHidden')
+  --json      $(monarch_t 'cli.emitJson')
+  --markdown  $(monarch_t 'cli.emitMarkdown')
+  --check     $(monarch_t 'cli.validateRoutes')
 EOF
 }
 
@@ -553,17 +563,18 @@ show_commands() {
   local usage=""
   local rows=""
   local alias_rows=""
+  monarch_i18n_load
 
   if [[ $include_all == "true" ]]; then
-    echo "monarch commands (all):"
+    monarch_message 'cli.allCommands'
   else
-    echo "Monarch commands:"
+    monarch_message 'cli.commands'
   fi
 
   while IFS= read -r key; do
     [[ -n $key ]] || continue
     usage="${COMMAND_USAGE[$key]}"
-    rows+="$usage"$'\t'"${COMMAND_SUMMARY[$key]}"$'\n'
+    rows+="$usage"$'\t'"$(monarch_i18n_get commands "$key" "${COMMAND_SUMMARY[$key]}")"$'\n'
   done < <(sorted_keys "$include_all")
 
   print_command_table "$rows"
@@ -578,7 +589,7 @@ show_commands() {
 
   if [[ -n $alias_rows ]]; then
     echo ""
-    echo "Aliases:"
+    monarch_message 'cli.aliases'
     print_command_table "$(printf '%s' "$alias_rows" | sort)"
   fi
 }
@@ -593,7 +604,8 @@ show_commands_markdown() {
   local include_all="$1"
   local key=""
 
-  echo "| Command | Binary | Summary |"
+  monarch_i18n_load
+  monarch_message 'cli.markdownHeader'
   echo "| --- | --- | --- |"
 
   while IFS= read -r key; do
@@ -601,7 +613,7 @@ show_commands_markdown() {
     printf '| `%s` | `%s` | %s |\n' \
       "$(markdown_escape "${COMMAND_USAGE[$key]}")" \
       "$(markdown_escape "${COMMAND_BINARY[$key]}")" \
-      "$(markdown_escape "${COMMAND_SUMMARY[$key]}")"
+      "$(markdown_escape "$(monarch_i18n_get commands "$key" "${COMMAND_SUMMARY[$key]}")")"
   done < <(sorted_keys "$include_all")
 }
 
@@ -657,38 +669,39 @@ show_commands_check() {
   local collision=""
   local key=""
   local error=""
+  monarch_i18n_load
 
   for collision in "${ROUTE_COLLISIONS[@]}"; do
-    echo "Route collision: $collision" >&2
+    monarch_message 'cli.routeCollision' "$collision" >&2
     failures=$((failures + 1))
   done
 
   for key in "${COMMAND_KEYS[@]}"; do
     if [[ ${COMMAND_HAS_SUMMARY[$key]} != "true" ]]; then
-      echo "Missing metadata summary: ${COMMAND_BINARY[$key]}" >&2
+      monarch_message 'cli.missingSummary' "${COMMAND_BINARY[$key]}" >&2
       failures=$((failures + 1))
     fi
 
     if [[ -n ${COMMAND_METADATA_ERRORS[$key]} ]]; then
       while IFS= read -r error; do
         [[ -n $error ]] || continue
-        echo "Invalid metadata in ${COMMAND_BINARY[$key]}: $error" >&2
+        monarch_message 'cli.invalidMetadata' "${COMMAND_BINARY[$key]}" "$error" >&2
         failures=$((failures + 1))
       done < <(pipe_values_as_lines "${COMMAND_METADATA_ERRORS[$key]}")
     fi
 
     if [[ ! -x $MONARCH_BIN_DIR/${COMMAND_BINARY[$key]} ]]; then
-      echo "Missing binary: ${COMMAND_BINARY[$key]}" >&2
+      monarch_message 'cli.missingBinary' "${COMMAND_BINARY[$key]}" >&2
       failures=$((failures + 1))
     fi
   done
 
   if (( failures > 0 )); then
-    echo "Command metadata check failed ($failures issues)" >&2
+    monarch_message 'cli.metadataFailed' "$failures" >&2
     return 1
   fi
 
-  echo "Command metadata check passed (${#COMMAND_KEYS[@]} commands)"
+  monarch_message 'cli.metadataPassed' "${#COMMAND_KEYS[@]}"
 }
 
 show_command_json() {
@@ -738,7 +751,7 @@ parse_commands_args() {
       return 0
       ;;
     *)
-      echo "Unknown option for monarch commands: $1" >&2
+      monarch_message 'cli.unknownOption' "$1" >&2
       show_commands_help >&2
       return 2
       ;;
@@ -776,22 +789,24 @@ show_group_help() {
   local key=""
   local rows=""
   local title="${GROUP_DESCRIPTIONS[$group]}"
+  monarch_i18n_load
+  title=$(monarch_i18n_get groups "$group" "$title")
 
   if [[ -n $title ]]; then
-    echo "${group^} commands — $title:"
+    monarch_message 'cli.groupTitle' "${group^}" "$title"
   else
-    echo "${group^} commands:"
+    monarch_message 'cli.prefixTitle' "${group^}"
   fi
 
   while IFS= read -r key; do
     [[ -n $key ]] || continue
-    rows+="$(command_usage_for_group "$key" "$group")"$'\t'$'\t'"${COMMAND_SUMMARY[$key]}"$'\n'
+    rows+="$(command_usage_for_group "$key" "$group")"$'\t'$'\t'"$(monarch_i18n_get commands "$key" "${COMMAND_SUMMARY[$key]}")"$'\n'
   done < <(sorted_group_keys "$group" "$include_all")
 
   if [[ -n $rows ]]; then
     print_command_table "$rows"
   else
-    echo "  No documented commands found. Try: monarch commands --all"
+    monarch_message 'cli.noCommands'
   fi
 }
 
@@ -800,17 +815,18 @@ show_prefix_help() {
   local prefix_with_space="$prefix "
   local key=""
   local rows=""
+  monarch_i18n_load
 
   while IFS= read -r key; do
     [[ -n $key ]] || continue
     if [[ ${COMMAND_USAGE[$key]} == $prefix_with_space* ]]; then
-      rows+="${COMMAND_USAGE[$key]}"$'\t'$'\t'"${COMMAND_SUMMARY[$key]}"$'\n'
+      rows+="${COMMAND_USAGE[$key]}"$'\t'$'\t'"$(monarch_i18n_get commands "$key" "${COMMAND_SUMMARY[$key]}")"$'\n'
     fi
   done < <(sorted_keys false)
 
   [[ -n $rows ]] || return 1
 
-  echo "${prefix#monarch } commands:"
+  monarch_message 'cli.prefixTitle' "${prefix#monarch }"
   print_command_table "$rows"
 }
 
@@ -819,17 +835,18 @@ show_related_commands() {
   local group="${COMMAND_GROUP[$key]}"
   local child_key=""
   local rows=""
+  monarch_i18n_load
 
   [[ -z ${COMMAND_NAME[$key]} ]] || return
 
   while IFS= read -r child_key; do
     [[ -n $child_key && $child_key != "$key" ]] || continue
-    rows+="$(command_usage_for_group "$child_key" "$group")"$'\t'$'\t'"${COMMAND_SUMMARY[$child_key]}"$'\n'
+    rows+="$(command_usage_for_group "$child_key" "$group")"$'\t'$'\t'"$(monarch_i18n_get commands "$child_key" "${COMMAND_SUMMARY[$child_key]}")"$'\n'
   done < <(sorted_group_keys "$group" false)
 
   if [[ -n $rows ]]; then
     echo ""
-    echo "Related commands:"
+    monarch_message 'cli.relatedCommands'
     print_command_table "$rows"
   fi
 }
@@ -841,21 +858,23 @@ show_command_help() {
   local args="${COMMAND_ARGS[$key]}"
   local example=""
   local alias=""
+  monarch_i18n_load
 
-  echo "Usage:"
+  monarch_message 'cli.usage'
   echo "  ${COMMAND_USAGE[$key]}"
   echo ""
-  echo "${COMMAND_SUMMARY[$key]}"
+  monarch_i18n_get commands "$key" "${COMMAND_SUMMARY[$key]}"
+  printf '\n'
 
   if [[ -n $args ]]; then
     echo ""
-    echo "Arguments:"
+    monarch_message 'cli.arguments'
     echo "  $args"
   fi
 
   if [[ -n $examples ]]; then
     echo ""
-    echo "Examples:"
+    monarch_message 'cli.examples'
     while IFS= read -r example; do
       printf '  %s\n' "$example"
     done < <(examples_as_lines "$examples")
@@ -863,19 +882,19 @@ show_command_help() {
 
   if [[ -n $aliases ]]; then
     echo ""
-    echo "Aliases:"
+    monarch_message 'cli.aliases'
     while IFS= read -r alias; do
       printf '  %s\n' "$alias"
     done < <(pipe_values_as_lines "$aliases")
   fi
 
   echo ""
-  echo "Binary:"
+  monarch_message 'cli.binary'
   echo "  ${COMMAND_BINARY[$key]}"
 
   if [[ ${COMMAND_FALLBACK_ROUTE[$key]} != "${COMMAND_ROUTE[$key]}" ]]; then
     echo ""
-    echo "Filename route:"
+    monarch_message 'cli.filenameRoute'
     echo "  ${COMMAND_FALLBACK_ROUTE[$key]}"
   fi
 
@@ -932,7 +951,7 @@ dispatch_fast_or_help() {
 
     if (( ${#remaining[@]} > 0 )) && [[ ${remaining[0]} == "--help" || ${remaining[0]} == "-h" ]]; then
       if ! load_command_by_binary "$DIRECT_RESOLVED_BINARY"; then
-        echo "Binary is missing or not executable: $DIRECT_RESOLVED_BINARY" >&2
+        monarch_message 'cli.binaryUnavailable' "$DIRECT_RESOLVED_BINARY" >&2
         return 127
       fi
 
@@ -1005,7 +1024,7 @@ dispatch_or_help() {
 
     binary_path="$MONARCH_BIN_DIR/${COMMAND_BINARY[$key]}"
     if [[ ! -x $binary_path ]]; then
-      echo "Binary is missing or not executable: ${COMMAND_BINARY[$key]}" >&2
+      monarch_message 'cli.binaryUnavailable' "${COMMAND_BINARY[$key]}" >&2
       return 127
     fi
 
@@ -1035,12 +1054,12 @@ dispatch_or_help() {
     return 0
   fi
 
-  echo "Unknown Monarch command: monarch ${args[*]}" >&2
+  monarch_message 'cli.unknownCommand' "${args[*]}" >&2
   suggestion=$(suggest_command "${args[0]}")
   if [[ -n $suggestion ]]; then
-    echo "Did you mean: monarch $suggestion ?" >&2
+    monarch_message 'cli.suggestion' "$suggestion" >&2
   fi
-  echo "Run 'monarch commands --all' to discover available commands." >&2
+  monarch_message 'cli.discoverHint' >&2
   return 127
 }
 

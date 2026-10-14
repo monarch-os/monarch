@@ -20,7 +20,7 @@ function M.windows(provider)
   local rows = {}
   local seen = {}
   local function add(key, window, label)
-    if type(window) ~= "table" or seen[window] or tonumber(window.usedPercent) == nil then return end
+    if type(window) ~= "table" or window.usageKnown == false or seen[window] or tonumber(window.usedPercent) == nil then return end
     seen[window] = true
     rows[#rows + 1] = {
       title = label or labels[key] or window.title or window.label or key,
@@ -32,12 +32,20 @@ function M.windows(provider)
     add(key, usage[key])
   end
   for _, extra in ipairs(usage.extraRateWindows or {}) do
-    add("Additional quota", extra.window or extra, extra.title or extra.name)
+    if extra.usageKnown ~= false then
+      add("Additional quota", extra.window or extra, extra.title or extra.name)
+    end
   end
   for _, extra in ipairs(usage.windows or {}) do
     add("Quota", extra.window or extra, extra.title or extra.name)
   end
   return rows
+end
+
+function M.balance(provider)
+  local cost = (provider.usage or {}).providerCost
+  if type(cost) ~= "table" or cost.balance == nil then return nil end
+  return tostring(cost.balance) .. (cost.currencyCode and (" " .. tostring(cost.currencyCode)) or "")
 end
 
 function M.color(used)

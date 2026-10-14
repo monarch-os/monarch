@@ -147,3 +147,4 @@ test/shell.d/polkit-auth-test.sh	security	high	isolated
 test/shell.d/fingerprint-activation-test.sh	security	high	isolated
 test/shell.d/factory-account-scrub-test.sh	factory-reset	high	isolated
 test/shell.d/fingerprint-removal-test.sh	security	high	isolated
+test/monarch-i18n-test.sh	i18n	medium	isolated

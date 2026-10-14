@@ -2,16 +2,19 @@
 
 # monarch:summary=Prompt for confirmation before starting an update
 
+source "$("$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/monarch-i18n" --helper)"
+monarch_i18n_load
+
 gum style --border normal --padding "1 2" \
-  "Ready to update?" \
+  "$(monarch_t 'update.ready')" \
   "" \
-  "• You cannot stop the update once you start!" \
-  "• Make sure you're connected to power or have a full battery" \
+  "$(monarch_t 'update.noInterruption')" \
+  "$(monarch_t 'update.powerWarning')" \
   "" \
-  "What's new: https://github.com/monarch-os/monarch/releases"
+  "$(monarch_t 'update.releaseNotes' 'https://github.com/monarch-os/monarch/releases')"
 
 echo
-if ! gum confirm "Continue with update?"; then
-  echo "Update cancelled"
+if ! gum confirm "$(monarch_t 'update.confirm')"; then
+  monarch_message 'update.cancelled'
   exit 1
 fi

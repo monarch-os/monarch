@@ -43,6 +43,7 @@ done
 plugins_changed=false
 for plugin in "$MONARCH_PATH"/default/noctalia/plugins/monarch-*; do
   [[ -f $plugin/plugin.toml ]] || continue
+  [[ ${plugin##*/} != "monarch-agents" ]] || continue
   monarch_reconcile_managed_tree "$plugin" \
     "$HOME/.local/share/noctalia/plugins/$(basename "$plugin")" \
     plugins_changed

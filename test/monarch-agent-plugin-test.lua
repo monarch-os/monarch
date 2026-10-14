@@ -15,6 +15,11 @@ assert(windows[3].title == "Search hourly")
 assert(windows[3].used == 100)
 assert(data.error({ error = { message = "Sign in required" } }) == "Sign in required")
 assert(#data.windows({}) == 0)
+assert(#data.windows({ usage = { extraRateWindows = {
+  { usageKnown = false, window = { usedPercent = 0, resetsAt = "2026-10-15T00:00:00Z" } },
+} } }) == 0)
+assert(#data.windows({ usage = { primary = { usageKnown = false, usedPercent = 0 } } }) == 0)
+assert(data.balance({ usage = { providerCost = { balance = 0, currencyCode = "USD" } } }) == "0 USD")
 
 local state = { providers = { provider } }
 local tree, tooltip, command
@@ -54,10 +59,31 @@ assert(tree.kind == "glyph" and tree.props.name == "robot")
 assert(tooltip[1].value:find("Search hourly", 1, true))
 assert(command:find("/usr/bin/codexbar", 1, true))
 onClick()
+local attempts = 0
+noctalia.runAsync = function()
+  attempts = attempts + 1
+  return false
+end
+onRightClick()
+onRightClick()
+assert(attempts == 2, "A failed launch must not block subsequent refreshes")
+assert(state.error ~= "")
+noctalia.runAsync = function(value) command = value; return true end
 panel = { render = function(value) tree = value end, close = function() end }
 dofile(root .. "/panel.luau")
 onOpen()
 assert(tree.kind == "column")
+local function contains(node, text)
+  if node.props.text == text then return true end
+  for _, child in ipairs(node.children) do
+    if contains(child, text) then return true end
+  end
+  return false
+end
+state.providers = { { provider = "grok", usage = { providerCost = { balance = 0, currencyCode = "USD" } } } }
+watchers.providers()
+assert(contains(tree, "Balance remaining: 0 USD"))
+assert(not contains(tree, "No quota reported"))
 onManageProviders()
 assert(command:find("/usr/bin/monarch-agent-usage manage", 1, true))
 require = originalRequire

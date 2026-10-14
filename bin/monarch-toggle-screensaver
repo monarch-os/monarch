@@ -2,7 +2,8 @@
 
 # monarch:summary=Toggle screensaver availability
 
+
 monarch-toggle \
-  --enabled-notification "󱄄   Screensaver disabled" \
-  --disabled-notification "󱄄   Screensaver enabled" \
+  --enabled-notification "󱄄   $(monarch-i18n 'screensaver.disabled')" \
+  --disabled-notification "󱄄   $(monarch-i18n 'screensaver.enabled')" \
   screensaver-off

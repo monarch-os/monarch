@@ -12,14 +12,14 @@ mkdir -p "$runtime/bin"
 ln -s "$ROOT/install" "$runtime/install"
 ln -s "$ROOT/default" "$runtime/default"
 
-for command in monarch-provision-first-run monarch-provision-user monarch-done monarch-hook-install monarch-setup-first-steps; do
+for command in monarch-provision-first-run monarch-provision-user monarch-done monarch-hook-install monarch-setup-first-steps monarch-cmd-present; do
   ln -s "$ROOT/bin/$command" "$runtime/bin/$command"
 done
 
 for command in monarch-refresh-niri monarch-refresh-noctalia monarch-refresh-applications \
   monarch-theme-apply monarch-mise-install monarch-notification-wait monarch-notification-send \
   xdg-user-dirs-update xdg-settings xdg-mime update-desktop-database git mise \
-  systemctl noctalia gsettings nm-online pactl sleep; do
+  systemctl noctalia gsettings nm-online pactl sleep codexbar; do
   cat >"$runtime/bin/$command" <<'EOF'
 #!/bin/bash
 printf '%s %s\n' "${0##*/}" "$*" >>"$TEST_PROVISION_LOG"

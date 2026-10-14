@@ -6,6 +6,9 @@
 
 set -euo pipefail
 
+source "$("$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/monarch-i18n" --helper)"
+monarch_i18n_load
+
 format_remaining() {
   local seconds=$1
   local minutes=$((seconds / 60))
@@ -42,15 +45,15 @@ show_reminders() {
 
     message=""
     [[ -f $reminder_dir/$base.message ]] && message=$(<"$reminder_dir/$base.message")
-    [[ -z $message ]] && message="${reminder_minutes}-min reminder"
+    [[ -z $message ]] && message=$(monarch_t 'reminder.defaultLabel' "$reminder_minutes")
 
-    body+="$message in $(format_remaining "$remaining") ($(date -d "@$fire_at" +%-H:%M))"$'\n'
+    body+="$(monarch_t 'reminder.schedule' "$message" "$(format_remaining "$remaining")" "$(date -d "@$fire_at" +%-H:%M)")"$'\n'
   done < <(systemctl --user list-timers --all --no-legend --no-pager "monarch-reminder-*.timer" 2>/dev/null | awk '{ print $(NF - 1) }')
 
   if [[ -z $body ]]; then
-    monarch-notification-send -g "󰔛" "Upcoming reminders" "No outstanding reminders" -u low
+    monarch-notification-send -g "󰔛" "$(monarch_t 'reminder.upcoming')" "$(monarch_t 'reminder.none')" -u low
   else
-    monarch-notification-send -g "󰔛" "Upcoming reminders" "${body%$'\n'}" -u low
+    monarch-notification-send -g "󰔛" "$(monarch_t 'reminder.upcoming')" "${body%$'\n'}" -u low
   fi
 }
 
@@ -65,7 +68,7 @@ clear_reminders() {
   fi
 
   rm -f "$reminder_dir"/monarch-reminder-*.message 2>/dev/null || true
-  monarch-notification-send -g "󰔛" "All reminders have been cleared" -u low
+  monarch-notification-send -g "󰔛" "$(monarch_t 'reminder.cleared')" -u low
 }
 
 # Pull an optional urgency flag from anywhere in the args. The default stays
@@ -95,7 +98,7 @@ set -- ${args[@]+"${args[@]}"}
 case $urgency in
 low | normal | critical) ;;
 *)
-  echo "Urgency must be low, normal, or critical."
+  monarch_message 'reminder.invalidUrgency'
   exit 1
   ;;
 esac
@@ -115,15 +118,15 @@ esac
 # the picker was dismissed; an invalid one re-asks rather than failing.
 if [[ $interactive == true ]]; then
   while true; do
-    prompted_minutes=$(monarch-menu-input "Remind in minutes")
+    prompted_minutes=$(monarch-menu-input "$(monarch_t 'reminder.minutesPrompt')")
     [[ -z $prompted_minutes ]] && exit 0
     if [[ $prompted_minutes =~ ^[0-9]+$ ]] && ((prompted_minutes > 0)); then
       break
     fi
-    monarch-notification-send -g "󰔛" "Invalid reminder" "Enter the number of minutes" -u critical
+    monarch-notification-send -g "󰔛" "$(monarch_t 'reminder.invalid')" "$(monarch_t 'reminder.minutesRequired')" -u critical
   done
 
-  prompted_message=$(monarch-menu-input "Reminder message")
+  prompted_message=$(monarch-menu-input "$(monarch_t 'reminder.messagePrompt')")
   set -- "$prompted_minutes" ${prompted_message:+"$prompted_message"}
 fi
 
@@ -140,7 +143,7 @@ if [[ -z $minutes ]] || [[ ! $minutes =~ ^[0-9]+$ ]] || ((minutes == 0)); then
 fi
 
 if [[ -z $message ]]; then
-  message="Your ${minutes} minutes are up"
+  message=$(monarch_t 'reminder.elapsed' "$minutes")
 fi
 
 set_at=$(date +%s)
@@ -148,17 +151,17 @@ remind_at=$(date -d "+${minutes} minutes" +%H:%M)
 unit="monarch-reminder-${minutes}m-$set_at"
 reminder_dir="${XDG_RUNTIME_DIR:-/tmp}/monarch-reminders"
 message_file="$reminder_dir/$unit.message"
-confirmation="You'll be reminded at $remind_at"
-confirmation_title="Reminder set for ${minutes} minutes"
+confirmation=$(monarch_t 'reminder.timeConfirmation' "$remind_at")
+confirmation_title=$(monarch_t 'reminder.confirmation' "$minutes")
 
 mkdir -p "$reminder_dir"
 
 if [[ -n $custom_message ]]; then
   printf "%s" "$custom_message" >"$message_file"
-  confirmation_title="$custom_message in ${minutes} minutes"
+  confirmation_title=$(monarch_t 'reminder.customConfirmation' "$custom_message" "$minutes")
 fi
 
 systemd-run --user --quiet --collect --on-active="${minutes}m" --unit="$unit" \
-  bash -c 'monarch-notification-send -g "󰔛" "Reminder" "$1" -u "$3"; rm -f "$2"' bash "$message" "$message_file" "$urgency"
+  bash -c 'monarch-notification-send -g "󰔛" "$4" "$1" -u "$3"; rm -f "$2"' bash "$message" "$message_file" "$urgency" "$(monarch_t 'reminder.title')"
 
 monarch-notification-send -g "󰔛" "$confirmation_title" "$confirmation" -u low

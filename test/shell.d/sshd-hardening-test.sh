@@ -73,6 +73,9 @@ printf 'ufw %s\n' "$*" >>"$CALL_LOG"
 if [[ $1 == "status" ]]; then
   echo 'Status: active'
   [[ ${UFW_MARKER:-1} == 1 ]] && echo '22/tcp LIMIT Anywhere # monarch-sshd'
+  if [[ ${UFW_LARGE_STATUS:-0} == 1 ]]; then
+    printf '%4194304s\n' '443/tcp ALLOW Anywhere'
+  fi
 fi
 EOF
 cat >"$stub_bin/sudo" <<'EOF'
@@ -173,6 +176,7 @@ run_setup() {
     SSHD_DUMP_LOWERCASE="${SSHD_DUMP_LOWERCASE:-0}" \
     FAIL_KEY_CHMOD="${FAIL_KEY_CHMOD:-0}" FAIL_CONFIG_CHMOD="${FAIL_CONFIG_CHMOD:-0}" \
     FAIL_CONFIG_CHOWN="${FAIL_CONFIG_CHOWN:-0}" UFW_LIMIT_VALID="${UFW_LIMIT_VALID:-1}" UFW_MARKER=1 \
+    UFW_LARGE_STATUS="${UFW_LARGE_STATUS:-0}" \
     PATH="$stub_bin:/usr/bin" \
     bash "$ROOT/bin/monarch-setup-security-sshd" "${2:---key=$public_key}"
 }
@@ -192,6 +196,9 @@ calls="$test_tmp/success.calls"
   fail "SSH setup starts sshd before the firewall rule is ready"
 [[ $output == *"key-only authentication"* ]] || fail "SSH setup reports its effective policy"
 pass "SSH setup publishes key-only policy before exposing the daemon"
+output=$(UFW_LARGE_STATUS=1 run_setup large-firewall)
+[[ $output == *"key-only authentication"* ]] || fail "SSH setup rejects an active firewall with long status output"
+pass "SSH setup consumes complete firewall status before deciding whether it is active"
 [[ -L $test_tmp/success/root/etc/ssh/sshd_config.d/20-systemd-userdb.conf ]] ||
   fail "test fixture did not exercise the packaged systemd SSH symlink"
 pass "SSH setup accepts Arch's packaged systemd SSH configuration symlink"

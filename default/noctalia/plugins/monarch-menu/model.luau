@@ -39,6 +39,7 @@ export type Menu = {
   -- while the tree is loaded, and rebuilding it per entry per keystroke was most
   -- of what a search cost.
   haystacks: { [string]: string },
+  strings: { [string]: string }?,
 }
 
 -- The panel never parses the JSONC itself. `monarch-menu --state` already loads
@@ -50,7 +51,7 @@ export type Menu = {
 -- already normalised is one native call — measured in the VM at 38 kB, 266
 -- entries, 3 ms including the indexing below. Keeping one loader in bash also
 -- means the CLI and the panel cannot disagree about what the menu contains.
-function M.fromArray(rows: any): Menu?
+function M.fromArray(rows: any, strings: { [string]: string }?): Menu?
   if type(rows) ~= "table" then
     return nil
   end
@@ -92,6 +93,7 @@ function M.fromArray(rows: any): Menu?
     parents = parents,
     crumbs = {},
     haystacks = {},
+    strings = strings,
   }
 end
 
@@ -117,7 +119,7 @@ end
 
 function M.titleOf(menu: Menu, id: string): string
   if id == "root" then
-    return "Go"
+    return (menu.strings and menu.strings["menu.root"]) or "Go"
   end
   local entry = menu.entries[id]
   if entry then
