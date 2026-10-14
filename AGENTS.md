@@ -137,10 +137,21 @@ Exceptions are allowed for bootstrap, preflight, reconciliation, and package-hel
 
 # Menu
 
+Monarch's interface language is independent of the system locale and Noctalia.
+Keep English command metadata, translate only human-facing output, and preserve
+command JSON. Shipped
+menu presentation fields are translated before user overlays are merged; never
+translate actions, guards, routes or user-defined labels.
+
 **The menu is data, not code.** `default/monarch/monarch-menu.jsonc` holds the
 tree; the `monarch/menu` Noctalia panel draws it; `bin/monarch-menu` loads the
 data for the panel and routes the keybinds to it. Adding a menu entry means
 editing the `.jsonc`, never the renderer.
+
+Shipped `label`, `title`, `description` and `disabledLabel` text belongs in the
+`menu` section of `default/i18n/en.json`, keyed `<entry-id>.<field>`, with French
+translations in `fr.json`. The shipped JSONC contains structure and behavior
+only; user extensions may still set presentation fields directly.
 
 - IDs are object keys and **the dotted ID is the tree** — `trigger.share.file`
   is a child of `trigger.share`. There is no parent field to keep in sync.

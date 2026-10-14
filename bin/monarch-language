@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# monarch:summary=Choose the language of Monarch menus and commands
+# monarch:args=[en|fr|auto|--list|--preference]
+# monarch:examples=monarch language fr | monarch language auto
+
+set -euo pipefail
+
+source "$("$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/monarch-i18n" --helper)"
+
+case ${1:-} in
+  "")
+    monarch_i18n_language
+    ;;
+  --list)
+    (($# == 1)) || exit 2
+    printf 'auto\nen\nfr\n'
+    ;;
+  --preference)
+    (($# == 1)) || exit 2
+    preference=""
+    IFS= read -r preference 2>/dev/null <"${XDG_CONFIG_HOME:-$HOME/.config}/monarch/language" || true
+    case $preference in
+      en | fr) printf '%s\n' "$preference" ;;
+      *) printf 'auto\n' ;;
+    esac
+    ;;
+  en | fr | auto)
+    (($# == 1)) || { monarch_message 'language.usage' >&2; exit 2; }
+    directory=${XDG_CONFIG_HOME:-$HOME/.config}/monarch
+    umask 077
+    mkdir -p -- "$directory"
+    temporary=$(mktemp "$directory/.language.XXXXXX")
+    trap 'rm -f -- "$temporary"' EXIT
+    printf '%s\n' "$1" >"$temporary"
+    mv -fT -- "$temporary" "$directory/language"
+    ;;
+  *)
+    monarch_message 'language.usage' >&2
+    exit 2
+    ;;
+esac

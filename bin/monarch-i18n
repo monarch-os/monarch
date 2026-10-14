@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# monarch:summary=Translate a user-facing Monarch message
+# monarch:args=[--newline] <key> [values...] | --helper | --root
+# monarch:hidden=true
+
+set -euo pipefail
+
+script=$(readlink -f -- "${BASH_SOURCE[0]}")
+checkout=${script%/bin/monarch-i18n}
+root=${MONARCH_PATH:-$checkout}
+if [[ ! -f $root/default/i18n/i18n.py ]]; then
+  root=$checkout
+fi
+[[ -f $root/default/i18n/i18n.py ]] || root=/usr/share/monarch
+
+case ${1:-} in
+  --helper | --root)
+    (($# == 1)) || exit 2
+    if [[ $1 == "--helper" ]]; then
+      printf '%s\n' "$root/default/i18n/i18n.sh"
+    else
+      printf '%s\n' "$root"
+    fi
+    exit 0
+    ;;
+esac
+
+mode=--text
+if [[ ${1:-} == "--newline" ]]; then
+  mode=--message
+  shift
+fi
+(($#)) || { printf 'Usage: monarch i18n [--newline] <key> [values...]\n' >&2; exit 2; }
+exec python -B "$root/default/i18n/i18n.py" "$mode" "$@"

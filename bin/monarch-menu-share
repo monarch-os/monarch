@@ -6,6 +6,9 @@
 # monarch:args=<clipboard|file|folder> [path...]
 # monarch:examples=monarch share clipboard | monarch share file ~/Downloads/example.txt
 
+source "$("$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/monarch-i18n" --helper)"
+monarch_i18n_load
+
 if (($# == 0)); then
   echo "Usage: monarch-menu-share [clipboard|file|folder]"
   exit 1
@@ -24,9 +27,9 @@ elif (($# > 0)); then
   FILE_ARRAY=("$@")
 else
   if [[ $MODE == "folder" ]]; then
-    select_args=(--title "Choose a folder to share" --directory)
+    select_args=(--title "$(monarch_t 'share.folderPrompt')" --directory)
   else
-    select_args=(--title "Choose files to share" --multiple)
+    select_args=(--title "$(monarch_t 'share.filesPrompt')" --multiple)
   fi
 
   # Command substitution so the chooser's exit status survives: reading it
@@ -35,7 +38,7 @@ else
   picked=$(monarch-file-select "${select_args[@]}") || status=$?
 
   if ((${status:-0} > 1)); then
-    monarch-notification-send -g "" "Could not share" "The file chooser did not open" -u critical
+    monarch-notification-send -g "" "$(monarch_t 'share.failed')" "$(monarch_t 'share.chooserFailed')" -u critical
     exit 1
   fi
 
