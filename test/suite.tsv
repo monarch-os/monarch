@@ -30,6 +30,7 @@ test/monarch-dev-env-test.sh	developer-environment	medium	isolated
 test/monarch-display-test.sh	displays	high	isolated
 test/monarch-drive-password-test.sh	drive-encryption	high	isolated
 test/monarch-hardware-menu-test.sh	hardware-menu	medium	isolated
+test/monarch-hermes-test.sh	developer-agents	medium	isolated
 test/monarch-internal-display-test.sh	displays	high	isolated
 test/shell.d/broadcom-driver-test.sh	hardware-detection	medium	isolated
 test/shell.d/hardware-dkms-policy-test.sh	hardware-detection	high	isolated

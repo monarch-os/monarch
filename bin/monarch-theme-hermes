@@ -17,6 +17,10 @@ for file in noctalia/templates/hermes.yaml noctalia/monarch-hermes.toml; do
 done
 noctalia msg config-reload
 noctalia msg templates-apply
+for _ in {1..50}; do
+  [[ -s $HOME/.hermes/skins/monarch.yaml ]] && break
+  sleep 0.1
+done
 [[ -s $HOME/.hermes/skins/monarch.yaml ]]
 
 if [[ $activate == "true" ]]; then

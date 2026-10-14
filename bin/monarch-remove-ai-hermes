@@ -6,9 +6,9 @@
 set -euo pipefail
 
 if monarch-pkg-present hermes-agent-desktop-bin; then
-  monarch-pkg-drop hermes-agent-desktop-bin
+  monarch-pkg-drop --keep-dependencies hermes-agent-desktop-bin
 elif monarch-pkg-present hermes-agent-desktop; then
-  monarch-pkg-drop hermes-agent-desktop
+  monarch-pkg-drop --keep-dependencies hermes-agent-desktop
 fi
 if [[ $(monarch-default-agent) == "hermes" ]]; then
   rm -f "$HOME/.config/monarch/defaults/agent"
