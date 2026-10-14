@@ -1,5 +1,22 @@
 {
   "settings": {
     "refresh": "Refresh interval (seconds)"
+  },
+  "ui": {
+    "title": "Agents",
+    "refresh": "Refresh quotas",
+    "resets": "Resets {time}",
+    "balance": "Balance remaining: {amount}",
+    "credits": "Credits remaining: {amount}",
+    "no_quota": "No quota reported",
+    "stale": "Last known data",
+    "no_provider": "No provider enabled. Configure one below.",
+    "manage": "Manage providers",
+    "used": "{percent}% used",
+    "status": "Status",
+    "waiting": "Waiting for provider data",
+    "no_usage": "No enabled provider has reported usage",
+    "refresh_failed": "CodexBar could not refresh; showing last known data",
+    "launch_failed": "CodexBar could not start; refresh to retry"
   }
 }

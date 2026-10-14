@@ -34,23 +34,23 @@ local function providerSection(provider)
     if window.reset then
       local reset = tostring(window.reset)
       reset = string.gsub(reset, "^(%d%d%d%d%-%d%d%-%d%d)T(%d%d:%d%d):%d%dZ$", "%1 %2 UTC")
-      rows[#rows + 1] = ui.label({ text = "Resets " .. reset, fontSize = 11, color = "on_surface/0.6" })
+      rows[#rows + 1] = ui.label({ text = noctalia.tr("ui.resets", { time = reset }), fontSize = 11, color = "on_surface/0.6" })
     end
     children[#children + 1] = ui.column({ gap = 4 }, rows)
   end
   local credits = provider.credits or usage.credits
   local balance = data.balance(provider)
   if balance then
-    children[#children + 1] = ui.label({ text = "Balance remaining: " .. balance })
+    children[#children + 1] = ui.label({ text = noctalia.tr("ui.balance", { amount = balance }) })
   end
   if type(credits) == "table" and credits.remaining ~= nil then
-    children[#children + 1] = ui.label({ text = "Credits remaining: " .. tostring(credits.remaining) })
+    children[#children + 1] = ui.label({ text = noctalia.tr("ui.credits", { amount = tostring(credits.remaining) }) })
   end
   if #data.windows(provider) == 0 and issue == "" and not credits and not balance then
-    children[#children + 1] = ui.label({ text = "No quota reported", color = "on_surface/0.6" })
+    children[#children + 1] = ui.label({ text = noctalia.tr("ui.no_quota"), color = "on_surface/0.6" })
   end
   if provider.stale then
-    children[#children + 1] = ui.label({ text = "Last known data", fontSize = 11, color = "tertiary" })
+    children[#children + 1] = ui.label({ text = noctalia.tr("ui.stale"), fontSize = 11, color = "tertiary" })
   end
   return ui.column({ gap = 16 }, children)
 end
@@ -60,8 +60,8 @@ render = function()
   local providers = noctalia.state.get("providers") or {}
   local children = {
     ui.row({ gap = 8, align = "center" }, {
-      ui.label({ text = "Agents", fontSize = 18, fontWeight = "bold", flexGrow = 1 }),
-      ui.button({ glyph = "refresh", variant = "ghost", onClick = "onRefresh", tooltip = "Refresh quotas" }),
+      ui.label({ text = noctalia.tr("ui.title"), fontSize = 18, fontWeight = "bold", flexGrow = 1 }),
+      ui.button({ glyph = "refresh", variant = "ghost", onClick = "onRefresh", tooltip = noctalia.tr("ui.refresh") }),
     }),
   }
   local selected = providers[1]
@@ -91,13 +91,13 @@ render = function()
     children[#children + 1] = ui.scroll({ height = math.min(96, #rows * 38) }, { ui.column({ gap = 6 }, rows) })
   end
   children[#children + 1] = ui.scroll({ flexGrow = 1 }, {
-    selected and providerSection(selected) or ui.label({ text = "No provider enabled. Configure one below.", color = "on_surface/0.6" }),
+    selected and providerSection(selected) or ui.label({ text = noctalia.tr("ui.no_provider"), color = "on_surface/0.6" }),
   })
   local issue = noctalia.state.get("error") or ""
   if issue ~= "" then
     children[#children + 1] = ui.label({ text = issue, fontSize = 11, color = "error", maxLines = 2 })
   end
-  children[#children + 1] = ui.button({ text = "Manage providers", glyph = "settings", onClick = "onManageProviders" })
+  children[#children + 1] = ui.button({ text = noctalia.tr("ui.manage"), glyph = "settings", onClick = "onManageProviders" })
   panel.render(ui.column({ flexGrow = 1, gap = 12, padding = 16 }, children))
 end
 

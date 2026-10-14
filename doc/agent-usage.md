@@ -7,6 +7,8 @@ The bar shows one agent icon; its tooltip and panel retain every provider.
 The panel retains Monarch's provider selector and spent-quota gauges. Quota
 labels come directly from CodexBar, rather than assuming weekly/monthly windows.
 CodexBar owns collection and authentication; the plugin keeps no local history.
+The panel and tooltip use Noctalia's language, with English and French catalogs.
+Provider names, authentication errors and quota labels from CodexBar are preserved.
 
 Manage providers from the panel's **Manage providers** button, or run
 `monarch agent usage manage` in a terminal. The searchable list comes directly

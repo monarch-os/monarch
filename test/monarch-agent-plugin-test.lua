@@ -1,4 +1,6 @@
 local root = arg[1]
+local catalogs = dofile(arg[2])
+local language = "en"
 local data = dofile(root .. "/data.luau")
 local provider = {
   provider = "synthetic",
@@ -33,6 +35,12 @@ ui = setmetatable({}, { __index = function(_, kind)
   return function(props, children) return { kind = kind, props = props, children = children or {} } end
 end })
 noctalia = {
+  tr = function(key, substitutions)
+    local value = assert(catalogs[language][key], key)
+    return (string.gsub(value, "{([%w_]+)}", function(name)
+      return tostring(assert(substitutions and substitutions[name], name))
+    end))
+  end,
   getConfig = function() return nil end,
   setUpdateInterval = function() end,
   json = { decode = function() return { provider } end },
@@ -84,6 +92,17 @@ state.providers = { { provider = "grok", usage = { providerCost = { balance = 0,
 watchers.providers()
 assert(contains(tree, "Balance remaining: 0 USD"))
 assert(not contains(tree, "No quota reported"))
+language = "fr"
+watchers.providers()
+assert(contains(tree, "Gérer les fournisseurs"))
+assert(contains(tree, "Solde restant : 0 USD"))
+state.providers = { provider }
+watchers.providers()
+assert(contains(tree, "Synthetic"))
+assert(contains(tree, "Search hourly"))
+state.providers = {}
+watchers.providers()
+assert(contains(tree, "Aucun fournisseur activé. Configurez-en un ci-dessous."))
 onManageProviders()
 assert(command:find("/usr/bin/monarch-agent-usage manage", 1, true))
 require = originalRequire

@@ -9,15 +9,15 @@ local function render()
     local issue = data.error(provider)
     if issue ~= "" then lines[#lines + 1] = issue end
     for _, window in ipairs(data.windows(provider)) do
-      lines[#lines + 1] = window.title .. ": " .. string.format("%.1f%% used", window.used)
+      lines[#lines + 1] = window.title .. ": " .. noctalia.tr("ui.used", { percent = string.format("%.1f", window.used) })
     end
     local balance = data.balance(provider)
-    if balance then lines[#lines + 1] = "Balance remaining: " .. balance end
+    if balance then lines[#lines + 1] = noctalia.tr("ui.balance", { amount = balance }) end
     tooltip[#tooltip + 1] = { key = data.name(provider), value = table.concat(lines, "\n") }
   end
   local issue = noctalia.state.get("error") or ""
-  if issue ~= "" then tooltip[#tooltip + 1] = { key = "Status", value = issue } end
-  if #tooltip == 0 then tooltip[1] = { key = "Agents", value = "Waiting for provider data" } end
+  if issue ~= "" then tooltip[#tooltip + 1] = { key = noctalia.tr("ui.status"), value = issue } end
+  if #tooltip == 0 then tooltip[1] = { key = noctalia.tr("ui.title"), value = noctalia.tr("ui.waiting") } end
   barWidget.setTooltip(tooltip)
 end
 
@@ -37,17 +37,17 @@ local function refresh()
       end
       if result.exitCode == 0 then
         noctalia.state.set("providers", {})
-        noctalia.state.set("error", "No enabled provider has reported usage")
+        noctalia.state.set("error", noctalia.tr("ui.no_usage"))
         render()
         return
       end
     end
-    noctalia.state.set("error", "CodexBar could not refresh; showing last known data")
+    noctalia.state.set("error", noctalia.tr("ui.refresh_failed"))
     render()
   end, 30000)
   if started == false then
     inFlight = false
-    noctalia.state.set("error", "CodexBar could not start; refresh to retry")
+    noctalia.state.set("error", noctalia.tr("ui.launch_failed"))
     render()
   end
 end
