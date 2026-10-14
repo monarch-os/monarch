@@ -11,7 +11,7 @@ else
 fi
 
 # Pacman keeps existing directory modes; old ISO packages shipped 777/666.
-/usr/bin/python -I - "$system_root" "$trusted_uid" 3<<<"$package_paths" <<'PY'
+/usr/bin/python3 -I - "$system_root" "$trusted_uid" 3<<<"$package_paths" <<'PY'
 import errno
 import os
 import stat
