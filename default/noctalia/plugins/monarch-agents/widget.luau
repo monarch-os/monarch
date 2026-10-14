@@ -46,7 +46,7 @@ local function refresh()
 end
 
 function update() refresh() end
-function onClick() noctalia.togglePanel("monarch/agent:details") end
+function onClick() noctalia.togglePanel("monarch/agents:details") end
 function onRightClick() refresh() end
 function onIpc(event)
   if event == "refresh" then refresh() end

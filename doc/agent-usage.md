@@ -1,6 +1,6 @@
 # Agent usage
 
-Monarch uses CodexBar CLI and its own `monarch-agent` Noctalia v5 plugin.
+Monarch uses CodexBar CLI and its own `monarch-agents` Noctalia v5 plugin.
 The `monarch agent` launcher remains independent of quota monitoring.
 
 The bar shows one agent icon; its tooltip and panel retain every provider.
@@ -49,6 +49,6 @@ disabled-provider markers, and imports the existing Synthetic key. Credentials
 and history stay untouched. Bar references migrate with a `.before-codexbar`
 backup; the old plugin is archived rather than deleted.
 
-Monarch Agent shows quotas, resets and credits, not Monarch's former local charts.
+Monarch Agents shows quotas, resets and credits, not Monarch's former local charts.
 Use `codexbar cost --provider claude --format json` or the Codex equivalent for
 local history; coverage is source-specific, not complete account billing.

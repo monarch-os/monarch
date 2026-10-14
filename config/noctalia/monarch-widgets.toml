@@ -10,5 +10,5 @@ title_scroll = "always"
 [widget.tray]
 drawer = true
 
-[plugin_settings."monarch/agent"]
+[plugin_settings."monarch/agents"]
 refreshIntervalSec = 60

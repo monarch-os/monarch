@@ -1,5 +1,5 @@
-id = "monarch/agent"
-name = "Monarch Agent"
+id = "monarch/agents"
+name = "Monarch Agents"
 version = "1.0.0"
 plugin_api = 22
 author = "monarch"

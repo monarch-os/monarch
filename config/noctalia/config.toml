@@ -85,7 +85,7 @@ order = ["default"]
   ]
   end = [
     "tray",
-    "monarch/agent:usage",
+    "monarch/agents:usage",
     "monarch/indicators:lazyvpn",
     "monarch/indicators:todo",
     "monarch/network:network",

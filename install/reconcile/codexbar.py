@@ -50,18 +50,20 @@ for path in files:
     continue
   old = path.read_text()
   new = old
-  for entry in ("monarch/agents:usage", "salemsayed/codexbar-meter:bar"):
-    new = new.replace('"' + entry + '"', '"monarch/agent:usage"')
-    new = new.replace("'" + entry + "'", "'monarch/agent:usage'")
+  for entry in ("monarch/agent:usage", "salemsayed/codexbar-meter:bar"):
+    new = new.replace('"' + entry + '"', '"monarch/agents:usage"')
+    new = new.replace("'" + entry + "'", "'monarch/agents:usage'")
+  new = new.replace('[plugin_settings."monarch/agent"]', '[plugin_settings."monarch/agents"]')
+  new = new.replace("[plugin_settings.'monarch/agent']", "[plugin_settings.'monarch/agents']")
   sections = re.split(r"(?m)(?=^\[)", new)
   for index, section in enumerate(sections):
     if not section.startswith("[plugins]\n"):
       continue
     enabled = tomllib.loads(section).get("plugins", {}).get("enabled", [])
-    if not any(name in enabled for name in ("monarch/agents", "salemsayed/codexbar-meter")):
+    if not any(name in enabled for name in ("monarch/agent", "salemsayed/codexbar-meter")):
       continue
     enabled = list(dict.fromkeys(
-      "monarch/agent" if name in ("monarch/agents", "salemsayed/codexbar-meter") else name
+      "monarch/agents" if name in ("monarch/agent", "salemsayed/codexbar-meter") else name
       for name in enabled
     ))
     sections[index] = re.sub(r"(?ms)^enabled\s*=\s*\[.*?\]",
@@ -75,6 +77,6 @@ for path in files:
 
 plugin = home / ".local/share/noctalia/plugins/monarch-agents"
 backup = state_home / "monarch/backups/noctalia/monarch-agents"
-if plugin.is_dir() and not plugin.is_symlink() and not backup.exists():
+if (plugin / "service.luau").is_file() and not plugin.is_symlink() and not backup.exists():
   backup.parent.mkdir(parents=True, exist_ok=True)
   plugin.rename(backup)

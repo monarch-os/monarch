@@ -43,7 +43,7 @@ noctalia = {
     command = value
     if callback then callback({ stdout = "[]", exitCode = 1 }) end
   end,
-  togglePanel = function(value) assert(value == "monarch/agent:details") end,
+  togglePanel = function(value) assert(value == "monarch/agents:details") end,
 }
 barWidget = {
   render = function(value) tree = value end,
@@ -61,4 +61,4 @@ assert(tree.kind == "column")
 onManageProviders()
 assert(command:find("/usr/bin/monarch-agent-usage manage", 1, true))
 require = originalRequire
-print("Monarch Agent plugin tests passed")
+print("Monarch Agents plugin tests passed")
