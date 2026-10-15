@@ -122,4 +122,33 @@ sys.exit(code)
             assert result.stdout == str(workspace / ".venv").encode(), result.stdout
             assert (workspace / ".venv/bin/python").exists() and not recorded
         print(f"PASS: {shell} uv argument forwarding, activation, preservation, errors and optional loading")
+
+    zsh = shutil.which("zsh")
+    if zsh:
+        startup = fixture / "startup"
+        (startup / "default/zsh").mkdir(parents=True)
+        (startup / "default/shells").mkdir(parents=True)
+        (startup / "bin").mkdir()
+        shutil.copy(root / "default/zsh/rc", startup / "default/zsh/rc")
+        shutil.copy(root / "default/shells/envs", startup / "default/shells/envs")
+        shutil.copy(root / "bin/monarch-cmd-present", startup / "bin/monarch-cmd-present")
+        for file in ("default/zsh/shell", "default/zsh/inputrc", "default/shells/init", "default/shells/aliases"):
+            (startup / file).write_text(":\n")
+        (startup / "default/shells/functions").write_text('source "$ROOT/default/shells/fns/python-uv"\n')
+        for location in (".local/bin", ".local/share/mise/shims"):
+            home = fixture / ("home-" + location.replace("/", "-"))
+            uv = home / location / "uv"
+            uv.parent.mkdir(parents=True)
+            uv.write_text("#!/bin/bash\nexit 0\n")
+            uv.chmod(0o755)
+            result = subprocess.run(
+                [zsh, "-fc", 'source "$MONARCH_PATH/default/zsh/rc"; '
+                 'for name in uv uvv uvr uvreq uvpwn; do '
+                 'command -v "$name" >/dev/null || { print -u2 "Missing after Zsh startup: $name"; exit 1; }; done'],
+                env={"ROOT": str(root), "HOME": str(home), "MONARCH_PATH": str(startup),
+                     "PATH": str(empty_path), "EDITOR": "vi"},
+                capture_output=True,
+            )
+            assert result.returncode == 0, (location, result.stderr)
+        print("PASS: Zsh startup discovers uv helpers in both supported user install locations")
 PY
