@@ -125,6 +125,10 @@ urlencode	Percent-encode bytes without form-style space conversion
 urldecode	Decode percent escapes while preserving literal plus signs
 utf16le	Convert UTF-8 text to UTF-16LE without a byte-order mark
 utf16to8	Convert UTF-16LE text to UTF-8
+uvv	Create or activate the current directory's .venv without replacing it
+uvr	Run a command or script with uv
+uvreq	Install requirements.txt into the selected environment with uv
+uvpwn	Run Python with pwntools in an isolated uv environment
 tdl	Create a Herdr development layout
 tdlm	Create a Herdr development layout for each subdirectory
 te	Empty the trash
