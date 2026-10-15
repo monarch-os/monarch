@@ -1,4 +1,4 @@
-command -v uv &>/dev/null || return 0
+"${MONARCH_PATH:-/usr/share/monarch}/bin/monarch-cmd-present" uv || return 0
 unalias uvv uvr uvreq uvpwn 2>/dev/null || true
 
 uvv() {

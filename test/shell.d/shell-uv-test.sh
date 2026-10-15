@@ -23,6 +23,14 @@ with tempfile.TemporaryDirectory() as directory:
     empty_path = fixture / "empty-path"
     empty_path.mkdir()
     calls = fixture / "calls"
+    presence_calls = fixture / "presence-calls"
+    runtime = fixture / "runtime"
+    (runtime / "bin").mkdir(parents=True)
+    presence = runtime / "bin/monarch-cmd-present"
+    presence.write_text('#!/bin/bash\nprintf "%s\\n" "$@" >> "$PRESENCE_CALLS"\n'
+                        '[[ -z ${PRESENCE_STATUS:-} ]] || exit "$PRESENCE_STATUS"\n'
+                        'exec "$ROOT/bin/monarch-cmd-present" "$@"\n')
+    presence.chmod(0o755)
     stub = tools / "uv"
     stub.write_text('''#!/usr/bin/python3
 import json, os, sys
@@ -37,7 +45,8 @@ if not code and sys.argv[1:3] == ["venv", ".venv"]:
 sys.exit(code)
 ''')
     stub.chmod(0o755)
-    env = {**os.environ, "MONARCH_PATH": str(root), "UV_CALLS": str(calls),
+    env = {**os.environ, "MONARCH_PATH": str(runtime), "UV_CALLS": str(calls),
+           "PRESENCE_CALLS": str(presence_calls),
            "PATH": f"{tools}:{os.environ['PATH']}"}
     load = ('source "$ROOT/default/shells/fns/python-uv"; '
             'source "$ROOT/default/shells/fns/python-uv"; ')
@@ -53,9 +62,11 @@ sys.exit(code)
 
         def run(program, args=(), extra=None, expected=0):
             calls.write_text("")
+            presence_calls.write_text("")
             result = subprocess.run([shell_path, flags, program, "uv-test", *args],
                                     cwd=workspace, env={**env, **(extra or {})}, capture_output=True)
             assert result.returncode == expected, (shell, program, result.stderr, result.returncode)
+            assert presence_calls.read_text().splitlines() == ["uv", "uv"]
             return result, [json.loads(line) for line in calls.read_text().splitlines()]
 
         literal = ("script with spaces.py", "$(not-executed)", "a'b", "line\nbreak", "")
@@ -91,6 +102,13 @@ sys.exit(code)
             'alias uvr="printf user-owned"; ' + load +
             'for name in uvv uvreq uvpwn; do command -v "$name" && exit 1; done; alias uvr',
             extra={"PATH": str(empty_path)},
+        )
+        assert b"user-owned" in result.stdout and not recorded
+
+        result, recorded = run(
+            'alias uvr="printf user-owned"; ' + load +
+            'for name in uvv uvreq uvpwn; do command -v "$name" && exit 1; done; alias uvr',
+            extra={"PRESENCE_STATUS": "1"},
         )
         assert b"user-owned" in result.stdout and not recorded
 

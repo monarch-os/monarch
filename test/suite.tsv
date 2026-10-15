@@ -133,6 +133,7 @@ test/shell.d/security-fido2-test.sh	security	high	isolated
 test/shell.d/setup-form-test.sh	installer	medium	isolated
 test/shell.d/shell-init-login-test.sh	shell	medium	isolated
 test/shell.d/shell-helpers-test.sh	shell	medium	isolated
+test/shell.d/shell-converters-test.sh	shell	medium	isolated
 test/shell.d/shell-uv-test.sh	shell	medium	isolated
 test/shell.d/skillarch-fixes-test.sh	shell	medium	isolated
 test/shell.d/system-power-test.sh	power	high	isolated

@@ -6,6 +6,8 @@ Z	Open this directory in Zed
 b	View files with syntax highlighting
 b64d	Decode Base64 input
 b64e	Encode input as Base64 without line wrapping
+b64url	Encode bytes as unpadded URL-safe Base64
+b64urld	Decode padded or unpadded URL-safe Base64
 c	Start OpenCode
 cd	Change directory with zoxide support
 cdtmp	Create and enter a temporary directory
@@ -23,6 +25,7 @@ crlix	Send an HTTP request through the local proxy
 cx	Start Claude with permission prompts bypassed
 d	Run Docker
 decompress	Extract a compressed tar archive
+fromHex	Decode hexadecimal input to bytes
 dex	Run a command in a selected Docker container
 dexr	Run a command as root in a selected Docker container
 dgitleaks	Run Gitleaks in Docker
@@ -102,6 +105,7 @@ monarch-picker	Search commands, aliases and shell functions
 mup	Update mise tools without the release-age delay
 n	Open files or this directory in Neovim
 ncl	Listen on a port with Ncat
+nthash	Compute the NT hash of UTF-8 text without adding a newline
 open	Open a file or URL with its default application
 p	Run Python
 paste	Read the Wayland clipboard without adding a newline
@@ -116,6 +120,11 @@ sop	Show listening TCP and UDP ports sorted by port with process details
 ssh	Connect over SSH with Kitty terminal support
 ssh-yolo	Connect over SSH without host-key verification
 t	Start Herdr
+toHex	Encode bytes as lowercase hexadecimal
+urlencode	Percent-encode bytes without form-style space conversion
+urldecode	Decode percent escapes while preserving literal plus signs
+utf16le	Convert UTF-8 text to UTF-16LE without a byte-order mark
+utf16to8	Convert UTF-16LE text to UTF-8
 uvv	Create or activate the current directory's .venv without replacing it
 uvr	Run a command or script with uv
 uvreq	Install requirements.txt into the selected environment with uv
