@@ -101,8 +101,6 @@ alias sop='show-open-ports'
 alias dirmon='inotifywait -rm -e create -e moved_to -e modify -e access -e attrib -e close_write -e moved_from'
 
 # Misc
-alias b64d='base64 -d'
-alias b64e='base64 -w 0'
 alias cpy='wl-copy'
 alias paste='wl-paste --no-newline'
 

@@ -1,0 +1,18 @@
+unalias b64url b64urld urlencode urldecode toHex fromHex utf16le utf16to8 nthash 2>/dev/null || true
+
+alias b64d='base64 -d'
+alias b64e='base64 -w 0'
+
+_monarch_convert() {
+  python3 "${MONARCH_PATH:-/usr/share/monarch}/default/shells/lib/converters.py" "$@"
+}
+
+b64url() { _monarch_convert b64url "$@"; }
+b64urld() { _monarch_convert b64urld "$@"; }
+urlencode() { _monarch_convert urlencode "$@"; }
+urldecode() { _monarch_convert urldecode "$@"; }
+toHex() { _monarch_convert toHex "$@"; }
+fromHex() { _monarch_convert fromHex "$@"; }
+utf16le() { _monarch_convert utf16le "$@"; }
+utf16to8() { _monarch_convert utf16to8 "$@"; }
+nthash() { _monarch_convert nthash "$@"; }
