@@ -329,7 +329,7 @@ cmd_enter() {
 # cmd_menu opened via the presentation launcher).
 cmd_picker() {
   if ! command -v exegol &>/dev/null; then
-    gum confirm 'Exegol is not installed. Install it?' && pipx install exegol
+    gum confirm 'Exegol is not installed. Install it?' && monarch-install-exegol
     command -v exegol &>/dev/null || exit 1
   fi
 

@@ -531,6 +531,7 @@
     "monarch-install-displaylink": "Installer les pilotes DisplayLink",
     "monarch-install-docker-dbs": "Installer une base de données dans un conteneur Docker de développement",
     "monarch-install-emacs": "Installer Emacs et démarrer son service utilisateur",
+    "monarch-install-exegol": "Installer Exegol avec un environnement Python isolé et pris en charge",
     "monarch-install-font": "Installer une police et sélectionner sa famille",
     "monarch-install-gaming-geforce-now": "Installer et lancer GeForce NOW",
     "monarch-install-gaming-gpu-lib32": "Installer les pilotes graphiques 32 bits pour les GPU détectés",

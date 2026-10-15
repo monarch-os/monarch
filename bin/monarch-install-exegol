@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# monarch:summary=Install Exegol with an isolated, supported Python runtime
+
+set -euo pipefail
+
+# Exegol is not compatible with the newest rolling-release Python runtimes.
+pipx install --python 3.14 --fetch-missing-python exegol

@@ -97,7 +97,6 @@ alias get-ip='curl -s ipv4.ident.me|| curl -sS ifconfig.io ; echo'
 alias get-ip-cpy='export PUBLIC_IP=$(get-ip); echo -n $PUBLIC_IP | wl-copy'
 
 # System
-alias show-open-ports="sudo ss -latepun | grep -i listen"
 alias sop='show-open-ports'
 alias dirmon='inotifywait -rm -e create -e moved_to -e modify -e access -e attrib -e close_write -e moved_from'
 
@@ -109,13 +108,11 @@ alias paste='wl-paste --no-newline'
 
 # Python
 alias pyreq='pip install -r requirements.txt'
-alias pysrv='mkdir -pv /tmp/empty ; python -m http.server -d /tmp/empty'
 
 # Web Based Recon
 unalias gau 2>/dev/null # gau real tool instead of omz git alias
 
 # Web Fuzzing
-alias probe-urls='f(){ while read url; do curl -sk "$url" -o /dev/null -w "%{http_code}:%{size_download}:%{url_effective}\n" ; done < "$@" ; ; unset -f f; }; f'
 alias fu='ffuf --of json -mc all -t 2 -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"'
 alias lfu='flfu(){ outfile=fu-$(echo -n "$@" | sed -E "s#[/ ]#_#g").json ; ffuf --of json -o "$outfile" -mc all -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36" $@ ; cfu-clean "$outfile" ; unset -f flfu; }; flfu'
 alias crl='curl -sS --path-as-is -gk -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) snap Chromium/83.0.4103.106 Chrome/83.0.4103.106 Safari/537.36"'
