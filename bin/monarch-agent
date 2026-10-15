@@ -59,7 +59,7 @@ fi
 case "$agent" in
 hermes)
   command=("$agent_binary" chat --tui)
-  [[ -n ${prompt:-} ]] && command+=(--query "$prompt")
+  [[ -n ${prompt:-} ]] && command+=("--query=$prompt")
   ;;
 opencode)
   command=(opencode --auto)

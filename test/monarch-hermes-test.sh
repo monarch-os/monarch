@@ -72,6 +72,19 @@ cp "$MONARCH_PATH/config/$1" "$HOME/.config/$1"
 EOF
 cat >"$system/usr/bin/hermes" <<'EOF'
 #!/bin/bash
+python3 - "$@" <<'PY' || exit $?
+import argparse
+import os
+from pathlib import Path
+
+parser = argparse.ArgumentParser()
+chat = parser.add_subparsers(dest='command', required=True).add_parser('chat')
+chat.add_argument('--tui', action='store_true')
+chat.add_argument('--query')
+args = parser.parse_args()
+if args.query is not None:
+    Path(os.environ['TEST_LOG'] + '.query').write_text(args.query)
+PY
 printf 'hermes %s\n' "$*" >>"$TEST_LOG"
 EOF
 cat >"$HOME/.local/bin/hermes" <<'EOF'
@@ -106,7 +119,11 @@ monarch-install-ai-hermes --check
 grep -qx 'hermes chat --tui' "$TEST_LOG"
 [[ $(<"$HOME/.config/monarch/defaults/agent") == hermes ]]
 monarch-agent --inline --prompt 'spaces; $(never execute)'
-grep -qxF 'hermes chat --tui --query spaces; $(never execute)' "$TEST_LOG"
+grep -qxF 'hermes chat --tui --query=spaces; $(never execute)' "$TEST_LOG"
+for prompt in '--help' '--query' '-x' '--help with spaces'; do
+  monarch-agent-prompt --inline "$prompt"
+  [[ $(<"$TEST_LOG.query") == "$prompt" ]]
+done
 monarch-agent
 grep -qxF "tui --app-id=org.monarch.agent $system/usr/bin/hermes chat --tui" "$TEST_LOG"
 if grep -qE 'yolo|mise|foreign-cli|pkg-add' "$TEST_LOG"; then exit 1; fi
