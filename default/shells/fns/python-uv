@@ -1,0 +1,22 @@
+command -v uv &>/dev/null || return 0
+unalias uvv uvr uvreq uvpwn 2>/dev/null || true
+
+uvv() {
+  if (( $# != 0 )); then
+    echo "Usage: uvv (creates or activates .venv in the current directory)" >&2
+    return 2
+  fi
+  if [[ -e .venv || -L .venv ]]; then
+    if [[ ! -r .venv/bin/activate ]]; then
+      echo "Cannot activate .venv: no readable bin/activate; existing files were left unchanged." >&2
+      return 1
+    fi
+  else
+    command uv venv .venv || return $?
+  fi
+  source .venv/bin/activate
+}
+
+uvr() { command uv run "$@"; }
+uvreq() { command uv pip install -r requirements.txt "$@"; }
+uvpwn() { command uv run --isolated --no-project --with pwntools python "$@"; }

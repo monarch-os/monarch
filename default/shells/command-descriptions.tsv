@@ -116,6 +116,10 @@ sop	Show listening TCP and UDP ports sorted by port with process details
 ssh	Connect over SSH with Kitty terminal support
 ssh-yolo	Connect over SSH without host-key verification
 t	Start Herdr
+uvv	Create or activate the current directory's .venv without replacing it
+uvr	Run a command or script with uv
+uvreq	Install requirements.txt into the selected environment with uv
+uvpwn	Run Python with pwntools in an isolated uv environment
 tdl	Create a Herdr development layout
 tdlm	Create a Herdr development layout for each subdirectory
 te	Empty the trash
