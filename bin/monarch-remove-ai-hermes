@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# monarch:summary=Remove Hermes Desktop and its unneeded dependencies
+# monarch:requires-sudo=true
+
+set -euo pipefail
+
+if monarch-pkg-present hermes-agent-desktop-bin; then
+  monarch-pkg-drop hermes-agent-desktop-bin
+elif monarch-pkg-present hermes-agent-desktop; then
+  monarch-pkg-drop hermes-agent-desktop
+fi
+if [[ $(monarch-default-agent) == "hermes" ]] && ! monarch-pkg-present hermes-agent-bin && ! monarch-pkg-present hermes-agent; then
+  rm -f "$HOME/.config/monarch/defaults/agent"
+fi
+echo "$(monarch-i18n hermes.removed)"

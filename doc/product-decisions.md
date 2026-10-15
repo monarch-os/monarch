@@ -80,7 +80,15 @@ Pacman's error output does not authorize moving system state into quarantine.
 
 ## Excluded integrations
 
-ONCE, Dropbox and Hermes will not be integrated into Monarch.
+ONCE and Dropbox will not be integrated into Monarch.
+
+## Optional agent integrations
+
+Hermes is optional; choosing the terminal agent installs Desktop, whose runtime
+provides the CLI. Monarch selects no agent automatically and does not enable Hermes YOLO
+mode. Hermes owns its appearance; Monarch theme integration is deferred.
+Removing Desktop also removes its unneeded dependencies. An explicitly selected
+CLI installed independently and user data are preserved.
 
 ## Deferred integrations
 

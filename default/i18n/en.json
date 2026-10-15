@@ -1,5 +1,6 @@
 {
   "strings": {
+    "hermes.removed": "Hermes Desktop removed. Unneeded dependencies were removed; explicitly installed packages and your personal data were kept.",
     "cli.title": "Monarch command center",
     "cli.usage": "Usage:",
     "cli.commonCommands": "Common commands:",
@@ -143,6 +144,9 @@
     "common.open": "Open"
   },
   "menu": {
+    "setup.defaults.agent.hermes.label": "Hermes",
+    "install.ai.hermes.label": "Hermes Desktop",
+    "remove.ai.hermes.label": "Hermes Desktop",
     "apps.label": "Apps",
     "apps.description": "Open the application launcher",
     "trigger.label": "Actions",

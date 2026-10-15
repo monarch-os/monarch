@@ -1,5 +1,6 @@
 {
   "strings": {
+    "hermes.removed": "Hermes Desktop supprimé. Les dépendances inutilisées ont été supprimées ; les paquets installés explicitement et vos données personnelles sont conservés.",
     "cli.title": "Centre de commandes Monarch",
     "cli.usage": "Utilisation :",
     "cli.commonCommands": "Commandes courantes :",
@@ -143,6 +144,9 @@
     "common.open": "Ouvrir"
   },
   "menu": {
+    "setup.defaults.agent.hermes.label": "Hermes",
+    "install.ai.hermes.label": "Hermes Desktop",
+    "remove.ai.hermes.label": "Hermes Desktop",
     "apps.label": "Applications",
     "apps.description": "Ouvrir le lanceur d’applications",
     "trigger.label": "Actions",
@@ -419,6 +423,8 @@
     "windows": "Gestion de la VM Windows"
   },
   "commands": {
+    "monarch-install-ai-hermes": "Installer et ouvrir Hermes Desktop",
+    "monarch-remove-ai-hermes": "Supprimer Hermes Desktop et ses dépendances inutilisées",
     "monarch-language": "Choisir la langue des menus et commandes Monarch",
     "monarch-i18n": "Traduire un message destiné à l’utilisateur",
     "monarch-ac-present": "Vérifier si l’alimentation secteur est branchée",

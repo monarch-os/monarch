@@ -125,7 +125,7 @@ assert_equals "network groups overview, Wi-Fi and DNS" "${output% }" "Overview W
 
 output=$(jq -r '.[] | select(.id | test("^setup\\.defaults\\.agent\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
 assert_equals "default agents follow Monarch's supported catalog" "${output% }" \
-  "Antigravity Claude Codex Copilot Crush Cursor CLI Grok Muse Code omp OpenCode Ori Pi"
+  "Antigravity Claude Codex Copilot Crush Cursor CLI Grok Muse Code omp OpenCode Hermes Ori Pi"
 
 output=$(jq -r '.[] | select(.id == "setup.plugins") | .action' <<<"$SHIPPED_TREE")
 assert_equals "plugin setup opens Noctalia's native plugin manager" "$output" \
@@ -145,7 +145,7 @@ assert_equals "software follows the install workflow" "${output% }" \
 
 output=$(jq -r '.[] | select(.id | test("^install\\.ai\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
 assert_equals "AI follows Monarch's supported catalog" "${output% }" \
-  "ChatGPT Desktop Dictation LM Studio Ollama T3 Code"
+  "ChatGPT Desktop Dictation LM Studio Ollama T3 Code Hermes Desktop"
 refute_contains "AI no longer lists Crush as a desktop app" "$output" "Crush"
 
 if ! grep -q '^local WINDOW_ROWS = 10$' "$ROOT/default/noctalia/plugins/monarch-menu/panel.luau"; then
@@ -155,7 +155,7 @@ pass "menu viewport keeps its last row above the footer"
 
 output=$(jq -r '.[] | select(.id | test("^remove\\.ai\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
 assert_equals "AI removal mirrors the install catalog" "${output% }" \
-  "ChatGPT Desktop Dictation LM Studio Ollama T3 Code"
+  "ChatGPT Desktop Dictation LM Studio Ollama T3 Code Hermes Desktop"
 
 output=$(jq -r '.[] | select(.id | test("^remove\\.service\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
 assert_equals "specialized service removals are grouped" "${output% }" "Tailscale LazyVPN Displaylink"
