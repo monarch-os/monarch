@@ -34,12 +34,6 @@ if [[ $1 == "hermes-agent-desktop-bin" ]] && ! grep -qx hermes-agent-bin "$TEST_
   echo hermes-agent-bin >>"$TEST_PACKAGES"
 fi
 EOF
-cat >"$TMP/bin/sudo" <<'EOF'
-#!/bin/bash
-[[ $1 == "pacman" && $2 == "-D" && $3 == "--asexplicit" ]] || exit 1
-printf 'explicit %s\n' "$4" >>"$TEST_LOG"
-echo "$4" >>"$TEST_EXPLICIT"
-EOF
 cat >"$TMP/bin/monarch-pkg-drop" <<'EOF'
 #!/bin/bash
 printf 'pkg-drop %s\n' "$*" >>"$TEST_LOG"
@@ -90,7 +84,7 @@ mkdir -p "$HOME/.hermes/hermes-agent"
 touch "$HOME/.hermes/config.yaml" "$HOME/.hermes/sessions.db" "$HOME/.hermes/hermes-agent/keep"
 foreign_hash=$(sha256sum "$HOME/.local/bin/hermes")
 
-if monarch-install-hermes-cli --check; then exit 1; fi
+if monarch-install-ai-hermes --check; then exit 1; fi
 [[ ! -e $TEST_LOG ]]
 printf '%s\n' codex >"$HOME/.config/monarch/defaults/agent"
 "$ROOT/bin/monarch-default-agent" hermes
@@ -98,11 +92,12 @@ grep -qx 'launch monarch-default-agent --install hermes' "$TEST_LOG"
 [[ $(<"$HOME/.config/monarch/defaults/agent") == codex ]]
 if INSTALL_STATUS=23 "$ROOT/bin/monarch-default-agent" --install hermes; then exit 1; fi
 [[ $(<"$HOME/.config/monarch/defaults/agent") == codex ]]
-monarch-install-hermes-cli --now
-grep -qx 'pkg-add hermes-agent-bin' "$TEST_LOG"
-if grep -q 'hermes-agent-desktop' "$TEST_PACKAGES"; then exit 1; fi
-[[ ! -e $HOME/.config/hermes-desktop-flags.conf ]]
-monarch-install-hermes-cli --check
+"$ROOT/bin/monarch-default-agent" --install hermes
+grep -qx 'pkg-add hermes-agent-desktop-bin' "$TEST_LOG"
+grep -qx hermes-agent-bin "$TEST_PACKAGES"
+if grep -qx hermes-agent-bin "$TEST_EXPLICIT"; then exit 1; fi
+grep -qx -- '--ozone-platform=wayland' "$HOME/.config/hermes-desktop-flags.conf"
+monarch-install-ai-hermes --check
 [[ $(sha256sum "$HOME/.local/bin/hermes") == "$foreign_hash" ]]
 [[ -f $HOME/.hermes/hermes-agent/keep ]]
 
@@ -117,9 +112,8 @@ grep -qxF "tui --app-id=org.monarch.agent $system/usr/bin/hermes chat --tui" "$T
 if grep -qE 'yolo|mise|foreign-cli|pkg-add' "$TEST_LOG"; then exit 1; fi
 
 : >"$TEST_LOG"
-if INSTALL_STATUS=23 "$ROOT/bin/monarch-install-ai-hermes"; then exit 1; fi
 "$ROOT/bin/monarch-install-ai-hermes"
-grep -qx 'pkg-add hermes-agent-desktop-bin' "$TEST_LOG"
+if grep -q 'pkg-add' "$TEST_LOG"; then exit 1; fi
 grep -qx -- '--ozone-platform=wayland' "$HOME/.config/hermes-desktop-flags.conf"
 printf '%s\n' '--ozone-platform=x11' >"$HOME/.config/hermes-desktop-flags.conf"
 "$ROOT/bin/monarch-install-ai-hermes"
@@ -131,22 +125,20 @@ if REMOVE_STATUS=23 "$ROOT/bin/monarch-remove-ai-hermes"; then exit 1; fi
 [[ $(<"$HOME/.config/monarch/defaults/agent") == hermes ]]
 "$ROOT/bin/monarch-remove-ai-hermes"
 grep -qx 'pkg-drop hermes-agent-desktop-bin' "$TEST_LOG"
-[[ $(<"$HOME/.config/monarch/defaults/agent") == hermes ]]
-grep -qx hermes-agent-bin "$TEST_PACKAGES"
+[[ ! -e $HOME/.config/monarch/defaults/agent && ! -s $TEST_PACKAGES ]]
 [[ -f $HOME/.hermes/config.yaml && -f $HOME/.hermes/sessions.db && -f $HOME/.hermes/hermes-agent/keep ]]
 [[ $(sha256sum "$HOME/.local/bin/hermes") == "$foreign_hash" ]]
 
 printf '%s\n' hermes-agent hermes-agent-desktop >"$TEST_PACKAGES"
 printf '%s\n' codex >"$HOME/.config/monarch/defaults/agent"
 : >"$TEST_LOG"
-monarch-install-hermes-cli --now
-monarch-install-hermes-cli --check
+monarch-install-ai-hermes --check
 "$ROOT/bin/monarch-install-ai-hermes"
 if grep -q 'pkg-add' "$TEST_LOG"; then exit 1; fi
 "$ROOT/bin/monarch-remove-ai-hermes"
 grep -qx 'pkg-drop hermes-agent-desktop' "$TEST_LOG"
 [[ $(<"$HOME/.config/monarch/defaults/agent") == codex ]]
-grep -qx hermes-agent "$TEST_PACKAGES"
+[[ ! -s $TEST_PACKAGES ]]
 
 : >"$TEST_PACKAGES"
 : >"$TEST_EXPLICIT"
@@ -160,8 +152,8 @@ printf '%s\n' hermes >"$HOME/.config/monarch/defaults/agent"
 [[ -f $HOME/.hermes/config.yaml && -f $HOME/.hermes/sessions.db ]]
 
 "$ROOT/bin/monarch-install-ai-hermes"
+echo hermes-agent-bin >>"$TEST_EXPLICIT"
 "$ROOT/bin/monarch-default-agent" --install hermes
-grep -qx 'explicit hermes-agent-bin' "$TEST_LOG"
 "$ROOT/bin/monarch-remove-ai-hermes"
 grep -qx hermes-agent-bin "$TEST_PACKAGES"
 [[ $(<"$HOME/.config/monarch/defaults/agent") == hermes ]]

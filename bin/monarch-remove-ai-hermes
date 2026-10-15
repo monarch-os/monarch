@@ -10,7 +10,7 @@ if monarch-pkg-present hermes-agent-desktop-bin; then
 elif monarch-pkg-present hermes-agent-desktop; then
   monarch-pkg-drop hermes-agent-desktop
 fi
-if [[ $(monarch-default-agent) == "hermes" ]] && ! monarch-install-hermes-cli --check; then
+if [[ $(monarch-default-agent) == "hermes" ]] && ! monarch-pkg-present hermes-agent-bin && ! monarch-pkg-present hermes-agent; then
   rm -f "$HOME/.config/monarch/defaults/agent"
 fi
 echo "$(monarch-i18n hermes.removed)"

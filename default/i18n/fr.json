@@ -423,7 +423,6 @@
     "windows": "Gestion de la VM Windows"
   },
   "commands": {
-    "monarch-install-hermes-cli": "Installer le CLI Hermes",
     "monarch-install-ai-hermes": "Installer et ouvrir Hermes Desktop",
     "monarch-remove-ai-hermes": "Supprimer Hermes Desktop et ses dépendances inutilisées",
     "monarch-language": "Choisir la langue des menus et commandes Monarch",

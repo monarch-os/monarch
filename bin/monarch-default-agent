@@ -59,8 +59,8 @@ if [[ $agent == "opencode" ]]; then
   agent_check=(monarch-pkg-present opencode)
   agent_install=(monarch-pkg-add opencode)
 elif [[ $agent == "hermes" ]]; then
-  agent_check=(monarch-install-hermes-cli --check)
-  agent_install=(monarch-install-hermes-cli --now)
+  agent_check=(monarch-install-ai-hermes --check)
+  agent_install=(monarch-install-ai-hermes --no-launch)
 fi
 
 if [[ $installing == "false" ]] && ! "${agent_check[@]}" &>/dev/null; then

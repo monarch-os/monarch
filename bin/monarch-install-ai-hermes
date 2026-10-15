@@ -1,15 +1,28 @@
 #!/bin/bash
 
 # monarch:summary=Install and open Hermes Desktop
+# monarch:args=[--check|--no-launch]
 # monarch:requires-sudo=true
 
 set -euo pipefail
 
-if ! monarch-pkg-present hermes-agent-desktop-bin && ! monarch-pkg-present hermes-agent-desktop; then
+desktop_present() {
+  monarch-pkg-present hermes-agent-desktop-bin || monarch-pkg-present hermes-agent-desktop
+}
+
+case "${1:-}" in
+  --check) desktop_present; exit $? ;;
+  "" | --no-launch) ;;
+  *) echo "Usage: monarch-install-ai-hermes [--check|--no-launch]" >&2; exit 1 ;;
+esac
+
+if ! desktop_present; then
   monarch-pkg-add hermes-agent-desktop-bin
 fi
 flags="$HOME/.config/hermes-desktop-flags.conf"
 if [[ ! -e $flags && ! -L $flags ]]; then
   monarch-refresh-config hermes-desktop-flags.conf
 fi
-setsid uwsm-app -- /usr/bin/hermes-desktop >/dev/null 2>&1 &
+if [[ ${1:-} != "--no-launch" ]]; then
+  setsid uwsm-app -- /usr/bin/hermes-desktop >/dev/null 2>&1 &
+fi

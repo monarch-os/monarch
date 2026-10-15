@@ -1,7 +1,7 @@
 # Hermes
 
-Hermes is optional. `monarch default agent hermes` installs only the CLI
-(`hermes-agent-bin`) and selects it as the terminal agent.
+Hermes is optional. `monarch default agent hermes` installs Desktop without
+opening its window and selects its CLI as the terminal agent.
 `monarch install ai hermes` installs Desktop (`hermes-agent-desktop-bin`), letting
 pacman install its runtime dependency, and opens it without changing the default agent.
 Existing AUR source variants are recognized and preserved.
@@ -31,8 +31,8 @@ or change Hermes configuration.
 
 `monarch remove ai hermes` removes Desktop and its unneeded dependencies through
 pacman. A runtime installed only as a dependency is removed; an explicitly
-installed CLI is kept. Selecting Hermes as the terminal agent marks its runtime
-explicit, including when Desktop installed it first. Credentials, sessions and
+installed CLI is kept. Selecting Hermes as the terminal agent does not change
+the runtime's dependency status. Credentials, sessions and
 other user data remain. The default agent is cleared only if Hermes was selected
 and its runtime is no longer installed.
 
@@ -44,7 +44,7 @@ Desktop opened under Wayland and Ctrl+Shift+H produced a floating `Hermes HUD`;
 the screenshot was inspected. The backend resolved to `/opt/hermes-agent`.
 No provider credentials were configured.
 
-Integration tests cover separate CLI/Desktop installation, source variants,
+Integration tests cover the shared Desktop/terminal installation, source variants,
 installation/removal failures, preserving user data and flags, prompt forwarding
 and dependency-aware removal.
 
