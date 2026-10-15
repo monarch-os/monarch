@@ -111,6 +111,13 @@ monarch-agent
 grep -qxF "tui --app-id=org.monarch.agent $system/usr/bin/hermes chat --tui" "$TEST_LOG"
 if grep -qE 'yolo|mise|foreign-cli|pkg-add' "$TEST_LOG"; then exit 1; fi
 
+mv "$system/usr/bin/hermes" "$system/usr/bin/hermes.saved"
+: >"$TEST_LOG"
+if monarch-agent >"$TMP/missing-runtime.log" 2>&1; then exit 1; fi
+grep -q 'hermes is not installed' "$TMP/missing-runtime.log"
+[[ ! -s $TEST_LOG ]]
+mv "$system/usr/bin/hermes.saved" "$system/usr/bin/hermes"
+
 : >"$TEST_LOG"
 "$ROOT/bin/monarch-install-ai-hermes"
 if grep -q 'pkg-add' "$TEST_LOG"; then exit 1; fi

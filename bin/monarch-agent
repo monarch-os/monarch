@@ -48,7 +48,9 @@ if [[ -z $agent ]]; then
   exit 1
 fi
 
-if monarch-cmd-missing "$agent"; then
+agent_binary=$agent
+[[ $agent == "hermes" ]] && agent_binary=/usr/bin/hermes
+if monarch-cmd-missing "$agent_binary"; then
   echo "$agent is not installed. Choose an installed agent with: monarch default agent <name>" >&2
   exit 1
 fi
@@ -56,7 +58,7 @@ fi
 # Most agents use their automatic approval mode; Hermes keeps its approvals.
 case "$agent" in
 hermes)
-  command=(/usr/bin/hermes chat --tui)
+  command=("$agent_binary" chat --tui)
   [[ -n ${prompt:-} ]] && command+=(--query "$prompt")
   ;;
 opencode)
