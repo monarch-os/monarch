@@ -105,14 +105,14 @@ ncl	Listen on a port with Ncat
 open	Open a file or URL with its default application
 p	Run Python
 paste	Read the Wayland clipboard without adding a newline
-probe-urls	Read HTTP response information for a URL list
+probe-urls	Read HTTP response information for each URL in a list file
 pv	Set up a project's Python version and virtual environment
 pyreq	Install Python dependencies from requirements.txt
-pysrv	Serve an empty directory with Python's HTTP server
+pysrv	Create and serve an empty directory with Python's HTTP server
 rm	Move files to the trash
 sff	Select a file and copy it to an SSH destination
-show-open-ports	Show listening sockets and their processes
-sop	Show listening sockets and their processes
+show-open-ports	Show listening TCP and UDP ports sorted by port with process details
+sop	Show listening TCP and UDP ports sorted by port with process details
 ssh	Connect over SSH with Kitty terminal support
 ssh-yolo	Connect over SSH without host-key verification
 t	Start Herdr
