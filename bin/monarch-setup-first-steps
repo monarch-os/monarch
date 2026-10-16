@@ -72,7 +72,7 @@ first_login() {
 visit() {
   local destination state active attempt route="install"
   case "$1" in
-    network) destination="control-center" ;;
+    network) destination="monarch/network:panel" ;;
     shortcuts) destination="monarch/menu:keybindings" ;;
     appearance) destination="monarch/theme:theme" ;;
     software|cyber) destination="monarch/menu:panel" ;;
@@ -81,9 +81,7 @@ visit() {
   # Persistent plugin panels are separate from Noctalia's active built-in panel.
   # Ask the entry to close itself; panel-close does not dismiss this guide.
   noctalia msg plugin "$panel_id" all skip
-  if [[ $1 == "network" ]]; then
-    if ! "$runtime/bin/monarch-launch-wifi"; then open_guide; return 1; fi
-  elif [[ $1 == "software" || $1 == "cyber" ]]; then
+  if [[ $1 == "software" || $1 == "cyber" ]]; then
     [[ $1 != "cyber" ]] || route="install.cyber"
     if ! "$runtime/bin/monarch-menu" "$route"; then open_guide; return 1; fi
   elif ! noctalia msg panel-open "$destination"; then

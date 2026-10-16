@@ -8,7 +8,6 @@ trap 'rm -rf "$test_tmp"' EXIT
 runtime="$test_tmp/runtime"
 mkdir -p "$runtime/bin" "$runtime/install/reconcile"
 cp "$ROOT/bin/monarch-setup-first-steps" "$runtime/bin/"
-cp "$ROOT/bin/monarch-launch-wifi" "$runtime/bin/"
 cp "$ROOT/install/reconcile/noctalia-wait.sh" "$runtime/install/reconcile/"
 export MONARCH_PATH="$runtime" TEST_FIRST_STEPS="$test_tmp" PATH="$runtime/bin:$PATH"
 
@@ -20,7 +19,7 @@ if [[ $* == 'msg status' ]]; then
     network-visit)
       if [[ -f $TEST_FIRST_STEPS/network-open ]]; then
         rm "$TEST_FIRST_STEPS/network-open"
-        printf '%s\n' '{"locked":false,"panelOpen":true,"activePanelId":"control-center"}'
+        printf '%s\n' '{"locked":false,"panelOpen":true,"activePanelId":"monarch/network:panel"}'
       else
         printf '%s\n' '{"locked":false,"panelOpen":false}'
       fi
@@ -34,7 +33,7 @@ if [[ $* == 'msg status' ]]; then
       ;;
     *) printf '%s\n' '{"locked":false,"panelOpen":false}' ;;
   esac
-elif [[ $* == 'msg panel-toggle control-center network' ]]; then
+elif [[ $* == 'msg panel-open monarch/network:panel' ]]; then
   [[ ${TEST_FIRST_STEPS_NETWORK_LAUNCH:-} != failure ]] || exit 42
   touch "$TEST_FIRST_STEPS/network-open"
 elif [[ $1 == "msg" && $2 == "panel-open" ]]; then
@@ -292,7 +291,7 @@ export TEST_FIRST_STEPS_MODE=network-visit
 monarch-setup-first-steps visit network
 jq -e '.phase == "network"' "$test_tmp/context" >/dev/null
 [[ $(head -n 1 "$test_tmp/calls") == 'msg plugin monarch/first-steps:panel all skip' ]] || fail "network visit hides the persistent guide first"
-grep -q '^msg panel-toggle control-center network$' "$test_tmp/calls"
+grep -q '^msg panel-open monarch/network:panel$' "$test_tmp/calls"
 [[ ! -f $test_tmp/network-open ]] || fail "network visit waits for the panel to close"
 monarch-setup-first-steps record update
 if TEST_FIRST_STEPS_NETWORK_LAUNCH=failure monarch-setup-first-steps visit network; then fail "network launch failure is reported"; fi

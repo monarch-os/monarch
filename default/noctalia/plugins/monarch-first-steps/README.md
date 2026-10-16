@@ -21,7 +21,8 @@ monarch setup first-steps reset
 ## Parcours
 
 1. **Se connecter** : l’état du réseau (Wi-Fi ou Ethernet) et le panneau réseau
-   existant. Fermer ce panneau ramène au guide et actualise la connexion.
+   Monarch (`monarch/network:panel`), le même que celui de la barre. Fermer ce
+   panneau ramène au guide et actualise la connexion.
 2. **Mettre Monarch à jour** : lancement de la mise à jour existante dans un
    terminal, après confirmation. Le guide s’efface et revient après validation
    du résultat dans le terminal, si le bureau est disponible et déverrouillé.
