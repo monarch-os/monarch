@@ -24,6 +24,8 @@ monarch setup first-steps reset
 1. **Network connection** ("Se connecter"): network status for Wi-Fi or Ethernet
    and the Monarch network panel (`monarch/network:panel`), also used by the bar.
    Closing that panel returns to the guide and refreshes the connection status.
+   The return path also follows its QR-code and speed-test subpanels, but leaves
+   unrelated panels alone.
 2. **System updates** ("Mettre Monarch à jour"): repository and AUR checks run
    when entering the step, returning from the terminal, or reconnecting. The
    guide displays the available update count or "Système à jour" (up to date),
@@ -35,6 +37,9 @@ monarch setup first-steps reset
    (AUR not checked). The updater explains this limitation before confirmation
    and skips AUR updates for that transaction. Without any known updates, the
    incomplete check remains an error.
+   A repository-check failure also offers "Vérifier dans le terminal". The
+   updater can then offer to refresh signing keys and retry the check once;
+   simply opening the guide never triggers privileged repair.
    Checks use a temporary package database, without sudo or changes to the
    system database. A recorded successful update neither replaces a fresh check
    nor prevents later updates from being offered.

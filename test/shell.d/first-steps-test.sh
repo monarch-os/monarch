@@ -19,7 +19,7 @@ if [[ $* == 'msg status' ]]; then
     network-visit)
       if [[ -f $TEST_FIRST_STEPS/network-open ]]; then
         rm "$TEST_FIRST_STEPS/network-open"
-        printf '%s\n' '{"locked":false,"panelOpen":true,"activePanelId":"monarch/network:panel"}'
+        printf '{"locked":false,"panelOpen":true,"activePanelId":"%s"}\n' "${TEST_FIRST_STEPS_CHILD:-monarch/network:panel}"
       else
         printf '%s\n' '{"locked":false,"panelOpen":false}'
       fi
@@ -294,6 +294,17 @@ monarch-setup-first-steps record update
 if TEST_FIRST_STEPS_NETWORK_LAUNCH=failure monarch-setup-first-steps visit network; then fail "network launch failure is reported"; fi
 jq -e '.phase == "update"' "$test_tmp/context" >/dev/null
 pass "network status covers offline and connected users and visits return to the saved phase"
+
+monarch-setup-first-steps record network
+for child in monarch/network:speedtest monarch/network:disk-speedtest monarch/wifi-qr:panel; do
+  : > "$test_tmp/calls"
+  TEST_FIRST_STEPS_CHILD="$child" monarch-setup-first-steps visit network
+  grep -q '^msg panel-open monarch/first-steps:panel ' "$test_tmp/calls" || fail "closing $child does not return to the guide"
+done
+: > "$test_tmp/calls"
+TEST_FIRST_STEPS_CHILD=monarch/menu:panel monarch-setup-first-steps visit network
+if grep -q '^msg panel-open monarch/first-steps:panel ' "$test_tmp/calls"; then fail "network return steals focus from an unrelated panel"; fi
+pass "network subpanels return to the guide while unrelated panels keep focus"
 
 wait_for_update_result() {
   local attempt

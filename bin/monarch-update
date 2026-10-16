@@ -55,6 +55,7 @@ source "$("$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/monarch-i18n" -
 monarch_i18n_load
 skip_aur=false
 packages_current=false
+keyrings_refreshed=false
 
 # Explicit branch switches and Git-managed runtimes also update source, which
 # a package-only check cannot describe. Use the same runtime boundary as
@@ -64,6 +65,27 @@ if [[ -z $branch && ! -d ${MONARCH_PATH:-/usr/share/monarch}/.git ]]; then
   monarch_message 'update.checking'
   check_status=0
   updates=$(monarch-update-available --all --json) || check_status=$?
+  # checkupdates deliberately hides pacman's diagnostic details, so a failed
+  # repository sync cannot distinguish transport errors from stale signatures.
+  # Keep the passive checker read-only, but offer the existing keyring repair
+  # here and retry once. Never turn an unsuccessful retry into "current".
+  if (( check_status == 2 )) && jq -e '.status == "error" and .reason == "repositories-unavailable"' >/dev/null 2>&1 <<< "$updates"; then
+    if [[ $unattended == "false" ]] && ! gum confirm "$(monarch_t 'update.repairKeyrings')"; then
+      exit 130
+    fi
+    monarch_message 'update.refreshingKeyrings'
+    trap 'monarch-update-stay-awake stop' EXIT
+    monarch-update-stay-awake start
+    if monarch-update-keyring; then
+      keyrings_refreshed=true
+    else
+      repair_status=$?
+      monarch_message 'update.keyringRepairFailed' >&2
+      exit "$repair_status"
+    fi
+    check_status=0
+    updates=$(monarch-update-available --all --json) || check_status=$?
+  fi
   case $check_status in
     0)
       if ! count=$(jq -er 'select(.status == "available" and (.count | type) == "number" and .count > 0) | .count' <<< "$updates"); then
@@ -79,7 +101,7 @@ if [[ -z $branch && ! -d ${MONARCH_PATH:-/usr/share/monarch}/.git ]]; then
       fi
       ;;
     1)
-      if ! jq -e '.status == "current" and .count == 0' >/dev/null <<< "$updates"; then
+      if ! jq -e '.status == "current" and .count == 0 and .complete != false' >/dev/null <<< "$updates"; then
         monarch_message 'update.checkFailed' >&2
         exit 2
       fi
@@ -105,21 +127,21 @@ if [[ $packages_current == "false" ]]; then
     echo -e "\e[33mContinuing the update without a snapshot.\e[0m" >&2
 
   [[ -z $branch ]] || monarch-update-switch-branch "$branch"
-  monarch-update-stay-awake start
+  [[ $keyrings_refreshed == "true" ]] || monarch-update-stay-awake start
   monarch-update-git
-  monarch-update-keyring
+  [[ $keyrings_refreshed == "true" ]] || monarch-update-keyring
   monarch-update-system-pkgs
 else
   # Package installation can succeed before reconciliation or a hook fails.
   # Always converge the post-package stages, including retries from older
   # updater versions which did not record a pending transaction.
   monarch_message 'update.finalizing'
-  monarch-update-stay-awake start
+  [[ $keyrings_refreshed == "true" ]] || monarch-update-stay-awake start
 fi
 monarch-reconcile
 [[ $skip_aur == "true" || $packages_current == "true" ]] || monarch-update-aur-pkgs
 monarch-update-orphan-pkgs
-monarch-hook post-update
+monarch-hook --strict post-update
 monarch-update-analyze-logs
 monarch-update-stay-awake stop
 trap - EXIT

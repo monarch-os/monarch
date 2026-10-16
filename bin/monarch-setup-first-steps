@@ -94,6 +94,9 @@ visit() {
     jq -e '.locked == false' >/dev/null <<< "$state" || return 0
     active=$(jq -r '.activePanelId // empty' <<< "$state")
     [[ -z $active ]] && { open_guide; return; }
+    if [[ $1 == "network" && ( $active == monarch/network:* || $active == "monarch/wifi-qr:panel" ) ]]; then
+      continue
+    fi
     [[ $active != "$destination" ]] && return 0
   done
 }

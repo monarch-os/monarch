@@ -55,6 +55,13 @@ done
 write_stub monarch-update-available '
 [[ $* == "--all --json" ]] || exit 99
 [[ -z ${CHECK_LOG:-} ]] || printf "check\n" >>"$CHECK_LOG"
+if [[ -n ${KEYRING_TRACE:-} ]]; then
+  printf "check\n" >>"$KEYRING_TRACE"
+  if [[ ! -e $KEYRING_MARKER || ${RETRY_CHECK_FAILURE:-0} == 1 ]]; then
+    echo '\''{"status":"error","count":null,"reason":"repositories-unavailable"}'\''
+    exit 2
+  fi
+fi
 if [[ ${BAD_CHECK_JSON:-0} == 1 ]]; then echo invalid; exit 0; fi
 if [[ ${PARTIAL_AUR_CHECK:-0} == 1 ]]; then
   echo '\''{"status":"available","count":2,"repositories":2,"aur":null,"complete":false,"warnings":[{"source":"aur","reason":"aur-unavailable"}]}'\''
@@ -91,6 +98,63 @@ diff -u "$test_tmp/expected" "$test_tmp/names" || fail "update guardrail orderin
 grep -q '^monarch-update-system-pkgs unattended=1' "$test_tmp/steps" ||
   fail "unattended update state reaches package updates"
 pass "update orders preflight, pruning, snapshot, reconciliation and hooks"
+grep -q '^monarch-hook .*args=--strict post-update$' "$test_tmp/steps" || fail "updates must propagate post-update hook failures"
+
+cp "$stub_bin/monarch-update-keyring" "$test_tmp/keyring-step"
+write_stub monarch-update-keyring '
+printf "%s\n" "${0##*/}" >>"$STEP_LOG"
+printf "keyring\n" >>"$KEYRING_TRACE"
+[[ ${KEYRING_REPAIR_FAIL:-0} == 0 ]] || exit 42
+touch "$KEYRING_MARKER"'
+write_stub gum '
+[[ $1 == confirm ]] || exit 99
+printf "repair-confirmation\n" >>"$KEYRING_TRACE"
+exit "${REPAIR_CONFIRM_STATUS:-0}"'
+export KEYRING_TRACE="$test_tmp/keyring-trace" KEYRING_MARKER="$test_tmp/keyring-refreshed"
+for mode in interactive unattended; do
+  args=()
+  [[ $mode != "unattended" ]] || args=(-y)
+  for after_repair in 0 1; do
+    rm -f "$KEYRING_MARKER"
+    : >"$KEYRING_TRACE"
+    : >"$test_tmp/steps"
+    CHECK_STATUS="$after_repair" run_update "${args[@]}" >/dev/null
+    [[ $(grep -E '^(check|keyring)$' "$KEYRING_TRACE") == $'check\nkeyring\ncheck' ]] || fail "keyring repair must precede exactly one retry"
+    [[ $(grep -c '^monarch-update-keyring' "$test_tmp/steps") == 1 ]] || fail "keyrings refreshed more than once"
+    [[ $(grep -c '^monarch-update-stay-awake .*args=start' "$test_tmp/steps") == 1 ]] || fail "repair does not retain one inhibitor through the update"
+    grep -q '^monarch-reconcile ' "$test_tmp/steps" || fail "repaired check cannot reach finalization"
+    if [[ $mode == "interactive" ]]; then
+      grep -q '^repair-confirmation$' "$KEYRING_TRACE" || fail "interactive keyring repair is not offered"
+    elif grep -q confirmation "$KEYRING_TRACE"; then
+      fail "unattended repair prompts"
+    fi
+  done
+done
+for failure in repair retry cancel-repair cancel-update; do
+  rm -f "$KEYRING_MARKER"
+  : >"$KEYRING_TRACE"
+  : >"$test_tmp/steps"
+  result=0
+  case "$failure" in
+    repair) KEYRING_REPAIR_FAIL=1 run_update -y >/dev/null 2>&1 || result=$?; expected=42 ;;
+    retry) RETRY_CHECK_FAILURE=1 run_update -y >/dev/null 2>&1 || result=$?; expected=2 ;;
+    cancel-repair) REPAIR_CONFIRM_STATUS=1 run_update >/dev/null 2>&1 || result=$?; expected=130 ;;
+    cancel-update) CONFIRM_STATUS=1 run_update >/dev/null 2>&1 || result=$?; expected=130 ;;
+  esac
+  (( result == expected )) || fail "$failure returned $result instead of $expected"
+  if grep -Eq '^monarch-(snapshot|reconcile|update-(pkg-prune|system-pkgs))' "$test_tmp/steps"; then
+    fail "$failure continued the update transaction"
+  fi
+  if [[ $failure == "cancel-repair" ]]; then
+    [[ ! -s $test_tmp/steps ]] || fail "declining repair changes system state"
+  else
+    grep -q '^monarch-update-stay-awake .*args=stop' "$test_tmp/steps" || fail "$failure leaks the repair inhibitor"
+  fi
+  (( $(grep -c '^keyring$' "$KEYRING_TRACE" || true) <= 1 )) || fail "$failure repeats keyring repair"
+done
+unset KEYRING_TRACE KEYRING_MARKER
+cp "$test_tmp/keyring-step" "$stub_bin/monarch-update-keyring"
+pass "repository checks can recover through one keyring refresh, with cancellation and failure cleanup"
 
 for mode in interactive unattended; do
   args=()
@@ -190,6 +254,20 @@ if grep -Eq '^monarch-(reconcile|hook|update-restart) ' "$test_tmp/steps"; then
   fail "failed package update reaches later transaction steps"
 fi
 pass "update failure releases temporary state and stops later steps"
+
+cp "$stub_bin/monarch-update-system-pkgs" "$test_tmp/failing-system-step"
+write_stub monarch-update-system-pkgs 'exit 0'
+cp "$stub_bin/monarch-update-aur-pkgs" "$test_tmp/aur-step"
+write_stub monarch-update-aur-pkgs 'exit 42'
+: >"$test_tmp/steps"
+result=0
+run_update -y >/dev/null 2>&1 || result=$?
+(( result == 42 )) || fail "failed AUR update is not propagated"
+if grep -Eq '^monarch-(hook|update-(orphan-pkgs|restart))' "$test_tmp/steps"; then fail "failed AUR update reaches later steps"; fi
+grep -q '^monarch-update-stay-awake .*args=stop' "$test_tmp/steps" || fail "failed AUR update leaks its inhibitor"
+cp "$test_tmp/aur-step" "$stub_bin/monarch-update-aur-pkgs"
+cp "$test_tmp/failing-system-step" "$stub_bin/monarch-update-system-pkgs"
+pass "the updater reports AUR failures and stops finalization"
 
 write_stub monarch-update-system-pkgs 'printf "%s\n" "${0##*/}" >>"$STEP_LOG"'
 write_stub monarch-snapshot 'touch "$SNAPSHOT_MARKER"'
@@ -373,3 +451,33 @@ fi
 HOME="$test_home" XDG_RUNTIME_DIR="$runtime_dir" PATH="$stub_bin:$ROOT/bin:$PATH" \
   "$ROOT/bin/monarch-update-lock" run true
 pass "SIGTERM releases inhibitor state and the update lock"
+
+# Exercise the real helpers as well as the orchestration stubs: their exit
+# status is the outcome recorded by the first-steps guide.
+write_stub pacman '[[ $* == -Qm ]] || exit 99; echo "dependency-only-aur 1"'
+write_stub monarch-pkg-aur-accessible 'exit "${AUR_ACCESS_STATUS:-0}"'
+write_stub yay 'touch "$AUR_CALLED"; exit "${AUR_EXIT_STATUS:-0}"'
+export AUR_CALLED="$test_tmp/aur-called"
+result=0
+AUR_EXIT_STATUS=42 PATH="$stub_bin:$ROOT/bin:$PATH" "$ROOT/bin/monarch-update-aur-pkgs" >/dev/null 2>&1 || result=$?
+(( result == 42 )) || fail "the real AUR helper hides yay failure"
+[[ -f $AUR_CALLED ]] || fail "AUR packages installed as dependencies are skipped"
+rm "$AUR_CALLED"
+AUR_ACCESS_STATUS=1 PATH="$stub_bin:$ROOT/bin:$PATH" "$ROOT/bin/monarch-update-aur-pkgs" >/dev/null
+[[ ! -e $AUR_CALLED ]] || fail "an unreachable AUR still invokes yay"
+pass "the real AUR helper updates foreign dependencies and propagates yay errors"
+
+mkdir -p "$test_home/.config/monarch/hooks/post-update.d"
+printf '#!/bin/bash\nexit 42\n' > "$test_home/.config/monarch/hooks/post-update"
+printf '#!/bin/bash\ntouch "$HOME/later-hook"\n' > "$test_home/.config/monarch/hooks/post-update.d/20-later"
+HOME="$test_home" "$ROOT/bin/monarch-hook" post-update >/dev/null
+[[ -e $test_home/later-hook ]] || fail "ordinary hooks no longer tolerate failures"
+rm "$test_home/later-hook"
+result=0
+HOME="$test_home" "$ROOT/bin/monarch-hook" --strict post-update >/dev/null 2>&1 || result=$?
+(( result == 42 )) || fail "strict hooks hide failure"
+[[ ! -e $test_home/later-hook ]] || fail "strict hooks continue after failure"
+printf '#!/bin/bash\nexit 0\n' > "$test_home/.config/monarch/hooks/post-update"
+HOME="$test_home" "$ROOT/bin/monarch-hook" --strict post-update >/dev/null
+[[ -e $test_home/later-hook ]] || fail "strict hook retry does not converge"
+pass "real post-update hooks can fail strictly while default hooks stay tolerant"

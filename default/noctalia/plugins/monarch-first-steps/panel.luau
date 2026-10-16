@@ -37,6 +37,10 @@ local function needsFinalization()
   return updateCheck and updateCheck.status == "current" and updateResult and updateResult.code ~= 0
 end
 
+local function needsRepositoryRepair()
+  return updateCheck and updateCheck.status == "error" and updateCheck.reason == "repositories-unavailable"
+end
+
 local function quote(value)
   return "'" .. value:gsub("'", "'\\''") .. "'"
 end
@@ -188,6 +192,7 @@ local function content()
     local available = updateCheck and updateCheck.status == "available"
     local current = updateCheck and updateCheck.status == "current"
     local resume = needsFinalization()
+    local repair = needsRepositoryRepair()
     local partial = updateCheck and updateCheck.complete == false
     local detail = "Consultation des dépôts système et de l’AUR…"
     local title = "Vérification des mises à jour…"
@@ -214,14 +219,17 @@ local function content()
       detail = "Les dépôts n’ont pas pu être vérifiés. Réessayez ou poursuivez avec Plus tard."
       if partial and updateCheck.repositories == 0 then
         detail = "Les dépôts système sont à jour, mais l’AUR n’a pas pu être vérifié. Réessayez."
+      elseif repair then
+        detail = "La vérification des dépôts a échoué. Le terminal permet de proposer une actualisation des clés de signature."
       end
     end
     table.insert(children, entry("↻", title, detail))
     if available and partial then
       table.insert(children, label("La vérification AUR a échoué. Les mises à jour des dépôts restent disponibles.", 12, "on_surface/0.65"))
     end
-    if (available or resume) and connected and activeTool == "" and not checkingUpdates then
-      table.insert(children, ui.button({ text = resume and "Finaliser la mise à jour" or "Mettre à jour maintenant",
+    if (available or resume or repair) and connected and activeTool == "" and not checkingUpdates then
+      table.insert(children, ui.button({ text = repair and "Vérifier dans le terminal"
+        or resume and "Finaliser la mise à jour" or "Mettre à jour maintenant",
         height = 36, variant = "primary", enabled = not launching,
         onClick = function() onInstallClicked("update") end }))
     end
@@ -237,7 +245,7 @@ local function content()
       table.insert(children, label("Une connexion réseau est nécessaire. Vous pouvez aussi reporter cette étape.", 12, "on_surface/0.65"))
       table.insert(children, ui.button({ text = "Se connecter", height = 32, onClick = function() run("visit network") end }))
     end
-    if available or resume then
+    if available or resume or repair then
       table.insert(children, label("Le guide s’efface pendant l’opération. Validez la fin dans le terminal pour revenir ici.", 12, "on_surface/0.65"))
     end
   elseif phase == "shortcuts" then
@@ -401,7 +409,7 @@ end
 function onInstallClicked(tool)
   if not toolsLoaded or launching or activeTool ~= "" or installed[tool] then return end
   if tool == "update" and (not connected or checkingUpdates or not updateCheck
-    or (updateCheck.status ~= "available" and not needsFinalization())) then return end
+    or (updateCheck.status ~= "available" and not needsFinalization() and not needsRepositoryRepair())) then return end
   launching = true
   if tool == "update" then invalidateUpdateCheck() end
   render()

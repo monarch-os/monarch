@@ -109,8 +109,21 @@ installation, but still runs reconciliation, orphan cleanup, post-update hooks,
 log analysis and restart handling. These stages must converge even after an
 earlier updater installed all packages and failed before finalization; a failed
 finalization remains a failed update. `-y` skips confirmation, not verification.
+Post-update hooks run with `monarch-hook --strict`, so a failed hook stops the
+update and remains retryable. Other hook callers retain their default tolerant
+behaviour. AUR updates include foreign packages installed as dependencies, and
+a failed `yay` transaction propagates its exit status.
 For an available-but-incomplete result, it explains that only repository updates
 will be applied and skips the unavailable AUR stage for that transaction.
+
+A repository-sync failure may be caused by stale signing keys: `checkupdates`
+hides pacman's detailed diagnostics. The updater offers the existing keyring
+refresh and retries the availability check once (`-y` accepts that repair).
+Repair runs under the update lock and sleep inhibitor, and its failure or a
+failed retry stops the transaction. A successful repair is not repeated during
+the subsequent package update. No signature policy is weakened. Passive checks
+from the bar or guide remain read-only and never request sudo; the guide offers
+an explicit terminal action when a repository check needs recovery.
 An explicit `--branch` switch or a Git-managed runtime bypasses this package-only
 availability gate: source changes must still be pulled even when packages are
 current, including the plain `monarch-update -y` used by `monarch-channel-set`.
