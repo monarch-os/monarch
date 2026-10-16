@@ -5,7 +5,7 @@
 
 set -e
 
-monarch-pkg-drop openai-codex-desktop
+monarch-pkg-drop chatgpt-desktop-bin openai-codex-desktop
 
 rm -rf \
   "$HOME/.config/Codex" \
