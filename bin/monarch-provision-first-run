@@ -10,7 +10,7 @@ usage() {
   cat <<USAGE
 Usage: monarch-provision-first-run [--force]
 
-Run first-login user setup and notification hooks. By default this only runs
+Run first-login user setup and offer the first-steps guide. By default this only runs
 once per user. Use --force to rerun the full sequence and refresh user setup.
 USAGE
 }
@@ -89,9 +89,6 @@ run_first_run_step "set GNOME theme" \
   bash "$MONARCH_PATH/install/user/first-run/gnome-theme.sh"
 run_first_run_step "set GTK primary paste" \
   bash "$MONARCH_PATH/install/user/first-run/gtk-primary-paste.sh"
-monarch-notification-wait || log_first_run "Timed out waiting for notification service; continuing"
-run_first_run_step "schedule Wi-Fi/update notifications" \
-  bash "$MONARCH_PATH/install/user/first-run/wifi.sh"
 
 if (( first_run_failed == 0 )); then
   monarch-done mark "$FIRST_RUN_DONE"

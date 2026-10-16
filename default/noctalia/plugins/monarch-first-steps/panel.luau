@@ -10,6 +10,8 @@ local toolsLoaded = false
 local toolsLoading = false
 local installed = {}
 local activeTool = ""
+local connected = false
+local updateResult = nil
 local launching = false
 local tick = 0
 local tools = {
@@ -18,8 +20,10 @@ local tools = {
   { id = "seclists", name = "SecLists", detail = "Listes de mots pour vos tests de sécurité" },
 }
 local render
-local steps = { "shortcuts", "appearance", "software" }
+local steps = { "network", "update", "shortcuts", "appearance", "software" }
 local titles = {
+  network = "Se connecter",
+  update = "Mettre Monarch à jour",
   shortcuts = "Se repérer",
   appearance = "Choisir son style",
   software = "Logiciels et outils cyber",
@@ -41,6 +45,7 @@ local function change(nextPhase)
     saving = false
     if result and result.exitCode == 0 then
       phase = nextPhase
+      status = ""
     else
       status = "La progression n’a pas pu être enregistrée."
     end
@@ -71,12 +76,14 @@ local function loadTools()
     if type(state) == "table" then
       installed = state.installed or {}
       activeTool = state.active or ""
+      connected = state.connected == true
+      updateResult = state.updateResult
       toolsLoaded = true
-      if state.lastResult and state.lastResult.code ~= 0 then
+      if phase == "software" and state.lastResult and state.lastResult.tool ~= "update" and state.lastResult.code ~= 0 then
         status = "Installation interrompue ou échouée. Consultez le terminal."
       end
     else
-      status = "L’état des outils n’a pas pu être chargé."
+      status = "L’état du système n’a pas pu être chargé."
     end
     render()
   end)
@@ -103,9 +110,9 @@ local function content()
   if phase == "welcome" then
     return {
       label("Bienvenue sur Monarch", 22),
-      label("Trois repères pour prendre votre bureau en main.", 13, "on_surface/0.7"),
-      entry("01", "Se repérer", "monarch-menu · Win + Alt + Espace"),
-      entry("02", "Choisir son style", "Thèmes et fonds d’écran"),
+      label("Préparez votre système, puis découvrez votre bureau à votre rythme.", 13, "on_surface/0.7"),
+      entry("01", "Connexion et mise à jour", "Wi-Fi ou Ethernet, puis les dernières mises à jour"),
+      entry("02", "Se repérer et choisir son style", "Raccourcis, thèmes et fonds d’écran"),
       entry("03", "Logiciels et outils cyber", "Installer vos outils à la carte"),
       label("Retrouvez ce guide dans monarch-menu → Documentation → Premiers pas.", 12, "on_surface/0.65"),
     }
@@ -122,7 +129,42 @@ local function content()
   end
 
   local children = { label(titles[phase], 22) }
-  if phase == "shortcuts" then
+  if phase == "network" then
+    table.insert(children, label("Connectez-vous pour mettre le système à jour et installer vos outils.", 13, "on_surface/0.7"))
+    table.insert(children, entry(connected and "✓" or "○",
+      not toolsLoaded and "Vérification du réseau…" or connected and "Réseau connecté" or "Aucune connexion réseau",
+      connected and "Wi-Fi ou Ethernet : vous pouvez continuer." or "Choisissez votre Wi-Fi dans le panneau réseau."))
+    table.insert(children, ui.button({ text = connected and "Gérer la connexion" or "Se connecter", height = 36,
+      variant = "primary", onClick = "onVisitClicked" }))
+    if not connected then
+      table.insert(children, label("Pas de réseau disponible ? Choisissez Plus tard pour poursuivre la visite.", 12, "on_surface/0.65"))
+    end
+  elseif phase == "update" then
+    local completed = updateResult and updateResult.code == 0
+    local detail = "Installez les dernières mises à jour de Monarch et de vos logiciels."
+    local title = "Votre première mise à jour"
+    if activeTool == "update" then
+      title = "Mise à jour en cours…"
+      detail = "Suivez sa progression dans le terminal."
+    elseif completed then
+      title = "✓ Mise à jour effectuée"
+      detail = "Vous pouvez poursuivre la découverte du bureau."
+    elseif updateResult then
+      title = updateResult.code == 130 and "Mise à jour interrompue ou annulée" or "La mise à jour a échoué"
+      detail = "Vous pouvez réessayer ou continuer la visite avec Plus tard."
+    end
+    table.insert(children, entry("↻", title, detail))
+    if not completed then
+      table.insert(children, ui.button({ text = activeTool == "update" and "En cours…" or "Mettre à jour maintenant",
+        height = 36, variant = "primary", enabled = toolsLoaded and connected and activeTool == "" and not launching,
+        onClick = function() onInstallClicked("update") end }))
+    end
+    if toolsLoaded and not connected then
+      table.insert(children, label("Une connexion réseau est nécessaire. Vous pouvez aussi reporter cette étape.", 12, "on_surface/0.65"))
+      table.insert(children, ui.button({ text = "Se connecter", height = 32, onClick = function() run("visit network") end }))
+    end
+    table.insert(children, label("Le guide s’efface pendant la mise à jour. Validez la fin dans le terminal pour revenir ici.", 12, "on_surface/0.65"))
+  elseif phase == "shortcuts" then
     table.insert(children, label("Trois raccourcis pour commencer. Super correspond à la touche Windows.", 13, "on_surface/0.7"))
     if #shortcuts == 0 then
       table.insert(children, label("Consultez les raccourcis actifs de votre bureau.", 13))
@@ -155,7 +197,7 @@ local function content()
     }))
     table.insert(children, label("Les installations s’ouvrent dans un terminal pour suivre leur progression.", 11, "on_surface/0.55"))
   end
-  if phase ~= "software" then
+  if phase == "network" or phase == "shortcuts" or phase == "appearance" then
     table.insert(children, label("Fermez le panneau exploré pour revenir à cette étape.", 11, "on_surface/0.55"))
   end
   return children
@@ -168,7 +210,7 @@ function render()
     buttons = {
       ui.button({ text = "Passer", height = 36, variant = "ghost", onClick = "onSkipClicked" }),
       ui.spacer({ flexGrow = 1 }),
-      ui.button({ text = "Découvrir Monarch", height = 36, variant = "primary", onClick = "onNextClicked" }),
+      ui.button({ text = "Commencer", height = 36, variant = "primary", onClick = "onNextClicked" }),
     }
   elseif phase == "done" then
     buttons = {
@@ -180,13 +222,15 @@ function render()
     buttons = {
       ui.button({ text = "Retour", height = 36, onClick = "onBackClicked" }),
       ui.spacer({ flexGrow = 1 }),
-      ui.button({ text = index == 3 and "Terminer" or "Continuer", height = 36, variant = "primary", onClick = "onNextClicked" }),
+      ui.button({ text = index == #steps and "Terminer"
+        or ((phase == "network" and not connected) or (phase == "update" and not (updateResult and updateResult.code == 0)))
+          and "Plus tard" or "Continuer", height = 36, variant = "primary", onClick = "onNextClicked" }),
     }
   end
   local children = {
     ui.row({ align = "center", gap = 10 }, {
       ui.label({ text = "Premiers pas", fontSize = 14, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
-      label(index and tostring(index) .. " / 3" or "", 11, "on_surface/0.55"),
+      label(index and tostring(index) .. " / " .. tostring(#steps) or "", 11, "on_surface/0.55"),
       ui.button({ glyph = "close", onClick = "onCloseClicked" }),
     }),
     ui.scroll({ flexGrow = 1, gap = 8, align = "stretch" }, content()),
@@ -214,6 +258,12 @@ function onOpen(context)
   phase = request.phase or "welcome"
   if not table.find(steps, phase) and phase ~= "done" then phase = "welcome" end
   status = ""
+  toolsLoaded = false
+  toolsLoading = false
+  connected = false
+  updateResult = nil
+  activeTool = ""
+  launching = false
   tick = 0
   panel.setWantsSecondTicks(true)
   loadTools()
@@ -240,7 +290,7 @@ end
 
 function onNextClicked()
   local index = table.find(steps, phase)
-  change(index and (steps[index + 1] or "done") or "shortcuts")
+  change(index and (steps[index + 1] or "done") or steps[1])
 end
 
 function onBackClicked()
@@ -270,11 +320,12 @@ end
 
 function onInstallClicked(tool)
   if not toolsLoaded or launching or activeTool ~= "" or installed[tool] then return end
+  if tool == "update" and (not connected or (updateResult and updateResult.code == 0)) then return end
   launching = true
   render()
   run("install-tool " .. quote(tool), function(result)
     launching = false
-    status = result and result.exitCode == 0 and "Installation ouverte dans un terminal." or "L’installation n’a pas pu être lancée."
+    status = result and result.exitCode == 0 and "Opération ouverte dans un terminal." or "L’opération n’a pas pu être lancée."
     loadTools()
     render()
   end)
@@ -282,7 +333,7 @@ end
 
 function update()
   tick += 1
-  if phase == "software" and tick % 3 == 0 then loadTools() end
+  if (phase == "network" or phase == "update" or phase == "software") and tick % 3 == 0 then loadTools() end
 end
 
 function onKey(chord, pressed)
@@ -297,5 +348,6 @@ function onIpc(event)
   elseif event == "back" then onBackClicked()
   elseif event == "skip" then onSkipClicked()
   elseif event == "visit" then onVisitClicked()
+  elseif event == "update" and phase == "update" then onInstallClicked("update")
   elseif event == "visit-cyber" then onCyberClicked() end
 end

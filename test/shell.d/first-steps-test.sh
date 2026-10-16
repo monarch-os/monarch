@@ -8,6 +8,7 @@ trap 'rm -rf "$test_tmp"' EXIT
 runtime="$test_tmp/runtime"
 mkdir -p "$runtime/bin" "$runtime/install/reconcile"
 cp "$ROOT/bin/monarch-setup-first-steps" "$runtime/bin/"
+cp "$ROOT/bin/monarch-launch-wifi" "$runtime/bin/"
 cp "$ROOT/install/reconcile/noctalia-wait.sh" "$runtime/install/reconcile/"
 export MONARCH_PATH="$runtime" TEST_FIRST_STEPS="$test_tmp" PATH="$runtime/bin:$PATH"
 
@@ -16,6 +17,14 @@ cat >"$runtime/bin/noctalia" <<'EOF'
 printf '%s\n' "$*" >>"$TEST_FIRST_STEPS/calls"
 if [[ $* == 'msg status' ]]; then
   case ${TEST_FIRST_STEPS_MODE:-ready} in
+    network-visit)
+      if [[ -f $TEST_FIRST_STEPS/network-open ]]; then
+        rm "$TEST_FIRST_STEPS/network-open"
+        printf '%s\n' '{"locked":false,"panelOpen":true,"activePanelId":"control-center"}'
+      else
+        printf '%s\n' '{"locked":false,"panelOpen":false}'
+      fi
+      ;;
     unavailable) exit 1 ;;
     locked) printf '%s\n' '{"locked":true,"panelOpen":false}' ;;
     busy) printf '%s\n' '{"locked":false,"panelOpen":true}' ;;
@@ -25,6 +34,9 @@ if [[ $* == 'msg status' ]]; then
       ;;
     *) printf '%s\n' '{"locked":false,"panelOpen":false}' ;;
   esac
+elif [[ $* == 'msg panel-toggle control-center network' ]]; then
+  [[ ${TEST_FIRST_STEPS_NETWORK_LAUNCH:-} != failure ]] || exit 42
+  touch "$TEST_FIRST_STEPS/network-open"
 elif [[ $1 == "msg" && $2 == "panel-open" ]]; then
   [[ ${TEST_FIRST_STEPS_MODE:-} != rejected ]] || exit 42
   printf '%s\n' "$4" >"$TEST_FIRST_STEPS/context"
@@ -63,6 +75,41 @@ case ${TEST_FIRST_STEPS_LAUNCH:-} in
     ;;
 esac
 exec bash -c "$*"
+EOF
+cat >"$runtime/bin/nm-online" <<'EOF'
+#!/bin/bash
+[[ ${TEST_FIRST_STEPS_NETWORK:-connected} == connected ]]
+EOF
+cat >"$runtime/bin/uwsm-app" <<'EOF'
+#!/bin/bash
+case ${TEST_FIRST_STEPS_LAUNCH:-} in
+  failure) exit 42 ;;
+  never) exit 0 ;;
+esac
+while [[ $1 != -e ]]; do shift; done
+shift
+unset MONARCH_PATH XDG_STATE_HOME
+exec "$@"
+EOF
+cat >"$runtime/bin/monarch-update-confirm" <<'EOF'
+#!/bin/bash
+exit "${TEST_FIRST_STEPS_CONFIRM:-0}"
+EOF
+cat >"$runtime/bin/monarch-update" <<'EOF'
+#!/bin/bash
+printf '%s\n' "$*" >"$TEST_FIRST_STEPS/update-args"
+touch "$TEST_FIRST_STEPS/update-started"
+while [[ -f $TEST_FIRST_STEPS/block-update ]]; do /usr/bin/sleep 0.02; done
+exit "${TEST_FIRST_STEPS_EXIT:-0}"
+EOF
+cat >"$runtime/bin/monarch-show-logo" <<'EOF'
+#!/bin/bash
+exit 0
+EOF
+cat >"$runtime/bin/monarch-show-done" <<'EOF'
+#!/bin/bash
+printf '%s\n' "$1" >"$TEST_FIRST_STEPS/update-done"
+while [[ -f $TEST_FIRST_STEPS/block-done ]]; do /usr/bin/sleep 0.02; done
 EOF
 chmod +x "$runtime/bin/"*
 
@@ -236,3 +283,111 @@ for ((attempt = 0; attempt < 100; attempt++)); do
 done
 monarch-setup-first-steps tools-state | jq -e '.active == "" and .lastResult.code == 42' >/dev/null
 pass "terminal launch failure releases the reservation and preserves its exit status"
+
+fresh_state network
+monarch-setup-first-steps record network
+TEST_FIRST_STEPS_NETWORK=offline monarch-setup-first-steps tools-state | jq -e '.connected == false' >/dev/null
+monarch-setup-first-steps tools-state | jq -e '.connected == true' >/dev/null
+export TEST_FIRST_STEPS_MODE=network-visit
+monarch-setup-first-steps visit network
+jq -e '.phase == "network"' "$test_tmp/context" >/dev/null
+[[ $(head -n 1 "$test_tmp/calls") == 'msg plugin monarch/first-steps:panel all skip' ]] || fail "network visit hides the persistent guide first"
+grep -q '^msg panel-toggle control-center network$' "$test_tmp/calls"
+[[ ! -f $test_tmp/network-open ]] || fail "network visit waits for the panel to close"
+monarch-setup-first-steps record update
+if TEST_FIRST_STEPS_NETWORK_LAUNCH=failure monarch-setup-first-steps visit network; then fail "network launch failure is reported"; fi
+jq -e '.phase == "update"' "$test_tmp/context" >/dev/null
+pass "network status covers offline and connected users and visits return to the saved phase"
+
+wait_for_update_result() {
+  local attempt
+  for ((attempt = 0; attempt < 200; attempt++)); do
+    if monarch-setup-first-steps tools-state | jq -e --argjson code "$1" '.active == "" and .updateResult.code == $code' >/dev/null; then return 0; fi
+    /usr/bin/sleep 0.02
+  done
+  fail "update result $1 was not recorded"
+}
+
+wait_for_update_return() {
+  local attempt
+  for ((attempt = 0; attempt < 200; attempt++)); do
+    if grep -q '^msg panel-open monarch/first-steps:panel ' "$test_tmp/calls"; then return 0; fi
+    /usr/bin/sleep 0.02
+  done
+  fail "update did not return to the guide"
+}
+
+fresh_state update-offline
+if TEST_FIRST_STEPS_NETWORK=offline monarch-setup-first-steps install-tool update >/dev/null 2>&1; then fail "an offline update is rejected"; fi
+[[ ! -e $state_dir/installing && ! -s $test_tmp/calls ]] || fail "offline updates leave the guide open without reserving an installer"
+pass "offline users can keep browsing without launching an update"
+
+fresh_state update-success
+unset TEST_FIRST_STEPS_LAUNCH TEST_FIRST_STEPS_EXIT
+touch "$test_tmp/block-update" "$test_tmp/block-done"
+monarch-setup-first-steps install-tool update
+for ((attempt = 0; attempt < 200; attempt++)); do
+  [[ ! -f $test_tmp/update-started ]] || break
+  /usr/bin/sleep 0.02
+done
+[[ -f $test_tmp/update-started ]] || fail "update starts in a terminal"
+[[ $(<"$test_tmp/update-args") == -y ]] || fail "the confirmed update uses the existing updater"
+[[ $(head -n 1 "$test_tmp/calls") == 'msg plugin monarch/first-steps:panel all skip' ]] || fail "update hides the persistent guide first"
+monarch-setup-first-steps tools-state | jq -e '.active == "update"' >/dev/null
+if monarch-setup-first-steps install-tool seclists >/dev/null 2>&1; then fail "an update excludes tool installations"; fi
+if monarch-setup-first-steps install-tool update >/dev/null 2>&1; then fail "duplicate updates are excluded"; fi
+rm "$test_tmp/block-update"
+wait_for_update_result 0
+if grep -q '^msg panel-open ' "$test_tmp/calls"; then fail "the terminal result stays visible until acknowledged"; fi
+rm "$test_tmp/block-done"
+wait_for_update_return
+jq -e '.phase == "update"' "$test_tmp/context" >/dev/null
+monarch-setup-first-steps install-tool seclists
+for ((attempt = 0; attempt < 200; attempt++)); do
+  [[ -d $state_dir/installing ]] || break
+  /usr/bin/sleep 0.02
+done
+monarch-setup-first-steps tools-state | jq -e '.updateResult.code == 0 and .lastResult.tool == "seclists"' >/dev/null
+pass "updates share the installation lock, return after acknowledgement and retain their result across tool installs"
+
+fresh_state update-cancel
+rm "$test_tmp/update-started"
+export TEST_FIRST_STEPS_CONFIRM=1
+monarch-setup-first-steps install-tool update
+wait_for_update_result 130
+wait_for_update_return
+[[ ! -f $test_tmp/update-started ]] || fail "declining confirmation never runs the updater"
+unset TEST_FIRST_STEPS_CONFIRM
+export TEST_FIRST_STEPS_EXIT=42
+: >"$test_tmp/calls"
+monarch-setup-first-steps install-tool update
+wait_for_update_result 42
+wait_for_update_return
+unset TEST_FIRST_STEPS_EXIT
+pass "cancelled updates are not marked successful and failed updates can be retried"
+
+fresh_state update-launch-failure
+export TEST_FIRST_STEPS_LAUNCH=failure
+monarch-setup-first-steps install-tool update
+wait_for_update_result 42
+wait_for_update_return
+pass "terminal launch failure restores the guide with a retryable update result"
+
+fresh_state update-locked
+unset TEST_FIRST_STEPS_LAUNCH
+export TEST_FIRST_STEPS_MODE=locked
+monarch-setup-first-steps install-tool update
+wait_for_update_result 0
+for ((attempt = 0; attempt < 200; attempt++)); do
+  grep -q '^msg status$' "$test_tmp/calls" && break
+  /usr/bin/sleep 0.02
+done
+grep -q '^msg status$' "$test_tmp/calls" || fail "update return checks desktop availability"
+if grep -q '^msg panel-open ' "$test_tmp/calls"; then fail "update return cannot open over a locked desktop"; fi
+pass "finishing an update respects a locked desktop"
+
+fresh_state update-interrupted
+mkdir -p "$state_dir/installing"
+printf '%s\n' update >"$state_dir/installing/tool"
+monarch-setup-first-steps tools-state | jq -e '.active == "" and .updateResult.code == 130' >/dev/null
+pass "an interrupted update remains retryable after its processes disappear"

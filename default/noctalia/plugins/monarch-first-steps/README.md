@@ -20,9 +20,16 @@ monarch setup first-steps reset
 
 ## Parcours
 
-1. **Se repérer** : les raccourcis réellement configurés et leur liste complète.
-2. **Choisir son style** : le sélecteur de thèmes existant et les fonds d’écran.
-3. **Logiciels et outils cyber** : le catalogue général Software, le catalogue
+1. **Se connecter** : l’état du réseau (Wi-Fi ou Ethernet) et le panneau réseau
+   existant. Fermer ce panneau ramène au guide et actualise la connexion.
+2. **Mettre Monarch à jour** : lancement de la mise à jour existante dans un
+   terminal, après confirmation. Le guide s’efface et revient après validation
+   du résultat dans le terminal, si le bureau est disponible et déverrouillé.
+   Le résultat reste visible dans le guide ; une annulation ou un échec permet
+   de réessayer. **Plus tard** permet de poursuivre sans réseau ni mise à jour.
+3. **Se repérer** : les raccourcis réellement configurés et leur liste complète.
+4. **Choisir son style** : le sélecteur de thèmes existant et les fonds d’écran.
+5. **Logiciels et outils cyber** : le catalogue général Software, le catalogue
    Software → Cyber et l’installation de Burp Suite, RF Swift et SecLists.
 
 La documentation générale et le raccourci de monarch-menu restent visibles.
@@ -46,6 +53,8 @@ C’est parti le ferment. Le bureau reste utilisable autour du guide.
 l’initialisation d’un nouvel utilisateur. `monarch-provision-first-run`, lancé
 par Niri au début de la session, l’ouvre après la configuration et l’activation
 des plugins Noctalia.
+La connexion et la mise à jour sont proposées uniquement dans le guide : elles
+ne déclenchent plus de notifications concurrentes au premier démarrage.
 
 Le guide attend un bureau disponible et déverrouillé. Son affichage est confirmé
 par le plugin avant de consommer la première proposition. Si Noctalia n’est pas
@@ -59,6 +68,9 @@ L’état est conservé dans `$XDG_STATE_HOME/monarch/first-steps`, soit
 - `shown` : guide déjà affiché, automatiquement ou manuellement ;
 - `progress` : dernière étape visitée ;
 - état et résultat de la dernière installation d’outil.
+- `update-result.json` : résultat de la mise à jour, conservé même après une
+  installation d’outil. La mise à jour partage le verrou des installations pour
+  éviter les lancements concurrents depuis le guide.
 
 Fermer ou passer le guide n’efface pas le marqueur `shown`. La commande `reset`
 relance la visite manuellement sans réactiver son ouverture au démarrage. Les
@@ -79,6 +91,6 @@ la proposition unique, la reprise manuelle, le verrouillage et l’indisponibili
 du bureau, les ouvertures non confirmées, les tentatives concurrentes et le
 cycle des installations avec des installateurs de substitution.
 
-Le rendu des cinq pages, les visites des panneaux existants et le comportement
-des fermetures ont été vérifiés sur Noctalia 5.1.0 et Niri 26.04. Les installations
-réelles utilisent les scripts Monarch existants.
+La validation visuelle porte sur l’accueil, les cinq étapes et la conclusion,
+les visites des panneaux existants et le comportement des fermetures. Les
+installations réelles utilisent les scripts Monarch existants.
