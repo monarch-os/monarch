@@ -349,6 +349,15 @@ done
 monarch-setup-first-steps tools-state | jq -e '.updateResult.code == 0 and .lastResult.tool == "seclists"' >/dev/null
 pass "updates share the installation lock, return after acknowledgement and retain their result across tool installs"
 
+# A remembered success must not permanently prevent a newly available update.
+rm "$test_tmp/update-started"
+: > "$test_tmp/calls"
+monarch-setup-first-steps install-tool update
+wait_for_update_result 0
+wait_for_update_return
+[[ -f $test_tmp/update-started ]] || fail "a later update is not suppressed by a previous successful run"
+pass "a successful first update does not prevent subsequent updates offered by a fresh check"
+
 fresh_state update-cancel
 rm "$test_tmp/update-started"
 export TEST_FIRST_STEPS_CONFIRM=1

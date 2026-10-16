@@ -12,6 +12,10 @@ local installed = {}
 local activeTool = ""
 local connected = false
 local updateResult = nil
+local updateCheck = nil
+local checkingUpdates = false
+local checkGeneration = 0
+local isOpen = false
 local launching = false
 local tick = 0
 local tools = {
@@ -38,14 +42,43 @@ local function run(arguments, callback)
     .. quote(root .. "/bin/monarch-setup-first-steps") .. " " .. arguments, callback)
 end
 
+local function invalidateUpdateCheck()
+  checkGeneration += 1
+  updateCheck = nil
+  checkingUpdates = false
+end
+
+local function checkUpdates()
+  if not isOpen or phase ~= "update" or not toolsLoaded or not connected or activeTool ~= "" or checkingUpdates then return end
+  checkGeneration += 1
+  local generation = checkGeneration
+  checkingUpdates = true
+  updateCheck = nil
+  render()
+  run("check-updates", function(result)
+    if generation ~= checkGeneration then return end
+    checkingUpdates = false
+    local state = result and result.exitCode == 0 and noctalia.json.decode(result.stdout) or nil
+    if type(state) == "table" and type(state.count) == "number"
+      and ((state.status == "current" and state.count == 0) or (state.status == "available" and state.count > 0)) then
+      updateCheck = state
+    else
+      updateCheck = { status = "error" }
+    end
+    render()
+  end)
+end
+
 local function change(nextPhase)
   if saving then return end
   saving = true
   run("record " .. quote(nextPhase), function(result)
     saving = false
     if result and result.exitCode == 0 then
+      invalidateUpdateCheck()
       phase = nextPhase
       status = ""
+      if phase == "update" then checkUpdates() end
     else
       status = "La progression n’a pas pu être enregistrée."
     end
@@ -74,11 +107,15 @@ local function loadTools()
     toolsLoading = false
     local state = result and result.exitCode == 0 and noctalia.json.decode(result.stdout) or nil
     if type(state) == "table" then
+      if connected ~= (state.connected == true) or activeTool ~= (state.active or "") then
+        invalidateUpdateCheck()
+      end
       installed = state.installed or {}
       activeTool = state.active or ""
       connected = state.connected == true
       updateResult = state.updateResult
       toolsLoaded = true
+      if phase == "update" and updateCheck == nil then checkUpdates() end
       if phase == "software" and state.lastResult and state.lastResult.tool ~= "update" and state.lastResult.code ~= 0 then
         status = "Installation interrompue ou échouée. Consultez le terminal."
       end
@@ -140,30 +177,50 @@ local function content()
       table.insert(children, label("Pas de réseau disponible ? Choisissez Plus tard pour poursuivre la visite.", 12, "on_surface/0.65"))
     end
   elseif phase == "update" then
-    local completed = updateResult and updateResult.code == 0
-    local detail = "Installez les dernières mises à jour de Monarch et de vos logiciels."
-    local title = "Votre première mise à jour"
+    local available = updateCheck and updateCheck.status == "available"
+    local current = updateCheck and updateCheck.status == "current"
+    local detail = "Consultation des dépôts système et de l’AUR…"
+    local title = "Vérification des mises à jour…"
     if activeTool == "update" then
       title = "Mise à jour en cours…"
       detail = "Suivez sa progression dans le terminal."
-    elseif completed then
-      title = "✓ Mise à jour effectuée"
-      detail = "Vous pouvez poursuivre la découverte du bureau."
-    elseif updateResult then
-      title = updateResult.code == 130 and "Mise à jour interrompue ou annulée" or "La mise à jour a échoué"
-      detail = "Vous pouvez réessayer ou continuer la visite avec Plus tard."
+    elseif activeTool ~= "" then
+      title = "Installation en cours…"
+      detail = "La vérification démarrera à la fin de l’installation."
+    elseif toolsLoaded and not connected then
+      title = "Connexion requise"
+      detail = "Connectez-vous pour vérifier les mises à jour disponibles."
+    elseif current then
+      title = "✓ Système à jour"
+      detail = "Aucune mise à jour disponible dans les dépôts système ou l’AUR."
+    elseif available then
+      title = tostring(updateCheck.count) .. (updateCheck.count == 1 and " mise à jour disponible" or " mises à jour disponibles")
+      detail = "Dépôts système : " .. tostring(updateCheck.repositories or 0) .. " · AUR : " .. tostring(updateCheck.aur or 0)
+    elseif updateCheck and updateCheck.status == "error" then
+      title = "Vérification impossible"
+      detail = "Les dépôts n’ont pas pu être vérifiés. Réessayez ou poursuivez avec Plus tard."
     end
     table.insert(children, entry("↻", title, detail))
-    if not completed then
-      table.insert(children, ui.button({ text = activeTool == "update" and "En cours…" or "Mettre à jour maintenant",
-        height = 36, variant = "primary", enabled = toolsLoaded and connected and activeTool == "" and not launching,
+    if available and connected and activeTool == "" and not checkingUpdates then
+      table.insert(children, ui.button({ text = "Mettre à jour maintenant",
+        height = 36, variant = "primary", enabled = not launching,
         onClick = function() onInstallClicked("update") end }))
+    end
+    table.insert(children, ui.button({ text = checkingUpdates and "Vérification en cours…"
+      or (updateCheck and updateCheck.status == "error") and "Réessayer" or "Vérifier à nouveau",
+      height = 32, variant = "outline", enabled = toolsLoaded and connected and activeTool == "" and not checkingUpdates and not launching,
+      onClick = checkUpdates }))
+    if updateResult and updateResult.code ~= 0 and not current then
+      table.insert(children, label(updateResult.code == 130 and "La dernière mise à jour a été interrompue ou annulée."
+        or "La dernière mise à jour a échoué. Consultez le terminal pour les détails.", 11, "on_surface/0.65"))
     end
     if toolsLoaded and not connected then
       table.insert(children, label("Une connexion réseau est nécessaire. Vous pouvez aussi reporter cette étape.", 12, "on_surface/0.65"))
       table.insert(children, ui.button({ text = "Se connecter", height = 32, onClick = function() run("visit network") end }))
     end
-    table.insert(children, label("Le guide s’efface pendant la mise à jour. Validez la fin dans le terminal pour revenir ici.", 12, "on_surface/0.65"))
+    if available then
+      table.insert(children, label("Le guide s’efface pendant la mise à jour. Validez la fin dans le terminal pour revenir ici.", 12, "on_surface/0.65"))
+    end
   elseif phase == "shortcuts" then
     table.insert(children, label("Trois raccourcis pour commencer. Super correspond à la touche Windows.", 13, "on_surface/0.7"))
     if #shortcuts == 0 then
@@ -223,7 +280,7 @@ function render()
       ui.button({ text = "Retour", height = 36, onClick = "onBackClicked" }),
       ui.spacer({ flexGrow = 1 }),
       ui.button({ text = index == #steps and "Terminer"
-        or ((phase == "network" and not connected) or (phase == "update" and not (updateResult and updateResult.code == 0)))
+        or ((phase == "network" and not connected) or (phase == "update" and not (updateCheck and updateCheck.status == "current")))
           and "Plus tard" or "Continuer", height = 36, variant = "primary", onClick = "onNextClicked" }),
     }
   end
@@ -254,10 +311,12 @@ function onOpen(context)
     return
   end
   root = request.root
+  isOpen = true
   stateHome = request.stateHome
   phase = request.phase or "welcome"
   if not table.find(steps, phase) and phase ~= "done" then phase = "welcome" end
   status = ""
+  invalidateUpdateCheck()
   toolsLoaded = false
   toolsLoading = false
   connected = false
@@ -285,6 +344,8 @@ function onOpen(context)
 end
 
 function onClose()
+  isOpen = false
+  invalidateUpdateCheck()
   panel.setWantsSecondTicks(false)
 end
 
@@ -320,8 +381,9 @@ end
 
 function onInstallClicked(tool)
   if not toolsLoaded or launching or activeTool ~= "" or installed[tool] then return end
-  if tool == "update" and (not connected or (updateResult and updateResult.code == 0)) then return end
+  if tool == "update" and (not connected or checkingUpdates or not updateCheck or updateCheck.status ~= "available") then return end
   launching = true
+  if tool == "update" then invalidateUpdateCheck() end
   render()
   run("install-tool " .. quote(tool), function(result)
     launching = false
@@ -349,5 +411,6 @@ function onIpc(event)
   elseif event == "skip" then onSkipClicked()
   elseif event == "visit" then onVisitClicked()
   elseif event == "update" and phase == "update" then onInstallClicked("update")
+  elseif event == "check-updates" then checkUpdates()
   elseif event == "visit-cyber" then onCyberClicked() end
 end

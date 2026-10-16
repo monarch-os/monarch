@@ -23,7 +23,16 @@ monarch setup first-steps reset
 1. **Se connecter** : l’état du réseau (Wi-Fi ou Ethernet) et le panneau réseau
    Monarch (`monarch/network:panel`), le même que celui de la barre. Fermer ce
    panneau ramène au guide et actualise la connexion.
-2. **Mettre Monarch à jour** : lancement de la mise à jour existante dans un
+2. **Mettre Monarch à jour** : vérification des dépôts système et de l’AUR à
+   l’ouverture de l’étape, au retour du terminal et après reconnexion. Le guide
+   affiche le nombre de mises à jour disponibles ou **Système à jour**, et ne
+   propose l’installation que lorsqu’une mise à jour a été trouvée. Une erreur
+   réseau ou un dépôt inaccessible affiche **Vérification impossible**, jamais
+   un faux état à jour. **Vérifier à nouveau** permet de relancer la recherche.
+   La vérification utilise une base de paquets temporaire, sans sudo et sans
+   modifier la base système. Le dernier succès mémorisé ne remplace pas cette
+   vérification et n’empêche pas de nouvelles mises à jour.
+   L’installation utilise la commande de mise à jour existante dans un
    terminal, après confirmation. Le guide s’efface et revient après validation
    du résultat dans le terminal, si le bureau est disponible et déverrouillé.
    Le résultat reste visible dans le guide ; une annulation ou un échec permet

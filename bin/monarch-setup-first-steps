@@ -110,7 +110,7 @@ installer_args() {
 
 tool_installed() {
   case "$1" in
-    update) [[ -f $state_dir/update-result.json ]] && jq -e '.code == 0' "$state_dir/update-result.json" >/dev/null ;;
+    update) return 1 ;;
     burpsuite) [[ -d /opt/BurpSuiteCommunity || -d /opt/BurpSuitePro ]] ;;
     rfswift) type -P rfswift >/dev/null ;;
     seclists) "$runtime/bin/monarch-pkg-present" seclists ;;
@@ -296,6 +296,7 @@ case ${1:-open} in
   record) record "${2:?A phase is required}" ;;
   visit) visit "${2:?A destination is required}" ;;
   tools-state) tools_state ;;
+  check-updates) "$runtime/bin/monarch-update-check" ;;
   install-tool) install_tool "${2:?A tool is required}" ;;
   run-installer) run_installer "${2:?A tool is required}" "${3:?An installation token is required}" ;;
   update-terminal) update_terminal "${2:?An installation token is required}" ;;

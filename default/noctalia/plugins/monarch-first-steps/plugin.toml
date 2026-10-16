@@ -1,6 +1,6 @@
 id = "monarch/first-steps"
 name = "Premiers pas"
-version = "1.1.0"
+version = "1.2.0"
 plugin_api = 22
 author = "monarch"
 license = "MIT"
