@@ -74,6 +74,18 @@ jq -e '.counts == {monarch:1,repo:1,aur:1} and .packages[2] ==
 [[ -f $test_tmp/aur-called ]] || fail "foreign packages trigger the AUR check"
 pass "AUR and repository upgrades are combined using the same isolated database"
 
+# Formats emitted by yay 13's FormatAgeTag/FormatDuration, including a future
+# LastModified timestamp. The badge must not leak into the available version.
+for age in '[0m]' '[45m]' '[1h]' '[23h59m]' '[1d]' '[2d3h]' '[38d8h]' '[-3m]'; do
+  printf 'example-aur 3 -> 4 %s\n' "$age" > "$test_tmp/aur"
+  run_check
+  (( code == 0 )) || fail "yay age tag $age blocks available updates"
+  jq -e '.status == "available" and .count == 3 and .aur == 1 and .packages[2] ==
+    {name:"example-aur",category:"aur",installed:"3",available:"4"}' "$test_tmp/result" >/dev/null
+done
+printf 'example-aur 3 -> 4\n' > "$test_tmp/aur"
+pass "yay 13 age tags preserve AUR counts and clean version fields"
+
 rm "$test_tmp/pacman-called" "$test_tmp/aur-called"
 run_check --json
 (( code == 0 )) || fail "JSON-only keeps the Monarch-only scope"
@@ -133,6 +145,20 @@ run_check
 (( code == 2 )) || fail "malformed AUR output must fail"
 jq -e '.reason == "invalid-aur-result"' "$test_tmp/result" >/dev/null
 pass "malformed package results cannot become update counts"
+
+for extra in 'unexpected' '[]' '[unknown]' '[2d 3h]' '[2d3h] unexpected' '[2d3h] [4h]'; do
+  printf 'example-aur 3 -> 4 %s\n' "$extra" > "$test_tmp/aur"
+  run_check
+  (( code == 2 )) || fail "unexpected AUR suffix $extra is accepted"
+  jq -e '.reason == "invalid-aur-result"' "$test_tmp/result" >/dev/null
+done
+printf 'linux-cachyos 6.1 -> 6.2 [2d3h]\n' > "$test_tmp/repositories"
+: > "$test_tmp/aur"
+run_check
+(( code == 2 )) || fail "repository rows unexpectedly accept AUR age tags"
+jq -e '.reason == "invalid-repository-result"' "$test_tmp/result" >/dev/null
+: > "$test_tmp/repositories"
+pass "only the documented AUR suffix is accepted; unrelated extra fields still fail"
 
 export CHECK_FOREIGN_ERROR=1
 run_check

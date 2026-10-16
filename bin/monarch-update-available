@@ -70,10 +70,15 @@ fi
 
 package_rows() {
   local package installed arrow available extra category
+  # yay 13 appends FormatAgeTag's duration to AUR upgrades (with colors off).
+  # It is display metadata, not part of the version. Negative minutes can occur
+  # when the package timestamp is ahead of the local clock.
+  local age_pattern='^\[([0-9]+d([0-9]+h)?|[0-9]+h([0-9]+m)?|-?[0-9]+m)\]$'
   while read -r package installed arrow available extra; do
     [[ -n $package ]] || continue
     [[ $all == "true" || $package == "monarch" ]] || continue
-    [[ -n $installed && $arrow == "->" && -n $available && -z $extra ]] || return 1
+    [[ -n $installed && $arrow == "->" && -n $available ]] || return 1
+    [[ -z $extra || ( $2 == "aur" && $extra =~ $age_pattern ) ]] || return 1
     category=$2
     if [[ $category == "repo" && ( $package == "monarch" || $package == "monarch-settings" ) ]]; then
       category="monarch"
