@@ -7,6 +7,7 @@ test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
 mkdir -p "$test_tmp/bin"
 export PATH="$test_tmp/bin:$ROOT/bin:$PATH"
+export MONARCH_PATH="$ROOT"
 export UPDATE_FIXTURE="$test_tmp/updates" UPDATE_DB_RECORD="$test_tmp/db"
 export UPDATE_FORBIDDEN_LOG="$test_tmp/forbidden"
 export TMPDIR="$test_tmp"

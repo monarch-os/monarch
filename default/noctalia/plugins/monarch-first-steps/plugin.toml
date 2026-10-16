@@ -1,10 +1,10 @@
 id = "monarch/first-steps"
 name = "Premiers pas"
-version = "1.0.0"
+version = "1.2.0"
 plugin_api = 22
 author = "monarch"
 license = "MIT"
-description = "Discover Monarch shortcuts, appearance and software."
+description = "Set up networking, update the system and discover Monarch."
 icon = "sparkles"
 
 [[panel]]

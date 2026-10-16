@@ -75,5 +75,59 @@ with five seconds of termination grace.
 After a failure the indicator retains its last state and retries in ten minutes,
 rather than incorrectly clearing an available-update badge.
 
+`monarch-update-available` is the shared availability command:
+
+- No options: check only the `monarch` package, preserving the bar's behaviour.
+- `--all`: include every repository package and AUR upgrades. AUR is only queried
+  when foreign packages are installed; its check has the same two-minute deadline.
+- `--json`: change the output format without changing the selected scope.
+- Exit status is 0 for known available upgrades (including a partial result),
+  1 only for a complete check with no upgrades, and 2 when the check is incomplete
+  or failed and no upgrades could be established, including with `--json`.
+
+Successful JSON includes `status`, `scope`, `count`, `packages`, `repositories`,
+`aur` and `counts`. Each package has `name`, `category`, `installed` and `available`
+versions. Categories are `monarch` (the `monarch` and `monarch-settings` repository
+packages), `repo` (other repository packages) and `aur`. The disjoint `counts`
+object uses these three categories; `repositories` includes both `monarch` and
+`repo`. The default scope still selects only the exact `monarch` package, not the
+whole category. Failures return `status: "error"`, `count: null` and a stable
+`reason`, never a false zero-update result. The format is independent of language.
+
+`complete` and `warnings` describe coverage of the selected scope. An AUR
+failure preserves verified repository upgrades: when any exist, the result is
+`available` (exit 0), `complete: false`, with an AUR warning and only the verified
+packages in `packages`/`count`. The count is a lower bound; `aur` and `counts.aur`
+are `null`, not zero. If repositories are current but AUR could not be checked,
+the result is `error` (exit 2), never `current`. Invalid partial AUR output is
+discarded as a whole. Repository-check failures still abort the complete check.
+
+The first-steps guide and `monarch update` use `--all --json`. The updater checks
+before confirmation and maintenance and stops on a failed check. When packages
+are current, it skips package confirmation, cache pruning, snapshots and package
+installation, but still runs reconciliation, orphan cleanup, post-update hooks,
+log analysis and restart handling. These stages must converge even after an
+earlier updater installed all packages and failed before finalization; a failed
+finalization remains a failed update. `-y` skips confirmation, not verification.
+Post-update hooks run with `monarch-hook --strict`, so a failed hook stops the
+update and remains retryable. Other hook callers retain their default tolerant
+behaviour. AUR updates include foreign packages installed as dependencies, and
+a failed `yay` transaction propagates its exit status.
+For an available-but-incomplete result, it explains that only repository updates
+will be applied and skips the unavailable AUR stage for that transaction.
+
+A repository-sync failure may be caused by stale signing keys: `checkupdates`
+hides pacman's detailed diagnostics. The updater offers the existing keyring
+refresh and retries the availability check once (`-y` accepts that repair).
+Repair runs under the update lock and sleep inhibitor, and its failure or a
+failed retry stops the transaction. A successful repair is not repeated during
+the subsequent package update. No signature policy is weakened. Passive checks
+from the bar or guide remain read-only and never request sudo; the guide offers
+an explicit terminal action when a repository check needs recovery.
+An explicit `--branch` switch or a Git-managed runtime bypasses this package-only
+availability gate: source changes must still be pulled even when packages are
+current, including the plain `monarch-update -y` used by `monarch-channel-set`.
+Declining an available update returns 130 so the guide does not record a success.
+
 Installation schema versions remain independent and only change for architectural
 upgrade transitions.
