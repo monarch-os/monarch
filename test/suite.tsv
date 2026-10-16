@@ -1,4 +1,5 @@
 path	feature	risk	environment
+test/shell.d/chatgpt-reconcile-test.sh	chatgpt	high	isolated
 test/monarch-calver-test.sh	versioning	high	isolated
 test/shell.d/update-available-test.sh	updates	high	isolated
 test/shell.d/sleep-transition-test.sh	power	high	isolated

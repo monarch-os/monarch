@@ -305,7 +305,7 @@
 
   // Install > AI. The Ollama build follows the GPU present on the machine, which
   // is why its package name is resolved inside the action rather than declared.
-  "install.ai.chatgpt": {"icon":"󰭹","disabled":"monarch-pkg-present openai-codex-desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-install-ai-chatgpt"},
+  "install.ai.chatgpt": {"icon":"󰭹","disabled":"monarch-pkg-present chatgpt-desktop-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-install-ai-chatgpt"},
   "install.ai.dictation": {"icon":"","disabled":"monarch-pkg-present voxtype-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-voxtype-install"},
   "install.ai.lm-studio": {"icon":"󱚤","action":"monarch-install-app 'LM Studio' lmstudio-bin","disabled":"monarch-pkg-present lmstudio-bin"},
   "install.ai.ollama": {"icon":"󱚤","action":"if monarch-cmd-present nvidia-smi; then ollama_pkg=ollama-cuda; elif monarch-cmd-present rocminfo; then ollama_pkg=ollama-rocm; else ollama_pkg=ollama; fi; monarch-install-app Ollama \"$ollama_pkg\"","disabled":"monarch-cmd-present ollama"},
@@ -382,7 +382,7 @@
   // command, so selecting it only ever bounced back to the root menu.
   "remove.security": {"icon":""},
 
-  "remove.ai.chatgpt": {"icon":"󰭹","when":"monarch-pkg-present openai-codex-desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-chatgpt"},
+  "remove.ai.chatgpt": {"icon":"󰭹","when":"monarch-pkg-present chatgpt-desktop-bin || monarch-pkg-present openai-codex-desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-chatgpt"},
   "remove.ai.dictation": {"icon":"","when":"monarch-pkg-present voxtype-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-voxtype-remove"},
   "remove.ai.lm-studio": {"icon":"󱚤","when":"monarch-pkg-present lmstudio-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-lm-studio"},
   "remove.ai.ollama": {"icon":"󱚤","when":"monarch-cmd-present ollama","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-ollama"},
