@@ -66,18 +66,20 @@ Tags do not publish packages. The package builder remains responsible for build,
 signing and delivery. Merge the corresponding `monarch-pkgs` packaging change
 before relying on generated runtime identity.
 
-The bar indicator checks published package upgrades with `checkupdates`, using
-an isolated temporary database and no privilege elevation. Only an upgrade for
-the installed `monarch` package raises its badge, not a new Git tag or unrelated
-Arch updates. The check returns 0 for an available upgrade, 1 for no Monarch
-upgrade, and 2 for a failed check. Repository checks have a two-minute deadline
-with five seconds of termination grace.
-After a failure the indicator retains its last state and retries in ten minutes,
-rather than incorrectly clearing an available-update badge.
+The bar indicator uses `monarch-update-available --all --json` to check published
+repository and AUR upgrades, not Git tags. Checks use an isolated temporary
+database and no privilege elevation. Repository and AUR checks each have a
+two-minute deadline with five seconds of termination grace.
+The badge shows the verified count and uses a theme role with priority
+Monarch → repository → AUR. Its tooltip lists category counts and up to twelve
+installed/available version pairs. It hides only after a complete up-to-date
+check; failed checks show an error, explicitly marking prior results stale.
+Partial AUR results show a lower bound and unknown AUR coverage. It retries in
+ten minutes when updates are pending or checks fail, and six hours when current.
 
 `monarch-update-available` is the shared availability command:
 
-- No options: check only the `monarch` package, preserving the bar's behaviour.
+- No options: check only the `monarch` package, preserving the command's legacy scope.
 - `--all`: include every repository package and AUR upgrades. AUR is only queried
   when foreign packages are installed; its check has the same two-minute deadline.
 - `--json`: change the output format without changing the selected scope.

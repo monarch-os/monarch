@@ -1,5 +1,13 @@
 {
   "strings": {
+    "updates.indicator.available": "Mises à jour disponibles",
+    "updates.indicator.repositories": "Dépôts",
+    "updates.indicator.unknown": "non vérifié",
+    "updates.indicator.partial": "La vérification AUR a échoué ; le compteur comprend uniquement les mises à jour vérifiées des dépôts.",
+    "updates.indicator.more": "Paquets supplémentaires",
+    "updates.indicator.action": "Cliquer pour ouvrir la mise à jour du système.",
+    "updates.indicator.failed": "La vérification a échoué. Disponibilité inconnue ; cliquer pour vérifier dans le terminal.",
+    "updates.indicator.stale": "Dernières mises à jour connues (résultat non actualisé) :",
     "hermes.removed": "Hermes Desktop supprimé. Les dépendances inutilisées ont été supprimées ; les paquets installés explicitement et vos données personnelles sont conservés.",
     "cli.title": "Centre de commandes Monarch",
     "cli.usage": "Utilisation :",

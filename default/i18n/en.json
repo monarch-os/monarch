@@ -1,5 +1,13 @@
 {
   "strings": {
+    "updates.indicator.available": "Updates available",
+    "updates.indicator.repositories": "Repositories",
+    "updates.indicator.unknown": "not checked",
+    "updates.indicator.partial": "AUR verification failed; the count includes verified repository updates only.",
+    "updates.indicator.more": "Additional packages",
+    "updates.indicator.action": "Click to open the system updater.",
+    "updates.indicator.failed": "Update verification failed. Availability is unknown; click to check in the terminal.",
+    "updates.indicator.stale": "Last known updates (not a fresh result):",
     "hermes.removed": "Hermes Desktop removed. Unneeded dependencies were removed; explicitly installed packages and your personal data were kept.",
     "cli.title": "Monarch command center",
     "cli.usage": "Usage:",
