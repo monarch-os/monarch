@@ -96,7 +96,9 @@ whole category. Failures return `status: "error"`, `count: null` and a stable
 The first-steps guide and `monarch update` use `--all --json`. The updater checks
 before confirmation and maintenance, exits successfully without changes when
 current, and stops on a failed check. `-y` skips confirmation, not verification.
-An explicit `--branch` switch bypasses this current-branch availability gate.
+An explicit `--branch` switch or a Git-managed runtime bypasses this package-only
+availability gate: source changes must still be pulled even when packages are
+current, including the plain `monarch-update -y` used by `monarch-channel-set`.
 Declining an available update returns 130 so the guide does not record a success.
 
 Installation schema versions remain independent and only change for architectural

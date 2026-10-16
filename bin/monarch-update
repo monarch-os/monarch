@@ -54,10 +54,11 @@ unset MONARCH_UPDATE_LOCKED
 source "$("$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/monarch-i18n" --helper)"
 monarch_i18n_load
 
-# An explicit branch switch is an operation in its own right: availability on
-# the current branch must not suppress it. Ordinary updates check before any
-# confirmation, cache pruning, snapshot or privilege elevation.
-if [[ -z $branch ]]; then
+# Explicit branch switches and Git-managed runtimes also update source, which
+# a package-only check cannot describe. Use the same runtime boundary as
+# monarch-update-git so channel-set's plain `monarch-update -y` still pulls.
+# Packaged runtimes check before confirmation or any maintenance.
+if [[ -z $branch && ! -d ${MONARCH_PATH:-/usr/share/monarch}/.git ]]; then
   monarch_message 'update.checking'
   check_status=0
   updates=$(monarch-update-available --all --json) || check_status=$?

@@ -3,7 +3,6 @@
 set -euo pipefail
 
 source "$(dirname "$0")/base-test.sh"
-export MONARCH_PATH="$ROOT"
 
 test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
@@ -12,6 +11,8 @@ stub_bin="$test_tmp/bin"
 test_home="$test_tmp/home"
 runtime_dir="$test_tmp/runtime"
 mkdir -p "$stub_bin" "$test_home" "$runtime_dir"
+export MONARCH_PATH="$test_tmp/packaged-runtime"
+mkdir -p "$MONARCH_PATH"
 
 write_stub() {
   local name="$1"
@@ -119,6 +120,17 @@ CONFIRM_STATUS=1 run_update >/dev/null 2>&1 || result=$?
 CHECK_LOG="$test_tmp/checks" CHECK_STATUS=2 run_update -y --branch dev >/dev/null
 [[ ! -s $test_tmp/checks ]] || fail "an explicit branch change depends on current-branch availability"
 pass "confirmed updates run normally, cancellation is distinct, and explicit branch changes bypass the availability gate"
+
+git init -q "$test_tmp/git-runtime"
+for check_status in 1 2; do
+  : >"$test_tmp/steps"
+  : >"$test_tmp/checks"
+  MONARCH_PATH="$test_tmp/git-runtime" CHECK_LOG="$test_tmp/checks" CHECK_STATUS="$check_status" run_update -y >/dev/null
+  [[ ! -s $test_tmp/checks ]] || fail "a package-only check gates a Git runtime update"
+  grep -q '^monarch-update-git ' "$test_tmp/steps" || fail "Git runtime never reaches its source update"
+  grep -q '^monarch-update-system-pkgs ' "$test_tmp/steps" || fail "Git runtime skips the normal transaction"
+done
+pass "Git runtimes still pull source with plain -y when package availability cannot require an update"
 
 write_stub monarch-update-system-pkgs 'exit 1'
 : >"$test_tmp/steps"
