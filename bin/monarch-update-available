@@ -1,40 +1,111 @@
 #!/bin/bash
 
-# monarch:summary=Check whether a newer Monarch package is available
+# monarch:summary=Check available Monarch or system package updates
+# monarch:args=[--all] [--json]
+# monarch:examples=monarch update available | monarch update available --all --json
 
 set -euo pipefail
 
-if monarch-cmd-missing checkupdates fakeroot; then
-  echo "Cannot check updates: pacman-contrib and fakeroot are required." >&2
-  exit 2
+all=false
+json=false
+for argument in "$@"; do
+  case "$argument" in
+    --all) all=true ;;
+    --json) json=true ;;
+    -h|--help) echo "Usage: monarch-update-available [--all] [--json]"; exit 0 ;;
+    *) echo "Unknown option: $argument" >&2; exit 2 ;;
+  esac
+done
+scope="monarch"
+[[ $all == "false" ]] || scope="all"
+
+if [[ $json == "false" ]]; then
+  source "$("$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/monarch-i18n" --helper)"
+  monarch_i18n_load
 fi
 
-db=$(mktemp -d) || { echo "Cannot create the update-check database." >&2; exit 2; }
+fail_check() {
+  if [[ $json == "true" ]]; then
+    jq -cn --arg reason "$1" --arg scope "$scope" \
+      '{status:"error",scope:$scope,count:null,reason:$reason}'
+  else
+    monarch_message 'update.checkFailed' >&2
+  fi
+  exit 2
+}
+
+monarch-cmd-missing checkupdates fakeroot && fail_check "missing-dependencies"
+db=$(mktemp -d) || fail_check "temporary-database"
 trap 'rm -rf -- "$db"' EXIT
 
-status=0
-updates=$(LC_ALL=C CHECKUPDATES_DB="$db" timeout --kill-after=5s 120s checkupdates --nocolor) || status=$?
-case $status in
+code=0
+updates=$(LC_ALL=C CHECKUPDATES_DB="$db" timeout --kill-after=5s 120s checkupdates --nocolor) || code=$?
+case $code in
   0) ;;
-  2)
-    echo "No Monarch package update available."
-    exit 1
-    ;;
-  *)
-    echo "Could not check available package updates." >&2
-    exit 2
-    ;;
+  2) [[ -z $updates ]] || fail_check "invalid-repository-result" ;;
+  *) fail_check "repositories-unavailable" ;;
 esac
 
-while read -r package installed arrow available; do
-  [[ $package == "monarch" ]] || continue
-  if [[ $arrow != "->" || -z $installed || -z $available ]]; then
-    echo "Invalid Monarch update information." >&2
-    exit 2
+aur_updates=""
+if [[ $all == "true" ]]; then
+  # Classify foreign packages against the freshly synchronized temporary DB.
+  # A new installation may not have any system sync databases yet.
+  code=0
+  foreign=$(pacman --dbpath "$db" -Qqm 2>"$db/foreign.err") || code=$?
+  if (( code != 0 )); then
+    (( code == 1 )) && [[ -z $foreign && ! -s $db/foreign.err ]] || fail_check "installed-packages-unavailable"
   fi
-  printf 'Monarch update available (%s -> %s)\n' "$installed" "$available"
-  exit 0
-done <<<"$updates"
+  if [[ -n $foreign ]]; then
+    monarch-cmd-missing yay && fail_check "missing-aur-helper"
+    code=0
+    # Match the updater's exclusions. yay returns 1 with no output when no
+    # upgrades are found. A diagnostic or timeout must not become "current".
+    aur_updates=$(LC_ALL=C timeout --kill-after=5s 120s yay --dbpath "$db" -Qua \
+      --color never --ignore gcc14,gcc14-libs 2>"$db/aur.err") || code=$?
+    if (( code != 0 )); then
+      (( code == 1 )) && [[ -z $aur_updates && ! -s $db/aur.err ]] || fail_check "aur-unavailable"
+    fi
+  fi
+fi
 
-echo "No Monarch package update available."
-exit 1
+package_rows() {
+  local package installed arrow available extra category
+  while read -r package installed arrow available extra; do
+    [[ -n $package ]] || continue
+    [[ $all == "true" || $package == "monarch" ]] || continue
+    [[ -n $installed && $arrow == "->" && -n $available && -z $extra ]] || return 1
+    category=$2
+    if [[ $category == "repo" && ( $package == "monarch" || $package == "monarch-settings" ) ]]; then
+      category="monarch"
+    fi
+    printf '%s\t%s\t%s\t%s\n' "$package" "$category" "$installed" "$available"
+  done <<< "$1"
+}
+
+package_rows "$updates" repo > "$db/updates.tsv" || fail_check "invalid-repository-result"
+package_rows "$aur_updates" aur >> "$db/updates.tsv" || fail_check "invalid-aur-result"
+result=$(jq -Rn --arg scope "$scope" '
+  [inputs | split("\t") | {name:.[0],category:.[1],installed:.[2],available:.[3]}] |
+  {status:(if length > 0 then "available" else "current" end),scope:$scope,
+   count:length,packages:.,
+   repositories:([.[] | select(.category != "aur")] | length),
+   aur:([.[] | select(.category == "aur")] | length),
+   counts:{monarch:([.[] | select(.category == "monarch")] | length),
+           repo:([.[] | select(.category == "repo")] | length),
+           aur:([.[] | select(.category == "aur")] | length)}}
+' < "$db/updates.tsv")
+count=$(jq -r '.count' <<< "$result")
+
+if [[ $json == "true" ]]; then
+  printf '%s\n' "$result"
+elif (( count == 0 )); then
+  if [[ $all == "true" ]]; then monarch_message 'update.current'; else monarch_message 'update.monarchCurrent'; fi
+elif [[ $all == "true" ]]; then
+  monarch_message 'update.availableCount' "$count"
+else
+  installed=$(jq -r '.packages[0].installed' <<< "$result")
+  available=$(jq -r '.packages[0].available' <<< "$result")
+  monarch_message 'update.monarchAvailable' "$installed" "$available"
+fi
+
+(( count > 0 )) || exit 1

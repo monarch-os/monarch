@@ -6,6 +6,7 @@ test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
 mkdir -p "$test_tmp/bin"
 export PATH="$test_tmp/bin:$ROOT/bin:$PATH" TMPDIR="$test_tmp"
+export MONARCH_PATH="$ROOT"
 export CHECK_TEST="$test_tmp"
 : > "$test_tmp/repositories"
 : > "$test_tmp/aur"
@@ -24,6 +25,7 @@ EOF
 cat > "$test_tmp/bin/pacman" <<'EOF'
 #!/bin/bash
 [[ $1 == --dbpath && $2 == "$(<"$CHECK_TEST/database")" && $3 == -Qqm ]] || exit 99
+touch "$CHECK_TEST/pacman-called"
 [[ ${CHECK_FOREIGN_ERROR:-0} == 0 ]] || { echo 'database failed' >&2; exit 1; }
 [[ -n ${CHECK_FOREIGN:-} ]] || exit 1
 printf '%s\n' "$CHECK_FOREIGN"
@@ -45,7 +47,8 @@ chmod +x "$test_tmp/bin/"*
 
 run_check() {
   code=0
-  bash "$ROOT/bin/monarch-update-check" > "$test_tmp/result" || code=$?
+  (( $# > 0 )) || set -- --all --json
+  bash "$ROOT/bin/monarch-update-available" "$@" > "$test_tmp/result" || code=$?
   if [[ -f $test_tmp/database ]]; then
     [[ ! -e $(<"$test_tmp/database") ]] || fail "temporary package databases are removed"
   fi
@@ -56,6 +59,9 @@ printf 'monarch 1 -> 2\nlinux-cachyos 6.1 -> 6.2\n' > "$test_tmp/repositories"
 run_check
 (( code == 0 )) || fail "repository check succeeds"
 jq -e '.status == "available" and .count == 2 and .repositories == 2 and .aur == 0' "$test_tmp/result" >/dev/null
+jq -e '.scope == "all" and .counts == {monarch:1,repo:1,aur:0} and
+  .packages == [{name:"monarch",category:"monarch",installed:"1",available:"2"},
+               {name:"linux-cachyos",category:"repo",installed:"6.1",available:"6.2"}]' "$test_tmp/result" >/dev/null
 [[ ! -f $test_tmp/aur-called ]] || fail "no AUR request is made without foreign packages"
 pass "all repository upgrades are counted using an isolated database without sudo"
 
@@ -63,8 +69,27 @@ export CHECK_FOREIGN=example-aur
 printf 'example-aur 3 -> 4\n' > "$test_tmp/aur"
 run_check
 jq -e '.status == "available" and .count == 3 and .repositories == 2 and .aur == 1' "$test_tmp/result" >/dev/null
+jq -e '.counts == {monarch:1,repo:1,aur:1} and .packages[2] ==
+  {name:"example-aur",category:"aur",installed:"3",available:"4"}' "$test_tmp/result" >/dev/null
 [[ -f $test_tmp/aur-called ]] || fail "foreign packages trigger the AUR check"
 pass "AUR and repository upgrades are combined using the same isolated database"
+
+rm "$test_tmp/pacman-called" "$test_tmp/aur-called"
+run_check --json
+(( code == 0 )) || fail "JSON-only keeps the Monarch-only scope"
+jq -e '.scope == "monarch" and .count == 1 and .packages[0].name == "monarch"' "$test_tmp/result" >/dev/null
+[[ ! -e $test_tmp/pacman-called && ! -e $test_tmp/aur-called ]] || fail "JSON-only queries the AUR"
+printf 'monarch-settings 1 -> 2\nlinux-cachyos 6.1 -> 6.2\n' > "$test_tmp/repositories"
+run_check --json
+(( code == 1 )) || fail "settings-only updates do not change the legacy scope"
+jq -e '.status == "current" and .count == 0 and .packages == []' "$test_tmp/result" >/dev/null
+run_check --json --all
+(( code == 0 )) || fail "option order does not change the combined scope"
+jq -e '.count == 3 and .counts == {monarch:1,repo:1,aur:1} and .packages[0].name == "monarch-settings"' "$test_tmp/result" >/dev/null
+run_check --all
+(( code == 0 )) || fail "all-package text mode reports available upgrades"
+grep -q '3' "$test_tmp/result" || fail "text output includes the update count"
+pass "JSON changes only the format; all expands the scope and categories carry versions"
 
 : > "$test_tmp/repositories"
 export CHECK_REPO_CODE=2
@@ -75,7 +100,7 @@ pass "AUR-only updates are offered even with no repository upgrades"
 : > "$test_tmp/aur"
 export CHECK_AUR_CODE=1
 run_check
-(( code == 0 )) || fail "a confirmed empty update list succeeds"
+(( code == 1 )) || fail "a confirmed empty update list returns the no-updates status"
 jq -e '.status == "current" and .count == 0' "$test_tmp/result" >/dev/null
 pass "up-to-date is reported only after both checks succeed"
 
@@ -123,3 +148,12 @@ run_check
 (( code == 2 )) || fail "missing check dependencies must fail"
 jq -e '.reason == "missing-dependencies"' "$test_tmp/result" >/dev/null
 pass "missing dependencies and local database errors are explicit failures"
+
+rm "$test_tmp/database"
+run_check --invalid
+(( code == 2 )) || fail "invalid options are rejected"
+[[ ! -e $test_tmp/database ]] || fail "invalid arguments query repositories"
+run_check --help
+(( code == 0 )) || fail "help succeeds without check dependencies"
+[[ ! -e $test_tmp/database ]] || fail "help queries repositories"
+pass "help and invalid options do not start network checks"

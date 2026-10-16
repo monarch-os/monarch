@@ -90,12 +90,9 @@ shift
 unset MONARCH_PATH XDG_STATE_HOME
 exec "$@"
 EOF
-cat >"$runtime/bin/monarch-update-confirm" <<'EOF'
-#!/bin/bash
-exit "${TEST_FIRST_STEPS_CONFIRM:-0}"
-EOF
 cat >"$runtime/bin/monarch-update" <<'EOF'
 #!/bin/bash
+[[ ${TEST_FIRST_STEPS_CONFIRM:-0} == 0 ]] || exit 130
 printf '%s\n' "$*" >"$TEST_FIRST_STEPS/update-args"
 touch "$TEST_FIRST_STEPS/update-started"
 while [[ -f $TEST_FIRST_STEPS/block-update ]]; do /usr/bin/sleep 0.02; done
@@ -330,7 +327,7 @@ for ((attempt = 0; attempt < 200; attempt++)); do
   /usr/bin/sleep 0.02
 done
 [[ -f $test_tmp/update-started ]] || fail "update starts in a terminal"
-[[ $(<"$test_tmp/update-args") == -y ]] || fail "the confirmed update uses the existing updater"
+[[ -z $(<"$test_tmp/update-args") ]] || fail "the updater owns its check and confirmation without forced unattended mode"
 [[ $(head -n 1 "$test_tmp/calls") == 'msg plugin monarch/first-steps:panel all skip' ]] || fail "update hides the persistent guide first"
 monarch-setup-first-steps tools-state | jq -e '.active == "update"' >/dev/null
 if monarch-setup-first-steps install-tool seclists >/dev/null 2>&1; then fail "an update excludes tool installations"; fi
@@ -399,3 +396,16 @@ mkdir -p "$state_dir/installing"
 printf '%s\n' update >"$state_dir/installing/tool"
 monarch-setup-first-steps tools-state | jq -e '.active == "" and .updateResult.code == 130' >/dev/null
 pass "an interrupted update remains retryable after its processes disappear"
+
+cat > "$runtime/bin/monarch-update-available" <<'EOF'
+#!/bin/bash
+[[ $* == '--all --json' ]] || exit 99
+printf '%s\n' '{"status":"current","count":0}'
+exit 1
+EOF
+chmod +x "$runtime/bin/monarch-update-available"
+code=0
+monarch-setup-first-steps check-updates > "$test_tmp/check-result" || code=$?
+(( code == 1 )) || fail "the guide preserves the unified no-update exit status"
+jq -e '.status == "current" and .count == 0' "$test_tmp/check-result" >/dev/null
+pass "the guide queries all updates as JSON and preserves the no-update response"

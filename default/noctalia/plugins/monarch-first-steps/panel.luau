@@ -58,9 +58,10 @@ local function checkUpdates()
   run("check-updates", function(result)
     if generation ~= checkGeneration then return end
     checkingUpdates = false
-    local state = result and result.exitCode == 0 and noctalia.json.decode(result.stdout) or nil
+    local state = result and (result.exitCode == 0 or result.exitCode == 1) and noctalia.json.decode(result.stdout) or nil
     if type(state) == "table" and type(state.count) == "number"
-      and ((state.status == "current" and state.count == 0) or (state.status == "available" and state.count > 0)) then
+      and ((result.exitCode == 1 and state.status == "current" and state.count == 0)
+        or (result.exitCode == 0 and state.status == "available" and state.count > 0)) then
       updateCheck = state
     else
       updateCheck = { status = "error" }

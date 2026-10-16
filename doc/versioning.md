@@ -75,5 +75,29 @@ with five seconds of termination grace.
 After a failure the indicator retains its last state and retries in ten minutes,
 rather than incorrectly clearing an available-update badge.
 
+`monarch-update-available` is the shared availability command:
+
+- No options: check only the `monarch` package, preserving the bar's behaviour.
+- `--all`: include every repository package and AUR upgrades. AUR is only queried
+  when foreign packages are installed; its check has the same two-minute deadline.
+- `--json`: change the output format without changing the selected scope.
+- Exit status is always 0 for available upgrades, 1 for no upgrades, and 2 for a
+  failed check, including with `--json`.
+
+Successful JSON includes `status`, `scope`, `count`, `packages`, `repositories`,
+`aur` and `counts`. Each package has `name`, `category`, `installed` and `available`
+versions. Categories are `monarch` (the `monarch` and `monarch-settings` repository
+packages), `repo` (other repository packages) and `aur`. The disjoint `counts`
+object uses these three categories; `repositories` includes both `monarch` and
+`repo`. The default scope still selects only the exact `monarch` package, not the
+whole category. Failures return `status: "error"`, `count: null` and a stable
+`reason`, never a false zero-update result. The format is independent of language.
+
+The first-steps guide and `monarch update` use `--all --json`. The updater checks
+before confirmation and maintenance, exits successfully without changes when
+current, and stops on a failed check. `-y` skips confirmation, not verification.
+An explicit `--branch` switch bypasses this current-branch availability gate.
+Declining an available update returns 130 so the guide does not record a success.
+
 Installation schema versions remain independent and only change for architectural
 upgrade transitions.

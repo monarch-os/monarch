@@ -3,6 +3,7 @@
 set -euo pipefail
 
 source "$(dirname "$0")/base-test.sh"
+export MONARCH_PATH="$ROOT"
 
 test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
@@ -50,6 +51,18 @@ for step in "${steps[@]}"; do
   write_stub "$step" 'printf "%s unattended=%s args=%s\n" "${0##*/}" "${MONARCH_UPDATE_UNATTENDED:-}" "$*" >>"$STEP_LOG"'
 done
 
+write_stub monarch-update-available '
+[[ $* == "--all --json" ]] || exit 99
+[[ -z ${CHECK_LOG:-} ]] || printf "check\n" >>"$CHECK_LOG"
+if [[ ${BAD_CHECK_JSON:-0} == 1 ]]; then echo invalid; exit 0; fi
+case ${CHECK_STATUS:-0} in
+  0) echo '\''{"status":"available","count":3}'\'' ;;
+  1) echo '\''{"status":"current","count":0}'\'' ;;
+  *) echo '\''{"status":"error","count":null}'\'' ;;
+esac
+exit "${CHECK_STATUS:-0}"'
+write_stub monarch-update-confirm 'printf "confirmation\n" >>"$STEP_LOG"; exit "${CONFIRM_STATUS:-0}"'
+
 : >"$test_tmp/steps"
 run_update -y >/dev/null
 cut -d' ' -f1 "$test_tmp/steps" >"$test_tmp/names"
@@ -73,6 +86,39 @@ diff -u "$test_tmp/expected" "$test_tmp/names" || fail "update guardrail orderin
 grep -q '^monarch-update-system-pkgs unattended=1' "$test_tmp/steps" ||
   fail "unattended update state reaches package updates"
 pass "update orders preflight, pruning, snapshot, reconciliation and hooks"
+
+for mode in interactive unattended; do
+  args=()
+  [[ $mode != "unattended" ]] || args=(-y)
+  : >"$test_tmp/steps"
+  CHECK_STATUS=1 run_update "${args[@]}" >/dev/null
+  [[ ! -s $test_tmp/steps ]] || fail "$mode current system performs maintenance or asks for confirmation"
+  for check_status in 2 124; do
+    result=0
+    CHECK_STATUS="$check_status" run_update "${args[@]}" >/dev/null 2>&1 || result=$?
+    (( result == 2 )) || fail "$mode check failure is not reported"
+    [[ ! -s $test_tmp/steps ]] || fail "$mode failed check performs maintenance"
+  done
+done
+pass "interactive and unattended updates stop before confirmation and maintenance when current or unverifiable"
+
+: >"$test_tmp/steps"
+result=0
+BAD_CHECK_JSON=1 run_update -y >/dev/null 2>&1 || result=$?
+(( result == 2 )) || fail "malformed availability data is accepted"
+[[ ! -s $test_tmp/steps ]] || fail "malformed availability data starts maintenance"
+CHECK_LOG="$test_tmp/checks" run_update >/dev/null
+[[ $(head -n 1 "$test_tmp/steps") == confirmation ]] || fail "confirmation must precede maintenance"
+[[ $(<"$test_tmp/checks") == check ]] || fail "the updater verifies availability before confirmation"
+: >"$test_tmp/steps"
+result=0
+CONFIRM_STATUS=1 run_update >/dev/null 2>&1 || result=$?
+(( result == 130 )) || fail "cancellation is not distinguishable from success"
+[[ $(<"$test_tmp/steps") == confirmation ]] || fail "cancelled update performs maintenance"
+: >"$test_tmp/checks"
+CHECK_LOG="$test_tmp/checks" CHECK_STATUS=2 run_update -y --branch dev >/dev/null
+[[ ! -s $test_tmp/checks ]] || fail "an explicit branch change depends on current-branch availability"
+pass "confirmed updates run normally, cancellation is distinct, and explicit branch changes bypass the availability gate"
 
 write_stub monarch-update-system-pkgs 'exit 1'
 : >"$test_tmp/steps"

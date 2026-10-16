@@ -32,8 +32,11 @@ monarch setup first-steps reset
    La vérification utilise une base de paquets temporaire, sans sudo et sans
    modifier la base système. Le dernier succès mémorisé ne remplace pas cette
    vérification et n’empêche pas de nouvelles mises à jour.
+   Le guide appelle `monarch-update-available --all --json` ; le code de sortie
+   1 signifie que le système est à jour, pas que la vérification a échoué.
    L’installation utilise la commande de mise à jour existante dans un
-   terminal, après confirmation. Le guide s’efface et revient après validation
+   terminal. `monarch update` revérifie la disponibilité avant sa confirmation
+   et termine sans maintenance si le système est à jour. Le guide s’efface et revient après validation
    du résultat dans le terminal, si le bureau est disponible et déverrouillé.
    Le résultat reste visible dans le guide ; une annulation ou un échec permet
    de réessayer. **Plus tard** permet de poursuivre sans réseau ni mise à jour.
