@@ -6,7 +6,6 @@
 set -e
 
 echo "Installing ChatGPT..."
-bash "$MONARCH_PATH/install/reconcile/chatgpt.sh"
 monarch-pkg-add chatgpt-desktop-bin
 
 echo "Opening ChatGPT..."
