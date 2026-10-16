@@ -33,6 +33,10 @@ local titles = {
   software = "Logiciels et outils cyber",
 }
 
+local function needsFinalization()
+  return updateCheck and updateCheck.status == "current" and updateResult and updateResult.code ~= 0
+end
+
 local function quote(value)
   return "'" .. value:gsub("'", "'\\''") .. "'"
 end
@@ -183,6 +187,7 @@ local function content()
   elseif phase == "update" then
     local available = updateCheck and updateCheck.status == "available"
     local current = updateCheck and updateCheck.status == "current"
+    local resume = needsFinalization()
     local partial = updateCheck and updateCheck.complete == false
     local detail = "Consultation des dépôts système et de l’AUR…"
     local title = "Vérification des mises à jour…"
@@ -196,8 +201,9 @@ local function content()
       title = "Connexion requise"
       detail = "Connectez-vous pour vérifier les mises à jour disponibles."
     elseif current then
-      title = "✓ Système à jour"
-      detail = "Aucune mise à jour disponible dans les dépôts système ou l’AUR."
+      title = resume and "Paquets à jour · finalisation à reprendre" or "✓ Système à jour"
+      detail = resume and "La dernière tentative n’a pas abouti. Reprenez la configuration et les tâches après mise à jour."
+        or "Aucune mise à jour disponible dans les dépôts système ou l’AUR."
     elseif available then
       title = (partial and "Au moins " or "") .. tostring(updateCheck.count)
         .. (updateCheck.count == 1 and " mise à jour disponible" or " mises à jour disponibles")
@@ -214,8 +220,8 @@ local function content()
     if available and partial then
       table.insert(children, label("La vérification AUR a échoué. Les mises à jour des dépôts restent disponibles.", 12, "on_surface/0.65"))
     end
-    if available and connected and activeTool == "" and not checkingUpdates then
-      table.insert(children, ui.button({ text = "Mettre à jour maintenant",
+    if (available or resume) and connected and activeTool == "" and not checkingUpdates then
+      table.insert(children, ui.button({ text = resume and "Finaliser la mise à jour" or "Mettre à jour maintenant",
         height = 36, variant = "primary", enabled = not launching,
         onClick = function() onInstallClicked("update") end }))
     end
@@ -231,8 +237,8 @@ local function content()
       table.insert(children, label("Une connexion réseau est nécessaire. Vous pouvez aussi reporter cette étape.", 12, "on_surface/0.65"))
       table.insert(children, ui.button({ text = "Se connecter", height = 32, onClick = function() run("visit network") end }))
     end
-    if available then
-      table.insert(children, label("Le guide s’efface pendant la mise à jour. Validez la fin dans le terminal pour revenir ici.", 12, "on_surface/0.65"))
+    if available or resume then
+      table.insert(children, label("Le guide s’efface pendant l’opération. Validez la fin dans le terminal pour revenir ici.", 12, "on_surface/0.65"))
     end
   elseif phase == "shortcuts" then
     table.insert(children, label("Trois raccourcis pour commencer. Super correspond à la touche Windows.", 13, "on_surface/0.7"))
@@ -293,7 +299,7 @@ function render()
       ui.button({ text = "Retour", height = 36, onClick = "onBackClicked" }),
       ui.spacer({ flexGrow = 1 }),
       ui.button({ text = index == #steps and "Terminer"
-        or ((phase == "network" and not connected) or (phase == "update" and not (updateCheck and updateCheck.status == "current")))
+        or ((phase == "network" and not connected) or (phase == "update" and (needsFinalization() or not (updateCheck and updateCheck.status == "current"))))
           and "Plus tard" or "Continuer", height = 36, variant = "primary", onClick = "onNextClicked" }),
     }
   end
@@ -394,7 +400,8 @@ end
 
 function onInstallClicked(tool)
   if not toolsLoaded or launching or activeTool ~= "" or installed[tool] then return end
-  if tool == "update" and (not connected or checkingUpdates or not updateCheck or updateCheck.status ~= "available") then return end
+  if tool == "update" and (not connected or checkingUpdates or not updateCheck
+    or (updateCheck.status ~= "available" and not needsFinalization())) then return end
   launching = true
   if tool == "update" then invalidateUpdateCheck() end
   render()

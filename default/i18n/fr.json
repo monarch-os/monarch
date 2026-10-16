@@ -92,6 +92,7 @@
     "update.cancelled": "Mise à jour annulée",
     "update.checking": "Recherche des mises à jour des paquets…",
     "update.current": "Le système est à jour.",
+    "update.finalizing": "Les paquets sont à jour ; finalisation de la configuration et des tâches après mise à jour.",
     "update.availableCount": "Mises à jour de paquets disponibles : %1",
     "update.availableAtLeast": "Au moins %1 mises à jour de paquets sont disponibles.",
     "update.aurCheckFailed": "Les mises à jour AUR n’ont pas pu être vérifiées ; leur disponibilité reste inconnue.",

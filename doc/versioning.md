@@ -103,8 +103,12 @@ the result is `error` (exit 2), never `current`. Invalid partial AUR output is
 discarded as a whole. Repository-check failures still abort the complete check.
 
 The first-steps guide and `monarch update` use `--all --json`. The updater checks
-before confirmation and maintenance, exits successfully without changes when
-current, and stops on a failed check. `-y` skips confirmation, not verification.
+before confirmation and maintenance and stops on a failed check. When packages
+are current, it skips package confirmation, cache pruning, snapshots and package
+installation, but still runs reconciliation, orphan cleanup, post-update hooks,
+log analysis and restart handling. These stages must converge even after an
+earlier updater installed all packages and failed before finalization; a failed
+finalization remains a failed update. `-y` skips confirmation, not verification.
 For an available-but-incomplete result, it explains that only repository updates
 will be applied and skips the unavailable AUR stage for that transaction.
 An explicit `--branch` switch or a Git-managed runtime bypasses this package-only

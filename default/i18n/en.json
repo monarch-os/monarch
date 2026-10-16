@@ -92,6 +92,7 @@
     "update.cancelled": "Update cancelled",
     "update.checking": "Checking for package updates…",
     "update.current": "System is up to date.",
+    "update.finalizing": "Packages are current; finishing system configuration and post-update tasks.",
     "update.availableCount": "Package updates available: %1",
     "update.availableAtLeast": "At least %1 package updates are available.",
     "update.aurCheckFailed": "AUR updates could not be verified; their availability is unknown.",

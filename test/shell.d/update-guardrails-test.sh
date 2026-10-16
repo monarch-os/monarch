@@ -97,15 +97,45 @@ for mode in interactive unattended; do
   [[ $mode != "unattended" ]] || args=(-y)
   : >"$test_tmp/steps"
   CHECK_STATUS=1 run_update "${args[@]}" >/dev/null
-  [[ ! -s $test_tmp/steps ]] || fail "$mode current system performs maintenance or asks for confirmation"
+  if grep -Eq '^(confirmation|monarch-update-(requires-free-space|pkg-prune|git|keyring|system-pkgs|aur-pkgs)|monarch-snapshot)' "$test_tmp/steps"; then
+    fail "$mode current system asks for a package update or reruns package preparation"
+  fi
+  for stage in monarch-reconcile monarch-update-orphan-pkgs monarch-hook monarch-update-analyze-logs monarch-update-restart; do
+    grep -q "^$stage " "$test_tmp/steps" || fail "$mode current system skips $stage"
+  done
   for check_status in 2 124; do
+    : >"$test_tmp/steps"
     result=0
     CHECK_STATUS="$check_status" run_update "${args[@]}" >/dev/null 2>&1 || result=$?
     (( result == 2 )) || fail "$mode check failure is not reported"
     [[ ! -s $test_tmp/steps ]] || fail "$mode failed check performs maintenance"
   done
 done
-pass "interactive and unattended updates stop before confirmation and maintenance when current or unverifiable"
+pass "current packages skip package work but finish configuration; unverifiable checks stop before maintenance"
+
+# A prior updater may have installed every upgrade before a later stage failed.
+# Retry without transaction markers: current packages must not hide that failure.
+for failed_stage in monarch-reconcile monarch-hook; do
+  cp "$stub_bin/$failed_stage" "$test_tmp/recovery-stage"
+  write_stub "$failed_stage" 'printf "%s\n" "${0##*/}" >>"$STEP_LOG"; exit 42'
+  : >"$test_tmp/steps"
+  result=0
+  run_update -y >/dev/null 2>&1 || result=$?
+  (( result == 42 )) || fail "$failed_stage failure is not propagated"
+  grep -q '^monarch-update-system-pkgs ' "$test_tmp/steps" || fail "the failure did not follow package installation"
+  : >"$test_tmp/steps"
+  result=0
+  CHECK_STATUS=1 run_update -y >/dev/null 2>&1 || result=$?
+  (( result == 42 )) || fail "a current-package retry silently ignores $failed_stage failure"
+  grep -qx "$failed_stage" "$test_tmp/steps" || fail "retry did not attempt $failed_stage"
+  cp "$test_tmp/recovery-stage" "$stub_bin/$failed_stage"
+  : >"$test_tmp/steps"
+  CHECK_STATUS=1 run_update -y >/dev/null
+  if grep -q '^monarch-update-system-pkgs ' "$test_tmp/steps"; then fail "recovery unnecessarily reinstalls packages"; fi
+  grep -q "^$failed_stage " "$test_tmp/steps" || fail "recovery skipped $failed_stage"
+  grep -q '^monarch-update-restart ' "$test_tmp/steps" || fail "recovery did not finish the post-update stages"
+done
+pass "post-package failures remain visible and recover on a current-package retry without pending markers"
 
 for mode in interactive unattended; do
   args=()

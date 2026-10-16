@@ -40,10 +40,13 @@ monarch setup first-steps reset
    1 signifie que le système est à jour, pas que la vérification a échoué.
    L’installation utilise la commande de mise à jour existante dans un
    terminal. `monarch update` revérifie la disponibilité avant sa confirmation
-   et termine sans maintenance si le système est à jour. Le guide s’efface et revient après validation
+   et, si les paquets sont déjà à jour, reprend uniquement la finalisation de la
+   configuration et les tâches après mise à jour. Le guide s’efface et revient après validation
    du résultat dans le terminal, si le bureau est disponible et déverrouillé.
    Le résultat reste visible dans le guide ; une annulation ou un échec permet
-   de réessayer. **Plus tard** permet de poursuivre sans réseau ni mise à jour.
+   de réessayer. Si les paquets sont à jour après une tentative non aboutie,
+   **Finaliser la mise à jour** reste proposé pour reprendre les tâches restantes.
+   **Plus tard** permet de poursuivre sans réseau ni mise à jour.
 3. **Se repérer** : les raccourcis réellement configurés et leur liste complète.
 4. **Choisir son style** : le sélecteur de thèmes existant et les fonds d’écran.
 5. **Logiciels et outils cyber** : le catalogue général Software, le catalogue
