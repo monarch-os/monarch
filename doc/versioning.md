@@ -81,8 +81,9 @@ rather than incorrectly clearing an available-update badge.
 - `--all`: include every repository package and AUR upgrades. AUR is only queried
   when foreign packages are installed; its check has the same two-minute deadline.
 - `--json`: change the output format without changing the selected scope.
-- Exit status is always 0 for available upgrades, 1 for no upgrades, and 2 for a
-  failed check, including with `--json`.
+- Exit status is 0 for known available upgrades (including a partial result),
+  1 only for a complete check with no upgrades, and 2 when the check is incomplete
+  or failed and no upgrades could be established, including with `--json`.
 
 Successful JSON includes `status`, `scope`, `count`, `packages`, `repositories`,
 `aur` and `counts`. Each package has `name`, `category`, `installed` and `available`
@@ -93,9 +94,19 @@ object uses these three categories; `repositories` includes both `monarch` and
 whole category. Failures return `status: "error"`, `count: null` and a stable
 `reason`, never a false zero-update result. The format is independent of language.
 
+`complete` and `warnings` describe coverage of the selected scope. An AUR
+failure preserves verified repository upgrades: when any exist, the result is
+`available` (exit 0), `complete: false`, with an AUR warning and only the verified
+packages in `packages`/`count`. The count is a lower bound; `aur` and `counts.aur`
+are `null`, not zero. If repositories are current but AUR could not be checked,
+the result is `error` (exit 2), never `current`. Invalid partial AUR output is
+discarded as a whole. Repository-check failures still abort the complete check.
+
 The first-steps guide and `monarch update` use `--all --json`. The updater checks
 before confirmation and maintenance, exits successfully without changes when
 current, and stops on a failed check. `-y` skips confirmation, not verification.
+For an available-but-incomplete result, it explains that only repository updates
+will be applied and skips the unavailable AUR stage for that transaction.
 An explicit `--branch` switch or a Git-managed runtime bypasses this package-only
 availability gate: source changes must still be pulled even when packages are
 current, including the plain `monarch-update -y` used by `monarch-channel-set`.

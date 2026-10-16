@@ -56,6 +56,10 @@ write_stub monarch-update-available '
 [[ $* == "--all --json" ]] || exit 99
 [[ -z ${CHECK_LOG:-} ]] || printf "check\n" >>"$CHECK_LOG"
 if [[ ${BAD_CHECK_JSON:-0} == 1 ]]; then echo invalid; exit 0; fi
+if [[ ${PARTIAL_AUR_CHECK:-0} == 1 ]]; then
+  echo '\''{"status":"available","count":2,"repositories":2,"aur":null,"complete":false,"warnings":[{"source":"aur","reason":"aur-unavailable"}]}'\''
+  exit 0
+fi
 case ${CHECK_STATUS:-0} in
   0) echo '\''{"status":"available","count":3}'\'' ;;
   1) echo '\''{"status":"current","count":0}'\'' ;;
@@ -102,6 +106,19 @@ for mode in interactive unattended; do
   done
 done
 pass "interactive and unattended updates stop before confirmation and maintenance when current or unverifiable"
+
+for mode in interactive unattended; do
+  args=()
+  [[ $mode != "unattended" ]] || args=(-y)
+  : >"$test_tmp/steps"
+  PARTIAL_AUR_CHECK=1 run_update "${args[@]}" >"$test_tmp/partial-output"
+  grep -q '^monarch-update-keyring ' "$test_tmp/steps" || fail "$mode AUR outage blocks keyring updates"
+  grep -q '^monarch-update-system-pkgs ' "$test_tmp/steps" || fail "$mode AUR outage blocks repository updates"
+  grep -q '^monarch-reconcile ' "$test_tmp/steps" || fail "$mode partial update skips reconciliation"
+  if grep -q '^monarch-update-aur-pkgs ' "$test_tmp/steps"; then fail "$mode partial update retries the unavailable AUR"; fi
+  grep -q AUR "$test_tmp/partial-output" || fail "$mode partial update hides its AUR warning"
+done
+pass "AUR outages warn and skip AUR while allowing repository and security updates"
 
 : >"$test_tmp/steps"
 result=0

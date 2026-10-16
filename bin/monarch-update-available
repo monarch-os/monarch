@@ -47,6 +47,7 @@ case $code in
 esac
 
 aur_updates=""
+aur_error=""
 if [[ $all == "true" ]]; then
   # Classify foreign packages against the freshly synchronized temporary DB.
   # A new installation may not have any system sync databases yet.
@@ -56,14 +57,17 @@ if [[ $all == "true" ]]; then
     (( code == 1 )) && [[ -z $foreign && ! -s $db/foreign.err ]] || fail_check "installed-packages-unavailable"
   fi
   if [[ -n $foreign ]]; then
-    monarch-cmd-missing yay && fail_check "missing-aur-helper"
-    code=0
-    # Match the updater's exclusions. yay returns 1 with no output when no
-    # upgrades are found. A diagnostic or timeout must not become "current".
-    aur_updates=$(LC_ALL=C timeout --kill-after=5s 120s yay --dbpath "$db" -Qua \
-      --color never --ignore gcc14,gcc14-libs 2>"$db/aur.err") || code=$?
-    if (( code != 0 )); then
-      (( code == 1 )) && [[ -z $aur_updates && ! -s $db/aur.err ]] || fail_check "aur-unavailable"
+    if monarch-cmd-missing yay; then
+      aur_error="missing-aur-helper"
+    else
+      code=0
+      # Match the updater's exclusions. yay returns 1 with no output when no
+      # upgrades are found. Preserve repository results when this portion fails.
+      aur_updates=$(LC_ALL=C timeout --kill-after=5s 120s yay --dbpath "$db" -Qua \
+        --color never --ignore gcc14,gcc14-libs 2>"$db/aur.err") || code=$?
+      if (( code != 0 )); then
+        (( code == 1 )) && [[ -z $aur_updates && ! -s $db/aur.err ]] || aur_error="aur-unavailable"
+      fi
     fi
   fi
 fi
@@ -88,21 +92,35 @@ package_rows() {
 }
 
 package_rows "$updates" repo > "$db/updates.tsv" || fail_check "invalid-repository-result"
-package_rows "$aur_updates" aur >> "$db/updates.tsv" || fail_check "invalid-aur-result"
-result=$(jq -Rn --arg scope "$scope" '
+if [[ -z $aur_error ]]; then
+  # Stage separately: malformed AUR output must not publish a valid-looking
+  # prefix, nor discard the repository upgrades that were already verified.
+  if package_rows "$aur_updates" aur > "$db/aur.tsv"; then
+    cat "$db/aur.tsv" >> "$db/updates.tsv"
+  else
+    aur_error="invalid-aur-result"
+  fi
+fi
+result=$(jq -Rn --arg scope "$scope" --arg aur_error "$aur_error" '
   [inputs | split("\t") | {name:.[0],category:.[1],installed:.[2],available:.[3]}] |
-  {status:(if length > 0 then "available" else "current" end),scope:$scope,
-   count:length,packages:.,
+  {status:(if length > 0 then "available" elif $aur_error != "" then "error" else "current" end),scope:$scope,
+   count:(if length == 0 and $aur_error != "" then null else length end),packages:.,
+   complete:($aur_error == ""),
+   warnings:(if $aur_error == "" then [] else [{source:"aur",reason:$aur_error}] end),
    repositories:([.[] | select(.category != "aur")] | length),
-   aur:([.[] | select(.category == "aur")] | length),
+   aur:(if $aur_error != "" then null else [.[] | select(.category == "aur")] | length end),
    counts:{monarch:([.[] | select(.category == "monarch")] | length),
            repo:([.[] | select(.category == "repo")] | length),
-           aur:([.[] | select(.category == "aur")] | length)}}
+           aur:(if $aur_error != "" then null else [.[] | select(.category == "aur")] | length end)}} +
+  (if length == 0 and $aur_error != "" then {reason:$aur_error} else {} end)
 ' < "$db/updates.tsv")
-count=$(jq -r '.count' <<< "$result")
+count=$(jq -r '.count // 0' <<< "$result")
 
 if [[ $json == "true" ]]; then
   printf '%s\n' "$result"
+elif [[ -n $aur_error ]]; then
+  monarch_message 'update.aurCheckFailed' >&2
+  if (( count > 0 )); then monarch_message 'update.availableAtLeast' "$count"; else monarch_message 'update.checkFailed' >&2; fi
 elif (( count == 0 )); then
   if [[ $all == "true" ]]; then monarch_message 'update.current'; else monarch_message 'update.monarchCurrent'; fi
 elif [[ $all == "true" ]]; then
@@ -113,4 +131,6 @@ else
   monarch_message 'update.monarchAvailable' "$installed" "$available"
 fi
 
-(( count > 0 )) || exit 1
+(( count > 0 )) && exit 0
+[[ -z $aur_error ]] || exit 2
+exit 1

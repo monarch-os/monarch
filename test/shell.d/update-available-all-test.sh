@@ -86,6 +86,30 @@ done
 printf 'example-aur 3 -> 4\n' > "$test_tmp/aur"
 pass "yay 13 age tags preserve AUR counts and clean version fields"
 
+export CHECK_AUR_ERROR='AUR unavailable'
+for CHECK_AUR_CODE in 1 124 127; do
+  export CHECK_AUR_CODE
+  run_check
+  (( code == 0 )) || fail "an AUR outage blocks known repository upgrades"
+  jq -e '.status == "available" and .count == 2 and .repositories == 2 and
+    .complete == false and .aur == null and .counts.aur == null and
+    .warnings == [{source:"aur",reason:"aur-unavailable"}] and
+    (.packages | length) == 2 and ([.packages[].category] | index("aur")) == null' "$test_tmp/result" >/dev/null
+done
+unset CHECK_AUR_ERROR
+export CHECK_AUR_CODE=0 CHECK_MISSING=yay
+run_check
+(( code == 0 )) || fail "missing yay blocks repository upgrades"
+jq -e '.count == 2 and .warnings[0].reason == "missing-aur-helper"' "$test_tmp/result" >/dev/null
+unset CHECK_MISSING
+printf 'example-aur 3 -> 4 [2d3h]\nbroken AUR output\n' > "$test_tmp/aur"
+run_check
+(( code == 0 )) || fail "malformed AUR output blocks repository upgrades"
+jq -e '.count == 2 and .aur == null and .warnings[0].reason == "invalid-aur-result" and
+  (.packages | length) == 2' "$test_tmp/result" >/dev/null
+printf 'example-aur 3 -> 4\n' > "$test_tmp/aur"
+pass "AUR failures preserve repository upgrades and discard all unverified AUR rows"
+
 rm "$test_tmp/pacman-called" "$test_tmp/aur-called"
 run_check --json
 (( code == 0 )) || fail "JSON-only keeps the Monarch-only scope"
@@ -128,6 +152,8 @@ export CHECK_REPO_CODE=2 CHECK_AUR_ERROR='AUR unavailable'
 run_check
 (( code == 2 )) || fail "an AUR error must not look like an empty update list"
 jq -e '.reason == "aur-unavailable"' "$test_tmp/result" >/dev/null
+jq -e '.status == "error" and .count == null and .repositories == 0 and .aur == null and
+  .complete == false and .warnings[0].source == "aur"' "$test_tmp/result" >/dev/null
 unset CHECK_AUR_ERROR
 export CHECK_AUR_CODE=124
 run_check

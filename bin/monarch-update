@@ -53,6 +53,7 @@ unset MONARCH_UPDATE_LOCKED
 
 source "$("$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/monarch-i18n" --helper)"
 monarch_i18n_load
+skip_aur=false
 
 # Explicit branch switches and Git-managed runtimes also update source, which
 # a package-only check cannot describe. Use the same runtime boundary as
@@ -68,7 +69,13 @@ if [[ -z $branch && ! -d ${MONARCH_PATH:-/usr/share/monarch}/.git ]]; then
         monarch_message 'update.checkFailed' >&2
         exit 2
       fi
-      monarch_message 'update.availableCount' "$count"
+      if jq -e 'any(.warnings[]?; .source == "aur")' >/dev/null <<< "$updates"; then
+        skip_aur=true
+        monarch_message 'update.availableAtLeast' "$count"
+        monarch_message 'update.aurSkipped'
+      else
+        monarch_message 'update.availableCount' "$count"
+      fi
       ;;
     1)
       if ! jq -e '.status == "current" and .count == 0' >/dev/null <<< "$updates"; then
@@ -102,7 +109,7 @@ monarch-update-git
 monarch-update-keyring
 monarch-update-system-pkgs
 monarch-reconcile
-monarch-update-aur-pkgs
+[[ $skip_aur == "true" ]] || monarch-update-aur-pkgs
 monarch-update-orphan-pkgs
 monarch-hook post-update
 monarch-update-analyze-logs

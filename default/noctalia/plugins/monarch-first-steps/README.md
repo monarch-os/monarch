@@ -29,6 +29,10 @@ monarch setup first-steps reset
    propose l’installation que lorsqu’une mise à jour a été trouvée. Une erreur
    réseau ou un dépôt inaccessible affiche **Vérification impossible**, jamais
    un faux état à jour. **Vérifier à nouveau** permet de relancer la recherche.
+   Si seule la vérification AUR échoue, les mises à jour des dépôts déjà trouvées
+   restent proposées avec **Au moins N mises à jour** et **AUR : non vérifié**.
+   La commande signale cette limitation avant confirmation et ignore l’AUR pour
+   cette transaction. Sans mise à jour connue, la vérification reste en erreur.
    La vérification utilise une base de paquets temporaire, sans sudo et sans
    modifier la base système. Le dernier succès mémorisé ne remplace pas cette
    vérification et n’empêche pas de nouvelles mises à jour.

@@ -58,10 +58,13 @@ local function checkUpdates()
   run("check-updates", function(result)
     if generation ~= checkGeneration then return end
     checkingUpdates = false
-    local state = result and (result.exitCode == 0 or result.exitCode == 1) and noctalia.json.decode(result.stdout) or nil
+    local state = result and (result.exitCode == 0 or result.exitCode == 1 or result.exitCode == 2)
+      and noctalia.json.decode(result.stdout) or nil
     if type(state) == "table" and type(state.count) == "number"
-      and ((result.exitCode == 1 and state.status == "current" and state.count == 0)
+      and ((result.exitCode == 1 and state.status == "current" and state.count == 0 and state.complete ~= false)
         or (result.exitCode == 0 and state.status == "available" and state.count > 0)) then
+      updateCheck = state
+    elseif type(state) == "table" and result.exitCode == 2 and state.status == "error" then
       updateCheck = state
     else
       updateCheck = { status = "error" }
@@ -180,6 +183,7 @@ local function content()
   elseif phase == "update" then
     local available = updateCheck and updateCheck.status == "available"
     local current = updateCheck and updateCheck.status == "current"
+    local partial = updateCheck and updateCheck.complete == false
     local detail = "Consultation des dépôts système et de l’AUR…"
     local title = "Vérification des mises à jour…"
     if activeTool == "update" then
@@ -195,13 +199,21 @@ local function content()
       title = "✓ Système à jour"
       detail = "Aucune mise à jour disponible dans les dépôts système ou l’AUR."
     elseif available then
-      title = tostring(updateCheck.count) .. (updateCheck.count == 1 and " mise à jour disponible" or " mises à jour disponibles")
-      detail = "Dépôts système : " .. tostring(updateCheck.repositories or 0) .. " · AUR : " .. tostring(updateCheck.aur or 0)
+      title = (partial and "Au moins " or "") .. tostring(updateCheck.count)
+        .. (updateCheck.count == 1 and " mise à jour disponible" or " mises à jour disponibles")
+      detail = "Dépôts système : " .. tostring(updateCheck.repositories or 0)
+        .. " · AUR : " .. (partial and "non vérifié" or tostring(updateCheck.aur or 0))
     elseif updateCheck and updateCheck.status == "error" then
       title = "Vérification impossible"
       detail = "Les dépôts n’ont pas pu être vérifiés. Réessayez ou poursuivez avec Plus tard."
+      if partial and updateCheck.repositories == 0 then
+        detail = "Les dépôts système sont à jour, mais l’AUR n’a pas pu être vérifié. Réessayez."
+      end
     end
     table.insert(children, entry("↻", title, detail))
+    if available and partial then
+      table.insert(children, label("La vérification AUR a échoué. Les mises à jour des dépôts restent disponibles.", 12, "on_surface/0.65"))
+    end
     if available and connected and activeTool == "" and not checkingUpdates then
       table.insert(children, ui.button({ text = "Mettre à jour maintenant",
         height = 36, variant = "primary", enabled = not launching,
