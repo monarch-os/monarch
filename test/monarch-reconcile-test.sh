@@ -312,6 +312,11 @@ EOF
 
 chmod +x "$TEST_ROOT/bin/"*
 
+# Fresh installs enable the same socket as upgrades, but wait for reboot to start it.
+grep -qF 'run_logged "$MONARCH_INSTALL/user/ssh-agent.sh"' "$ROOT/install/user/all.sh"
+bash "$ROOT/install/user/ssh-agent.sh"
+grep -qx 'systemctl --user enable ssh-agent.socket' "$TEST_LOG"
+
 system_transition="$TEST_ROOT/system-transition"
 mkdir -p "$system_transition/install/reconcile/schema/1-to-2"
 printf '%s\n' true >"$system_transition/install/reconcile/retired-sudoers.sh"
@@ -372,6 +377,7 @@ bash "$runtime_hook"
 bash "$ROOT/install/reconcile/schema/1-to-2/system-after-user.sh"
 bash "$ROOT/install/reconcile/user.sh"
 
+grep -qx 'systemctl --user enable --now ssh-agent.socket' "$TEST_LOG"
 grep -qx 'systemctl --user try-restart monarch-crash-watch.service' "$TEST_LOG"
 grep -qx 'monarch-pkg-drop --keep-dependencies noctalia-shell polkit-gnome monarch-welcome' "$TEST_LOG"
 grep -qx 'monarch-pkg-drop claude-code openai-codex' "$TEST_LOG"

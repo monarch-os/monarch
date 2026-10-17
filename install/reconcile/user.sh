@@ -2,6 +2,8 @@ set -euo pipefail
 
 echo "Reconcile Monarch user state"
 
+# Match config/uwsm/env without loading keys or replacing custom agent settings.
+systemctl --user enable --now ssh-agent.socket
 systemctl --user enable --now monarch-screencast-dnd.service
 systemctl --user try-restart monarch-crash-watch.service
 
