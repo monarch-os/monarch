@@ -692,7 +692,7 @@ create_user() {
     # collected this time around.
     usermod -aG "$(user_groups)" ${full_name:+-c "$full_name"} "$username"
   else
-    useradd -m -G "$(user_groups)" -s /bin/bash \
+    useradd -m -G "$(user_groups)" -s /bin/zsh \
       ${full_name:+-c "$full_name"} "$username"
   fi
 

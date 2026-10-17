@@ -1,3 +1,4 @@
+run_logged "$MONARCH_INSTALL/config/default-shell.sh"
 run_logged "$MONARCH_INSTALL/config/theme-system.sh"
 run_logged "$MONARCH_INSTALL/config/browser-policy.sh"
 run_logged "$MONARCH_INSTALL/config/increase-lockout-limit.sh"
