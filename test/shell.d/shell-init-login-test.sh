@@ -23,9 +23,15 @@ output=$(SHELL=/bin/zsh PATH="$test_tmp:$PATH" bash --noprofile --norc -c \
 command -v zsh >/dev/null || { echo "zsh is required for shell initialization tests" >&2; exit 1; }
 for login_shell in /bin/bash /bin/zsh ""; do
   output=$(SHELL="$login_shell" PATH="$test_tmp:$PATH" zsh -f -c \
-    'autoload -Uz compinit; compinit -D; source "$1"; print -rn -- "$SHELL_NAME"' zsh "$ROOT/default/shells/init" 2>"$test_tmp/stderr")
-  [[ $output == zsh ]]
-  [[ ! -s $test_tmp/stderr ]]
+    'autoload -Uz compinit; compinit -i -D; source "$1"; print -rn -- "$SHELL_NAME"' zsh "$ROOT/default/shells/init" 2>"$test_tmp/stderr") || {
+    cat "$test_tmp/stderr" >&2
+    exit 1
+  }
+  [[ $output == zsh ]] || { printf 'Expected zsh, got: %s\n' "$output" >&2; exit 1; }
+  if [[ -s $test_tmp/stderr ]]; then
+    cat "$test_tmp/stderr" >&2
+    exit 1
+  fi
 done
 
 echo "login shell initialization: ok"
