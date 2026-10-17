@@ -313,6 +313,10 @@ EOF
 chmod +x "$TEST_ROOT/bin/"*
 
 # Fresh installs enable the same socket as upgrades, but wait for reboot to start it.
+source "$ROOT/install/helpers/package-manifest.sh"
+ssh_required_packages=()
+monarch_load_package_manifest ssh_required_packages "$ROOT/install/monarch-base.packages" required
+printf '%s\n' "${ssh_required_packages[@]}" | grep -qx openssh
 grep -qF 'run_logged "$MONARCH_INSTALL/user/ssh-agent.sh"' "$ROOT/install/user/all.sh"
 bash "$ROOT/install/user/ssh-agent.sh"
 grep -qx 'systemctl --user enable ssh-agent.socket' "$TEST_LOG"
