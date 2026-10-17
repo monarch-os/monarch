@@ -2,10 +2,10 @@
 
 # monarch:summary=Update AUR packages if any are installed
 
-if pacman -Qem >/dev/null; then
+if pacman -Qm >/dev/null; then
   if monarch-pkg-aur-accessible; then
     echo -e "\e[32m\nUpdate AUR packages\e[0m"
-    yay -Sua --noconfirm --cleanafter --ignore gcc14,gcc14-libs
+    yay -Sua --noconfirm --cleanafter --ignore gcc14,gcc14-libs || exit $?
     echo
   else
     echo -e "\e[31m\nAUR is unavailable (so skipping updates)\e[0m"

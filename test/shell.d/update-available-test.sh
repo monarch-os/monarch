@@ -7,6 +7,7 @@ test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
 mkdir -p "$test_tmp/bin"
 export PATH="$test_tmp/bin:$ROOT/bin:$PATH"
+export MONARCH_PATH="$ROOT"
 export UPDATE_FIXTURE="$test_tmp/updates" UPDATE_DB_RECORD="$test_tmp/db"
 export UPDATE_FORBIDDEN_LOG="$test_tmp/forbidden"
 export TMPDIR="$test_tmp"
@@ -87,10 +88,17 @@ export STREAM_STATES="$test_tmp/states" STREAM_COUNT="$test_tmp/count"
 export STREAM_SLEEPS="$test_tmp/sleeps"
 cat >"$test_tmp/bin/monarch-update-available" <<'STUB'
 #!/bin/bash
+[[ $* == '--all --json' ]] || exit 99
 count=$(cat "$STREAM_COUNT" 2>/dev/null || echo 0)
 count=$((count + 1))
 printf '%s\n' "$count" >"$STREAM_COUNT"
-exit "$(sed -n "${count}p" "$STREAM_STATES")"
+status=$(sed -n "${count}p" "$STREAM_STATES")
+case $status in
+  0) echo '{"status":"available","count":1,"complete":true,"counts":{"monarch":1,"repo":0,"aur":0},"aur":0,"packages":[{"name":"monarch","category":"monarch","installed":"1","available":"2"}]}' ;;
+  1) echo '{"status":"current","count":0,"complete":true}' ;;
+  *) echo '{"status":"error","count":null}' ;;
+esac
+exit "$status"
 STUB
 cat >"$test_tmp/bin/sleep" <<'STUB'
 #!/bin/bash
@@ -100,24 +108,28 @@ if (( $(cat "$STREAM_COUNT") >= $(wc -l <"$STREAM_STATES") )); then
 fi
 STUB
 chmod +x "$test_tmp/bin/monarch-update-available" "$test_tmp/bin/sleep"
+mkdir -p "$test_tmp/runtime/bin"
+ln -s "$test_tmp/bin/monarch-update-available" "$test_tmp/runtime/bin/monarch-update-available"
+ln -s "$ROOT/bin/monarch-i18n" "$test_tmp/runtime/bin/monarch-i18n"
 
 run_stream() {
   rm -f "$STREAM_COUNT" "$STREAM_SLEEPS"
   stream_status=0
-  bash "$ROOT/default/noctalia/indicators/monarch-update.sh" >"$test_tmp/stream" || stream_status=$?
+  MONARCH_PATH="$test_tmp/runtime" MONARCH_LANGUAGE=en bash "$ROOT/default/noctalia/indicators/monarch-update.sh" >"$test_tmp/stream" || stream_status=$?
   ((stream_status == 143)) || fail "stream did not stop after the fixture"
 }
 
 printf '0\n2\n0\n1\n' >"$STREAM_STATES"
 run_stream
-[[ $(wc -l <"$test_tmp/stream") == 2 ]] || fail "failed checks clear or duplicate the update badge"
-grep -q 'Monarch update available' "$test_tmp/stream" || fail "stream does not show available updates"
+[[ $(wc -l <"$test_tmp/stream") == 4 ]] || fail "error and recovery transitions are not displayed"
+jq -se '.[0].textColor == "primary" and .[1].textColor == "error" and .[2].textColor == "primary"' "$test_tmp/stream" >/dev/null
+grep -q 'Updates available' "$test_tmp/stream" || fail "stream does not show available updates"
 [[ $(tail -n 1 "$test_tmp/stream") == '{}' ]] || fail "confirmed up-to-date check does not clear the badge"
 [[ $(<"$STREAM_SLEEPS") == $'600\n600\n600\n21600' ]] || fail "stream does not use the expected retry cadence"
-pass "the indicator preserves its badge on failure and clears it only after a successful check"
+pass "the indicator marks stale availability on failure and clears only after a complete successful check"
 
 printf '2\n1\n' >"$STREAM_STATES"
 run_stream
-[[ $(<"$test_tmp/stream") == '{}' ]] || fail "initial failed checks display an update badge"
+jq -se '.[0].text == " ?" and .[0].textColor == "error" and .[1] == {}' "$test_tmp/stream" >/dev/null
 [[ $(<"$STREAM_SLEEPS") == $'600\n21600' ]] || fail "initial failures defer checks for six hours"
-pass "initial errors stay hidden but retry sooner than successful idle checks"
+pass "initial errors are explicit and retry sooner than successful idle checks"
