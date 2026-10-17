@@ -16,4 +16,5 @@ run_logged "$MONARCH_INSTALL/user/hardware/framework/fix-f13-amd-audio-input.sh"
 run_logged "$MONARCH_INSTALL/user/hardware/dell/xps13-text-scaling.sh"
 
 run_logged "$MONARCH_INSTALL/user/default-keyring.sh"
+run_logged "$MONARCH_INSTALL/user/ssh-agent.sh"
 run_logged "$MONARCH_INSTALL/user/mise.sh"
