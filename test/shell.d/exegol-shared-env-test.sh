@@ -38,8 +38,40 @@ with tempfile.TemporaryDirectory() as directory:
   assert shell('setip "10.0.0.1" && [[ $IP == "10.0.0.1" ]]').returncode == 0
   assert shell('setshared EMPTY= && loadshared && [[ ${EMPTY+x} == x && -z $EMPTY ]]').returncode == 0
   before = data.read_bytes()
+  for declaration, name, value in (
+      ("", "COLUMNS", "(OTHER=42)"),
+      ("unset COLUMNS", "COLUMNS", "(OTHER=42)"),
+      ("typeset -i CUSTOM=7", "CUSTOM", "(OTHER=42)"),
+      ("typeset -r CUSTOM=7", "CUSTOM", "8"),
+      ("typeset -a CUSTOM", "CUSTOM", "value")):
+    env["ASSIGNMENT"] = f"{name}={value}"
+    prefix = declaration + "; " if declaration else ""
+    result = shell(prefix + 'OTHER=old; setshared "$ASSIGNMENT"; '
+                   'result=$?; [[ $result != 0 && $OTHER == old ]]')
+    assert result.returncode == 0 and data.read_bytes() == before, (name, result)
+    data.write_text(json.dumps({"IP": "new", name: value}))
+    # Set attributes before sourcing the rc: startup must also fail without partial assignments.
+    result = subprocess.run(["zsh", "-fc", prefix + 'IP=old; OTHER=old; source "$RC"; '
+                             'loadshared; result=$?; [[ $result != 0 && $IP == old && $OTHER == old ]]'],
+                            env=env, capture_output=True)
+    assert result.returncode == 0, (name, result.stderr)
+    data.write_bytes(before)
+  result = shell('probe() { print executed > "$HOME/executed"; }; '
+                 'functions -M probe 0 0 probe; setshared "COLUMNS=probe()"; '
+                 'result=$?; [[ $result != 0 && ! -e $HOME/executed ]]')
+  assert result.returncode == 0 and data.read_bytes() == before, result
+  data.write_text(json.dumps({"IP": "new", "COLUMNS": "probe()"}))
+  result = shell('probe() { print executed > "$HOME/executed"; }; '
+                 'functions -M probe 0 0 probe; IP=old; loadshared; result=$?; '
+                 '[[ $result != 0 && $IP == old && ! -e $HOME/executed ]]')
+  assert result.returncode == 0, result.stderr
+  data.write_bytes(before)
+  assert shell('typeset CUSTOM=old; setshared CUSTOM=new && [[ $CUSTOM == new ]]').returncode == 0
+  data.write_bytes(before)
   reserved = ("UID", "EUID", "GID", "EGID", "USERNAME", "ARGC", "HISTCMD",
-              "LINENO", "PPID", "TTYIDLE", "ZSH_EVAL_CONTEXT", "ZSH_SUBSHELL")
+              "LINENO", "PPID", "TTYIDLE", "ZSH_EVAL_CONTEXT", "ZSH_SUBSHELL",
+              "PS1", "PS2", "PS3", "PS4", "RPS1", "RPS2", "PROMPT",
+              "PROMPT2", "PROMPT3", "PROMPT4", "RPROMPT", "RPROMPT2", "SPROMPT")
   for name in reserved:
     fresh = home / "fresh.json"
     for destination in (fresh, data):

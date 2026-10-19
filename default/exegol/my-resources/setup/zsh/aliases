@@ -61,7 +61,7 @@ function jsonunescape() (
 )
 
 _monarch_exegol_hex() {
-  python3 -c '
+  python3 -I -c '
 import sys
 try:
     data = bytes.fromhex(sys.stdin.read())

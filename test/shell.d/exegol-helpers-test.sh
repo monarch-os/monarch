@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 
 aliases = Path(sys.argv[1]) / "default/exegol/my-resources/setup/zsh/aliases"
 for shell in ("bash", "zsh"):
@@ -41,5 +42,22 @@ for shell in ("bash", "zsh"):
     assert result.returncode != 0 and not result.stdout and result.stderr, (name, result)
   for name in ("jsonescape", "jsonunescape", "hex2py", "hex2c"):
     assert run(name, b"", "one", "two").returncode != 0
+  with tempfile.TemporaryDirectory() as directory:
+    marker = Path(directory) / "executed"
+    (Path(directory) / "sitecustomize.py").write_text(
+      f'from pathlib import Path; Path({str(marker)!r}).touch()\n')
+    for name in ("hex2py", "hex2c"):
+      result = subprocess.run(
+        [shell, "-fc", 'source "$ALIASES"; "$1" 41', "test", name],
+        env={**os.environ, "ALIASES": str(aliases), "PYTHONHOME": directory + "/missing",
+             "PYTHONPATH": directory}, capture_output=True,
+      )
+      assert result.returncode == 0 and not marker.exists(), result
+      result = subprocess.run(
+        [shell, "-fc", 'source "$ALIASES"; "$1" 41', "test", name],
+        env={**{key: value for key, value in os.environ.items() if key != "PYTHONHOME"},
+             "ALIASES": str(aliases), "PYTHONPATH": directory}, capture_output=True,
+      )
+      assert result.returncode == 0 and not marker.exists(), result
   print(f"PASS: {shell} Exegol helpers, reloads, stdin, argument boundaries and invalid input")
 PY

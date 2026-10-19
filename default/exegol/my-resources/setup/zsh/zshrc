@@ -65,6 +65,7 @@ setshared() {
     echo "Example: setshared IP=10.4.10.100"
     return 1
   fi
+  _monarch_shared_parameter "${1%%=*}" || return
   printf '%s' "$1" | _monarch_shared_env set || return
   export "$1"
 }
@@ -72,6 +73,9 @@ setshared() {
 loadshared() {
   local records record
   records=$(_monarch_shared_env load) || return
+  for record in "${(@0)records}"; do
+    [[ -z $record ]] || _monarch_shared_parameter "${record%%=*}" || return
+  done
   for record in "${(@0)records}"; do
     if [[ -n $record ]]; then
       export "$record" || return
@@ -87,6 +91,26 @@ listshared() {
 clearshared() {
   _monarch_shared_env clear
 }
+
+_monarch_shared_parameter() (
+  if [[ $1 != [A-Z_]* || $1 == *[^A-Z0-9_]* ]]; then
+    print -ru2 -- "Invalid shared parameter name: $1"
+    return 1
+  fi
+  case $1 in
+    UID|EUID|GID|EGID|USERNAME) return 1 ;;
+  esac
+  local attributes=${parameters[$1]-}
+  # An unset special can regain its attributes on assignment. Probe only an empty value in a subshell.
+  if [[ -z $attributes ]]; then
+    builtin export "$1=" || return
+    attributes=${parameters[$1]-}
+  fi
+  if [[ -n $attributes && $attributes != "scalar" && $attributes != "scalar-export" ]]; then
+    print -ru2 -- "Cannot share non-plain scalar parameter: $1"
+    return 1
+  fi
+)
 
 _monarch_shared_env() {
   python3 -I /opt/my-resources/tools/shared-env.py "$SHARED_ENV_FILE" "$1"

@@ -9,7 +9,8 @@ import tempfile
 
 RESERVED_NAMES = {
   "SHARED_ENV_FILE", "PATH", "FPATH", "ENV", "BASH_ENV", "ZDOTDIR", "IFS",
-  "HOME", "SHELLOPTS", "PS4", "PROMPT", "RPROMPT",
+  "HOME", "SHELLOPTS", "PS1", "PS2", "PS3", "PS4", "RPS1", "RPS2",
+  "PROMPT", "PROMPT2", "PROMPT3", "PROMPT4", "RPROMPT", "RPROMPT2", "SPROMPT",
   # Assigning Zsh credential parameters changes process identity; others are read-only.
   "UID", "EUID", "GID", "EGID", "USERNAME", "ARGC", "HISTCMD", "LINENO",
   "PPID", "TTYIDLE", "ZSH_EVAL_CONTEXT", "ZSH_SUBSHELL",
