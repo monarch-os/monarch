@@ -38,6 +38,28 @@ with tempfile.TemporaryDirectory() as directory:
   assert shell('setip "10.0.0.1" && [[ $IP == "10.0.0.1" ]]').returncode == 0
   assert shell('setshared EMPTY= && loadshared && [[ ${EMPTY+x} == x && -z $EMPTY ]]').returncode == 0
   before = data.read_bytes()
+  reserved = ("UID", "EUID", "GID", "EGID", "USERNAME", "ARGC", "HISTCMD",
+              "LINENO", "PPID", "TTYIDLE", "ZSH_EVAL_CONTEXT", "ZSH_SUBSHELL")
+  for name in reserved:
+    fresh = home / "fresh.json"
+    for destination in (fresh, data):
+      result = subprocess.run([sys.executable, str(tool), str(destination), "set"],
+                              input=f"{name}=1000".encode(), capture_output=True)
+      assert result.returncode != 0 and not result.stdout, (name, result)
+      assert f"{name} cannot be shared".encode() in result.stderr
+      assert not fresh.exists() and data.read_bytes() == before
+    # Only exercise the shell after the backend has proved it rejects identity changes.
+    result = shell(f'setshared {name}=1000')
+    assert result.returncode != 0 and data.read_bytes() == before, (name, result)
+    data.write_text(json.dumps({"IP": "new", name: "1000"}))
+    result = subprocess.run([sys.executable, str(tool), str(data), "load"], capture_output=True)
+    assert result.returncode != 0 and not result.stdout, (name, result)
+    result = shell('IP=old; loadshared; result=$?; [[ $result != 0 && $IP == old ]]')
+    assert result.returncode == 0, (name, result.stderr)
+    poisoned = data.read_bytes()
+    assert shell('setshared TARGET=example.test').returncode != 0
+    assert data.read_bytes() == poisoned
+    data.write_bytes(before)
   for invalid in ('setshared "BAD-NAME=x"', 'setshared noequals', 'setshared A=1 extra', 'setshared PATH=bad'):
     assert shell(invalid).returncode != 0, invalid
     assert data.read_bytes() == before

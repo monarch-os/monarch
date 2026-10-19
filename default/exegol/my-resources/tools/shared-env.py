@@ -7,13 +7,22 @@ import sys
 import tempfile
 
 
+RESERVED_NAMES = {
+  "SHARED_ENV_FILE", "PATH", "FPATH", "ENV", "BASH_ENV", "ZDOTDIR", "IFS",
+  "HOME", "SHELLOPTS", "PS4", "PROMPT", "RPROMPT",
+  # Assigning Zsh credential parameters changes process identity; others are read-only.
+  "UID", "EUID", "GID", "EGID", "USERNAME", "ARGC", "HISTCMD", "LINENO",
+  "PPID", "TTYIDLE", "ZSH_EVAL_CONTEXT", "ZSH_SUBSHELL",
+}
+
+
 def validate(data):
   if not isinstance(data, dict):
     raise ValueError("expected an object of environment variables")
   for name, value in data.items():
     if not re.fullmatch(r"[A-Z_][A-Z0-9_]*", name):
       raise ValueError("variable names must use uppercase letters, digits and underscores")
-    if name in {"SHARED_ENV_FILE", "PATH", "FPATH", "ENV", "BASH_ENV", "ZDOTDIR", "IFS", "HOME", "SHELLOPTS", "PS4", "PROMPT", "RPROMPT"} or name.startswith("LD_"):
+    if name in RESERVED_NAMES or name.startswith("LD_"):
       raise ValueError(f"{name} cannot be shared")
     if not isinstance(value, str) or "\0" in value:
       raise ValueError("values must be strings without NUL bytes")
