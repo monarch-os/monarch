@@ -35,3 +35,52 @@ alias zellij-clean='/opt/my-resources/bin/zellij list-sessions --no-formatting |
 alias h='history'
 alias help='tldr'
 alias ports='netstat -tulanp'
+
+_monarch_exegol_input() {
+  if (( $# == 0 )); then
+    command cat
+  elif (( $# == 1 )); then
+    printf '%s' "$1"
+  else
+    printf 'Expected one argument or stdin\n' >&2
+    return 2
+  fi
+}
+
+# JSON uses complete quoted strings, so both directions compose without ambiguity.
+function jsonescape() (
+  set -o pipefail
+  _monarch_exegol_input "$@" | jq -jRs tojson
+)
+
+function jsonunescape() (
+  set -o pipefail
+  _monarch_exegol_input "$@" | jq -jse '
+    if length == 1 and (.[0] | type) == "string" then .[0]
+    else error("expected one JSON string") end'
+)
+
+_monarch_exegol_hex() {
+  python3 -c '
+import sys
+try:
+    data = bytes.fromhex(sys.stdin.read())
+except (ValueError, UnicodeError):
+    sys.exit("Expected pairs of hex digits, optionally separated by whitespace")
+if sys.argv[1] == "python":
+    result = "b\"" + "".join(f"\\x{byte:02x}" for byte in data) + "\""
+else:
+    result = "{" + ", ".join(f"0x{byte:02x}" for byte in data) + "}"
+sys.stdout.write(result)
+' "$1"
+}
+
+function hex2py() (
+  set -o pipefail
+  _monarch_exegol_input "$@" | _monarch_exegol_hex python
+)
+
+function hex2c() (
+  set -o pipefail
+  _monarch_exegol_input "$@" | _monarch_exegol_hex c
+)

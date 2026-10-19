@@ -1,4 +1,6 @@
 path	feature	risk	environment
+test/shell.d/exegol-helpers-test.sh	exegol	medium	isolated
+test/shell.d/exegol-shared-env-test.sh	exegol	high	isolated
 test/shell.d/chatgpt-reconcile-test.sh	chatgpt	high	isolated
 test/monarch-calver-test.sh	versioning	high	isolated
 test/shell.d/update-available-test.sh	updates	high	isolated
