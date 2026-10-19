@@ -89,7 +89,7 @@ clearshared() {
 }
 
 _monarch_shared_env() {
-  python3 /opt/my-resources/tools/shared-env.py "$SHARED_ENV_FILE" "$1"
+  python3 -I /opt/my-resources/tools/shared-env.py "$SHARED_ENV_FILE" "$1"
 }
 
 loadshared

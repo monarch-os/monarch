@@ -77,6 +77,28 @@ with tempfile.TemporaryDirectory() as directory:
   result = shell('IP=old; loadshared; result=$?; [[ $result != 0 && $IP == old ]]')
   assert result.returncode == 0, result.stderr
   data.write_bytes(before)
+  shadow = home / "shadow"
+  shadow.mkdir()
+  (shadow / "json.py").write_text('raise RuntimeError("shadowed json module")\n')
+  for name, value in (("PYTHONHOME", str(home / "missing-python")),
+                      ("PYTHONPATH", str(shadow))):
+    env["POISON_NAME"] = name
+    env["POISON_VALUE"] = value
+    result = shell('setshared "$POISON_NAME=$POISON_VALUE" && '
+                   'loadshared && setip 10.0.0.2 && clearshared && '
+                   '[[ ! -e $SHARED_ENV_FILE ]]')
+    assert result.returncode == 0, (name, result.stderr)
+    data.write_text(json.dumps({name: value, "IP": "10.0.0.3"}))
+    result = shell('reload_shared_env && [[ $IP == 10.0.0.3 ]] && '
+                   'setip 10.0.0.4 && clearshared')
+    assert result.returncode == 0, (name, result.stderr)
+    data.write_bytes(before)
+  env["PYTHONHOME"] = str(home / "missing-python")
+  env["PYTHONPATH"] = str(shadow)
+  result = shell('loadshared && setip 10.0.0.5 && clearshared')
+  assert result.returncode == 0, result.stderr
+  del env["PYTHONHOME"], env["PYTHONPATH"]
+  data.write_bytes(before)
   assert shell('clearshared && [[ ! -e $SHARED_ENV_FILE ]]').returncode == 0
   assert legacy.exists() and not marker.exists()
   target = home / "keep"
