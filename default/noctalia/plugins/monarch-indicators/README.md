@@ -6,8 +6,10 @@ implement its own package or repository checks.
 
 ## Update indicator
 
-- Hidden without confirmed Internet connectivity or after a complete check
-  confirms that no updates are available.
+- Hidden while disconnected, behind a captive portal, or after a complete check
+  confirms that no updates are available. Cached `limited` or `unknown` network
+  states still allow package checks; failed checks stay hidden until Internet
+  connectivity is confirmed.
 - Displays the total number of verified upgrades beside the update icon.
 - Uses one theme role for both the icon text and count, with priority:
   **Monarch → repositories → AUR** (`primary`, `secondary`, `tertiary`). These are
@@ -26,7 +28,8 @@ implement its own package or repository checks.
 
 The stream checks every six hours after a confirmed up-to-date result and every
 ten minutes while updates are pending or a check is failing. Offline connectivity
-is rechecked every minute without querying repositories. Duplicate payloads
+is rechecked every minute without querying repositories. Failed checks with
+unconfirmed connectivity also retry every minute. Duplicate payloads
 are not emitted. Passive checks never install packages or request sudo.
 
 ## Validation

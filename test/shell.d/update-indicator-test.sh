@@ -51,6 +51,10 @@ jq -e '.text == " 3" and .textColor == "primary" and
   (.tooltip | index("linux  ") < index("aur-tool  "))' "$test_tmp/output" >/dev/null
 pass "Monarch takes priority and the tooltip orders categories and shows both versions"
 
+PATH=/usr/bin:/bin run_stream
+jq -e '.text == " 3" and .textColor == "primary"' "$test_tmp/output" >/dev/null
+pass "the stream resolves its checker and helpers with Noctalia's minimal PATH"
+
 cp "$test_tmp/states" "$test_tmp/mixed"
 for category in repo aur; do
   jq -c --arg category "$category" '.packages |= map(select(.category == $category)) |

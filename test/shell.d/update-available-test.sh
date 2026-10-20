@@ -152,21 +152,47 @@ grep -q 'Update verification failed' "$test_tmp/stream" || fail "initial online 
 [[ $(<"$STREAM_SLEEPS") == $'600\n21600' ]] || fail "initial failures defer checks for six hours"
 pass "initial online errors show a warning and retry sooner than successful idle checks"
 
-for network in none portal limited unknown; do
+for network in none portal; do
   export STREAM_NETWORK=$network
   run_stream
   [[ $(<"$test_tmp/stream") == '{}' ]] || fail "$network connectivity displays a warning"
   [[ ! -f $STREAM_COUNT ]] || fail "$network connectivity triggers a repository check"
   [[ $(<"$STREAM_SLEEPS") == $'60\n60' ]] || fail "$network connectivity does not retry promptly"
 done
-pass "offline, captive, limited and unknown connectivity stay hidden without repository checks"
+pass "offline and captive connectivity stay hidden without repository checks"
+
+for network in limited unknown; do
+  export STREAM_NETWORK=$network
+  printf '0\n' >"$STREAM_STATES"
+  run_stream
+  grep -q 'Updates available' "$test_tmp/stream" || fail "$network connectivity suppresses accessible repository updates"
+  [[ $(<"$STREAM_COUNT") == 1 ]] || fail "$network connectivity does not query repositories"
+  [[ $(<"$STREAM_SLEEPS") == 600 ]] || fail "$network connectivity does not retain normal update cadence after success"
+
+  printf '1\n' >"$STREAM_STATES"
+  run_stream
+  [[ $(<"$test_tmp/stream") == '{}' && $(<"$STREAM_COUNT") == 1 ]] || fail "$network connectivity cannot confirm the system is current"
+  [[ $(<"$STREAM_SLEEPS") == 21600 ]] || fail "$network connectivity ignores a complete current result"
+
+  printf '2\n' >"$STREAM_STATES"
+  run_stream
+  [[ $(<"$test_tmp/stream") == '{}' ]] || fail "$network connectivity displays an unconfirmed online warning"
+  [[ $(<"$STREAM_COUNT") == 1 ]] || fail "$network connectivity does not attempt the update check"
+  [[ $(<"$STREAM_SLEEPS") == 60 ]] || fail "$network connectivity does not retry failed checks promptly"
+done
+pass "limited and unknown connectivity allow successful checks but suppress unconfirmed failure warnings"
 
 export STREAM_NETWORK=full STREAM_NETWORK_STATUS=10
+printf '2\n' >"$STREAM_STATES"
 run_stream
-[[ $(<"$test_tmp/stream") == '{}' && ! -f $STREAM_COUNT ]] || fail "unavailable NetworkManager triggers an online warning"
+[[ $(<"$test_tmp/stream") == '{}' && $(<"$STREAM_COUNT") == 1 ]] || fail "unavailable NetworkManager suppresses the check or triggers an online warning"
+printf '0\n' >"$STREAM_STATES"
+run_stream
+grep -q 'Updates available' "$test_tmp/stream" || fail "unavailable NetworkManager suppresses accessible repository updates"
 unset STREAM_NETWORK_STATUS
-pass "an unavailable connectivity service cannot raise an online warning"
+pass "an unavailable connectivity service permits checks without raising an online warning"
 
+printf '2\n1\n' >"$STREAM_STATES"
 export STREAM_CONNECTION_STATE=disconnected
 run_stream
 [[ $(<"$test_tmp/stream") == '{}' && ! -f $STREAM_COUNT ]] || fail "a stale connectivity result raises an offline warning"
