@@ -139,7 +139,7 @@ capsule_radius = 3
 
 [widget.clock]
 # v4: Clock { formatHorizontal = "ddd dd MMM  HH:mm" }, restated as strftime.
-format = "%a %d %b  %H:%M"
+format = "%a %d %b  %H:%M  "
 vertical_format = "{:%H\n%M}"
 
 # Icon-only status widgets: drop the text label next to the glyph, so the

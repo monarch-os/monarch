@@ -1,5 +1,5 @@
 --!strict
--- Shows the pending-update count; hidden when the system is up to date.
+-- Shows available updates or a failed online check; hidden while offline or up to date.
 -- Ports the v4 CustomButton whose leftClickExec opened the update TUI.
 
 local indicator = require("./indicator.luau")
