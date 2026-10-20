@@ -1,8 +1,10 @@
-![](assets/logo.png)
-
 # Monarch
 
 Monarch turns a fresh [CachyOS](https://cachyos.org) installation into a fully-configured, beautiful, and modern desktop — purpose-built as a **cybersecurity platform**, inspired by [SkillArch](https://github.com/laluka/SkillArch), with tools and aliases preinstalled.
+
+![Monarch desktop showing a local SSRF proof of concept, Niri navigation, and live theme switching](assets/demo.gif)
+
+*Local SSRF demonstration with synthetic data. [Static preview](assets/demo.png).*
 
 It runs its own desktop stack:
 
