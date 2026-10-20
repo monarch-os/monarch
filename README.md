@@ -6,6 +6,8 @@ Monarch turns a fresh [CachyOS](https://cachyos.org) installation into a fully-c
 
 Read the [documentation](https://docs.monarchlinux.com/) to install Monarch and get started.
 
+Prefer a bootable installer? [Download the latest nightly ISO](https://iso.monarchlinux.com/monarch-nightly.iso).
+
 ![Monarch desktop in use, with terminal workflows, Niri navigation, and live theme switching](assets/demo.gif)
 
 *[Static preview](assets/demo.png).*
