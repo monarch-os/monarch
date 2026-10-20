@@ -23,6 +23,10 @@ implement its own package or repository checks.
 - A failed or malformed online check shows a warning triangle in the neutral
   `on_surface_variant` theme role. Previously known updates remain in the
   tooltip but are explicitly labelled stale.
+- Before showing a failure warning, cached full connectivity is confirmed with
+  an active NetworkManager check (10-second wait, bounded by a 15-second timeout).
+  A stale cache, failed probe or timeout keeps the indicator hidden. Successful
+  package checks never trigger this extra probe.
 - Left-click opens the interactive system updater in a floating terminal.
 - Tooltips follow Monarch's interface language, independently of Noctalia's.
 

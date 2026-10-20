@@ -26,6 +26,10 @@ EOF
 chmod +x "$test_tmp/runtime/bin/"{sleep,monarch-update-available}
 cat > "$test_tmp/runtime/bin/nmcli" <<'EOF'
 #!/bin/bash
+if [[ $* == '--wait 10 networking connectivity check' && $LC_ALL == "C" ]]; then
+  printf '%s\n' 'full'
+  exit 0
+fi
 [[ $* == '-t -f STATE,CONNECTIVITY general' && $LC_ALL == "C" ]] || exit 99
 printf '%s\n' 'connected:full'
 EOF

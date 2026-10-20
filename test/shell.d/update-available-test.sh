@@ -86,9 +86,15 @@ pass "missing check dependencies fail before database creation"
 
 export STREAM_STATES="$test_tmp/states" STREAM_COUNT="$test_tmp/count"
 export STREAM_SLEEPS="$test_tmp/sleeps"
+export STREAM_PROBES="$test_tmp/probes"
 export STREAM_NETWORK="full"
 cat >"$test_tmp/bin/nmcli" <<'STUB'
 #!/bin/bash
+if [[ $* == '--wait 10 networking connectivity check' && $LC_ALL == "C" ]]; then
+  printf '%s\n' "$*" >>"$STREAM_PROBES"
+  printf '%s\n' "${STREAM_PROBE_RESULT:-full}"
+  exit "${STREAM_PROBE_STATUS:-0}"
+fi
 [[ $* == '-t -f STATE,CONNECTIVITY general' && $LC_ALL == "C" ]] || exit 99
 if [[ -n ${STREAM_NETWORK_AFTER_CHECK:-} && -f $STREAM_COUNT ]]; then
   connectivity=$STREAM_NETWORK_AFTER_CHECK
@@ -129,7 +135,7 @@ ln -s "$test_tmp/bin/monarch-update-available" "$test_tmp/runtime/bin/monarch-up
 ln -s "$ROOT/bin/monarch-i18n" "$test_tmp/runtime/bin/monarch-i18n"
 
 run_stream() {
-  rm -f "$STREAM_COUNT" "$STREAM_SLEEPS"
+  rm -f "$STREAM_COUNT" "$STREAM_SLEEPS" "$STREAM_PROBES"
   stream_status=0
   MONARCH_PATH="$test_tmp/runtime" MONARCH_LANGUAGE=en bash "$ROOT/default/noctalia/indicators/monarch-update.sh" >"$test_tmp/stream" || stream_status=$?
   ((stream_status == 143)) || fail "stream did not stop after the fixture"
@@ -191,6 +197,31 @@ run_stream
 grep -q 'Updates available' "$test_tmp/stream" || fail "unavailable NetworkManager suppresses accessible repository updates"
 unset STREAM_NETWORK_STATUS
 pass "an unavailable connectivity service permits checks without raising an online warning"
+
+printf '2\n' >"$STREAM_STATES"
+for result in none limited portal unknown invalid; do
+  export STREAM_PROBE_RESULT=$result
+  run_stream
+  [[ $(<"$test_tmp/stream") == '{}' ]] || fail "cached full connectivity raises a warning despite an active $result result"
+  [[ $(wc -l <"$STREAM_PROBES") == 1 ]] || fail "failed updates do not actively confirm cached full connectivity exactly once"
+  [[ $(<"$STREAM_SLEEPS") == 60 ]] || fail "unconfirmed active connectivity does not retry promptly"
+done
+unset STREAM_PROBE_RESULT
+pass "a stale full cache cannot raise a warning without a successful active connectivity check"
+
+for status in 10 124; do
+  export STREAM_PROBE_STATUS=$status
+  run_stream
+  [[ $(<"$test_tmp/stream") == '{}' ]] || fail "an unavailable or timed-out connectivity probe raises a warning"
+  [[ $(<"$STREAM_SLEEPS") == 60 ]] || fail "probe errors defer the next check"
+done
+unset STREAM_PROBE_STATUS
+pass "active connectivity errors and timeouts stay hidden and retry promptly"
+
+printf '0\n1\n' >"$STREAM_STATES"
+run_stream
+[[ ! -e $STREAM_PROBES ]] || fail "successful update checks trigger redundant active connectivity probes"
+pass "successful package checks do not trigger active connectivity probes"
 
 printf '2\n1\n' >"$STREAM_STATES"
 export STREAM_CONNECTION_STATE=disconnected

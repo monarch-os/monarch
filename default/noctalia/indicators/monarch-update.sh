@@ -22,6 +22,13 @@ network_state() {
   esac
 }
 
+confirm_online() {
+  local connectivity
+  [[ $(network_state) == "online" ]] || return 1
+  connectivity=$(LC_ALL=C timeout --kill-after=2s 15s nmcli --wait 10 networking connectivity check 2>/dev/null) || return 1
+  [[ $connectivity == "full" ]]
+}
+
 prev=""
 last_available=""
 while true; do
@@ -84,7 +91,7 @@ while true; do
     line=""
   fi
   if [[ -z $line ]]; then
-    if [[ $(network_state) != "online" ]]; then
+    if ! confirm_online; then
       line='{}'
       interval=$offline_interval
     else
