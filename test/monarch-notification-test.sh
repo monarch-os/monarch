@@ -65,7 +65,6 @@ if PATH="$PATH" "$ROOT/bin/monarch-notification-send" -u 2>/dev/null; then
 fi
 
 for invitation in \
-  install/user/first-run/wifi.sh \
   install/user/first-run/setup-fingerprint.hook \
   install/user/first-run/setup-agent.hook \
   install/user/first-run/install-voxtype.hook; do

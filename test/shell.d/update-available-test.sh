@@ -7,6 +7,7 @@ test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
 mkdir -p "$test_tmp/bin"
 export PATH="$test_tmp/bin:$ROOT/bin:$PATH"
+export MONARCH_PATH="$ROOT"
 export UPDATE_FIXTURE="$test_tmp/updates" UPDATE_DB_RECORD="$test_tmp/db"
 export UPDATE_FORBIDDEN_LOG="$test_tmp/forbidden"
 export TMPDIR="$test_tmp"
@@ -103,10 +104,17 @@ exit "${STREAM_NETWORK_STATUS:-0}"
 STUB
 cat >"$test_tmp/bin/monarch-update-available" <<'STUB'
 #!/bin/bash
+[[ $* == '--all --json' ]] || exit 99
 count=$(cat "$STREAM_COUNT" 2>/dev/null || echo 0)
 count=$((count + 1))
 printf '%s\n' "$count" >"$STREAM_COUNT"
-exit "$(sed -n "${count}p" "$STREAM_STATES")"
+status=$(sed -n "${count}p" "$STREAM_STATES")
+case $status in
+  0) echo '{"status":"available","count":1,"complete":true,"counts":{"monarch":1,"repo":0,"aur":0},"aur":0,"packages":[{"name":"monarch","category":"monarch","installed":"1","available":"2"}]}' ;;
+  1) echo '{"status":"current","count":0,"complete":true}' ;;
+  *) echo '{"status":"error","count":null}' ;;
+esac
+exit "$status"
 STUB
 cat >"$test_tmp/bin/sleep" <<'STUB'
 #!/bin/bash
@@ -116,27 +124,30 @@ if (( $(wc -l <"$STREAM_SLEEPS") >= $(wc -l <"$STREAM_STATES") )); then
 fi
 STUB
 chmod +x "$test_tmp/bin/monarch-update-available" "$test_tmp/bin/sleep" "$test_tmp/bin/nmcli"
+mkdir -p "$test_tmp/runtime/bin"
+ln -s "$test_tmp/bin/monarch-update-available" "$test_tmp/runtime/bin/monarch-update-available"
+ln -s "$ROOT/bin/monarch-i18n" "$test_tmp/runtime/bin/monarch-i18n"
 
 run_stream() {
   rm -f "$STREAM_COUNT" "$STREAM_SLEEPS"
   stream_status=0
-  bash "$ROOT/default/noctalia/indicators/monarch-update.sh" >"$test_tmp/stream" || stream_status=$?
+  MONARCH_PATH="$test_tmp/runtime" MONARCH_LANGUAGE=en bash "$ROOT/default/noctalia/indicators/monarch-update.sh" >"$test_tmp/stream" || stream_status=$?
   ((stream_status == 143)) || fail "stream did not stop after the fixture"
 }
 
 printf '0\n2\n0\n1\n' >"$STREAM_STATES"
 run_stream
 [[ $(wc -l <"$test_tmp/stream") == 4 ]] || fail "indicator does not report state transitions"
-grep -q 'Monarch update available' "$test_tmp/stream" || fail "stream does not show available updates"
+grep -q 'Updates available' "$test_tmp/stream" || fail "stream does not show available updates"
 grep -q '"text":"".*"textColor":"on_surface_variant"' "$test_tmp/stream" || fail "online failures lack a neutral warning triangle"
-grep -q '"text":"".*"textColor":"on_surface"' "$test_tmp/stream" || fail "available updates do not restore the normal color"
+jq -se '.[0].textColor == "primary" and .[2].textColor == "primary"' "$test_tmp/stream" >/dev/null || fail "available updates do not restore their category color"
 [[ $(tail -n 1 "$test_tmp/stream") == '{}' ]] || fail "confirmed up-to-date check does not clear the badge"
 [[ $(<"$STREAM_SLEEPS") == $'600\n600\n600\n21600' ]] || fail "stream does not use the expected retry cadence"
 pass "online failures show a neutral warning triangle and successful checks restore the badge"
 
 printf '2\n1\n' >"$STREAM_STATES"
 run_stream
-grep -q 'Could not check for updates' "$test_tmp/stream" || fail "initial online failure is not explained"
+grep -q 'Update verification failed' "$test_tmp/stream" || fail "initial online failure is not explained"
 [[ $(tail -n 1 "$test_tmp/stream") == '{}' ]] || fail "successful idle check does not clear the warning"
 [[ $(<"$STREAM_SLEEPS") == $'600\n21600' ]] || fail "initial failures defer checks for six hours"
 pass "initial online errors show a warning and retry sooner than successful idle checks"
@@ -175,7 +186,7 @@ printf 'none\nfull\nfull\n' >"$STREAM_NETWORK_STATES"
 printf '0\n1\n1\n' >"$STREAM_STATES"
 run_stream
 [[ $(head -n 1 "$test_tmp/stream") == '{}' ]] || fail "offline boot displays an indicator"
-grep -q 'Monarch update available' "$test_tmp/stream" || fail "connecting does not trigger an update check"
+grep -q 'Updates available' "$test_tmp/stream" || fail "connecting does not trigger an update check"
 [[ $(<"$STREAM_SLEEPS") == $'60\n600\n21600' ]] || fail "reconnection does not restore normal check intervals"
 pass "connecting after an offline boot checks updates on the next one-minute retry"
 
@@ -183,5 +194,5 @@ printf 'full\nnone\nfull\n' >"$STREAM_NETWORK_STATES"
 printf '2\n0\n1\n' >"$STREAM_STATES"
 run_stream
 [[ $(sed -n '2p' "$test_tmp/stream") == '{}' ]] || fail "disconnecting leaves an online warning visible"
-[[ $(tail -n 1 "$test_tmp/stream") == *'Monarch update available'* ]] || fail "reconnecting leaves a stale warning"
+[[ $(tail -n 1 "$test_tmp/stream") == *'Updates available'* ]] || fail "reconnecting leaves a stale warning"
 pass "disconnecting clears an online warning and reconnecting restores confirmed availability"
