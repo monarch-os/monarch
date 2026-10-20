@@ -36,6 +36,8 @@ Changed trees still use staged replacement and rollback, including removal of
 obsolete files inside the owned directory.
 
 `noctalia-activation.sh` owns the plugin inventory and activation/reload sequence.
+Fresh accounts enable the shipped plugins in their initial config. Activation
+skips ids already enabled, avoiding unnecessary remote catalog discovery.
 Reconciliation probes readiness once, first-run waits up to 60 seconds and the
 deferred hook up to 30 seconds. Failed enablement or reload stays retryable;
 first-run reports failure and deferred activation retains its hook.

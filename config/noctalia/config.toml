@@ -10,6 +10,19 @@
 #   - the palette moved to palettes/Monarch.json (same JSON format as v4)
 #   - catalog templates are selected by id; user templates live in overlays
 
+[plugins]
+enabled = [
+  "monarch/indicators",
+  "monarch/agents",
+  "monarch/menu",
+  "monarch/wifi-qr",
+  "monarch/network",
+  "monarch/display",
+  "monarch/theme",
+  "monarch/first-steps",
+  "monarch/crashes",
+]
+
 [theme]
 # palettes/Monarch.json is seeded to ~/.config/noctalia/palettes/. The file
 # keeps the v4 schema (mPrimary… plus the terminal block) — only its location
