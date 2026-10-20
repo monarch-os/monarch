@@ -24,6 +24,16 @@ if (( $(cat "$INDICATOR_TEST/count") >= $(wc -l < "$INDICATOR_TEST/states") )); 
 fi
 EOF
 chmod +x "$test_tmp/runtime/bin/"{sleep,monarch-update-available}
+cat > "$test_tmp/runtime/bin/nmcli" <<'EOF'
+#!/bin/bash
+if [[ $* == '--wait 10 networking connectivity check' && $LC_ALL == "C" ]]; then
+  printf '%s\n' 'full'
+  exit 0
+fi
+[[ $* == '-t -f STATE,CONNECTIVITY general' && $LC_ALL == "C" ]] || exit 99
+printf '%s\n' 'connected:full'
+EOF
+chmod +x "$test_tmp/runtime/bin/nmcli"
 
 run_stream() {
   rm -f "$test_tmp/count" "$test_tmp/sleeps"
@@ -44,6 +54,10 @@ jq -e '.text == " 3" and .textColor == "primary" and
   (.tooltip | index("monarch  ") < index("linux  ")) and
   (.tooltip | index("linux  ") < index("aur-tool  "))' "$test_tmp/output" >/dev/null
 pass "Monarch takes priority and the tooltip orders categories and shows both versions"
+
+PATH=/usr/bin:/bin run_stream
+jq -e '.text == " 3" and .textColor == "primary"' "$test_tmp/output" >/dev/null
+pass "the stream resolves its checker and helpers with Noctalia's minimal PATH"
 
 cp "$test_tmp/states" "$test_tmp/mixed"
 for category in repo aur; do
@@ -76,7 +90,7 @@ cat "$test_tmp/mixed" > "$test_tmp/states"
 printf '%s\n' '{"status":"error"}' '{"status":"error"}' '{"status":"current","count":0,"complete":true}' >> "$test_tmp/states"
 printf '0\n2\n2\n1\n' > "$test_tmp/codes"
 run_stream
-jq -se 'length == 3 and .[1].textColor == "error" and
+jq -se 'length == 3 and .[1].text == "" and .[1].textColor == "on_surface_variant" and
   (.[1].tooltip | contains("Last known updates")) and .[2] == {}' "$test_tmp/output" >/dev/null
 [[ $(< "$test_tmp/sleeps") == $'600\n600\n600\n21600' ]] || fail "retry intervals changed"
 pass "repeated failures do not accumulate warnings and only complete success clears the badge"
@@ -84,14 +98,14 @@ pass "repeated failures do not accumulate warnings and only complete success cle
 printf '%s\n' 'invalid JSON' '{"status":"available","count":0}' '{"status":"current","count":0,"complete":false}' '{"status":"current","count":0}' > "$test_tmp/states"
 printf '0\n0\n1\n1\n' > "$test_tmp/codes"
 run_stream
-jq -se 'length == 1 and .[0].text == " ?" and .[0].textColor == "error"' "$test_tmp/output" >/dev/null
+jq -se 'length == 1 and .[0].text == "" and .[0].textColor == "on_surface_variant"' "$test_tmp/output" >/dev/null
 pass "invalid or incomplete results are never presented as up to date"
 
 for expression in '.count=99' '.counts.repo="bad"' '.packages[0].available=null' '.complete=null'; do
   jq -c "$expression" "$test_tmp/mixed" > "$test_tmp/states"
   echo 0 > "$test_tmp/codes"
   run_stream
-  jq -e '.text == " ?" and .textColor == "error"' "$test_tmp/output" >/dev/null
+  jq -e '.text == "" and .textColor == "on_surface_variant"' "$test_tmp/output" >/dev/null
 done
 pass "inconsistent counts and malformed package records cannot produce a trusted badge"
 

@@ -1,6 +1,6 @@
 --!strict
--- Repository/AUR update count and category color; hidden only after a complete
--- up-to-date check. The stream owns checking, localization and bounded tooltips.
+-- Repository/AUR update count and category color; hidden while offline or up to date.
+-- The stream owns checking, localization and bounded tooltips.
 
 local indicator = require("./indicator.luau")
 

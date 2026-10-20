@@ -86,6 +86,28 @@ pass "missing check dependencies fail before database creation"
 
 export STREAM_STATES="$test_tmp/states" STREAM_COUNT="$test_tmp/count"
 export STREAM_SLEEPS="$test_tmp/sleeps"
+export STREAM_PROBES="$test_tmp/probes"
+export STREAM_NETWORK="full"
+cat >"$test_tmp/bin/nmcli" <<'STUB'
+#!/bin/bash
+if [[ $* == '--wait 10 networking connectivity check' && $LC_ALL == "C" ]]; then
+  printf '%s\n' "$*" >>"$STREAM_PROBES"
+  printf '%s\n' "${STREAM_PROBE_RESULT:-full}"
+  exit "${STREAM_PROBE_STATUS:-0}"
+fi
+[[ $* == '-t -f STATE,CONNECTIVITY general' && $LC_ALL == "C" ]] || exit 99
+if [[ -n ${STREAM_NETWORK_AFTER_CHECK:-} && -f $STREAM_COUNT ]]; then
+  connectivity=$STREAM_NETWORK_AFTER_CHECK
+elif [[ -n ${STREAM_NETWORK_STATES:-} ]]; then
+  count=0
+  [[ ! -f $STREAM_SLEEPS ]] || count=$(wc -l <"$STREAM_SLEEPS")
+  connectivity=$(sed -n "$((count + 1))p" "$STREAM_NETWORK_STATES")
+else
+  connectivity=$STREAM_NETWORK
+fi
+printf '%s:%s\n' "${STREAM_CONNECTION_STATE:-connected}" "$connectivity"
+exit "${STREAM_NETWORK_STATUS:-0}"
+STUB
 cat >"$test_tmp/bin/monarch-update-available" <<'STUB'
 #!/bin/bash
 [[ $* == '--all --json' ]] || exit 99
@@ -103,17 +125,17 @@ STUB
 cat >"$test_tmp/bin/sleep" <<'STUB'
 #!/bin/bash
 printf '%s\n' "$1" >>"$STREAM_SLEEPS"
-if (( $(cat "$STREAM_COUNT") >= $(wc -l <"$STREAM_STATES") )); then
+if (( $(wc -l <"$STREAM_SLEEPS") >= $(wc -l <"$STREAM_STATES") )); then
   kill -TERM "$PPID"
 fi
 STUB
-chmod +x "$test_tmp/bin/monarch-update-available" "$test_tmp/bin/sleep"
+chmod +x "$test_tmp/bin/monarch-update-available" "$test_tmp/bin/sleep" "$test_tmp/bin/nmcli"
 mkdir -p "$test_tmp/runtime/bin"
 ln -s "$test_tmp/bin/monarch-update-available" "$test_tmp/runtime/bin/monarch-update-available"
 ln -s "$ROOT/bin/monarch-i18n" "$test_tmp/runtime/bin/monarch-i18n"
 
 run_stream() {
-  rm -f "$STREAM_COUNT" "$STREAM_SLEEPS"
+  rm -f "$STREAM_COUNT" "$STREAM_SLEEPS" "$STREAM_PROBES"
   stream_status=0
   MONARCH_PATH="$test_tmp/runtime" MONARCH_LANGUAGE=en bash "$ROOT/default/noctalia/indicators/monarch-update.sh" >"$test_tmp/stream" || stream_status=$?
   ((stream_status == 143)) || fail "stream did not stop after the fixture"
@@ -121,15 +143,113 @@ run_stream() {
 
 printf '0\n2\n0\n1\n' >"$STREAM_STATES"
 run_stream
-[[ $(wc -l <"$test_tmp/stream") == 4 ]] || fail "error and recovery transitions are not displayed"
-jq -se '.[0].textColor == "primary" and .[1].textColor == "error" and .[2].textColor == "primary"' "$test_tmp/stream" >/dev/null
+[[ $(wc -l <"$test_tmp/stream") == 4 ]] || fail "indicator does not report state transitions"
 grep -q 'Updates available' "$test_tmp/stream" || fail "stream does not show available updates"
+grep -q '"text":"".*"textColor":"on_surface_variant"' "$test_tmp/stream" || fail "online failures lack a neutral warning triangle"
+jq -se '.[0].textColor == "primary" and .[2].textColor == "primary"' "$test_tmp/stream" >/dev/null || fail "available updates do not restore their category color"
 [[ $(tail -n 1 "$test_tmp/stream") == '{}' ]] || fail "confirmed up-to-date check does not clear the badge"
 [[ $(<"$STREAM_SLEEPS") == $'600\n600\n600\n21600' ]] || fail "stream does not use the expected retry cadence"
-pass "the indicator marks stale availability on failure and clears only after a complete successful check"
+pass "online failures show a neutral warning triangle and successful checks restore the badge"
 
 printf '2\n1\n' >"$STREAM_STATES"
 run_stream
-jq -se '.[0].text == " ?" and .[0].textColor == "error" and .[1] == {}' "$test_tmp/stream" >/dev/null
+grep -q 'Update verification failed' "$test_tmp/stream" || fail "initial online failure is not explained"
+[[ $(tail -n 1 "$test_tmp/stream") == '{}' ]] || fail "successful idle check does not clear the warning"
 [[ $(<"$STREAM_SLEEPS") == $'600\n21600' ]] || fail "initial failures defer checks for six hours"
-pass "initial errors are explicit and retry sooner than successful idle checks"
+pass "initial online errors show a warning and retry sooner than successful idle checks"
+
+for network in none portal; do
+  export STREAM_NETWORK=$network
+  run_stream
+  [[ $(<"$test_tmp/stream") == '{}' ]] || fail "$network connectivity displays a warning"
+  [[ ! -f $STREAM_COUNT ]] || fail "$network connectivity triggers a repository check"
+  [[ $(<"$STREAM_SLEEPS") == $'60\n60' ]] || fail "$network connectivity does not retry promptly"
+done
+pass "offline and captive connectivity stay hidden without repository checks"
+
+for network in limited unknown; do
+  export STREAM_NETWORK=$network
+  printf '0\n' >"$STREAM_STATES"
+  run_stream
+  grep -q 'Updates available' "$test_tmp/stream" || fail "$network connectivity suppresses accessible repository updates"
+  [[ $(<"$STREAM_COUNT") == 1 ]] || fail "$network connectivity does not query repositories"
+  [[ $(<"$STREAM_SLEEPS") == 600 ]] || fail "$network connectivity does not retain normal update cadence after success"
+
+  printf '1\n' >"$STREAM_STATES"
+  run_stream
+  [[ $(<"$test_tmp/stream") == '{}' && $(<"$STREAM_COUNT") == 1 ]] || fail "$network connectivity cannot confirm the system is current"
+  [[ $(<"$STREAM_SLEEPS") == 21600 ]] || fail "$network connectivity ignores a complete current result"
+
+  printf '2\n' >"$STREAM_STATES"
+  run_stream
+  [[ $(<"$test_tmp/stream") == '{}' ]] || fail "$network connectivity displays an unconfirmed online warning"
+  [[ $(<"$STREAM_COUNT") == 1 ]] || fail "$network connectivity does not attempt the update check"
+  [[ $(<"$STREAM_SLEEPS") == 60 ]] || fail "$network connectivity does not retry failed checks promptly"
+done
+pass "limited and unknown connectivity allow successful checks but suppress unconfirmed failure warnings"
+
+export STREAM_NETWORK=full STREAM_NETWORK_STATUS=10
+printf '2\n' >"$STREAM_STATES"
+run_stream
+[[ $(<"$test_tmp/stream") == '{}' && $(<"$STREAM_COUNT") == 1 ]] || fail "unavailable NetworkManager suppresses the check or triggers an online warning"
+printf '0\n' >"$STREAM_STATES"
+run_stream
+grep -q 'Updates available' "$test_tmp/stream" || fail "unavailable NetworkManager suppresses accessible repository updates"
+unset STREAM_NETWORK_STATUS
+pass "an unavailable connectivity service permits checks without raising an online warning"
+
+printf '2\n' >"$STREAM_STATES"
+for result in none limited portal unknown invalid; do
+  export STREAM_PROBE_RESULT=$result
+  run_stream
+  [[ $(<"$test_tmp/stream") == '{}' ]] || fail "cached full connectivity raises a warning despite an active $result result"
+  [[ $(wc -l <"$STREAM_PROBES") == 1 ]] || fail "failed updates do not actively confirm cached full connectivity exactly once"
+  [[ $(<"$STREAM_SLEEPS") == 60 ]] || fail "unconfirmed active connectivity does not retry promptly"
+done
+unset STREAM_PROBE_RESULT
+pass "a stale full cache cannot raise a warning without a successful active connectivity check"
+
+for status in 10 124; do
+  export STREAM_PROBE_STATUS=$status
+  run_stream
+  [[ $(<"$test_tmp/stream") == '{}' ]] || fail "an unavailable or timed-out connectivity probe raises a warning"
+  [[ $(<"$STREAM_SLEEPS") == 60 ]] || fail "probe errors defer the next check"
+done
+unset STREAM_PROBE_STATUS
+pass "active connectivity errors and timeouts stay hidden and retry promptly"
+
+printf '0\n1\n' >"$STREAM_STATES"
+run_stream
+[[ ! -e $STREAM_PROBES ]] || fail "successful update checks trigger redundant active connectivity probes"
+pass "successful package checks do not trigger active connectivity probes"
+
+printf '2\n1\n' >"$STREAM_STATES"
+export STREAM_CONNECTION_STATE=disconnected
+run_stream
+[[ $(<"$test_tmp/stream") == '{}' && ! -f $STREAM_COUNT ]] || fail "a stale connectivity result raises an offline warning"
+unset STREAM_CONNECTION_STATE
+pass "a disconnected link stays hidden even if the cached connectivity result is full"
+
+export STREAM_NETWORK_AFTER_CHECK=none
+run_stream
+[[ $(<"$test_tmp/stream") == '{}' ]] || fail "connection loss during a check raises a warning"
+[[ $(<"$STREAM_COUNT") == 1 ]] || fail "disconnected stream continues repository checks"
+[[ $(<"$STREAM_SLEEPS") == $'60\n60' ]] || fail "connection loss delays the next connectivity check"
+unset STREAM_NETWORK_AFTER_CHECK
+pass "connection loss during a failed check hides the indicator and retries promptly"
+
+export STREAM_NETWORK_STATES="$test_tmp/networks"
+printf 'none\nfull\nfull\n' >"$STREAM_NETWORK_STATES"
+printf '0\n1\n1\n' >"$STREAM_STATES"
+run_stream
+[[ $(head -n 1 "$test_tmp/stream") == '{}' ]] || fail "offline boot displays an indicator"
+grep -q 'Updates available' "$test_tmp/stream" || fail "connecting does not trigger an update check"
+[[ $(<"$STREAM_SLEEPS") == $'60\n600\n21600' ]] || fail "reconnection does not restore normal check intervals"
+pass "connecting after an offline boot checks updates on the next one-minute retry"
+
+printf 'full\nnone\nfull\n' >"$STREAM_NETWORK_STATES"
+printf '2\n0\n1\n' >"$STREAM_STATES"
+run_stream
+[[ $(sed -n '2p' "$test_tmp/stream") == '{}' ]] || fail "disconnecting leaves an online warning visible"
+[[ $(tail -n 1 "$test_tmp/stream") == *'Updates available'* ]] || fail "reconnecting leaves a stale warning"
+pass "disconnecting clears an online warning and reconnecting restores confirmed availability"

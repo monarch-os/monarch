@@ -10,15 +10,39 @@ source "$("$root/bin/monarch-i18n" --helper)"
 
 idle_interval=${MONARCH_UPDATE_INTERVAL:-21600} # 6h while up to date
 busy_interval=600                               # 10min for pending updates or failed checks
+offline_interval=60
+
+network_state() {
+  local connectivity
+  connectivity=$(LC_ALL=C nmcli -t -f STATE,CONNECTIVITY general 2>/dev/null) || connectivity=""
+  case $connectivity in
+    connected:full) echo "online" ;;
+    asleep:* | disconnected:* | disconnecting:* | connecting:* | *:none | *:portal) echo "offline" ;;
+    *) echo "unknown" ;;
+  esac
+}
+
+confirm_online() {
+  local connectivity
+  [[ $(network_state) == "online" ]] || return 1
+  connectivity=$(LC_ALL=C timeout --kill-after=2s 15s nmcli --wait 10 networking connectivity check 2>/dev/null) || return 1
+  [[ $connectivity == "full" ]]
+}
 
 prev=""
 last_available=""
 while true; do
+  if [[ $(network_state) == "offline" ]]; then
+    line='{}'
+    [[ $line != "$prev" ]] && printf '%s\n' "$line" && prev="$line"
+    sleep "$offline_interval"
+    continue
+  fi
   # Respect Monarch's language independently of Noctalia's locale.
   MONARCH_I18N_READY=false
   monarch_i18n_load
   status=0
-  result=$(monarch-update-available --all --json 2>/dev/null) || status=$?
+  result=$("$root/bin/monarch-update-available" --all --json 2>/dev/null) || status=$?
   interval=$busy_interval
   if (( status == 0 )) && jq -e '
     def counter: type == "number" and . >= 0 and . == floor;
@@ -67,12 +91,17 @@ while true; do
     line=""
   fi
   if [[ -z $line ]]; then
-    warning=$(monarch_t 'updates.indicator.failed')
-    if [[ -n $last_available ]]; then
-      line=$(jq -c --arg warning "$warning" --arg stale "$(monarch_t 'updates.indicator.stale')" \
-        '.textColor="error" | .tooltip=($warning + "\n" + $stale + "\n\n" + .tooltip)' <<< "$last_available")
+    if ! confirm_online; then
+      line='{}'
+      interval=$offline_interval
     else
-      line=$(jq -cn --arg tooltip "$warning" '{text:" ?",textColor:"error",tooltip:$tooltip}')
+      warning=$(monarch_t 'updates.indicator.failed')
+      if [[ -n $last_available ]]; then
+        line=$(jq -c --arg warning "$warning" --arg stale "$(monarch_t 'updates.indicator.stale')" \
+          '.text="" | .textColor="on_surface_variant" | .tooltip=($warning + "\n" + $stale + "\n\n" + .tooltip)' <<< "$last_available")
+      else
+        line=$(jq -cn --arg tooltip "$warning" '{text:"",textColor:"on_surface_variant",tooltip:$tooltip}')
+      fi
     fi
   fi
   [[ $line != "$prev" ]] && printf '%s\n' "$line" && prev="$line"

@@ -6,7 +6,10 @@ implement its own package or repository checks.
 
 ## Update indicator
 
-- Hidden after a complete check confirms that no updates are available.
+- Hidden while disconnected, behind a captive portal, or after a complete check
+  confirms that no updates are available. Cached `limited` or `unknown` network
+  states still allow package checks; failed checks stay hidden until Internet
+  connectivity is confirmed.
 - Displays the total number of verified upgrades beside the update icon.
 - Uses one theme role for both the icon text and count, with priority:
   **Monarch → repositories → AUR** (`primary`, `secondary`, `tertiary`). These are
@@ -17,14 +20,20 @@ implement its own package or repository checks.
   shown, followed by the remaining count, so a large upgrade fits in a tooltip.
 - A failed AUR check retains verified repository updates, displays a lower-bound
   count (`≥N`), and marks AUR availability as unknown rather than zero.
-- A failed or malformed check shows the `error` theme role. Previously known
-  updates remain visible but are explicitly labelled stale. A failure before
-  any successful check shows `?`, not an up-to-date state.
+- A failed or malformed online check shows a warning triangle in the neutral
+  `on_surface_variant` theme role. Previously known updates remain in the
+  tooltip but are explicitly labelled stale.
+- Before showing a failure warning, cached full connectivity is confirmed with
+  an active NetworkManager check (10-second wait, bounded by a 15-second timeout).
+  A stale cache, failed probe or timeout keeps the indicator hidden. Successful
+  package checks never trigger this extra probe.
 - Left-click opens the interactive system updater in a floating terminal.
 - Tooltips follow Monarch's interface language, independently of Noctalia's.
 
 The stream checks every six hours after a confirmed up-to-date result and every
-ten minutes while updates are pending or a check is failing. Duplicate payloads
+ten minutes while updates are pending or a check is failing. Offline connectivity
+is rechecked every minute without querying repositories. Failed checks with
+unconfirmed connectivity also retry every minute. Duplicate payloads
 are not emitted. Passive checks never install packages or request sudo.
 
 ## Validation
