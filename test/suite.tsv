@@ -5,6 +5,7 @@ test/shell.d/exegol-reconcile-test.sh	exegol	high	isolated
 test/shell.d/chatgpt-reconcile-test.sh	chatgpt	high	isolated
 test/monarch-calver-test.sh	versioning	high	isolated
 test/shell.d/update-available-test.sh	updates	high	isolated
+test/update-window-test.sh	updates	medium	isolated
 test/shell.d/update-indicator-test.sh	updates	high	isolated
 test/shell.d/sleep-transition-test.sh	power	high	isolated
 test/shell.d/mise-runtime-test.sh	developer-agents	medium	isolated

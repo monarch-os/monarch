@@ -117,6 +117,6 @@ assert(loadfile(arg[1], "t", env))()
 assert(streamed == "monarch-update.sh")
 env.onClick()
 assert(launched == quote(driver.bin("monarch-launch-floating-terminal-with-presentation"))
-  .. " " .. quote(quote(driver.bin("monarch-update"))))
+  .. " --app-id=org.monarch.update " .. quote(quote(driver.bin("monarch-update"))))
 LUA
 pass "widget starts the stream and quotes both terminal-launch command layers"

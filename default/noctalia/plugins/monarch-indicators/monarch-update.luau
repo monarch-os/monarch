@@ -11,5 +11,5 @@ function onClick()
     return "'" .. value:gsub("'", "'\\''") .. "'"
   end
   noctalia.runAsync(quote(indicator.bin("monarch-launch-floating-terminal-with-presentation"))
-    .. " " .. quote(quote(indicator.bin("monarch-update"))))
+    .. " --app-id=org.monarch.update " .. quote(quote(indicator.bin("monarch-update"))))
 end

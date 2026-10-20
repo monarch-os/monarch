@@ -445,7 +445,7 @@
   "remove.development.elixir.phoenix": {"icon":"","when":"compgen -G \"$HOME/.mix/archives/phx_new*\"","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env phoenix\""},
 
   // Update
-  "update.monarch": {"icon":"","keywords":["upgrade","system","packages"],"action":"monarch-launch-floating-terminal-with-presentation monarch-update"},
+  "update.monarch": {"icon":"","keywords":["upgrade","system","packages"],"action":"monarch-launch-floating-terminal-with-presentation --app-id=org.monarch.update monarch-update"},
   "update.theme": {"icon":"󰏘","when":"compgen -G \"$HOME/.config/monarch/themes/*/provenance.json\"","action":"monarch-launch-floating-terminal-with-presentation monarch-theme-update"},
   "update.channel": {"icon":"󰔫"},
   "update.config": {"icon":""},
