@@ -7,5 +7,5 @@ local indicator = require("./indicator.luau")
 indicator.stream("monarch-update.sh")
 
 function onClick()
-  noctalia.runAsync(indicator.bin("monarch-launch-floating-terminal-with-presentation") .. " monarch-update")
+  noctalia.runAsync(indicator.bin("monarch-launch-floating-terminal-with-presentation") .. " --app-id=org.monarch.update monarch-update")
 end
