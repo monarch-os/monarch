@@ -16,6 +16,8 @@ if [[ $* == 'msg status' ]]; then
   [[ ${TEST_ACTIVATION_FAILURE:-} != unavailable ]]
 elif [[ $* == "${TEST_ACTIVATION_FAILURE:-}" ]]; then
   exit 42
+elif [[ $* == 'config export full' && ${TEST_PLUGINS_PRE_ENABLED:-0} == "1" ]]; then
+  cat "$MONARCH_PATH/config/noctalia/config.toml"
 fi
 EOF
 printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/sleep"
@@ -92,7 +94,7 @@ for entrypoint in first-run reconcile deferred; do
   grep '^msg plugins enable ' "$test_tmp/calls" | sort >"$test_tmp/$entrypoint-plugins"
   [[ ! -e $hook ]]
 
-  for failure in unavailable 'msg plugins enable monarch/menu' 'msg config-reload'; do
+  for failure in unavailable 'config export full' 'msg plugins enable monarch/menu' 'msg config-reload'; do
     export TEST_ACTIVATION_FAILURE="$failure"
     rm -f "$test_tmp/completed"
     : >"$test_tmp/calls"
@@ -130,3 +132,11 @@ actual = (Path(os.environ["TEST_ACTIVATION"]) / "first-run-plugins").read_text()
 assert actual == expected
 PY
 pass "all entrypoints use the same plugin inventory"
+
+: >"$test_tmp/calls"
+TEST_PLUGINS_PRE_ENABLED=1 bash "$ROOT/install/user/first-run/enable-noctalia-plugins.sh" >/dev/null
+if grep -q '^msg plugins enable ' "$test_tmp/calls"; then
+  fail "fresh accounts do not re-enable active plugins through remote catalog discovery"
+fi
+[[ $(tail -1 "$test_tmp/calls") == 'msg config-reload' ]]
+pass "fresh accounts skip catalog-backed enablement for plugins already active in their initial config"

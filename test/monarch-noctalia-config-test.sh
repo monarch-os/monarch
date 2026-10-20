@@ -6,6 +6,20 @@ ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
+MONARCH_TEST_ROOT="$ROOT" python3 <<'PY'
+import os
+from pathlib import Path
+import tomllib
+
+root = Path(os.environ['MONARCH_TEST_ROOT'])
+plugins = tomllib.loads((root / 'config/noctalia/config.toml').read_text())['plugins']
+shipped = {tomllib.loads(path.read_text())['id']
+           for path in (root / 'default/noctalia/plugins').glob('monarch-*/plugin.toml')}
+assert set(plugins['enabled']) == shipped
+assert 'source' not in plugins, 'keep Noctalia default catalogs unchanged'
+PY
+echo "Fresh accounts activate every shipped plugin without replacing Noctalia's catalogs"
+
 grep -Fqx 'clipboard_history_max_entries = 500' "$ROOT/config/noctalia/config.toml"
 echo "Noctalia keeps the extended clipboard history"
 
