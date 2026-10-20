@@ -38,9 +38,11 @@ elif [[ $* == 'msg panel-open monarch/network:panel' ]]; then
   touch "$TEST_FIRST_STEPS/network-open"
 elif [[ $1 == "msg" && $2 == "panel-open" ]]; then
   [[ ${TEST_FIRST_STEPS_MODE:-} != rejected ]] || exit 42
+  [[ -z ${TEST_FIRST_STEPS_PANEL_DELAY:-} ]] || /usr/bin/sleep "$TEST_FIRST_STEPS_PANEL_DELAY"
   printf '%s\n' "$4" >"$TEST_FIRST_STEPS/context"
   [[ ${TEST_FIRST_STEPS_MODE:-} != unconfirmed ]] || exit 0
   monarch-setup-first-steps opened
+  printf 'panel-opened %s\n' "$3" >>"$TEST_FIRST_STEPS/calls"
 fi
 EOF
 cat >"$runtime/bin/sleep" <<'EOF'
@@ -318,7 +320,7 @@ wait_for_update_result() {
 wait_for_update_return() {
   local attempt
   for ((attempt = 0; attempt < 200; attempt++)); do
-    if grep -q '^msg panel-open monarch/first-steps:panel ' "$test_tmp/calls"; then return 0; fi
+    if grep -q '^panel-opened monarch/first-steps:panel$' "$test_tmp/calls"; then return 0; fi
     /usr/bin/sleep 0.02
   done
   fail "update did not return to the guide"
@@ -330,6 +332,7 @@ if TEST_FIRST_STEPS_NETWORK=offline monarch-setup-first-steps install-tool updat
 pass "offline users can keep browsing without launching an update"
 
 fresh_state update-success
+export TEST_FIRST_STEPS_PANEL_DELAY=0.2
 unset TEST_FIRST_STEPS_LAUNCH TEST_FIRST_STEPS_EXIT
 touch "$test_tmp/block-update" "$test_tmp/block-done"
 monarch-setup-first-steps install-tool update
@@ -356,6 +359,7 @@ for ((attempt = 0; attempt < 200; attempt++)); do
 done
 monarch-setup-first-steps tools-state | jq -e '.updateResult.code == 0 and .lastResult.tool == "seclists"' >/dev/null
 pass "updates share the installation lock, return after acknowledgement and retain their result across tool installs"
+unset TEST_FIRST_STEPS_PANEL_DELAY
 
 # A remembered success must not permanently prevent a newly available update.
 rm "$test_tmp/update-started"
