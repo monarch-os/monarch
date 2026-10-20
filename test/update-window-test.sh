@@ -13,7 +13,7 @@ action=$(monarch-menu --tree | jq -r '.[] | select(.id == "update.monarch") | .a
   exit 1
 }
 
-grep -Fq ' --app-id=org.monarch.update monarch-update"' "$ROOT/default/noctalia/plugins/monarch-indicators/monarch-update.luau"
+grep -Fq '" --app-id=org.monarch.update "' "$ROOT/default/noctalia/plugins/monarch-indicators/monarch-update.luau"
 
 python3 - "$ROOT/default/niri/windows.kdl" <<'PY'
 import pathlib

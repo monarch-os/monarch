@@ -36,6 +36,8 @@ input)
   printf '%s' "${TEST_KEY}"
   ;;
 filter)
+  # The real filter consumes its options; otherwise jq can fail with SIGPIPE.
+  cat >/dev/null
   [[ ! -f $TEST_HOME/selected ]] || exit 130
   touch "$TEST_HOME/selected"
   printf '%s\n' 'synthetic | Synthetic | disabled'

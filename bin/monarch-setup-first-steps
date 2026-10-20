@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Discover Monarch shortcuts, appearance and software
+# monarch:summary=Set up networking, update the system and discover Monarch
 # monarch:args=[open|first-login|reset|state]
 # monarch:examples=monarch setup first-steps | monarch setup first-steps reset
 
@@ -37,7 +37,7 @@ open_guide() {
 
 record() {
   local next
-  case "$1" in welcome|shortcuts|appearance|software|done) ;;
+  case "$1" in welcome|network|update|shortcuts|appearance|software|done) ;;
     *) echo "Unknown first-steps phase: $1" >&2; return 1 ;;
   esac
   next=$(mktemp "$state_dir/.progress.XXXXXX")
@@ -72,12 +72,15 @@ first_login() {
 visit() {
   local destination state active attempt route="install"
   case "$1" in
+    network) destination="monarch/network:panel" ;;
     shortcuts) destination="monarch/menu:keybindings" ;;
     appearance) destination="monarch/theme:theme" ;;
     software|cyber) destination="monarch/menu:panel" ;;
     *) return 1 ;;
   esac
-  noctalia msg panel-close "$panel_id"
+  # Persistent plugin panels are separate from Noctalia's active built-in panel.
+  # Ask the entry to close itself; panel-close does not dismiss this guide.
+  noctalia msg plugin "$panel_id" all skip
   if [[ $1 == "software" || $1 == "cyber" ]]; then
     [[ $1 != "cyber" ]] || route="install.cyber"
     if ! "$runtime/bin/monarch-menu" "$route"; then open_guide; return 1; fi
@@ -91,12 +94,16 @@ visit() {
     jq -e '.locked == false' >/dev/null <<< "$state" || return 0
     active=$(jq -r '.activePanelId // empty' <<< "$state")
     [[ -z $active ]] && { open_guide; return; }
+    if [[ $1 == "network" && ( $active == monarch/network:* || $active == "monarch/wifi-qr:panel" ) ]]; then
+      continue
+    fi
     [[ $active != "$destination" ]] && return 0
   done
 }
 
 installer_args() {
   case "$1" in
+    update) installer=("$runtime/bin/monarch-update") ;;
     burpsuite) installer=("$runtime/bin/monarch-install-burp") ;;
     rfswift) installer=("$runtime/bin/monarch-install-rfswift") ;;
     seclists) installer=("$runtime/bin/monarch-pkg-aur-add" "seclists") ;;
@@ -106,6 +113,7 @@ installer_args() {
 
 tool_installed() {
   case "$1" in
+    update) return 1 ;;
     burpsuite) [[ -d /opt/BurpSuiteCommunity || -d /opt/BurpSuitePro ]] ;;
     rfswift) type -P rfswift >/dev/null ;;
     seclists) "$runtime/bin/monarch-pkg-present" seclists ;;
@@ -126,7 +134,8 @@ recover_install() {
 }
 
 tools_state() {
-  local burpsuite=false rfswift=false seclists=false active="" result="null"
+  local burpsuite=false rfswift=false seclists=false connected=false active="" result="null" update_result="null"
+  nm-online -q -x -t 0 2>/dev/null && connected=true
   tool_installed burpsuite && burpsuite=true
   tool_installed rfswift && rfswift=true
   tool_installed seclists && seclists=true
@@ -139,15 +148,22 @@ tools_state() {
   fi
   exec 9>&-
   [[ -f $state_dir/install-result.json ]] && result=$(<"$state_dir/install-result.json")
+  [[ -f $state_dir/update-result.json ]] && update_result=$(<"$state_dir/update-result.json")
   jq -cn --argjson burpsuite "$burpsuite" --argjson rfswift "$rfswift" --argjson seclists "$seclists" \
-    --arg active "$active" --argjson result "$result" \
-    '{installed:{burpsuite:$burpsuite,rfswift:$rfswift,seclists:$seclists},active:$active,lastResult:$result}'
+    --arg active "$active" --argjson result "$result" --argjson connected "$connected" --argjson updateResult "$update_result" \
+    '{installed:{burpsuite:$burpsuite,rfswift:$rfswift,seclists:$seclists},active:$active,lastResult:$result,connected:$connected,updateResult:$updateResult}'
 }
 
 finish_install_state() {
   local tool=$1 code=$2 result
   result=$(mktemp "$state_dir/.install-result.XXXXXX")
   jq -cn --arg tool "$tool" --argjson code "$code" '{tool:$tool,code:$code}' > "$result"
+  if [[ $tool == "update" ]]; then
+    local update_result
+    update_result=$(mktemp "$state_dir/.update-result.XXXXXX")
+    cp -- "$result" "$update_result"
+    mv -- "$update_result" "$state_dir/update-result.json"
+  fi
   mv -- "$result" "$state_dir/install-result.json"
   local file
   for file in tool token started; do
@@ -166,7 +182,13 @@ finish_install() {
 
 launch_installer() {
   local tool=$1 token=$2 command=$3 launcher_pid accepted=false code=0 attempt
-  "$runtime/bin/monarch-launch-floating-terminal-with-presentation" "$command" 9>&- &
+  if [[ $tool == "update" ]]; then
+    setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Monarch \
+      -e env "MONARCH_PATH=$runtime" "XDG_STATE_HOME=$state_home" \
+      "$runtime/bin/monarch-setup-first-steps" update-terminal "$token" 9>&- &
+  else
+    "$runtime/bin/monarch-launch-floating-terminal-with-presentation" "$command" 9>&- &
+  fi
   launcher_pid=$!
   for ((attempt = 0; attempt < 300; attempt++)); do
     if [[ -f $state_dir/installing/started ]]; then
@@ -181,21 +203,31 @@ launch_installer() {
   exec 9>&-
   ((code != 0)) || code=124
   finish_install "$tool" "$token" "$code" launching
+  exec 8>&-
+  [[ $tool != "update" ]] || resume_guide
 }
 
 install_tool() {
   local tool=$1 command token
   installer_args "$tool"
   tool_installed "$tool" && return 0
+  if [[ $tool == "update" ]]; then
+    nm-online -q -x -t 0 || { echo "Connect to a network before updating." >&2; return 1; }
+  fi
   lock_install_state
   exec 9>"$state_dir/install.lock"
   flock -n 9 || { echo "Another tool installation is running." >&2; return 1; }
   recover_install
+  if [[ $tool == "update" ]]; then
+    record update
+    noctalia msg plugin "$panel_id" all skip >/dev/null
+  fi
   mkdir "$state_dir/installing"
   token=$(</proc/sys/kernel/random/uuid)
   printf '%s\n' "$tool" > "$state_dir/installing/tool"
   printf '%s\n' "$token" > "$state_dir/installing/token"
   [[ ! -f $state_dir/install-result.json ]] || unlink "$state_dir/install-result.json"
+  [[ $tool != "update" || ! -f $state_dir/update-result.json ]] || unlink "$state_dir/update-result.json"
   printf -v command '%q ' env "MONARCH_PATH=$runtime" "XDG_STATE_HOME=$state_home" \
     "$runtime/bin/monarch-setup-first-steps" run-installer "$tool" "$token"
   (
@@ -229,6 +261,24 @@ run_installer() {
   return "$code"
 }
 
+resume_guide() {
+  local state
+  state=$(noctalia msg status) || return 0
+  if jq -e '.locked == false and .panelOpen == false' >/dev/null <<< "$state"; then
+    open_guide
+  fi
+}
+
+update_terminal() {
+  local code=0
+  trap 'resume_guide' EXIT
+  trap 'exit 130' HUP INT TERM
+  "$runtime/bin/monarch-show-logo"
+  "$runtime/bin/monarch-setup-first-steps" run-installer update "$1" || code=$?
+  if (( code != 130 )); then "$runtime/bin/monarch-show-done" "$code" || true; fi
+  return "$code"
+}
+
 case ${1:-open} in
   prepare)
     [[ -f $state_dir/shown ]] || touch "$state_dir/pending"
@@ -242,8 +292,10 @@ case ${1:-open} in
   record) record "${2:?A phase is required}" ;;
   visit) visit "${2:?A destination is required}" ;;
   tools-state) tools_state ;;
+  check-updates) "$runtime/bin/monarch-update-available" --all --json ;;
   install-tool) install_tool "${2:?A tool is required}" ;;
   run-installer) run_installer "${2:?A tool is required}" "${3:?An installation token is required}" ;;
+  update-terminal) update_terminal "${2:?An installation token is required}" ;;
   docs) "$runtime/bin/monarch-launch-webapp" "https://docs.monarchlinux.com/" ;;
   state)
     phase="welcome"
@@ -257,7 +309,7 @@ case ${1:-open} in
     ;;
   reset)
     wait_for_shell
-    noctalia msg panel-close "$panel_id" >/dev/null || true
+    noctalia msg plugin "$panel_id" all skip >/dev/null || true
     record welcome
     open_guide
     ;;

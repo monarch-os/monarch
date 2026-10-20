@@ -1,11 +1,15 @@
 --!strict
--- Shows the pending-update count; hidden when the system is up to date.
--- Ports the v4 CustomButton whose leftClickExec opened the update TUI.
+-- Repository/AUR update count and category color; hidden only after a complete
+-- up-to-date check. The stream owns checking, localization and bounded tooltips.
 
 local indicator = require("./indicator.luau")
 
 indicator.stream("monarch-update.sh")
 
 function onClick()
-  noctalia.runAsync(indicator.bin("monarch-launch-floating-terminal-with-presentation") .. " --app-id=org.monarch.update monarch-update")
+  local function quote(value)
+    return "'" .. value:gsub("'", "'\\''") .. "'"
+  end
+  noctalia.runAsync(quote(indicator.bin("monarch-launch-floating-terminal-with-presentation"))
+    .. " --app-id=org.monarch.update " .. quote(quote(indicator.bin("monarch-update"))))
 end

@@ -2,10 +2,13 @@ set -euo pipefail
 
 echo "Reconcile Monarch user state"
 
+# Match config/uwsm/env without loading keys or replacing custom agent settings.
+systemctl --user enable --now ssh-agent.socket
 systemctl --user enable --now monarch-screencast-dnd.service
 systemctl --user try-restart monarch-crash-watch.service
 
 source "$MONARCH_PATH/install/reconcile/config-files.sh"
+python3 -I "$MONARCH_PATH/install/reconcile/exegol.py" "$MONARCH_PATH" "$HOME"
 source "$MONARCH_PATH/install/reconcile/about-branding.sh"
 source "$MONARCH_PATH/install/reconcile/noctalia-activation.sh"
 source "$MONARCH_PATH/install/reconcile/chromium-flags.sh"

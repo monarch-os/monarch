@@ -1,12 +1,18 @@
 #!/bin/bash
 
 # monarch:summary=Run a named hook from ~/.config/monarch/hooks/<name> and ~/.config/monarch/hooks/<name>.d/.
-# monarch:args=[name] [args...]
+# monarch:args=[--strict] <name> [args...]
 
 set -e
 
+strict=false
+if [[ ${1:-} == "--strict" ]]; then
+  strict=true
+  shift
+fi
+
 if (( $# < 1 )); then
-  echo "Usage: monarch-hook [name] [args...]"
+  echo "Usage: monarch-hook [--strict] <name> [args...]"
   exit 1
 fi
 
@@ -20,18 +26,27 @@ HOOK_PATH="$HOME/.config/monarch/hooks/$1"
 HOOK_DIR="$HOOK_PATH.d"
 shift
 
+run_hook() {
+  local status=0
+  bash "$@" || status=$?
+  if (( status != 0 )); then
+    echo "Hook failed: $1"
+    [[ $strict == "false" ]] || return "$status"
+  fi
+}
+
 if [[ $HOOK == "post-boot" ]]; then
   monarch-state clear-stale-restarts || echo "Restart marker cleanup failed" >&2
 fi
 
 if [[ -f $HOOK_PATH ]]; then
-  bash "$HOOK_PATH" "$@" || echo "Hook failed: $HOOK_PATH"
+  run_hook "$HOOK_PATH" "$@"
 fi
 
 if [[ -d $HOOK_DIR ]]; then
   for hook in "$HOOK_DIR"/*; do
     [[ -f $hook ]] || continue
     [[ $hook == *.sample ]] && continue
-    bash "$hook" "$@" || echo "Hook failed: $hook"
+    run_hook "$hook" "$@"
   done
 fi

@@ -1,13 +1,12 @@
-SHELL_NAME=$(basename -- "$0")
-SHELL_NAME=${SHELL_NAME#-}
-if [[ $SHELL_NAME == init ]]; then
-  if [[ -n ${SHELL:-} ]]; then
-    SHELL_NAME=$(basename -- "$SHELL")
-  elif [[ -n ${ZSH_VERSION:-} ]]; then
-    SHELL_NAME=zsh
-  else
-    SHELL_NAME=bash
-  fi
+# $SHELL is the login shell, not necessarily the interpreter sourcing this file.
+# Zsh also changes $0 to the sourced filename by default.
+if [[ -n ${ZSH_VERSION:-} ]]; then
+  SHELL_NAME=zsh
+elif [[ -n ${BASH_VERSION:-} ]]; then
+  SHELL_NAME=bash
+else
+  SHELL_NAME=$(basename -- "$0")
+  SHELL_NAME=${SHELL_NAME#-}
 fi
 
 if command -v mise &> /dev/null; then

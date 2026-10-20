@@ -1,8 +1,35 @@
-unalias digall cheat upload pv 2>/dev/null || true
+unalias digall cheat upload pv pysrv probe-urls show-open-ports 2>/dev/null || true
 
 digall() { dig +answer +multiline "$1" any @8.8.8.8; }
 cheat() { curl -s "cheat.sh/$1"; }
 upload() { curl -F "file=@$1" https://0x0.st; }
+
+show-open-ports() (
+  set -o pipefail
+  local sockets
+  local -a color_args=()
+  sockets=$(sudo ss -H -lntup) || return $?
+  if [[ -t 1 && -z ${NO_COLOR+x} && ${TERM:-} != "dumb" ]]; then
+    color_args=(--color)
+  fi
+  printf '%s\n' "$sockets" |
+    python3 "${MONARCH_PATH:-/usr/share/monarch}/default/shells/lib/open-ports.py" "${color_args[@]}"
+)
+
+pysrv() {
+  mkdir -pv /tmp/empty && python -m http.server -d /tmp/empty
+}
+
+probe-urls() {
+  if (( $# != 1 )); then
+    echo "Usage: probe-urls <url-list>" >&2
+    return 2
+  fi
+  local url
+  while IFS= read -r url || [[ -n $url ]]; do
+    curl -sk "$url" -o /dev/null -w '%{http_code}:%{size_download}:%{url_effective}\n'
+  done < "$1"
+}
 
 pv() {
   if (( $# != 1 )); then
