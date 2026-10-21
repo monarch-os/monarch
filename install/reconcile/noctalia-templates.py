@@ -35,7 +35,7 @@ def seed(source, destination):
   try:
     shutil.copytree(source, staging, dirs_exist_ok=True)
     # GNU mv uses no-replace rename, preserving even a concurrently created empty directory.
-    subprocess.run(['/usr/bin/mv', '-T', '--no-clobber', '--', str(staging), str(destination)], check=True)
+    subprocess.run(['/usr/bin/mv', '-T', '--update=none', '--', str(staging), str(destination)], check=True)
   finally:
     if staging.exists():
       shutil.rmtree(staging)
