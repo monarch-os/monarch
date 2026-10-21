@@ -37,6 +37,8 @@ monarch_reconcile_managed_file \
   "$HOME/.config/noctalia/monarch-widgets.toml"
 
 "$MONARCH_PATH/bin/monarch-state" clear-stale-restarts
+# Optional theme caches must not block desktop reconciliation.
+python3 "$MONARCH_PATH/install/reconcile/noctalia-templates.py" || true
 
 for palette in "$MONARCH_PATH"/config/noctalia/palettes/*.json; do
   monarch_reconcile_managed_file "$palette" \

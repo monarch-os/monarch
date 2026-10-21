@@ -84,7 +84,7 @@ EOF
 cat >"$runtime/bin/uwsm-app" <<'EOF'
 #!/bin/bash
 case ${TEST_FIRST_STEPS_LAUNCH:-} in
-  failure) exit 42 ;;
+  failure) touch "$TEST_FIRST_STEPS/launcher-failed"; exit 42 ;;
   never) exit 0 ;;
 esac
 while [[ $1 != -e ]]; do shift; done
@@ -388,9 +388,29 @@ pass "cancelled updates are not marked successful and failed updates can be retr
 
 fresh_state update-launch-failure
 export TEST_FIRST_STEPS_LAUNCH=failure
+cat >"$runtime/bin/flock" <<'EOF'
+#!/bin/bash
+if [[ $* == 8 && -f $TEST_FIRST_STEPS/launcher-failed ]] &&
+  [[ $(tr '\0' ' ' <"/proc/$PPID/cmdline") == *" install-tool update"* ]]; then
+  touch "$TEST_FIRST_STEPS/finish-waiting"
+  while [[ ! -f $TEST_FIRST_STEPS/finish-release ]]; do /usr/bin/sleep 0.02; done
+fi
+exec /usr/bin/flock "$@"
+EOF
+chmod +x "$runtime/bin/flock"
 monarch-setup-first-steps install-tool update
+for ((attempt = 0; attempt < 200; attempt++)); do
+  [[ -f $test_tmp/finish-waiting ]] && break
+  /usr/bin/sleep 0.02
+done
+[[ -f $test_tmp/finish-waiting ]] || fail "launcher did not reach result publication"
+state=$(monarch-setup-first-steps tools-state)
+touch "$test_tmp/finish-release"
+jq -e '.active == "update" and .updateResult == null' <<<"$state" >/dev/null ||
+  fail "status polling recovered the launch before its failure result was recorded"
 wait_for_update_result 42
 wait_for_update_return
+rm "$runtime/bin/flock"
 pass "terminal launch failure restores the guide with a retryable update result"
 
 fresh_state update-locked

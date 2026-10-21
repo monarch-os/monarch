@@ -33,8 +33,8 @@ custom_palette = "Monarch"
 mode = "dark"
 
 [theme.templates]
-# Monarch's neovim, obsidian and zed templates exist in Noctalia's
-# community catalog, so they are enabled by id rather than shipped. Apps absent
+# Monarch preloads upstream templates for these community ids; Noctalia
+# owns their subsequent updates. Apps absent
 # from the catalogs can use `[theme.templates.user.<id>]` in a separate user
 # overlay. See config/noctalia/user-templates.toml.example.
 #
@@ -47,8 +47,7 @@ mode = "dark"
 # The enable_* switches below are only master toggles — an id absent from these
 # arrays is never rendered, however true they are.
 #
-# A template whose client is not installed is skipped silently, so listing all
-# of them is safe on any machine.
+# Community templates use upstream's application checks and hooks.
 builtin_ids = [
   "alacritty",
   "kitty",

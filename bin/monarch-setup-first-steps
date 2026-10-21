@@ -200,9 +200,9 @@ launch_installer() {
     fi
     sleep 0.1
   done
-  exec 9>&-
   ((code != 0)) || code=124
   finish_install "$tool" "$token" "$code" launching
+  exec 9>&-
   exec 8>&-
   [[ $tool != "update" ]] || resume_guide
 }
