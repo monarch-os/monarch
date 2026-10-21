@@ -1,0 +1,73 @@
+{
+  "$schema": "https://zed.dev/schema/themes/v0.2.0.json",
+  "name": "Noctalia",
+  "author": "Monarch contributors",
+  "themes": [
+    {
+      "name": "Noctalia Dark",
+      "appearance": "dark",
+      "style": {
+        "background": "{{ colors.surface.dark.hex }}",
+        "text": "{{ colors.on_surface.dark.hex }}",
+        "text.muted": "{{ colors.on_surface_variant.dark.hex }}",
+        "text.accent": "{{ colors.primary.dark.hex }}",
+        "border": "{{ colors.outline_variant.dark.hex }}",
+        "border.focused": "{{ colors.primary.dark.hex }}",
+        "element.background": "{{ colors.surface_container.dark.hex }}",
+        "element.hover": "{{ colors.surface_container_high.dark.hex }}",
+        "element.selected": "{{ colors.secondary_container.dark.hex }}",
+        "editor.background": "{{ colors.terminal_background.dark.hex }}",
+        "editor.foreground": "{{ colors.terminal_foreground.dark.hex }}",
+        "editor.gutter.background": "{{ colors.terminal_background.dark.hex }}",
+        "editor.line_number": "{{ colors.outline.dark.hex }}",
+        "editor.active_line_number": "{{ colors.primary.dark.hex }}",
+        "terminal.background": "{{ colors.terminal_background.dark.hex }}",
+        "terminal.foreground": "{{ colors.terminal_foreground.dark.hex }}",
+        "error": "{{ colors.error.dark.hex }}",
+        "success": "{{ colors.terminal_normal_green.dark.hex }}",
+        "warning": "{{ colors.terminal_normal_yellow.dark.hex }}",
+        "syntax": {
+          "comment": { "color": "{{ colors.on_surface_variant.dark.hex }}", "font_style": "italic" },
+          "keyword": { "color": "{{ colors.terminal_normal_magenta.dark.hex }}" },
+          "string": { "color": "{{ colors.terminal_normal_green.dark.hex }}" },
+          "function": { "color": "{{ colors.terminal_normal_blue.dark.hex }}" },
+          "type": { "color": "{{ colors.terminal_normal_yellow.dark.hex }}" },
+          "number": { "color": "{{ colors.terminal_normal_cyan.dark.hex }}" }
+        }
+      }
+    },
+    {
+      "name": "Noctalia Light",
+      "appearance": "light",
+      "style": {
+        "background": "{{ colors.surface.light.hex }}",
+        "text": "{{ colors.on_surface.light.hex }}",
+        "text.muted": "{{ colors.on_surface_variant.light.hex }}",
+        "text.accent": "{{ colors.primary.light.hex }}",
+        "border": "{{ colors.outline_variant.light.hex }}",
+        "border.focused": "{{ colors.primary.light.hex }}",
+        "element.background": "{{ colors.surface_container.light.hex }}",
+        "element.hover": "{{ colors.surface_container_high.light.hex }}",
+        "element.selected": "{{ colors.secondary_container.light.hex }}",
+        "editor.background": "{{ colors.terminal_background.light.hex }}",
+        "editor.foreground": "{{ colors.terminal_foreground.light.hex }}",
+        "editor.gutter.background": "{{ colors.terminal_background.light.hex }}",
+        "editor.line_number": "{{ colors.outline.light.hex }}",
+        "editor.active_line_number": "{{ colors.primary.light.hex }}",
+        "terminal.background": "{{ colors.terminal_background.light.hex }}",
+        "terminal.foreground": "{{ colors.terminal_foreground.light.hex }}",
+        "error": "{{ colors.error.light.hex }}",
+        "success": "{{ colors.terminal_normal_green.light.hex }}",
+        "warning": "{{ colors.terminal_normal_yellow.light.hex }}",
+        "syntax": {
+          "comment": { "color": "{{ colors.on_surface_variant.light.hex }}", "font_style": "italic" },
+          "keyword": { "color": "{{ colors.terminal_normal_magenta.light.hex }}" },
+          "string": { "color": "{{ colors.terminal_normal_green.light.hex }}" },
+          "function": { "color": "{{ colors.terminal_normal_blue.light.hex }}" },
+          "type": { "color": "{{ colors.terminal_normal_yellow.light.hex }}" },
+          "number": { "color": "{{ colors.terminal_normal_cyan.light.hex }}" }
+        }
+      }
+    }
+  ]
+}

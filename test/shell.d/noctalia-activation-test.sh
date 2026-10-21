@@ -26,6 +26,14 @@ printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/monarch-restart-noctalia"
 printf '#!/bin/bash\nprintf complete >"$TEST_ACTIVATION/completed"\n' >"$test_tmp/bin/complete"
 printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/monarch-theme-apply"
 printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/systemctl"
+cat >"$test_tmp/bin/python3" <<'EOF'
+#!/bin/bash
+if [[ ${TEST_TEMPLATE_FAILURE:-0} == "1" && $1 == */noctalia-templates.py ]]; then
+  echo 'simulated template seed failure' >&2
+  exit 42
+fi
+exec /usr/bin/python3 "$@"
+EOF
 chmod +x "$test_tmp/bin/"*
 export PATH="$test_tmp/bin:/usr/bin" MONARCH_RECONCILE_BIN="$test_tmp/bin/complete"
 
@@ -60,6 +68,8 @@ pass "CodexBar migration validates before replacement and archives the legacy co
 for entrypoint in first-run reconcile deferred; do
   export HOME="$test_tmp/$entrypoint"
   export XDG_STATE_HOME="$HOME/.local/state"
+  mkdir -p "$XDG_STATE_HOME/noctalia/community-templates/neovim"
+  printf 'partial user cache\n' >"$XDG_STATE_HOME/noctalia/community-templates/neovim/template.toml"
   if [[ $entrypoint == "reconcile" ]]; then
     mkdir -p "$HOME/.config/noctalia"
     printf '[hooks]\nstarted = "my-startup-command"\ncolors_changed = "my-theme-command"\n' >"$HOME/.config/noctalia/config.toml"
@@ -140,3 +150,13 @@ if grep -q '^msg plugins enable ' "$test_tmp/calls"; then
 fi
 [[ $(tail -1 "$test_tmp/calls") == 'msg config-reload' ]]
 pass "fresh accounts skip catalog-backed enablement for plugins already active in their initial config"
+
+for script in "$ROOT/install/user/first-run/enable-noctalia-plugins.sh" \
+  "$ROOT/install/reconcile/user.sh" "$ROOT/install/reconcile/noctalia-plugins.sh"; do
+  : >"$test_tmp/calls"
+  cp "$script" "$test_tmp/template-failure.sh"
+  TEST_TEMPLATE_FAILURE=1 bash "$test_tmp/template-failure.sh" >/dev/null 2>&1
+  [[ $(grep -c '^msg plugins enable ' "$test_tmp/calls") == 9 ]] ||
+    fail "template seeding failure prevents plugin activation"
+done
+pass "optional template seeding failures do not block reconciliation or plugin activation"

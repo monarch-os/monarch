@@ -1,0 +1,35 @@
+{
+  "name": "NoctaliaTheme",
+  "type": "{{ mode }}",
+  "colors": {
+    "focusBorder": "{{ colors.primary.default.hex }}",
+    "foreground": "{{ colors.on_surface.default.hex }}",
+    "editor.background": "{{ colors.terminal_background.default.hex }}",
+    "editor.foreground": "{{ colors.terminal_foreground.default.hex }}",
+    "editorCursor.foreground": "{{ colors.primary.default.hex }}",
+    "editor.selectionBackground": "{{ colors.terminal_selection_bg.default.hex }}",
+    "editor.lineHighlightBackground": "{{ colors.surface_container.default.hex }}",
+    "editorLineNumber.foreground": "{{ colors.outline.default.hex }}",
+    "editorLineNumber.activeForeground": "{{ colors.primary.default.hex }}",
+    "editorError.foreground": "{{ colors.error.default.hex }}",
+    "editorWarning.foreground": "{{ colors.terminal_normal_yellow.default.hex }}",
+    "sideBar.background": "{{ colors.surface_container.default.hex }}",
+    "activityBar.background": "{{ colors.surface_container_low.default.hex }}",
+    "activityBar.foreground": "{{ colors.primary.default.hex }}",
+    "statusBar.background": "{{ colors.surface_container.default.hex }}",
+    "statusBar.foreground": "{{ colors.on_surface.default.hex }}",
+    "tab.activeBackground": "{{ colors.surface.default.hex }}",
+    "tab.inactiveBackground": "{{ colors.surface_container.default.hex }}",
+    "panel.background": "{{ colors.surface_container_low.default.hex }}",
+    "terminal.background": "{{ colors.terminal_background.default.hex }}",
+    "terminal.foreground": "{{ colors.terminal_foreground.default.hex }}"
+  },
+  "tokenColors": [
+    { "scope": "comment", "settings": { "foreground": "{{ colors.on_surface_variant.default.hex }}", "fontStyle": "italic" } },
+    { "scope": "string", "settings": { "foreground": "{{ colors.terminal_normal_green.default.hex }}" } },
+    { "scope": "keyword, storage", "settings": { "foreground": "{{ colors.terminal_normal_magenta.default.hex }}" } },
+    { "scope": "entity.name.function", "settings": { "foreground": "{{ colors.terminal_normal_blue.default.hex }}" } },
+    { "scope": "entity.name.type, support.type", "settings": { "foreground": "{{ colors.terminal_normal_yellow.default.hex }}" } },
+    { "scope": "constant.numeric", "settings": { "foreground": "{{ colors.terminal_normal_cyan.default.hex }}" } }
+  ]
+}

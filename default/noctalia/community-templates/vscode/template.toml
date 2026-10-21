@@ -1,0 +1,13 @@
+[catalog.vscode]
+name = "VS Code"
+category = "editor"
+
+[templates.vscode_code]
+input_path = "vscode.json"
+output_path = "~/.vscode/extensions/noctalia.noctaliatheme-0.0.5/themes/NoctaliaTheme-color-theme.json"
+requires_path = "~/.vscode/extensions/noctalia.noctaliatheme-0.0.5/package.json"
+
+[templates.vscode_codium]
+input_path = "vscode.json"
+output_path = "~/.vscode-oss/extensions/noctalia.noctaliatheme-0.0.5-universal/themes/NoctaliaTheme-color-theme.json"
+requires_path = "~/.vscode-oss/extensions/noctalia.noctaliatheme-0.0.5-universal/package.json"
