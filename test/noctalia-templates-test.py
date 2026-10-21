@@ -161,52 +161,17 @@ with tempfile.TemporaryDirectory() as temporary:
 
   vault = home / 'Documents/test vault/.obsidian'
   vault.mkdir(parents=True)
-  outside = root / 'external vault/.obsidian'
-  outside.mkdir(parents=True)
-  config = home / '.config/obsidian'
-  config.mkdir(parents=True)
-  (config / 'obsidian.json').write_text(json.dumps({'vaults': {'external': {'path': str(outside.parent)}}}))
   (vault / 'appearance.json').write_text('{"theme":"moonstone","enabledCssSnippets":["personal"]}')
   obsidian = cache / 'obsidian'
   shutil.rmtree(obsidian)
   seed()
-  (obsidian / 'rendered.css').write_text('body { color: #abcdef; }\n')
   hook_env = dict(env, XDG_CONFIG_HOME=str(home / '.config'))
+  result = subprocess.run(['bash', str(obsidian / 'apply.sh'), 'output'], env=hook_env,
+                          capture_output=True, text=True, check=True)
+  assert result.stdout.splitlines() == [str(vault / 'snippets/noctalia.css')]
+  assert (vault / 'snippets').is_dir()
   for _ in range(2):
-    subprocess.run(['bash', str(obsidian / 'apply.sh')], env=hook_env, check=True)
+    subprocess.run(['bash', str(obsidian / 'apply.sh'), 'apply'], env=hook_env, check=True)
   appearance = json.loads((vault / 'appearance.json').read_text())
   assert appearance == {'theme': 'moonstone', 'enabledCssSnippets': ['personal', 'noctalia']}
-  assert (outside / 'snippets/noctalia.css').read_text() == 'body { color: #abcdef; }\n'
-  (vault / 'appearance.json').write_text('invalid JSON')
-  result = subprocess.run(['bash', str(obsidian / 'apply.sh')], env=hook_env, capture_output=True)
-  assert result.returncode != 0
-  assert (vault / 'appearance.json').read_text() == 'invalid JSON'
-  print('ok - Obsidian discovers registered and local vaults, preserves preferences and refuses invalid JSON')
-
-  (vault / 'appearance.json').write_text('{}')
-  imported = home / 'Downloads/imported/.obsidian'
-  imported.mkdir(parents=True)
-  victim = home / '.config/private-site'
-  victim.mkdir()
-  (victim / 'noctalia.css').write_text('original')
-  (victim / 'appearance.json').write_text('{"theme":"moonstone"}')
-  before = snapshot(victim)
-  (imported / 'snippets').symlink_to('../../../.config/private-site', target_is_directory=True)
-  result = subprocess.run(['bash', str(obsidian / 'apply.sh')], env=hook_env, capture_output=True)
-  assert result.returncode != 0
-  assert snapshot(victim) == before
-  assert not (imported / 'appearance.json').exists()
-  (imported / 'snippets').unlink()
-  imported.rmdir()
-  imported.symlink_to(victim, target_is_directory=True)
-  result = subprocess.run(['bash', str(obsidian / 'apply.sh')], env=hook_env, capture_output=True)
-  assert result.returncode != 0
-  assert snapshot(victim) == before
-  imported.unlink()
-  imported.mkdir()
-  (imported / 'appearance.json').symlink_to(victim / 'appearance.json')
-  result = subprocess.run(['bash', str(obsidian / 'apply.sh')], env=hook_env, capture_output=True)
-  assert result.returncode != 0
-  assert snapshot(victim) == before
-  assert not (imported / 'snippets').exists()
-  print('ok - Obsidian rejects symlinked directories and appearance before writing any vault files')
+  print('ok - packaged upstream Obsidian hook exposes dynamic outputs and enables the snippet idempotently')

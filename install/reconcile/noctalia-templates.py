@@ -42,7 +42,7 @@ def seed(source, destination):
 
 
 def main():
-  parser = argparse.ArgumentParser(description='Seed original offline templates into Noctalia-owned storage.')
+  parser = argparse.ArgumentParser(description='Seed packaged upstream templates into Noctalia-owned storage.')
   parser.add_argument('--state-home', type=Path)
   args = parser.parse_args()
   runtime = Path(os.environ.get('MONARCH_PATH', Path(__file__).resolve().parents[2]))

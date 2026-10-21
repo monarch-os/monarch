@@ -5,4 +5,7 @@ category = "editor"
 [templates.zed]
 input_path = "zed.json"
 output_path = "$XDG_CONFIG_HOME/zed/themes/noctalia.json"
-requires_path = "$XDG_CONFIG_HOME/zed"
+
+[templates.gram]
+input_path = "zed.json"
+output_path = "$XDG_CONFIG_HOME/gram/themes/noctalia.json"

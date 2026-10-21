@@ -4,5 +4,5 @@ category = "editor"
 
 [templates.obsidian]
 input_path = "obsidian.css"
-output_path = "rendered.css"
-post_hook = "bash '{{ config_dir }}/apply.sh'"
+output_path_dynamic = "bash '{{ config_dir }}/apply.sh' output"
+post_hook = "bash '{{ config_dir }}/apply.sh' apply"
