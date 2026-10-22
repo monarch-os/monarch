@@ -3,19 +3,22 @@
 -- stock v5 `nightlight` widget, which is always visible.
 --
 -- Tracks the forced state only — the schedule is a separate concern that stays
--- out of the bar. See caffeine.luau for the polling rationale and
--- bin/monarch-toggle-nightlight for who owns the state.
+-- out of the bar. bin/monarch-toggle-nightlight owns the runtime marker.
 
 local indicator = require("./indicator.luau")
+local runtimeToggle = require("./runtime-toggle.luau")
 
 local COMMAND = "monarch-toggle-nightlight"
-local POLL_MS = 2000
-
-noctalia.setUpdateInterval(POLL_MS)
-barWidget.setVisible(false)
+local refresh = runtimeToggle.start("nightlight", "󰖔", "Night light on - restore day temperature")
 
 function update()
-  indicator.pollToggle(COMMAND, "󰖔")
+  refresh()
+end
+
+function onIpc(event)
+  if event == "refresh" then
+    refresh()
+  end
 end
 
 function onClick()
