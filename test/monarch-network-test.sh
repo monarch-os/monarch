@@ -23,6 +23,21 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/bin" "$TMP/sys/wlan0/wireless" "$TMP/sys/eth0"
 
+# Redirect only the fixed packaged DNS path in a scratch copy. The absent
+# fixture exercises the fallback even when Monarch is installed on the host.
+STATUS_SOURCE=$STATUS
+STATUS="$TMP/network-status"
+python3 - "$STATUS_SOURCE" "$STATUS" "$TMP/packaged-dns" <<'PY'
+import pathlib
+import shlex
+import sys
+
+source = pathlib.Path(sys.argv[1]).read_text()
+assert source.count("/usr/bin/monarch-dns") == 2
+pathlib.Path(sys.argv[2]).write_text(source.replace("/usr/bin/monarch-dns", shlex.quote(sys.argv[3])))
+PY
+chmod +x "$STATUS"
+
 pass() { printf 'ok - %s\n' "$1"; }
 
 fail() {
@@ -203,10 +218,15 @@ assert_equals "anything else is Custom" \
 # The resolved.conf sniff above is the development-checkout fallback. The
 # packaged runtime command owns the answer, because it also reads NetworkManager's
 # global-dns override — which wins over resolved.conf, so sniffing alone would
-# report the wrong provider. Asserted by reading the source rather than by
-# planting a binary in /usr/bin, which a test has no business doing.
-grep -q 'if \[\[ -x /usr/bin/monarch-dns \]\]' "$STATUS" ||
+# report the wrong provider. Never plant a binary in /usr/bin: enable the
+# fixture in the scratch copy and verify that it overrides resolved.conf.
+grep -q 'if \[\[ -x /usr/bin/monarch-dns \]\]' "$STATUS_SOURCE" ||
   fail "status defers to the packaged runtime DNS command"
+printf '#!/bin/bash\necho Google\n' >"$TMP/packaged-dns"
+chmod +x "$TMP/packaged-dns"
+assert_equals "the packaged DNS command takes precedence over resolved.conf" \
+  "$("$STATUS" --verbose | awk '$1=="dns" {print $2}')" "Google"
+rm -- "$TMP/packaged-dns"
 pass "status defers to the packaged runtime DNS command"
 
 # ── The DNS chooser ──────────────────────────────────────────────────────────

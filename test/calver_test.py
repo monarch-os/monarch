@@ -54,6 +54,8 @@ class GitTest(unittest.TestCase):
     self.git("init", "--quiet")
     self.git("config", "user.name", "Test")
     self.git("config", "user.email", "test@example.invalid")
+    # Exercise a non-default user preference; tag membership has no order.
+    self.git("config", "tag.sort", "-version:refname")
     self.git("remote", "add", "origin", str(remote))
     self.commit()
     (self.repo / "version").write_text("0.12.0\n")
@@ -82,7 +84,7 @@ class GitTest(unittest.TestCase):
     self.assertEqual(self.allocate().returncode, 0)
     self.commit()
     self.assertEqual(self.allocate().returncode, 0)
-    self.assertEqual(self.git("tag", "--list"), "v2026.10.0\nv2026.10.1")
+    self.assertCountEqual(self.git("tag", "--list").splitlines(), ["v2026.10.0", "v2026.10.1"])
     self.assertIn("refs/tags/v2026.10.1", self.git("ls-remote", "--tags", "origin"))
 
   def test_source_version_and_out_of_order_tags(self):
@@ -153,7 +155,7 @@ class GitTest(unittest.TestCase):
     self.assertEqual(result.returncode, 0, result.stderr)
     self.assertIn("--verify-tag", state.read_text())
     self.assertEqual(self.allocate(**environment).returncode, 0)
-    self.assertEqual(self.git("tag", "--list"), "v2026.10.0\nv2026.11.0\nv2026.11.1")
+    self.assertCountEqual(self.git("tag", "--list").splitlines(), ["v2026.10.0", "v2026.11.0", "v2026.11.1"])
 
   def test_monthly_rejects_old_revision(self):
     self.git("tag", "v2026.10.0")
