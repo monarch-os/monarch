@@ -8,14 +8,17 @@ No general secret/history scan or overall security posture assessment was done.
 
 Severity: High. Confidence: HIGH. CWE-613.
 Status: IN PROGRESS — local fix tested; installed acceptance and deployment pending.
-Files: `bin/monarch-sudo-passwordless`, `bin/monarch-sudo-passwordless-root`.
+File: `bin/monarch-sudo-passwordless`.
 
 The previous unrestricted `NOPASSWD` grant depended on a monotonic `--on-active`
 timer. After suspension beyond its advertised deadline, a session process could
 still use the remaining awake-time grant. Explicit opt-in and boot cleanup did
 not enforce wall-clock expiry.
 
-The packaged privileged helper now publishes a validated UTC `NOTAFTER` rule
+Following Omarchy's command organization, one script provides the interactive
+flow and internal `__*` actions. Privileged calls always select the fixed
+packaged `/usr/bin/monarch-sudo-passwordless`, never the caller's checkout.
+The internal dispatcher now publishes a validated UTC `NOTAFTER` rule
 atomically, after arming an absolute timer. UID validation, serialization and
 per-grant tokens protect renewal from obsolete callbacks. System reconciliation
 revokes exact legacy unbounded rules. The menu queries grant validity. No
@@ -56,7 +59,7 @@ stale callbacks, expiry, invalid identities, mutable checkout replacement,
 hostile environment, package permissions and PAM preservation. Fixture source
 substitutions are checked, and redundant source assertions use behavioral checks.
 The real `visudo` parser accepts the bounded rule; package staging includes the
-executable helper and reconciler. No live sudo grant, PAM edit or reset was run.
+executable command and reconciler. No live sudo grant, PAM edit or reset was run.
 
 Installed-package, fingerprint and suspension acceptance remain outstanding;
 the dev VM was unavailable. Two unrelated full-suite failures (network and

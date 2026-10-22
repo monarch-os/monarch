@@ -717,7 +717,6 @@
     "monarch-sudo-docker": "Vérifier si Docker requiert une authentification",
     "monarch-sudo-keepalive": "Demander sudo une fois et maintenir l’autorisation en arrière-plan",
     "monarch-sudo-passwordless": "Activer ou désactiver temporairement sudo sans mot de passe",
-    "monarch-sudo-passwordless-root": "Gérer les autorisations sudo temporaires validées à la frontière privilégiée",
     "monarch-system-factory-reset-finish": "Terminer une réinitialisation d’usine au premier démarrage",
     "monarch-system-lock": "Verrouiller la machine sans éteindre l’écran",
     "monarch-system-logout": "Fermer les fenêtres et déconnecter la session",

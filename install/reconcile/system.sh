@@ -3,7 +3,7 @@ set -euo pipefail
 echo "Reconcile Monarch system state"
 
 sudo bash /usr/share/monarch/install/reconcile/package-permissions.sh
-sudo /usr/bin/monarch-sudo-passwordless-root revoke-legacy
+sudo /usr/bin/monarch-sudo-passwordless __revoke-legacy
 
 if mise ls --global --installed --json opencode | jq -e 'length > 0' >/dev/null; then
   monarch-pkg-add opencode

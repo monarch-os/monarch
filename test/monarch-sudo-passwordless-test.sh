@@ -28,11 +28,13 @@ with tempfile.TemporaryDirectory(prefix="monarch-sudo-test-") as directory:
   log = root / "calls"
   helper = root / "helper"
   cli = root / "cli"
-  source = repo / "bin/monarch-sudo-passwordless-root"
+  source = repo / "bin/monarch-sudo-passwordless"
   assert source.exists(), "missing packaged root boundary for temporary grants"
+  assert os.access(source, os.X_OK), "the unified command must be directly executable"
+  assert not (repo / "bin/monarch-sudo-passwordless-root").exists(), "unexpected second sudo entrypoint"
   text = source.read_text()
   for old, new in (("/etc/sudoers.d", str(sudoers)), ("/run/lock", str(lock)),
-      ("/usr/bin/monarch-sudo-passwordless-root", str(helper)),
+      ("/usr/bin/monarch-sudo-passwordless", str(helper)),
       ("/usr/bin/", str(tools) + "/"), ("/usr/sbin/visudo", str(tools / "visudo")),
       ("EUID", "FIXTURE_EUID"), ('[[ $path == / ]]', '[[ $path == "' + str(root) + '" ]]')):
     text = replace_fixture(text, old, new)
@@ -40,9 +42,8 @@ with tempfile.TemporaryDirectory(prefix="monarch-sudo-test-") as directory:
   lines.insert(1, "readonly FIXTURE_EUID=0")
   helper.write_text("\n".join(lines) + "\n")
   helper.chmod(0o755)
-  cli_text = replace_fixture((repo / "bin/monarch-sudo-passwordless").read_text(),
-    "/usr/bin/monarch-sudo-passwordless-root", str(helper), count=1)
-  cli.write_text(replace_fixture(cli_text, "/usr/bin/id", str(tools / "id"), count=1))
+  cli.write_text(replace_fixture(helper.read_text(),
+    "readonly FIXTURE_EUID=0", "readonly FIXTURE_EUID=1000", count=1))
   cli.chmod(0o755)
   mock = tools / "mock"
   mock.write_text(r'''#!/bin/bash
@@ -103,6 +104,8 @@ esac
     SUDO_UID="1000", USER="attacker", NOW="1800000000")
 
   def run(*args, success=True, changes=None, client=False):
+    if not client:
+      args = ("__" + args[0], *args[1:])
     result = subprocess.run([str(cli if client else helper), *args], env=env | (changes or {}),
       text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if success:
@@ -116,6 +119,7 @@ esac
   assert rule.stat().st_mode & 0o777 == 0o440
   calls = log.read_text()
   assert "--on-calendar=@1800000900" in calls and "--on-active" not in calls
+  assert f'{helper} __expire 1000 ' in calls, 'expiry must call the fixed packaged command'
   assert calls.index("visudo ") < calls.index("systemd-run ") < calls.index("mv ")
   assert not list(sudoers.glob(".monarch-nopasswd.*"))
   print("PASS validated UTC deadline, absolute timer and atomic publication")
@@ -141,9 +145,14 @@ esac
   nonroot.write_text(replace_fixture(helper.read_text(),
     "readonly FIXTURE_EUID=0", "readonly FIXTURE_EUID=1000", count=1))
   nonroot.chmod(0o755)
-  assert subprocess.run([str(nonroot), "enable", "1000", "15"], env=env,
-    stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode != 0
-  assert subprocess.run(["/bin/bash", str(helper), "enable", "1000", "15"], env=env,
+  for args in (("__enable", "1000", "15"), ("__status", "1000"),
+      ("__disable", "1000"), ("__expire", "1000", "f" * 32, "20270115081500Z"),
+      ("__revoke-legacy",)):
+    log.write_text('')
+    assert subprocess.run([str(nonroot), *args], env=env,
+      stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode == 2
+    assert not log.read_text(), 'unprivileged internal actions must not invoke commands'
+  assert subprocess.run(["/bin/bash", str(helper), "__enable", "1000", "15"], env=env,
     stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode == 126
   assert rule.read_text() == old
   print("PASS root revalidates durations and caller identity independent of USER")
@@ -249,6 +258,17 @@ esac
   run("15", "extra", client=True, success=False)
   run(client=True)
   assert not rule.exists()
+  for argument in ('__unknown', 'enable', 'status'):
+    log.write_text('')
+    run(argument, client=True, success=False)
+    assert not log.read_text(), 'unknown actions must not fall through to sudo'
+  log.write_text('')
+  run('15', client=True)
+  calls = log.read_text()
+  assert f'sudo -- {helper} __status 1000' in calls
+  assert f'sudo -- {helper} __enable 1000 15' in calls
+  run(client=True)
+  assert not rule.exists()
   print("PASS CLI opt-in, leading zeros, renewal, toggle and argument validation")
 
   cleanup = (repo / "default/tmpfiles.d/monarch-nopasswd-sudo.conf").read_text()
@@ -257,9 +277,9 @@ esac
 
   menu = (repo / "default/monarch/monarch-menu.jsonc").read_text()
   guard = next(line for line in menu.splitlines() if '"trigger.toggle.passwordless-sudo"' in line)
-  assert '/usr/bin/monarch-sudo-passwordless-root status' in guard
+  assert '/usr/bin/monarch-sudo-passwordless __status' in guard
   assert '$(id -u)' in guard and 'systemctl' not in guard and '$USER' not in guard
   system = (repo / "install/reconcile/system.sh").read_text()
-  assert 'sudo /usr/bin/monarch-sudo-passwordless-root revoke-legacy' in system
+  assert 'sudo /usr/bin/monarch-sudo-passwordless __revoke-legacy' in system
   print("PASS menu reads the bounded grant and upgrades revoke legacy unbounded rules")
 PY
