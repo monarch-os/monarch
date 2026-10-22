@@ -5,14 +5,16 @@
 # monarch:name=lock
 # monarch:examples=monarch system lock
 
-noctalia msg session lock >/dev/null 2>&1
+lock_status=0
+noctalia msg session lock >/dev/null 2>&1 || lock_status=$?
+if (( lock_status != 0 )); then
+  echo "Noctalia could not accept the screen lock request" >&2
+fi
 
-# Ensure 1password is locked
 if pgrep -x "1password" >/dev/null; then
   1password --lock &
 fi
 
-# Avoid running screensaver when locked
 pkill -f '[o]rg.monarch.screensaver'
 
 if [[ ${MONARCH_LOCK_ONLY:-false} != "true" ]]; then
@@ -21,3 +23,5 @@ if [[ ${MONARCH_LOCK_ONLY:-false} != "true" ]]; then
     monarch-brightness-keyboard off
   ) &
 fi
+
+exit "$lock_status"
