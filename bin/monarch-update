@@ -1,17 +1,52 @@
-#!/bin/bash
+#!/bin/bash -p
 
 # monarch:summary=Update Monarch and system packages
 # monarch:args=[-y] [--branch <main|dev>]
 # monarch:examples=monarch update | monarch update -y
 # monarch:requires-sudo=true
 
+[[ $- == *p* ]] || exit 126
+update_entrypoint=$(/usr/bin/readlink -e -- "${BASH_SOURCE[0]}") || exit 126
+source "${update_entrypoint%/*}/../default/monarch/update-authorization.sh" || exit 126
+monarch_update_sanitize_environment "$0" "$@" || exit 126
 set -e
+update_user_path=${MONARCH_UPDATE_USER_PATH:-$PATH}
+unset MONARCH_UPDATE_USER_PATH
+PATH="${update_entrypoint%/*}:/usr/bin:/usr/sbin"
+export PATH
+update_sudo_wrapper="${update_entrypoint%/*}/../default/monarch/sudo-no-update/sudo"
+sudo_keepalive_pid=""
+update_stay_awake_stopped=1
+
+cleanup_update() {
+  local status=$?
+  trap - EXIT HUP INT TERM
+  if ! monarch_update_end_authorization; then
+    echo "Could not invalidate cached sudo authorization after the update." >&2
+    status=1
+  fi
+  if (( ! update_stay_awake_stopped )); then
+    monarch-update-stay-awake stop || status=1
+  fi
+  monarch_update_revoke_authorization || status=1
+  exit "$status"
+}
+
+trap cleanup_update EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+monarch_update_revoke_authorization || exit 1
+monarch_update_check_sudo || exit 1
+monarch_update_select_runtime || exit 1
+export MONARCH_UPDATE_SUDO_SESSION=1
 
 # Run the update inside a PTY so pacman/yay keep showing download progress
 # while still logging the full session for later analysis.
 if [[ -z $MONARCH_UPDATE_LOGGED ]]; then
   script_command=$(printf '%q ' "$0" "$@")
-  exec env MONARCH_UPDATE_LOGGED=1 script -qefc "$script_command" "/tmp/monarch-update.log"
+  exec env MONARCH_UPDATE_LOGGED=1 MONARCH_UPDATE_USER_PATH="$update_user_path" \
+    script -qefc "$script_command" "/tmp/monarch-update.log"
 fi
 
 unattended=false
@@ -47,7 +82,7 @@ if ! monarch-update-lock held; then
   update_args=()
   [[ $unattended == "false" ]] || update_args+=(-y)
   [[ -z $branch ]] || update_args+=(--branch "$branch")
-  exec monarch-update-lock run "$0" "${update_args[@]}"
+  exec env MONARCH_UPDATE_USER_PATH="$update_user_path" monarch-update-lock run "$0" "${update_args[@]}"
 fi
 unset MONARCH_UPDATE_LOCKED
 
@@ -74,7 +109,8 @@ if [[ -z $branch && ! -d ${MONARCH_PATH:-/usr/share/monarch}/.git ]]; then
       exit 130
     fi
     monarch_message 'update.refreshingKeyrings'
-    trap 'monarch-update-stay-awake stop' EXIT
+    monarch_update_authorize
+    update_stay_awake_stopped=0
     monarch-update-stay-awake start
     if monarch-update-keyring; then
       keyrings_refreshed=true
@@ -118,15 +154,16 @@ if [[ $packages_current == "false" && $unattended == "false" ]] && ! monarch-upd
 fi
 
 trap 'echo ""; echo -e "\033[0;31mSomething went wrong during the update!\n\nPlease review the output above carefully, correct the error, and retry the update.\n\nIf you need assistance, get help from the community at https://monarch-os.github.io\033[0m"' ERR
-trap 'monarch-update-stay-awake stop' EXIT
 
 if [[ $packages_current == "false" ]]; then
   monarch-update-requires-free-space
+  monarch_update_authorize
   monarch-update-pkg-prune
   monarch-snapshot create || (($? == 127)) ||
     echo -e "\e[33mContinuing the update without a snapshot.\e[0m" >&2
 
   [[ -z $branch ]] || monarch-update-switch-branch "$branch"
+  update_stay_awake_stopped=0
   [[ $keyrings_refreshed == "true" ]] || monarch-update-stay-awake start
   monarch-update-git
   [[ $keyrings_refreshed == "true" ]] || monarch-update-keyring
@@ -136,13 +173,17 @@ else
   # Always converge the post-package stages, including retries from older
   # updater versions which did not record a pending transaction.
   monarch_message 'update.finalizing'
+  monarch_update_authorize
+  update_stay_awake_stopped=0
   [[ $keyrings_refreshed == "true" ]] || monarch-update-stay-awake start
 fi
 monarch-reconcile
-[[ $skip_aur == "true" || $packages_current == "true" ]] || monarch-update-aur-pkgs
 monarch-update-orphan-pkgs
-monarch-hook --strict post-update
+PATH="$update_user_path" "${update_entrypoint%/*}/monarch-hook" --strict post-update
 monarch-update-analyze-logs
+monarch-update-restart --services-only
+monarch_update_end_authorization || exit 1
+[[ $skip_aur == "true" || $packages_current == "true" ]] || monarch-update-aur-pkgs
 monarch-update-stay-awake stop
-trap - EXIT
-monarch-update-restart
+update_stay_awake_stopped=1
+monarch-update-restart --reboot-only

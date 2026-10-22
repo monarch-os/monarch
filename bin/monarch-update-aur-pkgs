@@ -1,11 +1,34 @@
-#!/bin/bash
+#!/bin/bash -p
 
 # monarch:summary=Update AUR packages if any are installed
+
+[[ $- == *p* ]] || exit 126
+update_entrypoint=$(/usr/bin/readlink -e -- "${BASH_SOURCE[0]}") || exit 126
+source "${update_entrypoint%/*}/../default/monarch/update-authorization.sh" || exit 126
+monarch_update_sanitize_environment "$0" "$@" || exit 126
+set -e
+PATH="${update_entrypoint%/*}:/usr/bin:/usr/sbin"
+export PATH
+update_sudo_wrapper="${update_entrypoint%/*}/../default/monarch/sudo-no-update/sudo"
+cleanup_aur() {
+  local status=$?
+  trap - EXIT HUP INT TERM
+  monarch_update_revoke_authorization || status=1
+  exit "$status"
+}
+trap cleanup_aur EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+monarch_update_revoke_authorization || exit 1
+monarch_update_check_sudo || exit 1
+monarch_update_select_runtime || exit 1
 
 if pacman -Qm >/dev/null; then
   if monarch-pkg-aur-accessible; then
     echo -e "\e[32m\nUpdate AUR packages\e[0m"
-    yay -Sua --noconfirm --cleanafter --ignore gcc14,gcc14-libs || exit $?
+    PATH="${update_sudo_wrapper%/*}:$PATH" yay --sudo "$update_sudo_wrapper" --sudoloop=false \
+      -Sua --noconfirm --cleanafter --ignore gcc14,gcc14-libs || exit $?
     echo
   else
     echo -e "\e[31m\nAUR is unavailable (so skipping updates)\e[0m"
