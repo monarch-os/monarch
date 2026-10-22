@@ -9,7 +9,7 @@ window-rule {
 }
 
 window-rule {
-    match app-id=r#"^Bitwarden$"#
+    match app-id=r#"^[bB]itwarden$"#
     block-out-from "screencast"
     open-floating true
     default-column-width { fixed 875; }

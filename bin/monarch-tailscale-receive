@@ -44,16 +44,11 @@ claim_path() {
 }
 
 announce() {
-  local received_path=$1 name="${1##*/}" icon="folder-download"
+  local received_path=$1 name="${1##*/}"
 
-  case ${name,,} in
-  *.png | *.jpg | *.jpeg | *.gif | *.webp | *.avif | *.bmp | *.tif | *.tiff)
-    icon=$received_path
-    ;;
-  esac
-
+  # Do not decode untrusted received images before the user opens them.
   monarch-notification-send --app-name="Monarch Taildrop" --urgency=critical \
-    --expire-time=0 --icon="$icon" "Received $name" "Saved to ${dir/#$HOME/~}" \
+    --expire-time=0 --icon="folder-download" "Received $name" "Saved to ${dir/#$HOME/~}" \
     --action "Open" xdg-open "$received_path"
 }
 
