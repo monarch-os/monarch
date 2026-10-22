@@ -60,8 +60,16 @@ receive 2 env NOTIFY_ACTION=default
 [[ -f $downloads/photo.png && -f "$downloads/notes with space.pdf" ]] || fail "receiver saves incoming files"
 pass "receiver saves incoming files"
 
-grep -Fzq -- "--icon=$downloads/photo.png" "$TEST_ROOT/notifications" || fail "receiver previews images"
-pass "receiver previews images"
+python3 - "$TEST_ROOT/notifications" <<'PY' || fail "receiver uses only a fixed notification icon"
+import pathlib
+import sys
+
+args = pathlib.Path(sys.argv[1]).read_bytes().split(b"\0")
+icons = [arg for arg in args if arg.startswith(b"--icon=")]
+assert icons == [b"--icon=folder-download"] * 2, icons
+assert not any(arg.startswith(b"--image") for arg in args)
+PY
+pass "receiver announces images and documents without decoding received files"
 
 grep -Fzq -- "--urgency=critical" "$TEST_ROOT/notifications" || fail "receiver announces persistent critical notifications"
 grep -Fzq -- "--expire-time=0" "$TEST_ROOT/notifications" || fail "receiver keeps notifications available"
