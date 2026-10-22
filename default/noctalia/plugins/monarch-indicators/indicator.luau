@@ -81,7 +81,7 @@ end
 -- Start streaming `script`. Lines that are not valid JSON are logged and
 -- skipped rather than left to blank the widget, so a transient failure in a
 -- script does not silently make the indicator disappear.
-function M.stream(script: string)
+function M.stream(script: string, onPayload: ((any) -> boolean)?)
   barWidget.setVisible(false)
 
   -- Run through bash rather than exec'ing the path: the executable bit does not
@@ -100,7 +100,9 @@ function M.stream(script: string)
       noctalia.log("indicator " .. script .. ": bad JSON line: " .. tostring(err))
       return
     end
-    apply(payload)
+    if not onPayload or not onPayload(payload) then
+      apply(payload)
+    end
   end)
 
   if not ok then

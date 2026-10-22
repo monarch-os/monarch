@@ -13,11 +13,13 @@ cat > "$test_tmp/runtime/bin/monarch-update-available" <<'EOF'
 count=$(cat "$INDICATOR_TEST/count" 2>/dev/null || echo 0)
 ((count += 1))
 echo "$count" > "$INDICATOR_TEST/count"
+if [[ ${DELAY_INDICATOR_CHECK:-0} == "1" && $count == 1 ]]; then /usr/bin/sleep 0.3; fi
 sed -n "${count}p" "$INDICATOR_TEST/states"
 exit "$(sed -n "${count}p" "$INDICATOR_TEST/codes")"
 EOF
 cat > "$test_tmp/runtime/bin/sleep" <<'EOF'
 #!/bin/bash
+[[ ${REAL_INDICATOR_SLEEP:-0} != "1" ]] || exec /usr/bin/sleep "$@"
 echo "$1" >> "$INDICATOR_TEST/sleeps"
 if (( $(cat "$INDICATOR_TEST/count") >= $(wc -l < "$INDICATOR_TEST/states") )); then
   kill -TERM "$PPID"
@@ -40,6 +42,8 @@ run_stream() {
   local code=0
   bash "$ROOT/default/noctalia/indicators/monarch-update.sh" > "$test_tmp/output" || code=$?
   ((code == 143)) || fail "stream did not finish the fixture"
+  jq -c 'select(has("pid") | not)' "$test_tmp/output" > "$test_tmp/payloads"
+  mv "$test_tmp/payloads" "$test_tmp/output"
 }
 
 jq -cn '{status:"available",count:3,complete:true,aur:1,counts:{monarch:1,repo:1,aur:1},packages:[
@@ -115,12 +119,65 @@ MONARCH_LANGUAGE=fr run_stream
 jq -e '(.tooltip | contains("Mises à jour disponibles")) and (.tooltip | contains("Dépôts"))' "$test_tmp/output" >/dev/null
 pass "tooltips follow Monarch interface language"
 
+cp "$test_tmp/mixed" "$test_tmp/states"
+printf '%s\n' '{"status":"current","count":0,"complete":true}' >> "$test_tmp/states"
+printf '0\n1\n' > "$test_tmp/codes"
+rm -f "$test_tmp/count"
+REAL_INDICATOR_SLEEP=1 python3 - "$ROOT" "$test_tmp" <<'PY'
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+root, temporary = map(Path, sys.argv[1:])
+output = temporary / 'refresh-output'
+with output.open('w') as sink:
+  process = subprocess.Popen(['bash', str(root / 'default/noctalia/indicators/monarch-update.sh')], stdout=sink)
+  def wait_rows(count):
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+      rows = [json.loads(line) for line in output.read_text().splitlines()]
+      if len(rows) >= count:
+        return rows
+      time.sleep(0.01)
+    raise AssertionError('indicator did not refresh before its ten-minute timer')
+  try:
+    rows = wait_rows(2)
+    assert rows[0]['pid'] == process.pid and rows[1]['text'] == ' 3'
+    os.kill(process.pid, signal.SIGUSR1)
+    assert wait_rows(3)[2] == {}
+  finally:
+    process.terminate()
+    process.wait(timeout=5)
+print('ok - refresh wakes the actual stream and clears installed updates without waiting ten minutes')
+
+(temporary / 'count').unlink()
+with output.open('w') as sink:
+  process = subprocess.Popen(['bash', str(root / 'default/noctalia/indicators/monarch-update.sh')],
+    stdout=sink, env=dict(os.environ, DELAY_INDICATOR_CHECK='1'))
+  try:
+    wait_rows(1)
+    deadline = time.monotonic() + 5
+    while not (temporary / 'count').exists():
+      assert time.monotonic() < deadline
+      time.sleep(0.01)
+    os.kill(process.pid, signal.SIGUSR1)
+    assert wait_rows(3)[2] == {}
+  finally:
+    process.terminate()
+    process.wait(timeout=5)
+print('ok - refresh during an in-flight check triggers a follow-up instead of being lost')
+PY
+
 lua - "$ROOT/default/noctalia/plugins/monarch-indicators/monarch-update.luau" <<'LUA'
-local streamed, launched
+local streamed, launched, receive
 local function quote(value) return "'" .. value:gsub("'", "'\\''") .. "'" end
 local root = "/path with spaces/Monarch's runtime"
 local driver = {
-  stream = function(name) streamed = name end,
+  stream = function(name, callback) streamed = name; receive = callback end,
   bin = function(name) return root .. "/bin/" .. name end,
 }
 local env = setmetatable({
@@ -129,6 +186,14 @@ local env = setmetatable({
 }, {__index = _G})
 assert(loadfile(arg[1], "t", env))()
 assert(streamed == "monarch-update.sh")
+assert(type(env.onIpc) == "function", "update widget has no refresh handler")
+env.onIpc("refresh")
+assert(launched == nil)
+receive({pid = 1234})
+env.onIpc("unrelated")
+assert(launched == nil)
+env.onIpc("refresh")
+assert(launched == "kill -USR1 1234")
 env.onClick()
 assert(launched == quote(driver.bin("monarch-launch-floating-terminal-with-presentation"))
   .. " --app-id=org.monarch.update " .. quote(quote(driver.bin("monarch-update"))))
