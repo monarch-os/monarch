@@ -12,6 +12,26 @@ idle_interval=${MONARCH_UPDATE_INTERVAL:-21600} # 6h while up to date
 busy_interval=600                               # 10min for pending updates or failed checks
 offline_interval=60
 
+sleep_pid=""
+refresh_pending=false
+refresh() {
+  refresh_pending=true
+  [[ -z $sleep_pid ]] || kill "$sleep_pid" 2>/dev/null || true
+}
+pause() {
+  if [[ $refresh_pending == "false" ]]; then
+    sleep "$1" &
+    sleep_pid=$!
+    [[ $refresh_pending == "false" ]] || kill "$sleep_pid" 2>/dev/null || true
+    wait "$sleep_pid" 2>/dev/null || true
+    sleep_pid=""
+  fi
+  refresh_pending=false
+}
+trap refresh USR1
+trap '[[ -z $sleep_pid ]] || kill "$sleep_pid" 2>/dev/null; exit 143' TERM
+printf '{"pid":%s}\n' "$$"
+
 network_state() {
   local connectivity
   connectivity=$(LC_ALL=C nmcli -t -f STATE,CONNECTIVITY general 2>/dev/null) || connectivity=""
@@ -35,7 +55,7 @@ while true; do
   if [[ $(network_state) == "offline" ]]; then
     line='{}'
     [[ $line != "$prev" ]] && printf '%s\n' "$line" && prev="$line"
-    sleep "$offline_interval"
+    pause "$offline_interval"
     continue
   fi
   # Respect Monarch's language independently of Noctalia's locale.
@@ -105,5 +125,5 @@ while true; do
     fi
   fi
   [[ $line != "$prev" ]] && printf '%s\n' "$line" && prev="$line"
-  sleep "$interval"
+  pause "$interval"
 done

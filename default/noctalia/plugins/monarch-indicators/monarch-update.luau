@@ -4,7 +4,21 @@
 
 local indicator = require("./indicator.luau")
 
-indicator.stream("monarch-update.sh")
+local streamPid = nil
+indicator.stream("monarch-update.sh", function(payload)
+  if type(payload) == "table" and type(payload.pid) == "number"
+    and payload.pid > 0 and payload.pid == math.floor(payload.pid) then
+    streamPid = payload.pid
+    return true
+  end
+  return false
+end)
+
+function onIpc(event)
+  if event == "refresh" and streamPid then
+    noctalia.runAsync("kill -USR1 " .. tostring(streamPid))
+  end
+end
 
 function onClick()
   local function quote(value)

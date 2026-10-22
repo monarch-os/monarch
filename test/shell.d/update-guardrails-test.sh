@@ -103,6 +103,10 @@ case ${CHECK_STATUS:-0} in
 esac
 exit "${CHECK_STATUS:-0}"'
 write_stub monarch-update-confirm 'printf "confirmation\n" >>"$STEP_LOG"; exit "${CONFIRM_STATUS:-0}"'
+write_stub noctalia '
+[[ $* == "msg plugin monarch/indicators:monarch-update all refresh" ]] || exit 99
+tail -1 "$STEP_LOG" >>"${STEP_LOG}.refresh"
+exit 1'
 
 : >"$test_tmp/steps"
 run_update -y >/dev/null
@@ -128,6 +132,8 @@ diff -u "$test_tmp/expected" "$test_tmp/names" || fail "update guardrail orderin
 grep -q '^monarch-update-system-pkgs unattended=1' "$test_tmp/steps" ||
   fail "unattended update state reaches package updates"
 pass "update orders preflight, pruning, snapshot, reconciliation and hooks"
+grep -q '^monarch-update-aur-pkgs ' "$test_tmp/steps.refresh" || fail "panel refresh must follow AUR updates"
+pass "panel refresh follows AUR updates and an unavailable shell cannot fail the transaction"
 grep -q '^monarch-hook .*args=--strict post-update$' "$test_tmp/steps" || fail "updates must propagate post-update hook failures"
 
 cp "$stub_bin/monarch-update-keyring" "$test_tmp/keyring-step"
@@ -291,9 +297,11 @@ write_stub monarch-update-system-pkgs 'exit 0'
 cp "$stub_bin/monarch-update-aur-pkgs" "$test_tmp/aur-step"
 write_stub monarch-update-aur-pkgs 'exit 42'
 : >"$test_tmp/steps"
+: >"$test_tmp/steps.refresh"
 result=0
 run_update -y >/dev/null 2>&1 || result=$?
 (( result == 42 )) || fail "failed AUR update is not propagated"
+[[ -s $test_tmp/steps.refresh ]] || fail "failed AUR updates must also refresh the panel"
 if grep -q '^monarch-update-restart .*args=--reboot-only' "$test_tmp/steps"; then fail "failed AUR update offers reboot"; fi
 grep -q '^monarch-update-stay-awake .*args=stop' "$test_tmp/steps" || fail "failed AUR update leaks its inhibitor"
 cp "$test_tmp/aur-step" "$stub_bin/monarch-update-aur-pkgs"
