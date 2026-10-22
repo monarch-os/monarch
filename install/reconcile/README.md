@@ -92,18 +92,6 @@ available, otherwise `mkinitcpio -P`. A failed rebuild keeps the `.pacnew` for
 retry; a Limine failure never falls back to a classic image that would leave
 its boot entries stale. Customized hooks remain untouched for manual review.
 
-`monarch_vconsole.conf` is a package-managed initramfs drop-in, independent of
-customized `monarch_hooks.conf`. It prevents Plymouth from reintroducing a
-non-Latin primary keyboard layout at the LUKS prompt, while preserving Latin
-layouts and explicit administrator `FILES` entries. `vconsole-initramfs.sh`
-rebuilds affected existing images and records the successful guard digest under
-`/var/lib/monarch/vconsole-initramfs.sha256`. Both command failures and Limine's
-per-kernel error reports leave the rebuild pending for retry.
-Active presets selecting `ALL_config` or `<preset>_config` bypass mkinitcpio's
-drop-ins, even when pointing to `/etc/mkinitcpio.conf`. The repair reports these
-presets before rebuilding or accepting an existing success marker and remains
-pending for administrator review; it never rewrites their configuration.
-
 `windows-vm.sh` owns Windows VM detection, migration orchestration and legacy
 cleanup. It runs as the login user and uses the shared operations in
 `monarch-windows-vm`, elevating only the verified packaged helper. The helper
