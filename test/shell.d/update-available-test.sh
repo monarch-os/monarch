@@ -139,6 +139,10 @@ run_stream() {
   stream_status=0
   MONARCH_PATH="$test_tmp/runtime" MONARCH_LANGUAGE=en bash "$ROOT/default/noctalia/indicators/monarch-update.sh" >"$test_tmp/stream" || stream_status=$?
   ((stream_status == 143)) || fail "stream did not stop after the fixture"
+  head -n 1 "$test_tmp/stream" | jq -e '.pid | type == "number" and . > 0' >/dev/null ||
+    fail "stream does not announce its refresh control PID"
+  jq -c 'select(has("pid") | not)' "$test_tmp/stream" >"$test_tmp/payloads"
+  mv "$test_tmp/payloads" "$test_tmp/stream"
 }
 
 printf '0\n2\n0\n1\n' >"$STREAM_STATES"
