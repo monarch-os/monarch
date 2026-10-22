@@ -18,26 +18,16 @@ check_fingerprint_hardware() {
   return 0
 }
 
-# The lid gate, in front of pam_fprintd in every stack that has one: with the
-# lid shut the reader is physically unreachable, so this skips fingerprint
-# (success=1) and PAM drops straight to the password instead of blocking on the
-# sensor until it times out. Lid open, nothing changes — fingerprint first,
-# password as the fallback.
-#
-# pam_exec expands nothing and wants a literal absolute path, and PAM runs as
-# root for whichever user is authenticating, so the checkout under $HOME is the
-# wrong thing to name: a second user's sudo would resolve a path that is not
-# theirs. The helper is copied to /usr/local/bin instead, which also keeps the
-# gate working if the checkout moves. If that copy ever goes missing, pam_exec
-# fails, the `default=ignore` arm takes it, and the stack behaves exactly as it
-# did before the gate existed.
-GATE_BIN="/usr/local/bin/monarch-hw-laptop-closed"
+# success=1 skips only pam_fprintd when the reader is inaccessible under the lid.
+GATE_BIN="/usr/bin/monarch-hw-laptop-closed"
 FPRINTD_GATE="auth      [success=1 default=ignore] pam_exec.so quiet $GATE_BIN"
 
 install_gate() {
-  local source="${MONARCH_PATH:-/usr/share/monarch}/bin/monarch-hw-laptop-closed"
-  [[ -f $source ]] || return 0
-  sudo install -Dm755 "$source" "$GATE_BIN"
+  [[ -x $GATE_BIN ]] || {
+    echo "Error: install the packaged $GATE_BIN before configuring fingerprint authentication." >&2
+    return 1
+  }
+  sudo /usr/bin/bash /usr/share/monarch/install/reconcile/fingerprint-gate.sh
 }
 
 # Insert the gate immediately before pam_fprintd, so `success=1` skips exactly
