@@ -2,7 +2,7 @@
 
 # monarch:summary=Start or stop screen recording
 # monarch:group=capture
-# monarch:args=[--fullscreen] [--with-desktop-audio] [--with-microphone-audio] [--with-webcam] [--webcam-device=<device>] [--webcam-size=<small|medium|large>] [--webcam-shape=<circle|rectangle>] [--resolution=<size>] [--stop-recording]
+# monarch:args=[--fullscreen] [--with-desktop-audio] [--with-microphone-audio] [--with-webcam] [--webcam-device=<device>] [--webcam-size=<small|medium|large>] [--webcam-shape=<circle|rectangle>] [--resolution=<size>] [--stop-recording] [--status]
 # monarch:examples=monarch screenrecord | monarch capture screenrecord --with-desktop-audio
 # monarch:aliases=monarch screenrecord | monarch capture screenrecord
 #
@@ -12,6 +12,11 @@
 # Env: MONARCH_SCREENRECORD_DEBUG=true appends gpu-screen-recorder's stderr (and
 # the picker target it was launched with) to $RUNTIME_DIR/monarch-screenrecord.log.
 # Without a session, RUNTIME_DIR falls back to ${XDG_STATE_HOME:-$HOME/.local/state}/monarch.
+
+if (( $# == 1 )) && [[ $1 == "--status" ]]; then
+  pgrep -u "$UID" -f "^gpu-screen-recorder" >/dev/null
+  exit $?
+fi
 
 umask 077
 
@@ -206,6 +211,10 @@ select_capture_target() {
   echo "region:${sw}x${sh}+${sx}+${sy}"
 }
 
+refresh_recording_indicator() {
+  noctalia msg plugin monarch/indicators:screen-recording all refresh >/dev/null 2>&1 || true
+}
+
 start_screenrecording() {
   mkdir -p "$RUNTIME_DIR" || return 1
   # State storage can be outside the private home when no session is running.
@@ -270,6 +279,7 @@ start_screenrecording() {
       kill -SIGINT "$pid" 2>/dev/null || true
       return 1
     fi
+    refresh_recording_indicator
   else
     cleanup_webcam
     return 1
@@ -290,8 +300,10 @@ stop_screenrecording() {
 
   if pgrep -u "$UID" -f "^gpu-screen-recorder" >/dev/null; then
     pkill -9 -u "$UID" -f "^gpu-screen-recorder"
+    refresh_recording_indicator
     notify-send "$(monarch_t 'capture.recordingError')" "$(monarch_t 'capture.recordingKilled')" -u critical -t 5000
   else
+    refresh_recording_indicator
     finalize_recording
     local filename=$(cat "$RECORDING_FILE" 2>/dev/null)
     echo "$filename"
