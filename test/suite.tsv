@@ -146,6 +146,7 @@ test/shell.d/shell-converters-test.sh	shell	medium	isolated
 test/shell.d/shell-uv-test.sh	shell	medium	isolated
 test/shell.d/skillarch-fixes-test.sh	shell	medium	isolated
 test/shell.d/system-power-test.sh	power	high	isolated
+test/shell.d/system-lock-test.sh	lockscreen	high	isolated
 test/shell.d/update-conflict-recovery-test.sh	updates	high	isolated
 test/shell.d/update-guardrails-test.sh	updates	high	isolated
 test/shell.d/update-pacman-guard-test.sh	updates	high	isolated
