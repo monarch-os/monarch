@@ -3,13 +3,16 @@ set -euo pipefail
 ROOT=$(cd -- "${BASH_SOURCE[0]%/*}/../.." && pwd)
 python3 - "$ROOT" <<'PY'
 import importlib.util
+import fcntl
 import json
 import os
+import pty
 from pathlib import Path
 import signal
 import subprocess
 import sys
 import tempfile
+import termios
 import time
 
 repo = Path(sys.argv[1])
@@ -114,6 +117,43 @@ export MONARCH_UPDATE_LOCK_PID=$$ MONARCH_UPDATE_LOCK_OWNER_FD=9
   assert sentinel.read_text() == 'untouched'
   lock.unlink()
   print('PASS: concurrent lock cannot be bypassed and lock symlinks are refused without writes')
+
+  cleanup = root / 'signal-cleanup'
+  ready = root / 'signal-ready'
+  signal_env = dict(env, CLEANUP=str(cleanup), READY=str(ready))
+  # Delay the supervisor's forwarding so a group signal reaches cleanup itself.
+  delayed = root / 'delayed-guards.py'
+  delayed.write_text(helper.read_text().replace('os.killpg(child.pid, number)',
+    'time.sleep(0.1); os.killpg(child.pid, number)'))
+  owner = subprocess.Popen(['/usr/bin/python3', '-I', str(delayed), 'run', '/bin/bash', '-c',
+    '''trap 'trap "exit 99" TERM; sleep 0.3; touch "$CLEANUP"; exit 143' TERM
+touch "$READY"
+while :; do sleep 0.02; done'''], env=signal_env, start_new_session=True,
+    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+  while not ready.exists():
+    time.sleep(0.01)
+  os.killpg(owner.pid, signal.SIGTERM)
+  status = owner.wait(timeout=5)
+  assert status == 143 and cleanup.exists(), ('group TERM interrupted cleanup', status)
+  print('PASS: process-group TERM reaches the transaction once without interrupting its cleanup')
+
+  master, slave = pty.openpty()
+  def terminal_session():
+    os.setsid()
+    fcntl.ioctl(slave, termios.TIOCSCTTY, 0)
+  interactive = subprocess.Popen(['/usr/bin/python3', '-I', str(helper), 'run',
+    '/bin/bash', '-c', 'read -r answer; [[ $answer == validation ]]'], env=env,
+    stdin=slave, stdout=slave, stderr=slave, preexec_fn=terminal_session)
+  os.close(slave)
+  os.write(master, b'validation\n')
+  try:
+    assert interactive.wait(timeout=5) == 0
+  finally:
+    if interactive.poll() is None:
+      interactive.kill()
+      interactive.wait()
+    os.close(master)
+  print('PASS: isolated transaction retains foreground terminal input')
 
   for mode in ('fail', 'never', 'late'):
     run('start', changes={'LAUNCH_MODE': mode}, expected=1)

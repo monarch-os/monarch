@@ -107,12 +107,29 @@ def run_locked(base, args):
       MONARCH_UPDATE_LOCK_OWNER_FD=str(stream.fileno()))
     env.pop('MONARCH_UPDATE_LOCKED', None)
     env.pop('MONARCH_UPDATE_LOCK_FD', None)
-    child = subprocess.Popen(args, env=env, close_fds=True)
+    foreground = os.tcgetpgrp(0) if os.isatty(0) else None
+    child = subprocess.Popen(args, env=env, close_fds=True, process_group=0)
+    def set_foreground(group):
+      previous = signal.signal(signal.SIGTTOU, signal.SIG_IGN)
+      try:
+        os.tcsetpgrp(0, group)
+      finally:
+        signal.signal(signal.SIGTTOU, previous)
+    if foreground is not None:
+      set_foreground(child.pid)
+      os.killpg(child.pid, signal.SIGCONT)
     def forward(number, frame):
-      child.send_signal(number)
+      try:
+        os.killpg(child.pid, number)
+      except ProcessLookupError:
+        pass
     for number in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM):
       signal.signal(number, forward)
-    status = child.wait()
+    try:
+      status = child.wait()
+    finally:
+      if foreground is not None:
+        set_foreground(foreground)
     return status if status >= 0 else 128 - status
 
 
