@@ -1,0 +1,11 @@
+#!/bin/bash -p
+[[ $- == *p* ]] || exit 126
+
+if (( $# == 1 )); then
+  case "$1" in
+    -k | --reset-timestamp | -K | --remove-timestamp | -h | --help | -V | --version)
+      exec /usr/bin/sudo "$@"
+      ;;
+  esac
+fi
+exec /usr/bin/sudo -N "$@"
