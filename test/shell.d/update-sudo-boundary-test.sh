@@ -21,6 +21,8 @@ with tempfile.TemporaryDirectory() as temporary:
   cache = root / 'cache'
   for name in ('monarch-update', 'monarch-update-aur-pkgs', 'monarch-update-lock'):
     shutil.copy2(repo / 'bin' / name, tools / name)
+  (runtime / 'default/monarch').mkdir(parents=True)
+  shutil.copy2(repo / 'default/monarch/update-guards.py', runtime / 'default/monarch/update-guards.py')
   for relative in ('default/monarch/update-authorization.sh', 'default/monarch/sudo-no-update/sudo'):
     source = repo / relative
     if source.exists():

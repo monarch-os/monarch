@@ -11,6 +11,7 @@ stub_bin="$test_tmp/bin"
 test_home="$test_tmp/home"
 runtime_dir="$test_tmp/runtime"
 mkdir -p "$stub_bin" "$test_home" "$runtime_dir"
+chmod 700 "$runtime_dir"
 export MONARCH_PATH="$test_tmp"
 
 updater_root="$test_tmp"
@@ -26,6 +27,10 @@ source, target = map(Path, sys.argv[1:3])
 for name in ('monarch-update', 'monarch-update-aur-pkgs', 'monarch-update-lock', 'monarch-cmd-present'):
   shutil.copy2(source / 'bin' / name, target / 'bin' / name)
 (target / 'bin/monarch-i18n').symlink_to(source / 'bin/monarch-i18n')
+(target / 'default/monarch').mkdir(parents=True, exist_ok=True)
+shutil.copy2(source / 'default/monarch/update-guards.py', target / 'default/monarch/update-guards.py')
+guard = target / 'default/monarch/update-guards.py'
+guard.write_text(guard.read_text().replace("'/usr/bin/setpriv'", repr(str(target / 'bin/setpriv'))))
 for relative, count in (('default/monarch/update-authorization.sh', 4),
     ('default/monarch/sudo-no-update/sudo', 2)):
   original = source / relative
@@ -311,7 +316,12 @@ wait "$first_update_pid"
 [[ $second_output == *"already running"* ]] || fail "concurrent refusal is actionable"
 pass "update lock rejects overlapping transactions"
 
-write_stub systemd-inhibit 'printf "%s\n" "$$" >"$INHIBIT_PID_FILE"; exec sleep 30'
+guard_root="$test_tmp/guards"
+mkdir -p "$guard_root/bin" "$guard_root/default/monarch"
+cp "$ROOT/bin/monarch-update-stay-awake" "$guard_root/bin/"
+cp "$updater_root/default/monarch/update-guards.py" "$guard_root/default/monarch/"
+write_stub setpriv 'shift 5; exec "$@"'
+write_stub systemd-inhibit 'printf "%s\n" "$$" >"$INHIBIT_PID_FILE"; while [[ $1 == --* ]]; do shift; done; exec "$@"'
 write_stub pkexec 'exec "$@"'
 write_stub noctalia 'exit 0'
 caffeine_state="$runtime_dir/monarch/caffeine"
@@ -345,7 +355,7 @@ lock_target="$runtime_dir/monarch-update.lock"
 INHIBIT_PID_FILE="$test_tmp/inhibitor" \
   XDG_RUNTIME_DIR="$runtime_dir" \
   PATH="$stub_bin:$ROOT/bin:$PATH" \
-  "$ROOT/bin/monarch-update-stay-awake" start
+  "$guard_root/bin/monarch-update-stay-awake" start
 for _ in {1..50}; do
   [[ -s $test_tmp/inhibitor ]] && break
   sleep 0.02
@@ -357,7 +367,7 @@ for fd in /proc/"$inhibitor_pid"/fd/*; do
     fail "sleep inhibitor inherited the update lock"
 done
 XDG_RUNTIME_DIR="$runtime_dir" PATH="$stub_bin:$ROOT/bin:$PATH" \
-  "$ROOT/bin/monarch-update-stay-awake" stop
+  "$guard_root/bin/monarch-update-stay-awake" stop
 kill -0 "$inhibitor_pid" 2>/dev/null && fail "sleep inhibitor survived stop"
 pass "sleep inhibitor cannot retain the update lock and is stopped reliably"
 
@@ -388,7 +398,7 @@ mkdir -p "$runtime_dir/monarch-update-stay-awake" "$runtime_dir/monarch"
 printf '%s\n' old-update >"$runtime_dir/monarch-update-stay-awake/idle-owner"
 XDG_RUNTIME_DIR="$runtime_dir" PATH="$stub_bin:$ROOT/bin:$PATH" monarch-toggle-idle stay-awake
 XDG_RUNTIME_DIR="$runtime_dir" PATH="$stub_bin:$ROOT/bin:$PATH" \
-  "$ROOT/bin/monarch-update-stay-awake" stop
+  "$guard_root/bin/monarch-update-stay-awake" stop
 [[ -f $runtime_dir/monarch/caffeine ]] || fail "stale cleanup removed a newer user choice"
 pass "inhibitor cleanup preserves pre-existing and newer Caffeine state"
 
@@ -447,8 +457,8 @@ rm -f "$runtime_dir/monarch/caffeine"
 write_stub monarch-update-keyring 'touch "$INTERRUPT_MARKER"; sleep 30'
 write_stub monarch-update-pkg-prune 'exit 0'
 write_stub monarch-snapshot 'exit 0'
-write_stub systemd-inhibit 'exec sleep 30'
-write_stub sudo '[[ ${1:-} != "-n" ]] || shift; exec "$@"'
+write_stub systemd-inhibit 'while [[ $1 == --* ]]; do shift; done; exec "$@"'
+write_stub sudo 'while [[ ${1:-} == -* ]]; do shift; done; "$@" >/dev/null 2>&1 &'
 interrupt_marker="$test_tmp/interrupt-started"
 TEST_AVAILABLE_BYTES=$((12 * 1024 * 1024 * 1024)) \
   INTERRUPT_MARKER="$interrupt_marker" \
