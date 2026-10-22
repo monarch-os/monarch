@@ -103,17 +103,3 @@ left untouched with an error, and failed convergence retains the legacy compose
 for retry. A protected journal preserves the intended activity state across a
 partial replacement; an explicit stop cancels it. Disks, shared files and
 legitimate source symlinks are preserved.
-
-`fingerprint-gate.sh` moves the exact legacy lid-gate lines in sudo/polkit to
-the packaged `/usr/bin/monarch-hw-laptop-closed` command, and repairs a missing
-gate before the stock fingerprint module. It validates the replacement before
-changing PAM, preserves customized gate lines, and removes a legacy helper only
-when identical to the packaged command and no longer referenced by any PAM file.
-
-Temporary sudo grants are owned by `monarch-sudo-passwordless`, whose internal
-`__status`, `__enable`, `__disable`, `__expire` and `__revoke-legacy` actions run
-through the fixed packaged command as root. System reconciliation revokes only
-the exact username-based unbounded rules from the
-previous implementation. New UID-based rules carry a UTC `NOTAFTER` deadline
-and a renewal token; their timer removes the file but is not the authorization
-boundary. The menu queries grant validity rather than the old timer name.
