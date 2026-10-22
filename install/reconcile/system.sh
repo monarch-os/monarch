@@ -16,6 +16,7 @@ sudo bash "$MONARCH_PATH/install/reconcile/wpa-supplicant.sh"
 sudo bash /usr/share/monarch/install/reconcile/limine-kernel-order.sh
 sudo bash /usr/share/monarch/install/reconcile/system-sleep-ownership.sh
 sudo bash /usr/share/monarch/install/reconcile/plymouth-theme-ownership.sh
+sudo bash /usr/share/monarch/install/reconcile/vconsole-initramfs.sh
 sudo bash /usr/share/monarch/install/reconcile/polkit-auth.sh
 sudo bash /usr/share/monarch/install/reconcile/fingerprint-gate.sh
 sudo bash "$MONARCH_PATH/install/config/enable-services.sh"
