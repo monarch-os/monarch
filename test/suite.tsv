@@ -92,6 +92,7 @@ test/shell.d/system-sleep-ownership-test.sh	security	high	isolated
 test/monarch-sudo-passwordless-test.sh	security	high	isolated
 test/monarch-tailscale-lifecycle-test.sh	tailscale	medium	isolated
 test/monarch-tailscale-receive-test.sh	tailscale	medium	isolated
+test/monarch-bitwarden-rules-test.sh	security	high	isolated
 test/monarch-tailscale-send-test.sh	tailscale	medium	isolated
 test/shell.d/transcode-ascii-path-test.sh	branding	medium	isolated
 test/shell.d/disk-speedtest-path-test.sh	disk	medium	isolated
