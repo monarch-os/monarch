@@ -25,7 +25,6 @@ case "$*" in
     [[ ! -f $TEST_STATE/install-fail ]] || exit 42
     touch "$TEST_STATE/disktree"
     ;;
-  '-Qq disktree-bin') [[ -f $TEST_STATE/disktree ]] && echo disktree-bin ;;
   '-Qk --quiet disktree-bin') [[ ! -f $TEST_STATE/broken ]] ;;
   '-R --noconfirm -- dua-cli')
     [[ ! -f $TEST_STATE/remove-fail ]] || exit 43
