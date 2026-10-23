@@ -1,4 +1,8 @@
-# Agent usage
+# Agent usage integration
+
+User instructions live in the
+[Agents panel guide](https://docs.monarchlinux.com/basics/noctalia/agents-panel).
+This document covers the implementation and upgrade contract.
 
 Monarch uses CodexBar CLI and its own `monarch-agents` Noctalia v5 plugin.
 The `monarch agent` launcher remains independent of quota monitoring.
@@ -13,27 +17,8 @@ without Noctalia's shorter asynchronous-call deadline. Partial results are retai
 The panel and tooltip use Noctalia's language, with English and French catalogs.
 Provider names, authentication errors and quota labels from CodexBar are preserved.
 
-Manage providers from the panel's **Manage providers** button, or run
-`monarch agent usage manage` in a terminal. The searchable list comes directly
-from CodexBar; enabling a provider is independent of picking a default agent.
-
-The commands documented in the wiki remain supported:
-
-```bash
-monarch agent usage providers
-monarch agent usage status
-monarch agent usage status claude
-monarch agent usage enable claude
-monarch agent usage disable claude
-monarch agent usage setup codex
-codexbar usage --format json
-```
-
-For Synthetic, enter the key in the masked terminal prompt:
-
-```bash
-monarch agent usage setup synthetic
-```
+The provider list comes directly from CodexBar; enabling a provider is
+independent of picking a default agent.
 
 `setup` uses the existing CLI authentication for Claude/Codex. Other providers
 offer an API-key or existing-authentication choice. Keys are passed to CodexBar
@@ -42,7 +27,7 @@ key types are rejected by CodexBar. Providers requiring an endpoint, workspace
 or cookies still need those additional settings in CodexBar; the configurator
 does not invent them or start an interactive login itself.
 
-Right-click the bar widget to refresh. No Qt application or HTTP server is required.
+No Qt application or HTTP server is required.
 
 Codex uses the CLI's read-only app-server RPC, retaining support for credentials
 stored in its keyring. Claude reads its existing OAuth credentials without
@@ -63,5 +48,4 @@ block ordinary updates. Fresh installs leave provider configuration to CodexBar
 and `monarch agent usage setup`; first-run only activates the plugin inventory.
 
 Monarch Agents shows quotas, resets and credits, not Monarch's former local charts.
-Use `codexbar cost --provider claude --format json` or the Codex equivalent for
-local history; coverage is source-specific, not complete account billing.
+CodexBar's local-history coverage is source-specific, not complete account billing.
