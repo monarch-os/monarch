@@ -71,6 +71,10 @@ an active installation shows "En cours". Only one installation can run at a time
 The lock follows the installation processes. After interruption or reboot, stale
 state is recovered on the next status check or launch. Detailed errors remain
 available in the terminal.
+The guide hides before every installation and returns to the saved step after
+the terminal's final result is acknowledged (or immediately on cancellation).
+If the terminal cannot start, the guide is restored as well. It does not reopen
+over a locked desktop or another active panel.
 
 Clicking outside the guide or pressing Escape leaves it open. The close button,
 "Passer" and "C’est parti" close it. The surrounding desktop remains usable.

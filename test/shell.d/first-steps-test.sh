@@ -64,31 +64,24 @@ while [[ -f $TEST_FIRST_STEPS/block-install ]]; do /usr/bin/sleep 0.02; done
 [[ ${TEST_FIRST_STEPS_EXIT:-0} == 0 ]] || exit "$TEST_FIRST_STEPS_EXIT"
 touch "$TEST_FIRST_STEPS/installed"
 EOF
-cat >"$runtime/bin/monarch-launch-floating-terminal-with-presentation" <<'EOF'
-#!/bin/bash
-printf '%s\n' "$*" >"$TEST_FIRST_STEPS/terminal-command"
-case ${TEST_FIRST_STEPS_LAUNCH:-} in
-  failure) exit 42 ;;
-  never) exit 0 ;;
-  delayed)
-    (/usr/bin/sleep 0.2; exec bash -c "$*") &
-    exit 0
-    ;;
-esac
-exec bash -c "$*"
-EOF
 cat >"$runtime/bin/nm-online" <<'EOF'
 #!/bin/bash
 [[ ${TEST_FIRST_STEPS_NETWORK:-connected} == connected ]]
 EOF
 cat >"$runtime/bin/uwsm-app" <<'EOF'
 #!/bin/bash
+while [[ $1 != -e ]]; do shift; done
+shift
+printf -v command '%q ' "$@"
+printf '%s\n' "$command" >"$TEST_FIRST_STEPS/terminal-command"
 case ${TEST_FIRST_STEPS_LAUNCH:-} in
   failure) touch "$TEST_FIRST_STEPS/launcher-failed"; exit 42 ;;
   never) exit 0 ;;
 esac
-while [[ $1 != -e ]]; do shift; done
-shift
+if [[ ${TEST_FIRST_STEPS_LAUNCH:-} == "delayed" ]]; then
+  (/usr/bin/sleep 0.2; exec "$@") &
+  exit 0
+fi
 unset MONARCH_PATH XDG_STATE_HOME
 exec "$@"
 EOF
@@ -180,6 +173,7 @@ pass "manual opening cancels a waiting automatic offer"
 
 fresh_state installer
 export TEST_FIRST_STEPS_REAL_SLEEP=1
+touch "$test_tmp/block-done"
 mkdir -p "$state_dir/installing"
 printf '%s\n' seclists >"$state_dir/installing/tool"
 monarch-setup-first-steps tools-state | jq -e '.active == "" and .lastResult.tool == "seclists" and .lastResult.code == 130' >/dev/null
@@ -193,6 +187,7 @@ for ((attempt = 0; attempt < 100; attempt++)); do
   /usr/bin/sleep 0.02
 done
 [[ -f $test_tmp/installer-started ]] || fail "installation starts in the presentation terminal"
+[[ $(head -n 1 "$test_tmp/calls") == 'msg plugin monarch/first-steps:panel all skip' ]] || fail "tool installation hides the guide before opening the terminal"
 if monarch-setup-first-steps install-tool seclists >/dev/null 2>&1; then fail "duplicate installation is excluded"; fi
 monarch-setup-first-steps tools-state | jq -e '.active == "seclists"' >/dev/null
 rm "$test_tmp/block-install"
@@ -203,6 +198,15 @@ done
 monarch-setup-first-steps tools-state | jq -e '.installed.seclists and .active == "" and .lastResult.code == 0' >/dev/null
 [[ $(<"$test_tmp/installer-args") == seclists ]] || fail "the existing wordlist installer receives its package"
 pass "installation state is stored outside the runtime and excludes duplicate jobs"
+if grep -q '^msg panel-open ' "$test_tmp/calls"; then fail "tool result stays visible until acknowledged"; fi
+rm "$test_tmp/block-done"
+for ((attempt = 0; attempt < 200; attempt++)); do
+  grep -q '^panel-opened monarch/first-steps:panel$' "$test_tmp/calls" && break
+  /usr/bin/sleep 0.02
+done
+grep -q '^panel-opened monarch/first-steps:panel$' "$test_tmp/calls" || fail "tool installation returns to the guide"
+jq -e '.phase == "software"' "$test_tmp/context" >/dev/null
+pass "tool installation hides the guide and resumes the software step only after acknowledgement"
 
 rm "$test_tmp/installed" "$test_tmp/installer-started"
 export TEST_FIRST_STEPS_EXIT=42
@@ -280,6 +284,12 @@ for ((attempt = 0; attempt < 100; attempt++)); do
   /usr/bin/sleep 0.02
 done
 monarch-setup-first-steps tools-state | jq -e '.active == "" and .lastResult.code == 42' >/dev/null
+for ((attempt = 0; attempt < 200; attempt++)); do
+  grep -q '^panel-opened monarch/first-steps:panel$' "$test_tmp/calls" && break
+  /usr/bin/sleep 0.02
+done
+grep -q '^panel-opened monarch/first-steps:panel$' "$test_tmp/calls" || fail "tool launch failure restores the guide"
+jq -e '.phase == "software"' "$test_tmp/context" >/dev/null
 pass "terminal launch failure releases the reservation and preserves its exit status"
 
 fresh_state network
@@ -388,6 +398,7 @@ pass "cancelled updates are not marked successful and failed updates can be retr
 
 fresh_state update-launch-failure
 export TEST_FIRST_STEPS_LAUNCH=failure
+rm -f "$test_tmp/launcher-failed"
 cat >"$runtime/bin/flock" <<'EOF'
 #!/bin/bash
 if [[ $* == 8 && -f $TEST_FIRST_STEPS/launcher-failed ]] &&
