@@ -279,7 +279,7 @@ local function content()
       ui.button({ text = "Installer des logiciels", height = 32, fontSize = 12, onClick = "onVisitClicked" }),
       ui.button({ text = "Catalogue Cyber", height = 32, fontSize = 12, variant = "outline", onClick = "onCyberClicked" }),
     }))
-    table.insert(children, label("Les installations s’ouvrent dans un terminal pour suivre leur progression.", 11, "on_surface/0.55"))
+    table.insert(children, label("Le guide s’efface pendant l’installation. Validez la fin dans le terminal pour revenir ici.", 11, "on_surface/0.55"))
   end
   if phase == "network" or phase == "shortcuts" or phase == "appearance" then
     table.insert(children, label("Fermez le panneau exploré pour revenir à cette étape.", 11, "on_surface/0.55"))
