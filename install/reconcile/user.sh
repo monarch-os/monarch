@@ -8,7 +8,7 @@ systemctl --user enable --now monarch-screencast-dnd.service
 systemctl --user try-restart monarch-crash-watch.service
 
 source "$MONARCH_PATH/install/reconcile/config-files.sh"
-bash "$MONARCH_PATH/install/reconcile/disktree-launcher.sh"
+bash "$MONARCH_PATH/install/reconcile/disktree-user.sh"
 python3 -I "$MONARCH_PATH/install/reconcile/exegol.py" "$MONARCH_PATH" "$HOME"
 source "$MONARCH_PATH/install/reconcile/about-branding.sh"
 source "$MONARCH_PATH/install/reconcile/noctalia-activation.sh"

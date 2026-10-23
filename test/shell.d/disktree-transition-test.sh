@@ -50,8 +50,8 @@ cat >"$temporary/bin/disktree" <<'SH'
 SH
 chmod +x "$temporary/bin/disktree"
 
-run_system() { bash "$ROOT/install/reconcile/disktree.sh"; }
-run_user() { bash "$ROOT/install/reconcile/disktree-launcher.sh"; }
+run_system() { bash "$ROOT/install/reconcile/disktree-system.sh"; }
+run_user() { bash "$ROOT/install/reconcile/disktree-user.sh"; }
 
 touch "$TEST_STATE/dua" "$TEST_STATE/install-fail"
 status=0
@@ -116,5 +116,5 @@ run_user
 [[ -L $launcher && -f $temporary/stock.desktop ]] || fail "user-owned symlink was changed"
 pass "only the exact stock launcher is retired, after replacement readiness"
 
-grep -qF 'reconcile/disktree.sh' "$ROOT/install/reconcile/system.sh" || fail "system transition is not wired"
-grep -qF 'reconcile/disktree-launcher.sh' "$ROOT/install/reconcile/user.sh" || fail "user transition is not wired"
+grep -qF 'reconcile/disktree-system.sh' "$ROOT/install/reconcile/system.sh" || fail "system transition is not wired"
+grep -qF 'reconcile/disktree-user.sh' "$ROOT/install/reconcile/user.sh" || fail "user transition is not wired"
