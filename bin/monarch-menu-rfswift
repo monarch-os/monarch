@@ -7,7 +7,7 @@ export PATH="$HOME/.local/bin:$PATH"
 RFSWIFT_REPO_PATTERN='penthertz/rfswift_(resolute|noble)'
 # rfswift has no config hook for the workspace root (its DefaultWorkspaceRoot()
 # is hardcoded to ~/rfswift-workspace), so we always pass --workspace explicitly.
-RFSWIFT_WORKSPACE_ROOT="$HOME/Work/rfswift"
+RFSWIFT_WORKSPACE_ROOT="$HOME/Envs"
 
 # gum pickers for the creation wizard (cmd_create). The wizard runs inside a
 # floating terminal, so the whole flow stays in the TUI instead of popping GUI
