@@ -115,7 +115,7 @@ window-rule {
 }
 
 window-rule {
-    match app-id="org.monarch.disk-usage"
+    match app-id="disktree"
     open-floating true
     default-column-width { fixed 1000; }
     default-window-height { fixed 700; }
