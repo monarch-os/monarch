@@ -20,13 +20,14 @@ case "$*" in
     [[ ! -f $TEST_STATE/disktree ]] || echo disktree-bin
     exit 0
     ;;
-  '-S --needed --noconfirm disktree-bin')
+  '-Q -- disktree-bin') [[ -f $TEST_STATE/disktree ]] && echo 'disktree-bin 0.11.0-1' ;;
+  '-S --noconfirm --needed -- disktree-bin')
     [[ ! -f $TEST_STATE/install-fail ]] || exit 42
     touch "$TEST_STATE/disktree"
     ;;
   '-Qq disktree-bin') [[ -f $TEST_STATE/disktree ]] && echo disktree-bin ;;
   '-Qk --quiet disktree-bin') [[ ! -f $TEST_STATE/broken ]] ;;
-  '-R --noconfirm dua-cli')
+  '-R --noconfirm -- dua-cli')
     [[ ! -f $TEST_STATE/remove-fail ]] || exit 43
     rm "$TEST_STATE/dua"
     ;;
@@ -43,6 +44,15 @@ cat >"$temporary/bin/monarch-cmd-present" <<'SH'
 [[ $1 == "disktree" && ! -f $TEST_STATE/broken ]]
 SH
 chmod +x "$temporary/bin/"*
+
+for helper in monarch-pkg-add monarch-pkg-drop monarch-pkg-missing; do
+  ln -s "$ROOT/bin/$helper" "$temporary/bin/$helper"
+done
+cat >"$temporary/bin/sudo" <<'SH'
+#!/bin/bash
+exec "$@"
+SH
+chmod +x "$temporary/bin/sudo"
 
 cat >"$temporary/bin/disktree" <<'SH'
 #!/bin/bash
@@ -72,7 +82,7 @@ run_system >/dev/null 2>&1 && fail "removal failure was hidden"
 rm "$TEST_STATE/remove-fail"
 run_system
 [[ ! -f $TEST_STATE/dua && -f $TEST_STATE/disktree ]] || fail "transition did not replace dua"
-grep -qFx -- '-R --noconfirm dua-cli' "$TEST_STATE/log" || fail "transition used recursive/cascade removal"
+grep -qFx -- '-R --noconfirm -- dua-cli' "$TEST_STATE/log" || fail "transition used recursive/cascade removal"
 pass "install and verification precede retirement; failures remain retryable"
 
 : >"$TEST_STATE/log"
