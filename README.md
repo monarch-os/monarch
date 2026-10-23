@@ -9,7 +9,7 @@ Read the [documentation](https://docs.monarchlinux.com/) to install Monarch and 
 
 Prefer a bootable installer? [Download the latest nightly ISO](https://iso.monarchlinux.com/monarch-nightly.iso).
 
-![Monarch desktop in use, with terminal workflows, Niri navigation, and live theme switching](assets/demo.gif)
+[![Play the Monarch desktop demo: terminal workflows, Niri navigation, and live theme switching (animated GIF)](assets/demo-preview.png)](assets/demo.gif)
 
 *[Static preview](assets/demo.png).*
 
