@@ -41,6 +41,7 @@ apply_state() {
       mkdir -p "$(dirname "$STATE_FILE")"
       if caffeine_enabled; then
         printf '%s\n' "$owner" >"$STATE_FILE"
+        noctalia msg plugin monarch/indicators:caffeine all refresh >/dev/null 2>&1 || true
         return
       fi
       printf '%s\n' "$owner" >"$STATE_FILE"
@@ -54,6 +55,7 @@ apply_state() {
       rm -f "$STATE_FILE"
       ;;
   esac
+  noctalia msg plugin monarch/indicators:caffeine all refresh >/dev/null 2>&1 || true
 }
 
 print_status() {

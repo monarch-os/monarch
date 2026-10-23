@@ -11,13 +11,42 @@ stub_bin="$test_tmp/bin"
 test_home="$test_tmp/home"
 runtime_dir="$test_tmp/runtime"
 mkdir -p "$stub_bin" "$test_home" "$runtime_dir"
-export MONARCH_PATH="$test_tmp/packaged-runtime"
-mkdir -p "$MONARCH_PATH"
+chmod 700 "$runtime_dir"
+export MONARCH_PATH="$test_tmp"
+
+updater_root="$test_tmp"
+authorization_sudo="$test_tmp/authorization-sudo"
+printf '#!/bin/bash\ncase $1 in -h) echo "usage: sudo [-Nn] command" ;; *) exit 0 ;; esac\n' >"$authorization_sudo"
+chmod +x "$authorization_sudo"
+python3 - "$ROOT" "$updater_root" "$authorization_sudo" <<'PY'
+from pathlib import Path
+import shutil
+import sys
+source, target = map(Path, sys.argv[1:3])
+(target / 'bin').mkdir(parents=True, exist_ok=True)
+for name in ('monarch-update', 'monarch-update-aur-pkgs', 'monarch-update-lock', 'monarch-cmd-present'):
+  shutil.copy2(source / 'bin' / name, target / 'bin' / name)
+(target / 'bin/monarch-i18n').symlink_to(source / 'bin/monarch-i18n')
+(target / 'default/monarch').mkdir(parents=True, exist_ok=True)
+shutil.copy2(source / 'default/monarch/update-guards.py', target / 'default/monarch/update-guards.py')
+guard = target / 'default/monarch/update-guards.py'
+guard.write_text(guard.read_text().replace("'/usr/bin/setpriv'", repr(str(target / 'bin/setpriv'))))
+for relative, count in (('default/monarch/update-authorization.sh', 4),
+    ('default/monarch/sudo-no-update/sudo', 2)):
+  original = source / relative
+  text = original.read_text()
+  assert text.count('/usr/bin/sudo') == count, relative
+  output = target / relative
+  output.parent.mkdir(parents=True, exist_ok=True)
+  output.write_text(text.replace('/usr/bin/sudo', sys.argv[3]))
+  output.chmod(original.stat().st_mode)
+PY
 
 write_stub() {
   local name="$1"
   local body="$2"
 
+  rm -f "$stub_bin/$name"
   printf '#!/bin/bash\n%s\n' "$body" >"$stub_bin/$name"
   chmod +x "$stub_bin/$name"
 }
@@ -28,7 +57,7 @@ run_update() {
   MONARCH_UPDATE_LOGGED=1 \
   PATH="$stub_bin:$ROOT/bin:$PATH" \
   STEP_LOG="$test_tmp/steps" \
-    "$ROOT/bin/monarch-update" "$@"
+    "$updater_root/bin/monarch-update" "$@"
 }
 
 steps=(
@@ -74,6 +103,10 @@ case ${CHECK_STATUS:-0} in
 esac
 exit "${CHECK_STATUS:-0}"'
 write_stub monarch-update-confirm 'printf "confirmation\n" >>"$STEP_LOG"; exit "${CONFIRM_STATUS:-0}"'
+write_stub noctalia '
+[[ $* == "msg plugin monarch/indicators:monarch-update all refresh" ]] || exit 99
+tail -1 "$STEP_LOG" >>"${STEP_LOG}.refresh"
+exit 1'
 
 : >"$test_tmp/steps"
 run_update -y >/dev/null
@@ -87,10 +120,11 @@ monarch-update-git
 monarch-update-keyring
 monarch-update-system-pkgs
 monarch-reconcile
-monarch-update-aur-pkgs
 monarch-update-orphan-pkgs
 monarch-hook
 monarch-update-analyze-logs
+monarch-update-restart
+monarch-update-aur-pkgs
 monarch-update-stay-awake
 monarch-update-restart
 EOF
@@ -98,6 +132,8 @@ diff -u "$test_tmp/expected" "$test_tmp/names" || fail "update guardrail orderin
 grep -q '^monarch-update-system-pkgs unattended=1' "$test_tmp/steps" ||
   fail "unattended update state reaches package updates"
 pass "update orders preflight, pruning, snapshot, reconciliation and hooks"
+grep -q '^monarch-update-aur-pkgs ' "$test_tmp/steps.refresh" || fail "panel refresh must follow AUR updates"
+pass "panel refresh follows AUR updates and an unavailable shell cannot fail the transaction"
 grep -q '^monarch-hook .*args=--strict post-update$' "$test_tmp/steps" || fail "updates must propagate post-update hook failures"
 
 cp "$stub_bin/monarch-update-keyring" "$test_tmp/keyring-step"
@@ -232,15 +268,16 @@ CHECK_LOG="$test_tmp/checks" CHECK_STATUS=2 run_update -y --branch dev >/dev/nul
 [[ ! -s $test_tmp/checks ]] || fail "an explicit branch change depends on current-branch availability"
 pass "confirmed updates run normally, cancellation is distinct, and explicit branch changes bypass the availability gate"
 
-git init -q "$test_tmp/git-runtime"
+git init -q "$updater_root"
 for check_status in 1 2; do
   : >"$test_tmp/steps"
   : >"$test_tmp/checks"
-  MONARCH_PATH="$test_tmp/git-runtime" CHECK_LOG="$test_tmp/checks" CHECK_STATUS="$check_status" run_update -y >/dev/null
+  CHECK_LOG="$test_tmp/checks" CHECK_STATUS="$check_status" run_update -y >/dev/null
   [[ ! -s $test_tmp/checks ]] || fail "a package-only check gates a Git runtime update"
   grep -q '^monarch-update-git ' "$test_tmp/steps" || fail "Git runtime never reaches its source update"
   grep -q '^monarch-update-system-pkgs ' "$test_tmp/steps" || fail "Git runtime skips the normal transaction"
 done
+rm -rf "$updater_root/.git"
 pass "Git runtimes still pull source with plain -y when package availability cannot require an update"
 
 write_stub monarch-update-system-pkgs 'exit 1'
@@ -260,10 +297,12 @@ write_stub monarch-update-system-pkgs 'exit 0'
 cp "$stub_bin/monarch-update-aur-pkgs" "$test_tmp/aur-step"
 write_stub monarch-update-aur-pkgs 'exit 42'
 : >"$test_tmp/steps"
+: >"$test_tmp/steps.refresh"
 result=0
 run_update -y >/dev/null 2>&1 || result=$?
 (( result == 42 )) || fail "failed AUR update is not propagated"
-if grep -Eq '^monarch-(hook|update-(orphan-pkgs|restart))' "$test_tmp/steps"; then fail "failed AUR update reaches later steps"; fi
+[[ -s $test_tmp/steps.refresh ]] || fail "failed AUR updates must also refresh the panel"
+if grep -q '^monarch-update-restart .*args=--reboot-only' "$test_tmp/steps"; then fail "failed AUR update offers reboot"; fi
 grep -q '^monarch-update-stay-awake .*args=stop' "$test_tmp/steps" || fail "failed AUR update leaks its inhibitor"
 cp "$test_tmp/aur-step" "$stub_bin/monarch-update-aur-pkgs"
 cp "$test_tmp/failing-system-step" "$stub_bin/monarch-update-system-pkgs"
@@ -285,7 +324,12 @@ wait "$first_update_pid"
 [[ $second_output == *"already running"* ]] || fail "concurrent refusal is actionable"
 pass "update lock rejects overlapping transactions"
 
-write_stub systemd-inhibit 'printf "%s\n" "$$" >"$INHIBIT_PID_FILE"; exec sleep 30'
+guard_root="$test_tmp/guards"
+mkdir -p "$guard_root/bin" "$guard_root/default/monarch"
+cp "$ROOT/bin/monarch-update-stay-awake" "$guard_root/bin/"
+cp "$updater_root/default/monarch/update-guards.py" "$guard_root/default/monarch/"
+write_stub setpriv 'shift 5; exec "$@"'
+write_stub systemd-inhibit 'printf "%s\n" "$$" >"$INHIBIT_PID_FILE"; while [[ $1 == --* ]]; do shift; done; exec "$@"'
 write_stub pkexec 'exec "$@"'
 write_stub noctalia 'exit 0'
 caffeine_state="$runtime_dir/monarch/caffeine"
@@ -319,7 +363,7 @@ lock_target="$runtime_dir/monarch-update.lock"
 INHIBIT_PID_FILE="$test_tmp/inhibitor" \
   XDG_RUNTIME_DIR="$runtime_dir" \
   PATH="$stub_bin:$ROOT/bin:$PATH" \
-  "$ROOT/bin/monarch-update-stay-awake" start
+  "$guard_root/bin/monarch-update-stay-awake" start
 for _ in {1..50}; do
   [[ -s $test_tmp/inhibitor ]] && break
   sleep 0.02
@@ -331,7 +375,7 @@ for fd in /proc/"$inhibitor_pid"/fd/*; do
     fail "sleep inhibitor inherited the update lock"
 done
 XDG_RUNTIME_DIR="$runtime_dir" PATH="$stub_bin:$ROOT/bin:$PATH" \
-  "$ROOT/bin/monarch-update-stay-awake" stop
+  "$guard_root/bin/monarch-update-stay-awake" stop
 kill -0 "$inhibitor_pid" 2>/dev/null && fail "sleep inhibitor survived stop"
 pass "sleep inhibitor cannot retain the update lock and is stopped reliably"
 
@@ -362,7 +406,7 @@ mkdir -p "$runtime_dir/monarch-update-stay-awake" "$runtime_dir/monarch"
 printf '%s\n' old-update >"$runtime_dir/monarch-update-stay-awake/idle-owner"
 XDG_RUNTIME_DIR="$runtime_dir" PATH="$stub_bin:$ROOT/bin:$PATH" monarch-toggle-idle stay-awake
 XDG_RUNTIME_DIR="$runtime_dir" PATH="$stub_bin:$ROOT/bin:$PATH" \
-  "$ROOT/bin/monarch-update-stay-awake" stop
+  "$guard_root/bin/monarch-update-stay-awake" stop
 [[ -f $runtime_dir/monarch/caffeine ]] || fail "stale cleanup removed a newer user choice"
 pass "inhibitor cleanup preserves pre-existing and newer Caffeine state"
 
@@ -416,11 +460,13 @@ pass "package cache pruning is skipped cleanly when pacman-contrib is absent"
 
 stay_awake_stub="$stub_bin/monarch-update-stay-awake"
 mv "$stay_awake_stub" "$stay_awake_stub.disabled"
+cp "$ROOT/bin/monarch-update-stay-awake" "$stay_awake_stub"
 rm -f "$runtime_dir/monarch/caffeine"
 write_stub monarch-update-keyring 'touch "$INTERRUPT_MARKER"; sleep 30'
 write_stub monarch-update-pkg-prune 'exit 0'
 write_stub monarch-snapshot 'exit 0'
-write_stub systemd-inhibit 'exec sleep 30'
+write_stub systemd-inhibit 'while [[ $1 == --* ]]; do shift; done; exec "$@"'
+write_stub sudo 'while [[ ${1:-} == -* ]]; do shift; done; "$@" >/dev/null 2>&1 &'
 interrupt_marker="$test_tmp/interrupt-started"
 TEST_AVAILABLE_BYTES=$((12 * 1024 * 1024 * 1024)) \
   INTERRUPT_MARKER="$interrupt_marker" \
@@ -429,7 +475,7 @@ TEST_AVAILABLE_BYTES=$((12 * 1024 * 1024 * 1024)) \
   MONARCH_UPDATE_LOGGED=1 \
   PATH="$stub_bin:$ROOT/bin:$PATH" \
   STEP_LOG="$test_tmp/steps" \
-  setsid "$ROOT/bin/monarch-update" -y >/dev/null 2>&1 &
+  setsid "$updater_root/bin/monarch-update" -y >/dev/null 2>&1 &
 interrupt_pid=$!
 for _ in {1..100}; do
   [[ -f $interrupt_marker && -s $runtime_dir/monarch-update-stay-awake/inhibit-pid ]] && break
@@ -438,7 +484,6 @@ done
 [[ -f $interrupt_marker ]] || fail "interrupt test did not enter the guarded transaction"
 kill -TERM -- "-$interrupt_pid"
 wait "$interrupt_pid" 2>/dev/null || true
-mv "$stay_awake_stub.disabled" "$stay_awake_stub"
 for _ in {1..100}; do
   [[ ! -e $runtime_dir/monarch-update-stay-awake ]] && break
   sleep 0.02
@@ -448,22 +493,24 @@ if [[ -e $runtime_dir/monarch-update-stay-awake ]]; then
   fail "interrupted update left inhibitor state"
 fi
 [[ ! -e $runtime_dir/monarch/caffeine ]] || fail "interrupted update left Caffeine enabled"
+mv "$stay_awake_stub.disabled" "$stay_awake_stub"
 HOME="$test_home" XDG_RUNTIME_DIR="$runtime_dir" PATH="$stub_bin:$ROOT/bin:$PATH" \
   "$ROOT/bin/monarch-update-lock" run true
 pass "SIGTERM releases inhibitor state and the update lock"
 
 # Exercise the real helpers as well as the orchestration stubs: their exit
 # status is the outcome recorded by the first-steps guide.
+cp "$ROOT/bin/monarch-update-aur-pkgs" "$updater_root/bin/monarch-update-aur-pkgs"
 write_stub pacman '[[ $* == -Qm ]] || exit 99; echo "dependency-only-aur 1"'
 write_stub monarch-pkg-aur-accessible 'exit "${AUR_ACCESS_STATUS:-0}"'
 write_stub yay 'touch "$AUR_CALLED"; exit "${AUR_EXIT_STATUS:-0}"'
 export AUR_CALLED="$test_tmp/aur-called"
 result=0
-AUR_EXIT_STATUS=42 PATH="$stub_bin:$ROOT/bin:$PATH" "$ROOT/bin/monarch-update-aur-pkgs" >/dev/null 2>&1 || result=$?
+AUR_EXIT_STATUS=42 PATH="$stub_bin:$ROOT/bin:$PATH" "$updater_root/bin/monarch-update-aur-pkgs" >/dev/null 2>&1 || result=$?
 (( result == 42 )) || fail "the real AUR helper hides yay failure"
 [[ -f $AUR_CALLED ]] || fail "AUR packages installed as dependencies are skipped"
 rm "$AUR_CALLED"
-AUR_ACCESS_STATUS=1 PATH="$stub_bin:$ROOT/bin:$PATH" "$ROOT/bin/monarch-update-aur-pkgs" >/dev/null
+AUR_ACCESS_STATUS=1 PATH="$stub_bin:$ROOT/bin:$PATH" "$updater_root/bin/monarch-update-aur-pkgs" >/dev/null
 [[ ! -e $AUR_CALLED ]] || fail "an unreachable AUR still invokes yay"
 pass "the real AUR helper updates foreign dependencies and propagates yay errors"
 

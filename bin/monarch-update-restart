@@ -1,11 +1,32 @@
 #!/bin/bash
 
 # monarch:summary=Prompt for required reboot or service restarts after updates
+# monarch:args=[--services-only|--reboot-only]
+
+mode=${1:-all}
+(( $# <= 1 )) || exit 2
+case $mode in
+  all | --services-only | --reboot-only) ;;
+  *) exit 2 ;;
+esac
 
 source "$("$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/monarch-i18n" --helper)"
 monarch_i18n_load
 
 monarch-state clear-stale-restarts || exit $?
+
+if [[ $mode != "--reboot-only" ]]; then
+  for file in "$HOME"/.local/state/monarch/restart-*-required; do
+    [[ -f $file ]] || continue
+    service=${file##*/restart-}
+    service=${service%-required}
+    monarch_message 'service.restarting' "$service"
+    monarch-restart-"$service" || exit $?
+    monarch-state clear "${file##*/}" || exit $?
+  done
+fi
+
+[[ $mode != "--services-only" && ${MONARCH_UPDATE_UNATTENDED:-0} != "1" ]] || exit 0
 
 echo
 
@@ -23,23 +44,19 @@ for kernel in /usr/lib/modules/*/vmlinuz; do
   fi
 done
 
+reboot_reason=""
 if [[ $kernel_updated == "true" ]]; then
-  gum confirm "$(monarch_t 'update.kernelReboot')" && monarch-system-reboot
+  reboot_reason=update.kernelReboot
 elif [[ -f $HOME/.local/state/monarch/reboot-required ]]; then
-  gum confirm "$(monarch_t 'update.rebootRequired')" && monarch-system-reboot
+  reboot_reason=update.rebootRequired
 fi
 
 running_niri=$(readlink /proc/$(pgrep -x niri)/exe 2>/dev/null)
-if [[ $running_niri == *"(deleted)"* ]]; then
-  gum confirm "$(monarch_t 'update.niriReboot')" && monarch-system-reboot
+if [[ -z $reboot_reason && $running_niri == *"(deleted)"* ]]; then
+  reboot_reason=update.niriReboot
 fi
 
-for file in "$HOME"/.local/state/monarch/restart-*-required; do
-  if [[ -f $file ]]; then
-    filename=$(basename "$file")
-    service=$(echo "$filename" | sed 's/restart-\(.*\)-required/\1/')
-    monarch_message 'service.restarting' "$service"
-    monarch-state clear "$filename"
-    monarch-restart-"$service"
-  fi
-done
+if [[ -n $reboot_reason ]] && gum confirm "$(monarch_t "$reboot_reason")"; then
+  monarch-system-reboot || exit $?
+fi
+exit 0

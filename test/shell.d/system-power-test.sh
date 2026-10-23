@@ -158,6 +158,32 @@ HOME="$consumer_home" PATH="$mock_bin:$PATH" CALL_LOG="$call_log" TEST_STATE_COM
   fail "update prompts or restarts a service because of obsolete markers"
 pass "update removes previous-boot markers without a redundant reboot prompt or service restart"
 
+run_restart() {
+  HOME="$consumer_home" PATH="$mock_bin:$PATH" CALL_LOG="$call_log" TEST_STATE_COMMAND="$state_command" \
+    "$ROOT/bin/monarch-update-restart" "$@"
+}
+restart_marker="$consumer_home/.local/state/monarch/restart-test-required"
+printf '%s\n' "$boot_two" >"$restart_marker"
+: >"$call_log"
+run_restart --services-only >/dev/null
+[[ $(cat "$call_log") == "restart test" && ! -e $restart_marker ]] || fail "services-only prompts or retains completed work"
+printf '%s\n' "$boot_two" >"$restart_marker"
+printf '%s\n' "$boot_two" >"$consumer_home/.local/state/monarch/reboot-required"
+: >"$call_log"
+MONARCH_UPDATE_UNATTENDED=1 run_restart --reboot-only >/dev/null
+[[ ! -s $call_log && -f $restart_marker ]] || fail "unattended reboot phase prompts or restarts services"
+run_restart --reboot-only >/dev/null
+[[ $(grep -c '^gum ' "$call_log") == 1 && -f $restart_marker ]] || fail "reboot-only does not offer exactly one prompt"
+printf '#!/bin/bash\nexit 42\n' >"$mock_bin/monarch-restart-test"
+: >"$call_log"
+status=0
+run_restart > /dev/null || status=$?
+(( status == 42 )) && [[ -f $restart_marker && ! -s $call_log ]] || fail "failed restart loses its marker or offers reboot"
+printf '#!/bin/bash\nprintf "restart test\\n" >>"$CALL_LOG"\n' >"$mock_bin/monarch-restart-test"
+MONARCH_UPDATE_UNATTENDED=1 run_restart >/dev/null
+[[ $(cat "$call_log") == "restart test" && ! -e $restart_marker ]] || fail "unattended finalization skips services or prompts"
+pass "restart phases preserve failed work, isolate reboot prompts and honor unattended updates"
+
 session_home="$test_tmp/session"
 session_state="$session_home/.local/state/monarch"
 mkdir -p "$session_state"
