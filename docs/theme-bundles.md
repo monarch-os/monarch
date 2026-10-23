@@ -1,10 +1,8 @@
-# Installable themes
+# Theme bundle specification
 
-A Monarch theme is a Git repository containing data only. Install one with:
-
-```bash
-monarch theme install https://github.com/example/aurora-monarch-theme.git
-```
+User instructions for installing, updating and removing themes live in the
+[Themes guide](https://docs.monarchlinux.com/basics/themes). This document
+defines the bundle contract implemented by Monarch.
 
 The repository must contain `monarch-theme.json`:
 
@@ -28,8 +26,6 @@ links, executable files, nested background directories and all other content
 are rejected. Theme repositories cannot install scripts or application
 configuration.
 
-Installed themes retain their Git origin and revision. Use `monarch theme
-update` to fetch a newer revision and `monarch theme remove` to uninstall one.
-Both are also available in the Monarch menu. Updates replace the managed bundle
+Installed themes retain their Git origin and revision. Updates replace the managed bundle
 atomically. Wallpapers imported through Monarch remain in the user's background
 directory and survive both updates and removal.

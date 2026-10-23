@@ -1,10 +1,8 @@
-# Hermes
+# Hermes integration
 
-Hermes is optional. `monarch default agent hermes` installs Desktop without
-opening its window and selects its CLI as the terminal agent.
-`monarch install ai hermes` installs Desktop (`hermes-agent-desktop-bin`), letting
-pacman install its runtime dependency, and opens it without changing the default agent.
-Existing AUR source variants are recognized and preserved.
+User instructions live in the
+[Hermes guide](https://docs.monarchlinux.com/basics/hermes). This document covers
+packaging, desktop integration and validation.
 
 ## Packaging
 
@@ -29,12 +27,9 @@ light/dark preference; Monarch does not generate or activate a custom skin.
 Palette synchronization with Noctalia is deferred. Monarch does not enable YOLO
 or change Hermes configuration.
 
-`monarch remove ai hermes` removes Desktop and its unneeded dependencies through
-pacman. A runtime installed only as a dependency is removed; an explicitly
-installed CLI is kept. Selecting Hermes as the terminal agent does not change
-the runtime's dependency status. Credentials, sessions and
-other user data remain. The default agent is cleared only if Hermes was selected
-and its runtime is no longer installed.
+Removal is dependency-aware and preserves user data. Selecting Hermes as the
+terminal agent does not change the runtime's dependency status. The default
+agent is cleared only if Hermes was selected and its runtime is no longer installed.
 
 ## Validation
 
