@@ -11,6 +11,7 @@ fi
 
 sudo bash "$MONARCH_PATH/install/reconcile/cups-browsed.sh"
 sudo bash "$MONARCH_PATH/install/reconcile/fuzzel.sh"
+sudo bash /usr/share/monarch/install/reconcile/disktree.sh
 sudo bash "$MONARCH_PATH/install/reconcile/wpa-supplicant.sh"
 # Root-owned payloads stay pinned so MONARCH_PATH cannot select privileged code.
 sudo bash /usr/share/monarch/install/reconcile/limine-kernel-order.sh
