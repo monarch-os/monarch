@@ -14,7 +14,7 @@ volumes:
   exegol_images_path: ~/.exegol/exegol-images
 
   # When containers do not have an explicitly declared workspace, a dedicated folder will be created at this location to share the workspace with the host but also to save the data after deleting the container
-  private_workspace_path: ~/Work/exegol/workspaces
+  private_workspace_path: ~/Envs
 
 config:
   # Enables automatic check for wrapper updates
