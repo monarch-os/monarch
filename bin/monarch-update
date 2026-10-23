@@ -17,6 +17,7 @@ export PATH
 update_sudo_wrapper="${update_entrypoint%/*}/../default/monarch/sudo-no-update/sudo"
 sudo_keepalive_pid=""
 update_stay_awake_stopped=1
+update_refresh_panel=false
 
 cleanup_update() {
   local status=$?
@@ -29,6 +30,9 @@ cleanup_update() {
     monarch-update-stay-awake stop || status=1
   fi
   monarch_update_revoke_authorization || status=1
+  if [[ $update_refresh_panel == "true" ]]; then
+    noctalia msg plugin monarch/indicators:monarch-update all refresh >/dev/null 2>&1 || true
+  fi
   exit "$status"
 }
 
@@ -154,6 +158,7 @@ if [[ $packages_current == "false" && $unattended == "false" ]] && ! monarch-upd
 fi
 
 trap 'echo ""; echo -e "\033[0;31mSomething went wrong during the update!\n\nPlease review the output above carefully, correct the error, and retry the update.\n\nIf you need assistance, get help from the community at https://monarch-os.github.io\033[0m"' ERR
+update_refresh_panel=true
 
 if [[ $packages_current == "false" ]]; then
   monarch-update-requires-free-space
@@ -184,6 +189,8 @@ monarch-update-analyze-logs
 monarch-update-restart --services-only
 monarch_update_end_authorization || exit 1
 [[ $skip_aur == "true" || $packages_current == "true" ]] || monarch-update-aur-pkgs
+noctalia msg plugin monarch/indicators:monarch-update all refresh >/dev/null 2>&1 || true
+update_refresh_panel=false
 monarch-update-stay-awake stop
 update_stay_awake_stopped=1
 monarch-update-restart --reboot-only
