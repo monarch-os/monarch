@@ -65,5 +65,5 @@ function update()
 end
 
 function onClick()
-  noctalia.runAsync(indicator.bin("monarch-launch-tui") .. " monarch-todo")
+  noctalia.runAsync(TODO_CMD .. " panel")
 end
