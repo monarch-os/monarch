@@ -2,7 +2,9 @@
 # monarch:summary=Install the native task panel and monarch-todo backend
 
 set -euo pipefail
+root=$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.." && pwd)
 monarch-pkg-add monarch-todo
-root=$("$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/monarch-i18n" --root)
+# Source only this executable's runtime, never an environment-selected i18n
+# tree after package installation may have refreshed the terminal's sudo ticket.
 source "$root/install/helpers/todo.sh"
 monarch_configure_todo "$root"

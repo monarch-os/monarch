@@ -62,6 +62,12 @@ grep -Fqx 'monarch-todo' "$HOME/packages.log"
 grep -Fq 'spawn "monarch-todo" "panel"' "$HOME/.config/niri/monarch-todo.kdl"
 ! grep -q 'install/reconcile' "$ROOT/bin/monarch-install-todo"
 echo "ok - installer uses current setup without depending on reconciliation"
+mkdir -p "$TMP/untrusted/default/i18n" "$TMP/untrusted/install/helpers"
+touch "$TMP/untrusted/default/i18n/i18n.py"
+printf '%s\n' 'touch "$HOME/untrusted-helper-ran"' >"$TMP/untrusted/install/helpers/todo.sh"
+MONARCH_PATH="$TMP/untrusted" "$ROOT/bin/monarch-install-todo"
+[[ ! -e $HOME/untrusted-helper-ran ]]
+echo "ok - installer ignores environment-selected helpers after package installation"
 
 before=$(wc -l <"$HOME/todo.log")
 if PKG_STATUS=1 "$ROOT/bin/monarch-install-todo"; then
