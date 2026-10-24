@@ -12,6 +12,7 @@ bash "$MONARCH_PATH/install/reconcile/disktree-user.sh"
 python3 -I "$MONARCH_PATH/install/reconcile/exegol.py" "$MONARCH_PATH" "$HOME"
 source "$MONARCH_PATH/install/reconcile/about-branding.sh"
 source "$MONARCH_PATH/install/reconcile/noctalia-activation.sh"
+source "$MONARCH_PATH/install/reconcile/todo.sh"
 source "$MONARCH_PATH/install/reconcile/chromium-flags.sh"
 source "$MONARCH_PATH/install/reconcile/mise.sh"
 source "$MONARCH_PATH/install/reconcile/nvidia-env.sh"
@@ -90,3 +91,6 @@ if [[ $noctalia_ready == "true" ]]; then
 else
   defer_plugin_activation
 fi
+
+# The optional todo package handles its own plugin activation and legacy copies.
+monarch_reconcile_todo "$MONARCH_PATH"

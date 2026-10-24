@@ -574,7 +574,7 @@
     "monarch-install-service-signal": "Installer et lancer Signal",
     "monarch-install-tailscale": "Installer Tailscale et le lanceur de sa console d’administration",
     "monarch-install-terminal": "Installer un terminal pris en charge et le choisir par défaut",
-    "monarch-install-todo": "Installer monarch-todo, gestionnaire de tâches en terminal",
+    "monarch-install-todo": "Installer le panneau de tâches natif et son moteur monarch-todo",
     "monarch-install-vscode": "Installer VS Code avec les réglages et le thème Monarch",
     "monarch-install-zed": "Installer Zed et appliquer le thème Noctalia",
     "monarch-launch-about": "Afficher les informations système avec fastfetch",
