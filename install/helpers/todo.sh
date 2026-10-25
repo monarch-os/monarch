@@ -5,7 +5,7 @@ monarch_configure_todo() {
   local target="$niri_dir/monarch-todo.kdl" source="$root/default/monarch/todo/monarch-todo.kdl"
 
   [[ -f $source ]] || return 1
-  monarch-todo setup-desktop || return
+  /usr/bin/monarch-todo setup-desktop || return
   mkdir -p "$niri_dir"
 
   if [[ -f $target ]] && ! cmp -s "$source" "$target"; then

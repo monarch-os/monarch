@@ -14,7 +14,7 @@ monarch_reconcile_todo() {
     0 | 1) ;;
     *) return 1 ;;
   esac
-  monarch-cmd-present monarch-todo || return 0
-  monarch-todo setup-desktop --help >/dev/null 2>&1 || return 0
+  [[ -x /usr/bin/monarch-todo ]] || return 0
+  /usr/bin/monarch-todo setup-desktop --help >/dev/null 2>&1 || return 0
   monarch_configure_todo "$1"
 }

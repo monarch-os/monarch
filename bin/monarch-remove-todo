@@ -5,8 +5,8 @@
 echo "Removing monarch-todo..."
 
 legacy=true
-if monarch-cmd-present monarch-todo && monarch-todo remove-desktop --help >/dev/null 2>&1; then
-  monarch-todo remove-desktop || exit $?
+if [[ -x /usr/bin/monarch-todo ]] && /usr/bin/monarch-todo remove-desktop --help >/dev/null 2>&1; then
+  /usr/bin/monarch-todo remove-desktop || exit $?
   legacy=false
 fi
 
@@ -17,7 +17,7 @@ else
   status=$?
   # Package removal can fail (dependencies, pacman lock). Keep a usable app and
   # its shortcut instead of reporting success after removing only integration.
-  [[ $legacy == "true" ]] || monarch-todo setup-desktop || true
+  [[ $legacy == "true" ]] || /usr/bin/monarch-todo setup-desktop || true
   exit "$status"
 fi
 

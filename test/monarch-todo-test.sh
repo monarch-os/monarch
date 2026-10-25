@@ -1,9 +1,25 @@
 #!/bin/bash
 set -euo pipefail
-ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+REPO_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
-export HOME="$TMP/home" MONARCH_PATH="$ROOT" PATH="$TMP/bin:$ROOT/bin:$PATH"
+ROOT="$TMP/runtime"
+mkdir -p "$ROOT/bin" "$ROOT/install/helpers" "$ROOT/install/reconcile" "$ROOT/default/monarch/todo" "$ROOT/default/noctalia/plugins/monarch-indicators"
+for file in bin/monarch-install-todo bin/monarch-remove-todo install/helpers/todo.sh install/reconcile/todo.sh default/monarch/todo/monarch-todo.kdl default/noctalia/plugins/monarch-indicators/todo.luau; do
+  cp -p "$REPO_ROOT/$file" "$ROOT/$file"
+done
+# Only fixture copies redirect the trusted package path. Production must not
+# consult a PATH-selected backend after a privileged package transaction.
+python3 - "$ROOT" "$TMP/bin/monarch-todo" <<'PY'
+import pathlib, sys
+root = pathlib.Path(sys.argv[1])
+for relative in ('install/helpers/todo.sh', 'install/reconcile/todo.sh', 'bin/monarch-remove-todo'):
+    path = root / relative
+    text = path.read_text()
+    assert '/usr/bin/monarch-todo' in text
+    path.write_text(text.replace('/usr/bin/monarch-todo', sys.argv[2]))
+PY
+export HOME="$TMP/home" MONARCH_PATH="$ROOT" PATH="$TMP/bin:$ROOT/bin:$REPO_ROOT/bin:$PATH"
 mkdir -p "$HOME/.config/niri" "$TMP/bin"
 
 cat >"$TMP/bin/monarch-todo" <<'EOF'
@@ -107,6 +123,13 @@ printf '%s\n' 'touch "$HOME/untrusted-helper-ran"' >"$TMP/untrusted/install/help
 MONARCH_PATH="$TMP/untrusted" "$ROOT/bin/monarch-install-todo"
 [[ ! -e $HOME/untrusted-helper-ran ]]
 echo "ok - installer ignores environment-selected helpers after package installation"
+mkdir -p "$TMP/shadow"
+printf '%s\n' '#!/bin/bash' 'touch "$HOME/shadow-backend-ran"' >"$TMP/shadow/monarch-todo"
+chmod +x "$TMP/shadow/monarch-todo"
+PATH="$TMP/shadow:$PATH" "$ROOT/bin/monarch-install-todo"
+PATH="$TMP/shadow:$PATH" monarch_reconcile_todo "$ROOT"
+[[ ! -e $HOME/shadow-backend-ran ]]
+echo "ok - installer and reconciliation use the installed backend, not a PATH override"
 
 before=$(wc -l <"$HOME/todo.log")
 if PKG_STATUS=1 "$ROOT/bin/monarch-install-todo"; then
