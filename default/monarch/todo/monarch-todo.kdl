@@ -1,0 +1,4 @@
+// Managed by `monarch install todo` — removed by `monarch remove todo`.
+binds {
+  Mod+T hotkey-overlay-title="Tasks" { spawn "monarch-todo" "panel"; }
+}
