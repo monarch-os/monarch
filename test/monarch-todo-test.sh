@@ -133,3 +133,35 @@ fi
 [[ $(<"$HOME/.config/niri/monarch-todo.kdl") == "keep shortcut if pacman fails" ]]
 [[ $(tail -n 1 "$HOME/todo.log") == "setup-desktop" ]]
 echo "ok - failed removal restores desktop integration and retains the shortcut"
+
+python3 - "$ROOT" "$TMP" <<'PY'
+import os, pathlib, re, shutil, subprocess, sys
+root, tmp = map(pathlib.Path, sys.argv[1:])
+lua = shutil.which('lua5.4') or shutil.which('lua')
+assert lua, 'Lua 5.4 is required (same dependency as menu launcher tests)'
+source = (root / 'default/noctalia/plugins/monarch-indicators/todo.luau').read_text()
+callback = re.search(r'function onClick\(\).*?\nend', source, re.S).group()
+harness = tmp / 'indicator.lua'
+harness.write_text('''
+local TODO_CMD = os.getenv('TODO_TEST_BINARY')
+local indicator = { bin = function(_) return os.getenv('TODO_TEST_LAUNCHER') end }
+noctalia = { runAsync = function(command) print(command) end }
+''' + callback + '\nonClick()\n')
+backend, launcher, log = tmp / 'indicator-backend', tmp / 'indicator-launcher', tmp / 'indicator.log'
+backend.write_text('''#!/bin/bash
+if [[ $* == "panel --help" ]]; then exit "${OLD_BACKEND:-0}"; fi
+echo panel >>"$INDICATOR_LOG"
+exit "${PANEL_FAILURE:-0}"
+''')
+launcher.write_text('#!/bin/bash\necho "tui $*" >>"$INDICATOR_LOG"\n')
+backend.chmod(0o755)
+launcher.chmod(0o755)
+env = dict(os.environ, TODO_TEST_BINARY=str(backend), TODO_TEST_LAUNCHER=str(launcher), INDICATOR_LOG=str(log))
+command = subprocess.check_output([lua, str(harness)], text=True, env=env).strip()
+subprocess.run(['/bin/bash', '-c', command], env=env, check=True)
+subprocess.run(['/bin/bash', '-c', command], env=dict(env, OLD_BACKEND='1'), check=True)
+result = subprocess.run(['/bin/bash', '-c', command], env=dict(env, PANEL_FAILURE='7'))
+assert result.returncode == 7
+assert log.read_text().splitlines() == ['panel', 'tui monarch-todo', 'panel']
+print('ok - actual indicator callback supports old backends without masking native panel failures')
+PY

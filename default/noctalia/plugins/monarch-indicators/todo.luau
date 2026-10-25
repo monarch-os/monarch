@@ -65,5 +65,8 @@ function update()
 end
 
 function onClick()
-  noctalia.runAsync(TODO_CMD .. " panel")
+  -- The indicator is shipped independently of the optional backend. Older
+  -- packages still expose `bar`, but do not yet have a native panel.
+  noctalia.runAsync("if " .. TODO_CMD .. " panel --help >/dev/null 2>&1; then "
+    .. TODO_CMD .. " panel; else " .. indicator.bin("monarch-launch-tui") .. " monarch-todo; fi")
 end
