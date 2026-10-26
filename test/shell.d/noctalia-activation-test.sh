@@ -16,6 +16,28 @@ if [[ $* == 'msg status' ]]; then
   [[ ${TEST_ACTIVATION_FAILURE:-} != unavailable ]]
 elif [[ $* == "${TEST_ACTIVATION_FAILURE:-}" ]]; then
   exit 42
+elif [[ $* == 'config export merged' ]]; then
+  python3 - <<'PY'
+import os
+from pathlib import Path
+import tomllib
+
+home = Path.home()
+config = Path(os.environ.get('XDG_CONFIG_HOME') or home / '.config') / 'noctalia'
+state = Path(os.environ.get('XDG_STATE_HOME') or home / '.local/state') / 'noctalia/settings.toml'
+paths = sorted(config.glob('*.toml'))
+if state.exists():
+  paths.append(state)
+shell = {}
+for path in paths:
+  shell.update(tomllib.loads(path.read_text()).get('shell', {}))
+key = 'niri_overview_close_on_launch_enabled'
+if key in shell:
+  print(f'[shell]\n{key} = {str(shell[key]).lower()}')
+PY
+elif [[ $* == 'msg config-set shell.niri_overview_close_on_launch_enabled true' ]]; then
+  mkdir -p "$XDG_STATE_HOME/noctalia"
+  printf '[shell]\nniri_overview_close_on_launch_enabled = true\n' >"$XDG_STATE_HOME/noctalia/settings.toml"
 elif [[ $* == 'config export full' && ${TEST_PLUGINS_PRE_ENABLED:-0} == "1" ]]; then
   cat "$MONARCH_PATH/config/noctalia/config.toml"
 fi
@@ -26,6 +48,7 @@ printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/monarch-restart-noctalia"
 printf '#!/bin/bash\nprintf complete >"$TEST_ACTIVATION/completed"\n' >"$test_tmp/bin/complete"
 printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/monarch-theme-apply"
 printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/systemctl"
+printf '#!/bin/bash\nexit 1\n' >"$test_tmp/bin/pacman"
 cat >"$test_tmp/bin/python3" <<'EOF'
 #!/bin/bash
 if [[ ${TEST_TEMPLATE_FAILURE:-0} == "1" && $1 == */noctalia-templates.py ]]; then
@@ -36,6 +59,48 @@ exec /usr/bin/python3 "$@"
 EOF
 chmod +x "$test_tmp/bin/"*
 export PATH="$test_tmp/bin:/usr/bin" MONARCH_RECONCILE_BIN="$test_tmp/bin/complete"
+
+(
+  export HOME="$test_tmp/overview" XDG_CONFIG_HOME="$test_tmp/overview/config" XDG_STATE_HOME="$test_tmp/overview/state"
+  source "$ROOT/install/reconcile/noctalia-activation.sh"
+  mkdir -p "$XDG_CONFIG_HOME/noctalia" "$XDG_STATE_HOME/noctalia"
+  config="$XDG_CONFIG_HOME/noctalia/config.toml"
+  overlay="$XDG_CONFIG_HOME/noctalia/custom.toml"
+  state="$XDG_STATE_HOME/noctalia/settings.toml"
+  printf '[shell]\nclipboard_enabled = true\n' >"$config"
+  cp "$config" "$test_tmp/overview-original"
+  for file in "$config" "$overlay" "$state"; do
+    for value in true false; do
+      printf '[shell]\nniri_overview_close_on_launch_enabled = %s\n' "$value" >"$file"
+      : >"$test_tmp/calls"
+      monarch_noctalia_reconcile_overview
+      if grep -q '^msg config-set ' "$test_tmp/calls"; then
+        fail "explicit $value in $file is preserved"
+      fi
+    done
+    rm "$file"
+  done
+  cp "$test_tmp/overview-original" "$config"
+  printf '[invalid\n' >"$overlay"
+  if monarch_noctalia_reconcile_overview 2>/dev/null; then
+    fail "malformed configuration must not be treated as an absent preference"
+  fi
+  if grep -q '^msg config-set ' "$test_tmp/calls"; then
+    fail "invalid configuration causes no IPC writes"
+  fi
+  rm "$overlay"
+  if TEST_ACTIVATION_FAILURE='msg config-set shell.niri_overview_close_on_launch_enabled true' \
+    monarch_noctalia_reconcile_overview; then
+    fail "IPC failure must remain retryable"
+  fi
+  [[ ! -e $state ]] || fail "failed IPC must not record completion"
+  : >"$test_tmp/calls"
+  monarch_noctalia_reconcile_overview
+  monarch_noctalia_reconcile_overview
+  [[ $(grep -c '^msg config-set ' "$test_tmp/calls") == 1 ]] || fail "overview default is seeded once"
+  cmp "$config" "$test_tmp/overview-original" || fail "existing config is preserved"
+  pass "overview reconciliation preserves explicit choices and retries missing defaults idempotently"
+)
 
 export HOME="$test_tmp/legacy" XDG_STATE_HOME="$test_tmp/legacy/.local/state"
 legacy="$HOME/.local/share/noctalia/plugins/monarch-agents"
@@ -104,7 +169,8 @@ for entrypoint in first-run reconcile deferred; do
   grep '^msg plugins enable ' "$test_tmp/calls" | sort >"$test_tmp/$entrypoint-plugins"
   [[ ! -e $hook ]]
 
-  for failure in unavailable 'config export full' 'msg plugins enable monarch/menu' 'msg config-reload'; do
+  for failure in unavailable 'config export merged' 'msg config-set shell.niri_overview_close_on_launch_enabled true' 'config export full' 'msg plugins enable monarch/menu' 'msg config-reload'; do
+    rm -f "$XDG_STATE_HOME/noctalia/settings.toml"
     export TEST_ACTIVATION_FAILURE="$failure"
     rm -f "$test_tmp/completed"
     : >"$test_tmp/calls"
