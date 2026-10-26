@@ -3,7 +3,19 @@ name: CI
 on:
   push:
     branches: [dev, main]
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - 'assets/demo.gif'
+      - 'assets/demo.png'
   pull_request:
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - 'assets/demo.gif'
+      - 'assets/demo.png'
   workflow_dispatch:
     inputs:
       month:

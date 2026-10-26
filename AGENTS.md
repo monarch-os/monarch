@@ -266,7 +266,7 @@ is treated as the minimum supported schema.
 
 Monarch is a fork of [Omarchy](https://github.com/basecamp/omarchy) and tracks upstream releases via the `omarchy` git remote. The sync renames `omarchy*` → `monarch*` (binaries, paths, `# omarchy:` metadata directives, env vars like `OMARCHY_PATH`).
 
-Preserve the choices in [Monarch product decisions](doc/product-decisions.md) when adopting upstream features.
+Preserve the choices in [Monarch product decisions](docs/product-decisions.md) when adopting upstream features.
 
 Some `omarchy` references are intentional and must be preserved:
 

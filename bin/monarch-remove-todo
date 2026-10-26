@@ -4,17 +4,31 @@
 
 echo "Removing monarch-todo..."
 
+legacy=true
+if [[ -x /usr/bin/monarch-todo ]] && /usr/bin/monarch-todo remove-desktop --help >/dev/null 2>&1; then
+  /usr/bin/monarch-todo remove-desktop || exit $?
+  legacy=false
+fi
+
 # Remove the package
-monarch-pkg-drop monarch-todo
+if monarch-pkg-drop monarch-todo; then
+  :
+else
+  status=$?
+  # Package removal can fail (dependencies, pacman lock). Keep a usable app and
+  # its shortcut instead of reporting success after removing only integration.
+  [[ $legacy == "true" ]] || /usr/bin/monarch-todo setup-desktop || true
+  exit "$status"
+fi
 
 # Remove the reminder re-arm service (+ any pending reminder timers).
-systemctl --user disable --now monarch-todo-reminders.service 2>/dev/null || true
-systemctl --user stop 'monarch-todo-reminder-*.timer' 2>/dev/null || true
-rm -f "$HOME/.config/systemd/user/monarch-todo-reminders.service"
-systemctl --user daemon-reload 2>/dev/null || true
-
-# Remove the app-launcher entry
-monarch-tui-remove "Todo"
+if [[ $legacy == "true" ]]; then
+  systemctl --user disable --now monarch-todo-reminders.service 2>/dev/null || true
+  systemctl --user stop 'monarch-todo-reminder-*.timer' 2>/dev/null || true
+  rm -f "$HOME/.config/systemd/user/monarch-todo-reminders.service"
+  systemctl --user daemon-reload 2>/dev/null || true
+  monarch-tui-remove "Todo"
+fi
 
 # The bar widget needs no removal: it is declared by the monarch-indicators
 # Noctalia plugin and hides itself as soon as this package's binary is gone.

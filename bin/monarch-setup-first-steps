@@ -181,14 +181,10 @@ finish_install() {
 }
 
 launch_installer() {
-  local tool=$1 token=$2 command=$3 launcher_pid accepted=false code=0 attempt
-  if [[ $tool == "update" ]]; then
-    setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Monarch \
-      -e env "MONARCH_PATH=$runtime" "XDG_STATE_HOME=$state_home" \
-      "$runtime/bin/monarch-setup-first-steps" update-terminal "$token" 9>&- &
-  else
-    "$runtime/bin/monarch-launch-floating-terminal-with-presentation" "$command" 9>&- &
-  fi
+  local tool=$1 token=$2 launcher_pid accepted=false code=0 attempt
+  setsid uwsm-app -- xdg-terminal-exec --app-id=org.monarch.terminal --title=Monarch \
+    -e env "MONARCH_PATH=$runtime" "XDG_STATE_HOME=$state_home" \
+    "$runtime/bin/monarch-setup-first-steps" install-terminal "$tool" "$token" 9>&- &
   launcher_pid=$!
   for ((attempt = 0; attempt < 300; attempt++)); do
     if [[ -f $state_dir/installing/started ]]; then
@@ -204,11 +200,11 @@ launch_installer() {
   finish_install "$tool" "$token" "$code" launching
   exec 9>&-
   exec 8>&-
-  [[ $tool != "update" ]] || resume_guide
+  resume_guide
 }
 
 install_tool() {
-  local tool=$1 command token
+  local tool=$1 token
   installer_args "$tool"
   tool_installed "$tool" && return 0
   if [[ $tool == "update" ]]; then
@@ -218,21 +214,17 @@ install_tool() {
   exec 9>"$state_dir/install.lock"
   flock -n 9 || { echo "Another tool installation is running." >&2; return 1; }
   recover_install
-  if [[ $tool == "update" ]]; then
-    record update
-    noctalia msg plugin "$panel_id" all skip >/dev/null
-  fi
+  if [[ $tool == "update" ]]; then record update; else record software; fi
+  noctalia msg plugin "$panel_id" all skip >/dev/null
   mkdir "$state_dir/installing"
   token=$(</proc/sys/kernel/random/uuid)
   printf '%s\n' "$tool" > "$state_dir/installing/tool"
   printf '%s\n' "$token" > "$state_dir/installing/token"
   [[ ! -f $state_dir/install-result.json ]] || unlink "$state_dir/install-result.json"
   [[ $tool != "update" || ! -f $state_dir/update-result.json ]] || unlink "$state_dir/update-result.json"
-  printf -v command '%q ' env "MONARCH_PATH=$runtime" "XDG_STATE_HOME=$state_home" \
-    "$runtime/bin/monarch-setup-first-steps" run-installer "$tool" "$token"
   (
     exec 8>&-
-    launch_installer "$tool" "$token" "$command"
+    launch_installer "$tool" "$token"
   ) > "$state_dir/install-launch.log" 2>&1 &
   exec 9>&-
   exec 8>&-
@@ -269,12 +261,12 @@ resume_guide() {
   fi
 }
 
-update_terminal() {
+install_terminal() {
   local code=0
   trap 'resume_guide' EXIT
   trap 'exit 130' HUP INT TERM
   "$runtime/bin/monarch-show-logo"
-  "$runtime/bin/monarch-setup-first-steps" run-installer update "$1" || code=$?
+  "$runtime/bin/monarch-setup-first-steps" run-installer "$1" "$2" || code=$?
   if (( code != 130 )); then "$runtime/bin/monarch-show-done" "$code" || true; fi
   return "$code"
 }
@@ -295,7 +287,8 @@ case ${1:-open} in
   check-updates) "$runtime/bin/monarch-update-available" --all --json ;;
   install-tool) install_tool "${2:?A tool is required}" ;;
   run-installer) run_installer "${2:?A tool is required}" "${3:?An installation token is required}" ;;
-  update-terminal) update_terminal "${2:?An installation token is required}" ;;
+  install-terminal) install_terminal "${2:?A tool is required}" "${3:?An installation token is required}" ;;
+  update-terminal) install_terminal update "${2:?An installation token is required}" ;;
   docs) "$runtime/bin/monarch-launch-webapp" "https://docs.monarchlinux.com/" ;;
   state)
     phase="welcome"
