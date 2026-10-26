@@ -81,5 +81,8 @@ function update()
 end
 
 function onClick()
-  noctalia.runAsync(indicator.bin("monarch-launch-floating-terminal-with-presentation") .. " monarch-lazyvpn")
+  local app = indicator.pkgBin("monarch-lazyvpn")
+  -- Monarch and the optional VPN package may be upgraded independently.
+  noctalia.runAsync("if " .. app .. " --preview --help >/dev/null 2>&1; then "
+    .. app .. "; else " .. indicator.bin("monarch-launch-floating-terminal-with-presentation") .. " monarch-lazyvpn; fi")
 end

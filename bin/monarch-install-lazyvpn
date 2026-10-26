@@ -1,67 +1,8 @@
 #!/bin/bash
+# monarch:summary=Install LazyVPN (a native WireGuard multi-provider VPN manager)
 
-# monarch:summary=Install LazyVPN (a TUI WireGuard multi-provider VPN manager)
-
-echo "Installing monarch-lazyvpn..."
+set -euo pipefail
+root=$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.." && pwd)
 monarch-pkg-add monarch-lazyvpn
-
-# The package ships only the binaries (monarch-lazyvpn / monarch-lazyvpn-status),
-# so create the app-launcher entry here. monarch-remove-lazyvpn strips it via
-# monarch-tui-remove "LazyVPN". It launches in a floating Monarch terminal so it
-# matches the org.monarch.terminal niri window-rule.
-echo -e "\nAdding 'LazyVPN' to the app launcher..."
-DESKTOP_FILE="$HOME/.local/share/applications/LazyVPN.desktop"
-cat >"$DESKTOP_FILE" <<'EOF'
-[Desktop Entry]
-Version=1.0
-Name=LazyVPN
-Comment=TUI WireGuard multi-provider VPN manager
-Exec=monarch-launch-floating-terminal-with-presentation monarch-lazyvpn
-Terminal=false
-Type=Application
-Icon=network-vpn
-StartupNotify=true
-EOF
-chmod +x "$DESKTOP_FILE"
-
-# Niri keybinding (Mod+Ctrl+V, matching the Mod+Ctrl namespace of the Bluetooth
-# and Wifi controls). It goes in a DEDICATED file with its own binds{} block;
-# user.kdl only gets a one-line include. Niri merges binds across files, so this
-# never collides with another feature's binds block (one binds{} per file).
-NIRI_DIR="$HOME/.config/niri"
-mkdir -p "$NIRI_DIR"
-cat >"$NIRI_DIR/monarch-lazyvpn.kdl" <<'EOF'
-// Managed by `monarch install lazyvpn` — removed by `monarch remove lazyvpn`.
-binds {
-    Mod+Ctrl+V hotkey-overlay-title="LazyVPN controls" { spawn "monarch-launch-floating-terminal-with-presentation" "monarch-lazyvpn"; }
-}
-EOF
-
-USER_KDL="$NIRI_DIR/user.kdl"
-if [[ -f "$USER_KDL" ]] && ! grep -q 'monarch:lazyvpn:begin' "$USER_KDL"; then
-  echo -e "\nAdding the LazyVPN keybinding (Mod+Ctrl+V)..."
-  cat >>"$USER_KDL" <<'EOF'
-
-// monarch:lazyvpn:begin
-include "./monarch-lazyvpn.kdl"
-// monarch:lazyvpn:end
-EOF
-fi
-
-if pgrep -x niri >/dev/null 2>&1; then
-  niri msg action load-config-file >/dev/null 2>&1 || true
-fi
-
-# No bar wiring here. The status pill is declared by the monarch-indicators
-# Noctalia plugin (default/noctalia/plugins/monarch-indicators/lazyvpn.luau) and
-# sits in the default layout permanently, staying hidden while this package is
-# absent. v4 spliced a CustomButton into settings.json with jq at this point;
-# under v5 that would mean an install-time file restating the whole bar lane,
-# because lane arrays are replaced across .toml files rather than merged — the
-# lane would then freeze at its install-day value and never track Monarch again.
-
-echo -e "\nLazyVPN installed!"
-echo "  - Launch from app menu: LazyVPN"
-echo "  - Keyboard shortcut: WIN+CTRL+V"
-echo "  - Command line: monarch-lazyvpn"
-echo "  - Bar status widget: monarch-lazyvpn-status (shown in the Noctalia bar)"
+source "$root/install/helpers/lazyvpn.sh"
+monarch_configure_lazyvpn "$root"
