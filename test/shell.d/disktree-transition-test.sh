@@ -17,6 +17,7 @@ case "$*" in
   '-Qq')
     [[ ! -f $TEST_STATE/query-fail ]] || exit 2
     [[ ! -f $TEST_STATE/dua ]] || echo dua-cli
+    [[ ! -f $TEST_STATE/dust ]] || echo dust
     [[ ! -f $TEST_STATE/disktree ]] || echo disktree-bin
     exit 0
     ;;
@@ -29,6 +30,10 @@ case "$*" in
   '-R --noconfirm -- dua-cli')
     [[ ! -f $TEST_STATE/remove-fail ]] || exit 43
     rm "$TEST_STATE/dua"
+    ;;
+  '-R --noconfirm -- dust')
+    [[ ! -f $TEST_STATE/remove-fail ]] || exit 43
+    rm "$TEST_STATE/dust"
     ;;
   *) exit 99 ;;
 esac
@@ -96,6 +101,34 @@ run_system >/dev/null 2>&1 && fail "package database errors were ignored"
 rm "$TEST_STATE/query-fail"
 pass "transition is idempotent and package database failures propagate"
 
+touch "$TEST_STATE/dust"
+touch "$TEST_STATE/install-fail"
+run_system >/dev/null 2>&1 && fail "dust replacement install failure was hidden"
+[[ -f $TEST_STATE/dust ]] || fail "failed replacement removed dust"
+rm "$TEST_STATE/install-fail"
+run_system
+[[ -f $TEST_STATE/disktree && ! -f $TEST_STATE/dust ]] || fail "dust installation was not replaced"
+grep -qFx -- '-R --noconfirm -- dust' "$TEST_STATE/log" || fail "dust retirement used recursive/cascade removal"
+: >"$TEST_STATE/log"
+run_system
+[[ $(cat "$TEST_STATE/log") == "-Qq" ]] || fail "dust migration repeated package mutations"
+pass "legacy dust installations are replaced by Disktree"
+touch "$TEST_STATE/dua" "$TEST_STATE/dust"
+run_system
+[[ ! -f $TEST_STATE/dua && ! -f $TEST_STATE/dust ]] || fail "coexisting legacy tools were not retired"
+touch "$TEST_STATE/dust" "$TEST_STATE/broken"
+run_system >/dev/null 2>&1 && fail "broken replacement permitted dust retirement"
+[[ -f $TEST_STATE/dust ]] || fail "broken replacement removed dust"
+rm "$TEST_STATE/broken"
+touch "$TEST_STATE/remove-fail"
+run_system >/dev/null 2>&1 && fail "dust removal failure was hidden"
+[[ -f $TEST_STATE/dust ]] || fail "failed removal lost dust"
+rm "$TEST_STATE/remove-fail"
+run_system
+[[ ! -f $TEST_STATE/dust ]] || fail "dust retirement was not retried"
+pass "coexisting legacy tools and failed dust retirement remain retryable"
+rm "$TEST_STATE/disktree"
+
 launcher="$HOME/.local/share/applications/Disk Usage.desktop"
 cat >"$temporary/stock.desktop" <<'DESKTOP'
 [Desktop Entry]
@@ -124,6 +157,43 @@ ln -s "$temporary/stock.desktop" "$launcher"
 run_user
 [[ -L $launcher && -f $temporary/stock.desktop ]] || fail "user-owned symlink was changed"
 pass "only the exact stock launcher is retired, after replacement readiness"
+
+rm "$launcher"
+cat >"$temporary/dust.desktop" <<DESKTOP
+[Desktop Entry]
+Version=1.0
+Name=Disk Usage
+Comment=Disk Usage
+Exec=xdg-terminal-exec --app-id=TUI.float -e bash -c 'dust -r; read -n 1 -s'
+Terminal=false
+Type=Application
+Icon=$HOME/.local/share/applications/icons/Disk Usage.png
+StartupNotify=true
+DESKTOP
+cp "$temporary/dust.desktop" "$launcher"
+rm "$TEST_STATE/disktree"
+run_user
+[[ -f $launcher ]] || fail "dust launcher removed before replacement exists"
+touch "$TEST_STATE/disktree"
+run_user
+[[ ! -e $launcher ]] || fail "legacy dust launcher was not retired"
+cat >"$launcher" <<'DESKTOP'
+[Desktop Entry]
+Version=1.0
+Name=Disk Usage
+Exec=xdg-terminal-exec --app-id=TUI.float -e bash -c "dust -r; read -n 1 -s"
+Terminal=false
+Type=Application
+Icon=disk-usage
+StartupNotify=true
+DESKTOP
+run_user
+[[ ! -e $launcher ]] || fail "packaged dust launcher was not retired"
+cp "$temporary/dust.desktop" "$launcher"
+echo '# custom' >>"$launcher"
+run_user
+[[ -f $launcher ]] || fail "custom dust launcher was removed"
+pass "legacy dust launcher is retired safely after replacement readiness"
 
 grep -qF 'reconcile/disktree-system.sh' "$ROOT/install/reconcile/system.sh" || fail "system transition is not wired"
 grep -qF 'reconcile/disktree-user.sh' "$ROOT/install/reconcile/user.sh" || fail "user transition is not wired"
