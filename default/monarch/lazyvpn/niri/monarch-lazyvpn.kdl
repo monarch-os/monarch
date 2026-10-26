@@ -1,0 +1,10 @@
+// Managed by `monarch install lazyvpn` — removed by `monarch remove lazyvpn`.
+binds {
+  Mod+Ctrl+V hotkey-overlay-title="LazyVPN controls" { spawn "monarch-lazyvpn"; }
+}
+window-rule {
+  match app-id=r#"^monarch-lazyvpn$"#
+  open-floating true
+  default-column-width { fixed 880; }
+  default-window-height { fixed 540; }
+}

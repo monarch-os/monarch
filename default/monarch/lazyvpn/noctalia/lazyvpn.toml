@@ -1,0 +1,4 @@
+[theme.templates.user.lazyvpn]
+enabled = true
+input_path = "/usr/share/monarch-lazyvpn/noctalia/lazyvpn.json"
+output_path = "$XDG_CONFIG_HOME/monarch-lazyvpn/theme.json"
