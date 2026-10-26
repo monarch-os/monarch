@@ -564,7 +564,7 @@
     "monarch-install-gaming-xbox-cloud": "Installer Xbox Cloud Gaming comme application web et la lancer",
     "monarch-install-gaming-xbox-controllers": "Installer la prise en charge des manettes Xbox",
     "monarch-install-helix": "Installer Helix et le thème Noctalia",
-    "monarch-install-lazyvpn": "Installer LazyVPN, gestionnaire WireGuard multi-fournisseurs en terminal",
+    "monarch-install-lazyvpn": "Installer LazyVPN, gestionnaire WireGuard multi-fournisseurs graphique",
     "monarch-install-nordvpn": "Installer NordVPN avec une interface graphique optionnelle",
     "monarch-install-nvidia": "Installer et configurer le pilote NVIDIA adapté au GPU",
     "monarch-install-preinstalls": "Restaurer les logiciels préinstallés amovibles de Monarch",

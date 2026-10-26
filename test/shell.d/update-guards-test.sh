@@ -3,6 +3,7 @@ set -euo pipefail
 ROOT=$(cd -- "${BASH_SOURCE[0]%/*}/../.." && pwd)
 python3 - "$ROOT" <<'PY'
 import importlib.util
+import errno
 import fcntl
 import json
 import os
@@ -14,6 +15,7 @@ import sys
 import tempfile
 import termios
 import time
+from unittest.mock import patch
 
 repo = Path(sys.argv[1])
 with tempfile.TemporaryDirectory() as temporary:
@@ -76,10 +78,16 @@ esac
       try:
         if guards.process(pid)[0] == 'Z':
           return
-      except FileNotFoundError:
+      except (FileNotFoundError, ProcessLookupError):
         return
       time.sleep(0.02)
     raise AssertionError(f'process survived: {pid}')
+
+  for error in (FileNotFoundError(errno.ENOENT, 'No such file'),
+                ProcessLookupError(errno.ESRCH, 'No such process')):
+    with patch.object(Path, 'read_text', side_effect=error):
+      wait_dead(os.getpid())
+  print('PASS: exit before or during the procfs read counts as process termination')
 
   run('held', changes={'MONARCH_UPDATE_LOCKED': '1'}, expected=1)
   run('run', '/bin/bash', '-c', f'/usr/bin/python3 -I {helper} held')
