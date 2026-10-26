@@ -16,6 +16,25 @@ if [[ $* == 'msg status' ]]; then
   [[ ${TEST_ACTIVATION_FAILURE:-} != unavailable ]]
 elif [[ $* == "${TEST_ACTIVATION_FAILURE:-}" ]]; then
   exit 42
+elif [[ $* == 'config export merged' ]]; then
+  python3 - <<'PY'
+import os
+from pathlib import Path
+import tomllib
+
+home = Path.home()
+config = Path(os.environ.get('XDG_CONFIG_HOME') or home / '.config') / 'noctalia'
+state = Path(os.environ.get('XDG_STATE_HOME') or home / '.local/state') / 'noctalia/settings.toml'
+paths = sorted(config.glob('*.toml'))
+if state.exists():
+  paths.append(state)
+shell = {}
+for path in paths:
+  shell.update(tomllib.loads(path.read_text()).get('shell', {}))
+key = 'niri_overview_close_on_launch_enabled'
+if key in shell:
+  print(f'[shell]\n{key} = {str(shell[key]).lower()}')
+PY
 elif [[ $* == 'msg config-set shell.niri_overview_close_on_launch_enabled true' ]]; then
   mkdir -p "$XDG_STATE_HOME/noctalia"
   printf '[shell]\nniri_overview_close_on_launch_enabled = true\n' >"$XDG_STATE_HOME/noctalia/settings.toml"
@@ -55,7 +74,9 @@ export PATH="$test_tmp/bin:/usr/bin" MONARCH_RECONCILE_BIN="$test_tmp/bin/comple
       printf '[shell]\nniri_overview_close_on_launch_enabled = %s\n' "$value" >"$file"
       : >"$test_tmp/calls"
       monarch_noctalia_reconcile_overview
-      [[ ! -s $test_tmp/calls ]] || fail "explicit $value in $file is preserved"
+      if grep -q '^msg config-set ' "$test_tmp/calls"; then
+        fail "explicit $value in $file is preserved"
+      fi
     done
     rm "$file"
   done
@@ -64,7 +85,9 @@ export PATH="$test_tmp/bin:/usr/bin" MONARCH_RECONCILE_BIN="$test_tmp/bin/comple
   if monarch_noctalia_reconcile_overview 2>/dev/null; then
     fail "malformed configuration must not be treated as an absent preference"
   fi
-  [[ ! -s $test_tmp/calls ]] || fail "invalid configuration causes no IPC writes"
+  if grep -q '^msg config-set ' "$test_tmp/calls"; then
+    fail "invalid configuration causes no IPC writes"
+  fi
   rm "$overlay"
   if TEST_ACTIVATION_FAILURE='msg config-set shell.niri_overview_close_on_launch_enabled true' \
     monarch_noctalia_reconcile_overview; then
@@ -146,7 +169,7 @@ for entrypoint in first-run reconcile deferred; do
   grep '^msg plugins enable ' "$test_tmp/calls" | sort >"$test_tmp/$entrypoint-plugins"
   [[ ! -e $hook ]]
 
-  for failure in unavailable 'msg config-set shell.niri_overview_close_on_launch_enabled true' 'config export full' 'msg plugins enable monarch/menu' 'msg config-reload'; do
+  for failure in unavailable 'config export merged' 'msg config-set shell.niri_overview_close_on_launch_enabled true' 'config export full' 'msg plugins enable monarch/menu' 'msg config-reload'; do
     rm -f "$XDG_STATE_HOME/noctalia/settings.toml"
     export TEST_ACTIVATION_FAILURE="$failure"
     rm -f "$test_tmp/completed"
