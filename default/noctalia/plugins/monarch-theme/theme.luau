@@ -124,9 +124,9 @@ local function listView()
   return ui.row({ width = 217, gap = 7, align = "start" }, {
     ui.column({ width = 205, gap = 3 }, children),
     ui.column({ width = 5, height = TRACK_HEIGHT, gap = 0 }, {
-      ui.box({ width = 5, height = top, fill = "outline/0.16", radius = 3 }),
+      ui.box({ width = 5, height = top, fill = "outline_variant/0.16", radius = 3 }),
       ui.box({ width = 5, height = thumbHeight, fill = "primary/0.65", radius = 3 }),
-      ui.box({ width = 5, height = bottom, fill = "outline/0.16", radius = 3 }),
+      ui.box({ width = 5, height = bottom, fill = "outline_variant/0.16", radius = 3 }),
     }),
   })
 end

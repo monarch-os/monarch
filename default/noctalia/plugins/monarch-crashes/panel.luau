@@ -231,7 +231,7 @@ end
 
 local function row(crash)
   return ui.row({ key = crash.id, padding = 10, gap = 12,
-    fill = "surface_variant", radius = 8, align = "center" }, {
+    fill = "surface_container", radius = 8, align = "center" }, {
     ui.column({ gap = 3, flexGrow = 1 }, {
       ui.label({ text = crash.application, fontSize = 14, fontWeight = "bold", color = "on_surface", maxLines = 1 }),
       label(crash.date .. " · " .. crash.signal, 11, "on_surface/0.65", 1),
@@ -262,7 +262,7 @@ local function content()
     return {
       label(selected.application, 24),
       label(selected.date, 12, "on_surface/0.65"),
-      ui.row({ padding = 12, radius = 8, fill = "surface_variant", gap = 12 }, {
+      ui.row({ padding = 12, radius = 8, fill = "surface_container", gap = 12 }, {
         ui.column({ flexGrow = 1, gap = 4 }, {
           label("Signal", 11, "on_surface/0.65"), label(selected.signal, 15),
         }),
