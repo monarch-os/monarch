@@ -47,6 +47,16 @@ exit "${GUI_FAILURE:-0}"
 echo "monarch-lazyvpn ${VERSION:-0.2.0-1}"
 ''')
     stub('monarch-pkg-add', 'exit "${PKG_FAILURE:-0}"\n')
+    stub('vercmp', '''
+[[ $2 == "0.2.0" ]] || exit 2
+[[ ${VERCMP_FAILURE:-0} == 0 ]] || exit 3
+case $1 in
+  0.1.5-1 | 0.2.0rc1-1) echo -1 ;;
+  0.2.0) echo 0 ;;
+  0.2.0-1 | 0.2.0-12 | 0.10.0-1 | 1:0.2.0-1) echo 1 ;;
+  *) exit 2 ;;
+esac
+''')
     stub('monarch-pkg-drop', 'exit "${PKG_FAILURE:-0}"\n')
     stub('pgrep', 'exit 1\n')
     stub('monarch-cmd-present', 'exit 1\n')
@@ -71,10 +81,11 @@ echo "monarch-lazyvpn ${VERSION:-0.2.0-1}"
         return result
 
     reconcile = f'source "{root}/install/reconcile/lazyvpn.sh"; monarch_reconcile_lazyvpn "{root}"'
-    for overrides in ({'MISSING': '1'}, {'VERSION': '0.1.5-1'}, {'OLD_BACKEND': '1'}):
+    for overrides in ({'MISSING': '1'}, {'VERSION': '0.1.5-1'}, {'VERSION': '0.2.0rc1-1'}, {'OLD_BACKEND': '1'}):
         run(reconcile, **overrides)
         assert target.read_text() == 'old shortcut\n' and legacy.exists()
     run(reconcile, success=False)
+    run(reconcile, success=False, VERCMP_FAILURE='1')
     assert target.read_text() == 'old shortcut\n' and legacy.exists()
     print('ok - absent/old/incomplete packages preserve the previous integration')
 

@@ -1,5 +1,6 @@
 path	feature	risk	environment
 test/monarch-todo-test.sh	todo	medium	isolated
+test/monarch-lazyvpn-test.sh	lazyvpn	medium	isolated
 test/shell.d/exegol-helpers-test.sh	exegol	medium	isolated
 test/shell.d/exegol-shared-env-test.sh	exegol	high	isolated
 test/shell.d/exegol-reconcile-test.sh	exegol	high	isolated
