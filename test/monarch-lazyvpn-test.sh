@@ -64,13 +64,14 @@ esac
     env = dict(os.environ, HOME=str(home), XDG_CONFIG_HOME=str(home / 'config'),
                XDG_DATA_HOME=str(home / 'data'), PATH=f'{bins}:{root}/bin:' + os.environ['PATH'])
     config, data = Path(env['XDG_CONFIG_HOME']), Path(env['XDG_DATA_HOME'])
-    target = config / 'niri/monarch-lazyvpn.kdl'
+    niri = home / '.config/niri'
+    target = niri / 'monarch-lazyvpn.kdl'
     target.parent.mkdir(parents=True)
     target.write_text('old shortcut\n')
     legacy = data / 'applications/LazyVPN.desktop'
     legacy.parent.mkdir(parents=True)
     legacy.write_text('Exec=monarch-launch-floating-terminal-with-presentation monarch-lazyvpn\n')
-    (config / 'monarch-lazyvpn').mkdir()
+    (config / 'monarch-lazyvpn').mkdir(parents=True)
     profile = config / 'monarch-lazyvpn/profile.conf'
     profile.write_text('preserve me')
 
@@ -97,7 +98,8 @@ esac
     assert 'spawn "monarch-lazyvpn";' in target.read_text()
     assert 'fixed 880' in target.read_text() and 'fixed 540' in target.read_text()
     assert target.with_suffix('.kdl.pre-gpui').read_text() == 'old shortcut\n'
-    user = config / 'niri/user.kdl'
+    user = niri / 'user.kdl'
+    assert not (config / 'niri').exists()
     assert user.read_text().count('include "./monarch-lazyvpn.kdl"') == 1
     assert not legacy.exists() and legacy.with_suffix('.desktop.pre-gpui').exists()
     assert (config / 'noctalia/lazyvpn.toml').is_file()

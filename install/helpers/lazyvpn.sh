@@ -14,6 +14,7 @@ monarch_configure_lazyvpn() {
   for relative in niri/monarch-lazyvpn.kdl noctalia/lazyvpn.toml; do
     source="$root/default/monarch/lazyvpn/$relative"
     target="$config_dir/$relative"
+    [[ $relative != niri/* ]] || target="$HOME/.config/$relative"
     mkdir -p "$(dirname "$target")"
     if ! cmp -s "$source" "$target"; then
       if [[ -f $target && ! -e $target.pre-gpui ]]; then
@@ -22,7 +23,7 @@ monarch_configure_lazyvpn() {
       install -m 0644 "$source" "$target" || return
     fi
   done
-  target="$config_dir/niri/user.kdl"
+  target="$HOME/.config/niri/user.kdl"
   touch "$target"
   if ! grep -Eq '^[[:space:]]*include[[:space:]]+"\./monarch-lazyvpn\.kdl"' "$target"; then
     cat >>"$target" <<'EOF'

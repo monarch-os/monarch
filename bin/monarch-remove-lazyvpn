@@ -7,8 +7,8 @@ monarch-pkg-drop monarch-lazyvpn
 config_dir=${XDG_CONFIG_HOME:-$HOME/.config}
 data_dir=${XDG_DATA_HOME:-$HOME/.local/share}
 rm -f "$data_dir/applications/LazyVPN.desktop"
-rm -f "$config_dir/niri/monarch-lazyvpn.kdl" "$config_dir/noctalia/lazyvpn.toml"
-user_kdl="$config_dir/niri/user.kdl"
+rm -f "$HOME/.config/niri/monarch-lazyvpn.kdl" "$config_dir/noctalia/lazyvpn.toml"
+user_kdl="$HOME/.config/niri/user.kdl"
 if [[ -f $user_kdl ]]; then
   sed -i '/\/\/ monarch:lazyvpn:begin/,/\/\/ monarch:lazyvpn:end/d; /^[[:space:]]*include[[:space:]]*"\.\/monarch-lazyvpn\.kdl"[[:space:]]*$/d' "$user_kdl"
 fi
