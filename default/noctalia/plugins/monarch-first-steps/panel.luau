@@ -103,7 +103,7 @@ local function label(text, size, color)
 end
 
 local function entry(number, title, detail)
-  return ui.row({ gap = 10, padding = 10, radius = 8, fill = "surface_variant", align = "center" }, {
+  return ui.row({ gap = 10, padding = 10, radius = 8, fill = "surface_container", align = "center" }, {
     ui.label({ text = number, fontSize = 16, color = "primary", width = 22 }),
     ui.column({ gap = 2, flexGrow = 1 }, {
       ui.label({ text = title, fontSize = 13, fontWeight = "bold", color = "on_surface" }),
@@ -142,7 +142,7 @@ local function toolRow(tool)
   local present = installed[tool.id] == true
   local busy = activeTool == tool.id
   local text = busy and "En cours…" or "Installer"
-  return ui.row({ key = tool.id, gap = 10, padding = 8, radius = 8, fill = "surface_variant", align = "center" }, {
+  return ui.row({ key = tool.id, gap = 10, padding = 8, radius = 8, fill = "surface_container", align = "center" }, {
     ui.column({ flexGrow = 1, gap = 2 }, {
       ui.label({ text = tool.name, fontSize = 13, fontWeight = "bold", color = "on_surface" }),
       label(tool.detail, 11, "on_surface/0.65"),
@@ -260,7 +260,7 @@ local function content()
           :gsub("Space", "Espace"):gsub("Return", "Entrée"):gsub("Win Alt", "Win + Alt")
           :gsub("%s*%+%s*", " + ")
         table.insert(children, ui.row({ key = binding.label, padding = 10, gap = 12,
-          radius = 8, fill = "surface_variant", align = "center" }, {
+          radius = 8, fill = "surface_container", align = "center" }, {
           ui.label({ text = name, fontSize = 13, color = "on_surface", flexGrow = 1 }),
           ui.label({ text = shortcut, fontSize = 12, color = "primary", maxLines = 1 }),
         }))

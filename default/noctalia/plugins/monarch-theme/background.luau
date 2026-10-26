@@ -151,7 +151,7 @@ local function thumbnailList()
       fill = active and "primary/0.16" or "primary/0",
       onClick = function() choose(index) end,
     }, {
-      ui.image({ path = background.thumbnail, width = 210, height = 96, fit = "cover", radius = 7, border = active and "primary" or "outline", borderWidth = active and 2 or 1 }),
+      ui.image({ path = background.thumbnail, width = 210, height = 96, fit = "cover", radius = 7, border = active and "primary" or "outline_variant", borderWidth = active and 2 or 1 }),
       ui.row({ align = "center", gap = 5 }, {
         ui.label({ text = background.name, fontSize = 10, color = active and "primary" or "on_surface_variant", flexGrow = 1 }),
         background.current and ui.label({ text = "✓", color = "primary" }) or ui.spacer({ width = 0 }),
@@ -170,9 +170,9 @@ local function thumbnailList()
   return ui.row({ width = 232, gap = 7, align = "start" }, {
     ui.column({ width = 220, gap = 5 }, children),
     ui.column({ width = 5, height = TRACK_HEIGHT, gap = 0 }, {
-      ui.box({ width = 5, height = top, fill = "outline/0.16", radius = 3 }),
+      ui.box({ width = 5, height = top, fill = "outline_variant/0.16", radius = 3 }),
       ui.box({ width = 5, height = thumbHeight, fill = "primary/0.65", radius = 3 }),
-      ui.box({ width = 5, height = bottom, fill = "outline/0.16", radius = 3 }),
+      ui.box({ width = 5, height = bottom, fill = "outline_variant/0.16", radius = 3 }),
     }),
   })
 end
