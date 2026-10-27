@@ -124,7 +124,6 @@ sys.exit(int(os.environ.get(name.upper() + "_STATUS", "0")))
     result, calls = run([str(installer)])
     assert calls == [
         ["pipx", "install", "--python", "3.14", "--fetch-missing-python", "exegol"],
-        ["monarch-install-pentestenv"],
     ], calls
     run([str(installer)], extra={"PIPX_STATUS": "19"}, expected=19)
     for menu in ("exegol", "pentestenv"):
@@ -133,5 +132,5 @@ sys.exit(int(os.environ.get(name.upper() + "_STATUS", "0")))
         assert "pipx install exegol" not in source
     assert 'exec monarch-launch-docker-session monarch-pentestenv' in (root / "bin/monarch-menu-pentestenv").read_text()
 
-print("SkillArch fixes: Bash/Zsh UDP, URL boundaries, server guard and Exegol runtime passed")
+print("Shell network and Exegol: Bash/Zsh UDP, URL boundaries, server guard and isolated runtime passed")
 PY

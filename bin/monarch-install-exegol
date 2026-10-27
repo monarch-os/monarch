@@ -6,4 +6,3 @@ set -euo pipefail
 
 # Exegol is not compatible with the newest rolling-release Python runtimes.
 pipx install --python 3.14 --fetch-missing-python exegol
-monarch-install-pentestenv
