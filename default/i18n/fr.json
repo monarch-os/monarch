@@ -165,6 +165,8 @@
     "common.open": "Ouvrir"
   },
   "menu": {
+    "install.cyber.pentestenv.label": "PentestEnv",
+    "remove.service.pentestenv.label": "PentestEnv",
     "setup.defaults.agent.hermes.label": "Hermes",
     "install.ai.hermes.label": "Hermes Desktop",
     "remove.ai.hermes.label": "Hermes Desktop",

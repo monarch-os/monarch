@@ -30,7 +30,7 @@ if name == "sudo":
     print(os.environ.get("SOCKETS", 'tcp LISTEN 0 128 127.0.0.1:8080 0.0.0.0:* users:(("caido",pid=4218,fd=3))\\nudp UNCONN 0 0 127.0.0.53:53 0.0.0.0:* users:(("systemd-resolve",pid=611,fd=4))\\ntcp LISTEN 0 128 [::1]:631 [::]:*\\ntcp LISTEN 0 128 *:22 *:* users:(("sshd",pid=842,fd=3),("systemd",pid=1,fd=4))'))
 sys.exit(int(os.environ.get(name.upper() + "_STATUS", "0")))
 '''
-    for name in ("curl", "mkdir", "python", "sudo", "pipx"):
+    for name in ("curl", "mkdir", "python", "sudo", "pipx", "monarch-install-pentestenv"):
         command = tools / name
         command.write_text(stub)
         command.chmod(0o755)
@@ -122,12 +122,16 @@ sys.exit(int(os.environ.get(name.upper() + "_STATUS", "0")))
 
     installer = root / "bin/monarch-install-exegol"
     result, calls = run([str(installer)])
-    assert calls == [["pipx", "install", "--python", "3.14", "--fetch-missing-python", "exegol"]], calls
+    assert calls == [
+        ["pipx", "install", "--python", "3.14", "--fetch-missing-python", "exegol"],
+        ["monarch-install-pentestenv"],
+    ], calls
     run([str(installer)], extra={"PIPX_STATUS": "19"}, expected=19)
     for menu in ("exegol", "pentestenv"):
         source = (root / f"bin/monarch-menu-{menu}").read_text()
         assert "&& monarch-install-exegol" in source
         assert "pipx install exegol" not in source
+    assert 'exec monarch-launch-docker-session monarch-pentestenv' in (root / "bin/monarch-menu-pentestenv").read_text()
 
 print("SkillArch fixes: Bash/Zsh UDP, URL boundaries, server guard and Exegol runtime passed")
 PY
