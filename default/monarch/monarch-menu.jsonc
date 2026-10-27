@@ -361,6 +361,7 @@
   // Install > Cyber
   "install.cyber.burpsuite": {"icon":"","action":"monarch-launch-floating-terminal-with-presentation monarch-install-burp","disabled":"[[ -d /opt/BurpSuiteCommunity || -d /opt/BurpSuitePro ]]"},
   "install.cyber.rfswift": {"icon":"","action":"monarch-launch-floating-terminal-with-presentation monarch-install-rfswift","disabled":"monarch-cmd-present rfswift"},
+  "install.cyber.pentestenv": {"icon":"","action":"monarch-launch-floating-terminal-with-presentation monarch-install-pentestenv","disabled":"monarch-pkg-present monarch-pentestenv"},
   "install.cyber.strix": {"icon":"󰨈","action":"monarch-launch-floating-terminal-with-presentation \"pipx install strix-agent\"","disabled":"monarch-cmd-present strix"},
   "install.cyber.wordlists": {"icon":"󱉟","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Seclists from AUR...'; monarch-pkg-aur-add seclists\"","disabled":"monarch-pkg-present seclists"},
   "install.remove": {"icon":"󰭌","target":"remove"},
@@ -391,6 +392,7 @@
 
   "remove.service.tailscale": {"icon":"","when":"monarch-pkg-present tailscale","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-service-tailscale"},
   "remove.service.lazyvpn": {"icon":"󰖂","when":"monarch-pkg-present monarch-lazyvpn","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-lazyvpn"},
+  "remove.service.pentestenv": {"icon":"","when":"monarch-pkg-present monarch-pentestenv","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-pentestenv"},
   "remove.service.displaylink": {"icon":"󰹑","when":"monarch-pkg-present displaylink","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-displaylink"},
 
   // Remove > Security

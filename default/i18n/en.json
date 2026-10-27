@@ -450,6 +450,8 @@
     "install.development.elixir.phoenix.label": "Phoenix",
     "install.cyber.burpsuite.label": "Burpsuite",
     "install.cyber.rfswift.label": "RFSwift",
+    "install.cyber.pentestenv.label": "PentestEnv",
+    "remove.service.pentestenv.label": "PentestEnv",
     "install.cyber.strix.label": "Strix",
     "install.cyber.wordlists.label": "Wordlists",
     "install.remove.label": "Remove software",
