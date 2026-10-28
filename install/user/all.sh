@@ -4,7 +4,7 @@ run_logged "$MONARCH_INSTALL/user/xcompose.sh"
 run_logged "$MONARCH_INSTALL/user/mise-work.sh"
 
 # Monarch desktop adapters: Niri keyboard generation and MIME defaults are
-# dynamic user state and cannot be seeded by monarch-settings.
+# dynamic user state and cannot be seeded by the package.
 run_logged "$MONARCH_INSTALL/user/detect-keyboard-layout.sh"
 run_logged "$MONARCH_INSTALL/user/niri.sh"
 run_logged "$MONARCH_INSTALL/user/exegol.sh"

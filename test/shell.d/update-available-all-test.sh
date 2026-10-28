@@ -115,13 +115,13 @@ run_check --json
 (( code == 0 )) || fail "JSON-only keeps the Monarch-only scope"
 jq -e '.scope == "monarch" and .count == 1 and .packages[0].name == "monarch"' "$test_tmp/result" >/dev/null
 [[ ! -e $test_tmp/pacman-called && ! -e $test_tmp/aur-called ]] || fail "JSON-only queries the AUR"
-printf 'monarch-settings 1 -> 2\nlinux-cachyos 6.1 -> 6.2\n' > "$test_tmp/repositories"
+printf 'monarch-keyring 1 -> 2\nlinux-cachyos 6.1 -> 6.2\n' > "$test_tmp/repositories"
 run_check --json
-(( code == 1 )) || fail "settings-only updates do not change the legacy scope"
+(( code == 1 )) || fail "similarly named packages do not change the Monarch-only scope"
 jq -e '.status == "current" and .count == 0 and .packages == []' "$test_tmp/result" >/dev/null
 run_check --json --all
 (( code == 0 )) || fail "option order does not change the combined scope"
-jq -e '.count == 3 and .counts == {monarch:1,repo:1,aur:1} and .packages[0].name == "monarch-settings"' "$test_tmp/result" >/dev/null
+jq -e '.count == 3 and .counts == {monarch:0,repo:2,aur:1} and .packages[0].name == "monarch-keyring"' "$test_tmp/result" >/dev/null
 run_check --all
 (( code == 0 )) || fail "all-package text mode reports available upgrades"
 grep -q '3' "$test_tmp/result" || fail "text output includes the update count"

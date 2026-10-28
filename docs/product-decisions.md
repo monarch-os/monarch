@@ -73,6 +73,13 @@ latency and throughput remain scoped to that output, not to every interface.
 
 ## Package conflicts
 
+The desktop runtime and defaults ship together in `monarch`. The ISO consumes
+selected assets without installing the desktop into its live environment.
+`monarch-settings` remains only as an empty upgrade bridge, built from the same
+recipe: upgrading its old file ownership avoids deactivating local configuration
+as `.pacsave`. Reconciliation removes that bridge once it owns no files. Keep
+support for nonempty legacy settings until the two-package upgrade window ends.
+
 An interactive update may retry a package conflict so the user can answer
 Pacman's replacement question. An unattended update stops when an answer is
 needed. Filesystem conflicts stop the update and preserve the live files;

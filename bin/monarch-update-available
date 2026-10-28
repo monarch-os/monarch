@@ -84,7 +84,7 @@ package_rows() {
     [[ -n $installed && $arrow == "->" && -n $available ]] || return 1
     [[ -z $extra || ( $2 == "aur" && $extra =~ $age_pattern ) ]] || return 1
     category=$2
-    if [[ $category == "repo" && ( $package == "monarch" || $package == "monarch-settings" ) ]]; then
+    if [[ $category == "repo" && $package == "monarch" ]]; then
       category="monarch"
     fi
     printf '%s\t%s\t%s\t%s\n' "$package" "$category" "$installed" "$available"

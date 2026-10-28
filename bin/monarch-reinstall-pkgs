@@ -13,7 +13,7 @@ monarch-refresh-pacman
 # Downgrade any packages to the stable setup
 monarch-update-pacman -Suu --noconfirm
 
-monarch-update-pacman -S --noconfirm monarch monarch-settings
+monarch-update-pacman -S --noconfirm monarch
 
 # Ensure all packages are installed
 source "$MONARCH_PATH/install/helpers/package-manifest.sh"
