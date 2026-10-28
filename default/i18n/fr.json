@@ -1,5 +1,6 @@
 {
   "strings": {
+    "pentestenv.missing": "Installez PentestEnv avec : monarch install pentestenv",
     "updates.indicator.available": "Mises à jour disponibles",
     "updates.indicator.repositories": "Dépôts",
     "updates.indicator.unknown": "non vérifié",
@@ -165,7 +166,14 @@
     "common.open": "Ouvrir"
   },
   "menu": {
-    "install.cyber.pentestenv.label": "PentestEnv",
+    "install.cyber.pentest.label": "Environnements pentest",
+    "install.cyber.pentest.title": "Environnements pentest",
+    "install.cyber.pentest.pentestenv.label": "PentestEnv",
+    "install.cyber.pentest.pentestenv.description": "Gestionnaire graphique pour Exegol et RF Swift",
+    "install.cyber.pentest.exegol.label": "Exegol",
+    "install.cyber.pentest.exegol.description": "Installer uniquement le moteur Exegol",
+    "install.cyber.pentest.rfswift.label": "RF Swift",
+    "install.cyber.pentest.rfswift.description": "Installer uniquement le moteur RF Swift",
     "remove.service.pentestenv.label": "PentestEnv",
     "setup.defaults.agent.hermes.label": "Hermes",
     "install.ai.hermes.label": "Hermes Desktop",
@@ -598,14 +606,12 @@
     "monarch-launch-tui": "Lancer une interface en terminal avec le style Monarch",
     "monarch-launch-webapp": "Ouvrir une URL comme application web dans le navigateur pris en charge",
     "monarch-launch-wifi": "Ouvrir le panneau réseau de Noctalia",
-    "monarch-menu-exegol": "Afficher le gestionnaire Exegol",
     "monarch-menu-file": "Choisir un fichier dans le panneau Monarch",
     "monarch-menu-herdr-keybindings": "Afficher les raccourcis Herdr avec recherche dans le panneau Monarch",
     "monarch-menu-input": "Demander une saisie de texte dans le menu Monarch",
     "monarch-menu-keybindings": "Afficher les raccourcis Niri avec recherche dans le panneau Monarch",
     "monarch-menu": "Ouvrir le menu Monarch ou accéder directement à un sous-menu",
     "monarch-menu-pentestenv": "Gérer les environnements de pentest Exegol et RFSwift",
-    "monarch-menu-rfswift": "Afficher le gestionnaire RFSwift",
     "monarch-menu-select": "Choisir une option dans le menu Monarch",
     "monarch-migrate": "Alias de compatibilité pour la réconciliation de l’état",
     "monarch-mise-install": "Installer un wrapper d’outil géré par mise",

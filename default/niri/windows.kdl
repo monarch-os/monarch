@@ -128,8 +128,7 @@ window-rule {
     default-window-height { fixed 520; }
 }
 
-// Pentest env manager (GPUI, with the legacy fzf picker as a fallback).
-// Keep a dedicated app-id and a fitted floating size.
+// Native PentestEnv window.
 window-rule {
     match app-id="org.monarch.pentest"
     open-floating true

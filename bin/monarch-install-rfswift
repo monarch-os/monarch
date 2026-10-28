@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # monarch:summary=Install RFSwift to hack the radio planet.
+# monarch:hidden=true
 # monarch:requires-sudo=true
 
 set -euo pipefail

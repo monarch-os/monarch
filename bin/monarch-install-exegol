@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # monarch:summary=Install Exegol with an isolated, supported Python runtime
+# monarch:hidden=true
 
 set -euo pipefail
 

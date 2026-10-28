@@ -1,5 +1,6 @@
 {
   "strings": {
+    "pentestenv.missing": "Install PentestEnv with: monarch install pentestenv",
     "updates.indicator.available": "Updates available",
     "updates.indicator.repositories": "Repositories",
     "updates.indicator.unknown": "not checked",
@@ -449,8 +450,14 @@
     "install.development.elixir.elixir.label": "Elixir",
     "install.development.elixir.phoenix.label": "Phoenix",
     "install.cyber.burpsuite.label": "Burpsuite",
-    "install.cyber.rfswift.label": "RFSwift",
-    "install.cyber.pentestenv.label": "PentestEnv",
+    "install.cyber.pentest.label": "Pentest environments",
+    "install.cyber.pentest.title": "Pentest environments",
+    "install.cyber.pentest.pentestenv.label": "PentestEnv",
+    "install.cyber.pentest.pentestenv.description": "Graphical manager for Exegol and RF Swift",
+    "install.cyber.pentest.exegol.label": "Exegol",
+    "install.cyber.pentest.exegol.description": "Install the Exegol engine only",
+    "install.cyber.pentest.rfswift.label": "RF Swift",
+    "install.cyber.pentest.rfswift.description": "Install the RF Swift engine only",
     "remove.service.pentestenv.label": "PentestEnv",
     "install.cyber.strix.label": "Strix",
     "install.cyber.wordlists.label": "Wordlists",

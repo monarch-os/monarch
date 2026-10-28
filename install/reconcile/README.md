@@ -3,6 +3,16 @@
 Reconciliation converges supported installations onto the current packaged
 state. It does not replay a permanent history of releases.
 
+PentestEnv is optional. Its user reconciliation runs only with the package
+installed and requires its executable and Noctalia template before changing
+legacy shortcuts. The dedicated Niri binding and Noctalia overlay are seeded;
+customized copies remain user-owned. The include precedes user bindings, so
+custom shortcuts win. Only the exact former stock Ctrl+Alt+E line is retired,
+with a backup; copied configurations must include user.kdl before that line
+can be removed. Removal deletes only recognized stock integration, preserving
+the cached palette, engines, containers and workspaces. No engine or application
+is installed automatically by reconciliation.
+
 Every file written below the user's home must have one ownership model:
 
 - **Managed file:** Monarch owns the complete file and may replace it on every
