@@ -126,10 +126,6 @@ sys.exit(int(os.environ.get(name.upper() + "_STATUS", "0")))
         ["pipx", "install", "--python", "3.14", "--fetch-missing-python", "exegol"],
     ], calls
     run([str(installer)], extra={"PIPX_STATUS": "19"}, expected=19)
-    for menu in ("exegol", "pentestenv"):
-        source = (root / f"bin/monarch-menu-{menu}").read_text()
-        assert "&& monarch-install-exegol" in source
-        assert "pipx install exegol" not in source
     assert 'exec monarch-launch-docker-session monarch-pentestenv' in (root / "bin/monarch-menu-pentestenv").read_text()
 
 print("Shell network and Exegol: Bash/Zsh UDP, URL boundaries, server guard and isolated runtime passed")

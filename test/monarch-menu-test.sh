@@ -485,7 +485,14 @@ fi
 pass "install rows carry a presence guard"
 
 output=$(jq -r '[.tree[] | select(.id | startswith("install.cyber.")) | select(.disabled)] | length' <<<"$STATE")
-assert_equals "every Cyber install row carries a presence guard" "$output" "5"
+assert_equals "every Cyber install row carries a presence guard" "$output" "6"
+
+output=$(jq -r '.[] | select(.id | startswith("install.cyber.pentest.")) | .label' <<<"$SHIPPED_TREE" | paste -sd '|' -)
+assert_equals "PentestEnv leads the independent pentest installers" "$output" "PentestEnv|Exegol|RF Swift"
+output=$(jq -r '.tree[] | select(.id == "install.cyber.pentest.pentestenv") | .disabled' <<<"$STATE")
+assert_equals "PentestEnv presence is independent of its engines" "$output" "monarch-pkg-present monarch-pentestenv"
+output=$(jq -r '[.tree[] | select(.id == "install.cyber.rfswift" or .id == "install.cyber.exegol")] | length' <<<"$STATE")
+assert_equals "engine installers are grouped below one submenu" "$output" "0"
 
 output=$(jq -r '[.tree[] | select(.id | startswith("install.")) | select(.when)] | length' <<<"$STATE")
 assert_equals "install rows never hide with when" "$output" "0"

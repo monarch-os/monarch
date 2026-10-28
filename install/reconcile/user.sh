@@ -14,6 +14,7 @@ source "$MONARCH_PATH/install/reconcile/about-branding.sh"
 source "$MONARCH_PATH/install/reconcile/noctalia-activation.sh"
 source "$MONARCH_PATH/install/reconcile/todo.sh"
 source "$MONARCH_PATH/install/reconcile/lazyvpn.sh"
+source "$MONARCH_PATH/install/reconcile/pentestenv.sh"
 source "$MONARCH_PATH/install/reconcile/chromium-flags.sh"
 source "$MONARCH_PATH/install/reconcile/mise.sh"
 source "$MONARCH_PATH/install/reconcile/nvidia-env.sh"
@@ -96,3 +97,4 @@ fi
 # The optional todo package handles its own plugin activation and legacy copies.
 monarch_reconcile_todo "$MONARCH_PATH"
 monarch_reconcile_lazyvpn "$MONARCH_PATH"
+monarch_reconcile_pentestenv "$MONARCH_PATH"

@@ -134,6 +134,7 @@ test/shell.d/plymouth-theme-ownership-test.sh	package-runtime	high	isolated
 test/shell.d/vconsole-initramfs-test.sh	boot-encryption	high	isolated
 test/shell.d/vconsole-reconcile-test.sh	boot-encryption	high	isolated
 test/shell.d/pentest-docker-access-test.sh	docker-security	high	isolated
+test/shell.d/pentestenv-transition-test.sh	shell	medium	isolated
 test/shell.d/plocate-config-test.sh	package-runtime	medium	isolated
 test/shell.d/provision-owner-branding-test.sh	provisioning	low	isolated
 test/shell.d/provision-user-test.sh	provisioning	high	isolated
