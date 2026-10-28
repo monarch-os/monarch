@@ -401,7 +401,8 @@ retire_factory_printer_discovery() {
     fail "invalid factory cups-browsed enablement path: $unit_link"
   fi
 
-  if query_output=$(LC_ALL=C "$pacman_bin" --root "$root" -Qq cups-browsed 2>&1); then
+  # Offline factory snapshots have no sync databases; query only their local state.
+  if query_output=$(LC_ALL=C "$pacman_bin" --config /dev/null --root "$root" -Qq cups-browsed 2>&1); then
     [[ $query_output == cups-browsed ]] ||
       fail "unexpected factory cups-browsed package query result: $query_output"
     package_installed=true
@@ -496,6 +497,24 @@ stage_current_apple_display_access() {
   install -m 0644 -T "$lifecycle_source" "$lifecycle_target"
 }
 
+stage_current_owner_provisioning() {
+  local root="$1" source="${2:-/usr/share/monarch}" relative target
+  local -a files=(bin/monarch-provision-owner install/provisioning/setup-form.sh)
+  for relative in "${files[@]}"; do
+    target="$root/usr/share/monarch/$relative"
+    [[ -f $source/$relative && -d ${target%/*} && ! -L ${target%/*} && ! -d $target ]] ||
+      fail "cannot stage current first-boot provisioning: $relative"
+  done
+  for relative in "${files[@]}"; do
+    target="$root/usr/share/monarch/$relative"
+    rm -f -- "$target"
+    case $relative in
+      bin/*) install -m 0755 -T "$source/$relative" "$target" ;;
+      *) install -m 0644 -T "$source/$relative" "$target" ;;
+    esac
+  done
+}
+
 stage_full_reset() {
   local top="$TOP_MNT" next="$TOP_MNT/$NEXT_NAME"
 
@@ -509,6 +528,8 @@ stage_full_reset() {
   local unit_src="$next/usr/share/monarch/install/provisioning"
   [[ -f $unit_src/monarch-provision-owner.service && -x $next/usr/bin/monarch-provision-owner ]] ||
     fail "the factory snapshot predates provisioning support; cannot reset from it"
+  # The snapshot may still contain the first-boot code that erased shared ESP entries.
+  stage_current_owner_provisioning "$next"
 
   log "Scrubbing machine identity from the factory system"
   systemd-id128 new >"$next/etc/machine-id"

@@ -881,11 +881,6 @@ rekey_luks() {
   shred -u "$PROVISIONING_DIR/luks-key" 2>/dev/null || rm -f "$PROVISIONING_DIR/luks-key"
 }
 
-# Start the ESP's limine.conf over from the shipped template and drop foreign
-# machine-id state before rebuilding. limine-entry-tool keys OS entries by
-# machine-id: after a factory reset gave this machine a fresh identity, the
-# previous system's entry would survive the rebuild with a stale UKI hash,
-# sort first, and make Limine stop at a hash-mismatch warning.
 esp_path() {
   local esp=""
   if [[ -f /etc/default/limine ]]; then
@@ -894,50 +889,87 @@ esp_path() {
   echo "${esp:-/boot}"
 }
 
-# A factory reset gives the machine a fresh machine-id, but limine-entry-tool
-# keys its limine.conf entries by machine-id — entries from the previous
-# identity would linger and go hash-stale on the first UKI rebuild.
+limine_entries() {
+  local config="$1" mode="$2" current_id="${3:-}"
+  awk -v mode="$mode" -v current_id="$current_id" '
+    function flush( id, lines, count, i, value, owned, foreign, ambiguous) {
+      if (block == "") return
+      id = ""
+      count = split(block, lines, "\n")
+      for (i = 1; i <= count; i++) {
+        if (match(lines[i], /^[ \t]*comment:[ \t]*machine-id=[0-9a-f]+([ \t]|$)/)) {
+          value = substr(lines[i], RSTART, RLENGTH)
+          sub(/^.*machine-id=/, "", value)
+          sub(/[ \t].*$/, "", value)
+          if (length(value) != 32 || (id != "" && id != value)) ambiguous = 1
+          id = value
+        }
+        if (lines[i] ~ /^[ \t]*path:/) {
+          if (lines[i] ~ /^[ \t]*path:[ \t]*boot\(\):\/EFI\/Linux\/monarch_/) owned = 1
+          else foreign = 1
+        }
+      }
+      if (!owned || foreign || ambiguous) id = ""
+      if (mode == "ids") {
+        if (id != "") print id
+      } else if (id == "" || id == current_id) {
+        printf "%s", block
+      }
+      block = ""
+    }
+    /^\/[^\/]/ { flush(); block = $0 ORS; next }
+    {
+      if (block != "") block = block $0 ORS
+      else if (mode != "ids") print
+    }
+    END { flush() }
+  ' "$config"
+}
+
 limine_entries_stale() {
-  local esp machine_id
+  local esp machine_id ids
   esp=$(esp_path)
   machine_id=$(cat /etc/machine-id 2>/dev/null || true)
-  [[ -f $esp/limine.conf && -n $machine_id ]] || return 1
-  # Stale if any foreign machine-id entry lingers, OR if this machine has no
-  # entry at all (e.g. a failed earlier rebuild left the entry-less template).
-  grep -o 'machine-id=[0-9a-f]*' "$esp/limine.conf" 2>/dev/null |
-    grep -qv "machine-id=$machine_id" && return 0
-  ! grep -q "machine-id=$machine_id" "$esp/limine.conf"
+  [[ $machine_id =~ ^[0-9a-f]{32}$ ]] || return 1
+  [[ -f $esp/limine.conf ]] || return 0
+  ids=$(limine_entries "$esp/limine.conf" ids | sort -u) || return 1
+  [[ $ids != "$machine_id" ]]
 }
 
 reset_limine_config() {
-  local esp template found="" machine_id old_id old_ids=""
+  local esp template machine_id old_id old_ids filtered
   esp=$(esp_path)
-
-  # Only remove machine-ids the old (Monarch-managed) limine.conf referenced;
-  # a shared ESP may hold other installations' machine-id directories.
-  if [[ -f $esp/limine.conf ]]; then
-    # `|| true`: an entry-less limine.conf (left by a failed earlier rebuild)
-    # has no machine-id lines, so grep exits 1 and pipefail would abort the
-    # assignment under `set -e` — turning a recoverable retry into a dead loop.
-    old_ids=$(grep -o 'machine-id=[0-9a-f]\{32\}' "$esp/limine.conf" | cut -d= -f2 | sort -u || true)
-  fi
-
-  for template in "$MONARCH_PATH/install/assets/limine/limine.conf" \
-                  "$MONARCH_PATH/default/limine/limine.conf"; do
-    if [[ -f $template ]]; then
-      cp "$template" "$esp/limine.conf"
-      found=1
-      break
-    fi
-  done
-  if [[ -z $found ]]; then
-    log_step "no limine.conf template found; keeping the existing config"
-    return 0
-  fi
-
   machine_id=$(cat /etc/machine-id 2>/dev/null || true)
+  [[ $machine_id =~ ^[0-9a-f]{32}$ ]] || {
+    log_step "cannot repair boot entries without a valid machine identity"
+    return 1
+  }
+
+  if [[ ! -f $esp/limine.conf ]]; then
+    for template in "$MONARCH_PATH/install/assets/limine/limine.conf" \
+                    "$MONARCH_PATH/default/limine/limine.conf"; do
+      if [[ -f $template ]]; then
+        cp "$template" "$esp/limine.conf"
+        return
+      fi
+    done
+    log_step "no limine.conf template found"
+    return 1
+  fi
+
+  old_ids=$(limine_entries "$esp/limine.conf" ids | sort -u) || return 1
+  filtered=$(mktemp) || return 1
+  if ! limine_entries "$esp/limine.conf" keep "$machine_id" >"$filtered" ||
+    ! cat "$filtered" >"$esp/limine.conf"; then
+    rm -f "$filtered"
+    return 1
+  fi
+  rm -f "$filtered"
+
   for old_id in $old_ids; do
     [[ $old_id == "$machine_id" ]] && continue
+    # Another retained entry may share an id (for example, a cloned installation).
+    grep -qE "machine-id=$old_id([[:space:]]|$)" "$esp/limine.conf" && continue
     rm -rf "${esp:?}/$old_id"
   done
 }

@@ -46,6 +46,117 @@ grep -q "machine-id=$foreign_id" "$preserved"
 [[ ! -e $fixture/boot/$old_id ]]
 grep -q '^interface_branding: Monarch$' "$fixture/boot/limine.conf"
 
+(
+  for function in limine_entries limine_entries_stale reset_limine_config; do
+    eval "$(sed -n "/^$function() {/,/^}/p" "$ROOT/bin/monarch-provision-owner")"
+  done
+  current_id=33333333333333333333333333333333
+  esp="$test_tmp/owner-esp"
+  MONARCH_PATH="$fixture/usr/share/monarch"
+  mkdir -p "$esp/$old_id" "$esp/$foreign_id" "$esp/$current_id"
+  touch "$esp/$old_id/local" "$esp/$foreign_id/foreign" "$esp/$current_id/current"
+  esp_path() { printf '%s\n' "$test_tmp/owner-esp"; }
+  cat() {
+    if [[ $# == 1 && $1 == /etc/machine-id ]]; then
+      printf '%s\n' "$current_id"
+    else
+      command cat "$@"
+    fi
+  }
+  log_step() { printf '%s\n' "$*" >&2; }
+  cat >"$esp/limine.conf" <<EOF
+interface_branding: Personal boot menu
+timeout: 7
+/+Monarch
+comment: machine-id=$current_id
+//linux-cachyos
+path: boot():/EFI/Linux/monarch_linux-cachyos.efi#aaaa
+
+/Windows
+protocol: efi
+path: boot():/EFI/Microsoft/Boot/bootmgfw.efi
+
+/+Foreign Linux
+comment: machine-id=$foreign_id
+//linux
+path: boot():/EFI/Linux/foreign_linux.efi#bbbb
+
+/Mixed OS menu
+comment: machine-id=$foreign_id
+//Monarch recovery
+path: boot():/EFI/Linux/monarch_recovery.efi#cccc
+//Other recovery
+path: boot():/EFI/Linux/other_recovery.efi#dddd
+
+/Malformed identity
+comment: machine-id=${old_id}g
+path: boot():/EFI/Linux/monarch_old.efi#eeee
+EOF
+  cp "$esp/limine.conf" "$test_tmp/healthy-menu"
+  if limine_entries_stale; then
+    echo "first-boot provisioning treated another OS as a stale Monarch identity" >&2
+    exit 1
+  fi
+
+  cat >"$test_tmp/stale-entry" <<EOF
+/+Old Monarch
+comment: machine-id=$old_id
+//linux-cachyos
+path: boot():/EFI/Linux/monarch_linux-cachyos.efi#cccc
+EOF
+  cat "$test_tmp/stale-entry" >>"$esp/limine.conf"
+  limine_entries_stale
+  reset_limine_config
+  cmp "$test_tmp/healthy-menu" "$esp/limine.conf"
+  [[ ! -e $esp/$old_id && -f $esp/$foreign_id/foreign && -f $esp/$current_id/current ]]
+  ! limine_entries_stale
+  reset_limine_config
+  cmp "$test_tmp/healthy-menu" "$esp/limine.conf"
+
+  mkdir -p "$esp/$old_id"
+  touch "$esp/$old_id/shared"
+  cat "$test_tmp/stale-entry" >>"$esp/limine.conf"
+  cat >>"$esp/limine.conf" <<EOF
+/Other installation sharing the old id
+comment: machine-id=$old_id
+path: boot():/EFI/Linux/other_linux.efi#dddd
+EOF
+  reset_limine_config
+  [[ -f $esp/$old_id/shared ]]
+  grep -q '^/Other installation sharing the old id$' "$esp/limine.conf"
+  ! grep -q '^/+Old Monarch$' "$esp/limine.conf"
+  ! limine_entries_stale
+
+  sed -n '/^\/Windows/,$p' "$test_tmp/healthy-menu" >"$esp/limine.conf"
+  cp "$esp/limine.conf" "$test_tmp/foreign-only-menu"
+  limine_entries_stale
+  reset_limine_config
+  cmp "$test_tmp/foreign-only-menu" "$esp/limine.conf"
+  [[ -f $esp/$foreign_id/foreign && -f $esp/$old_id/shared ]]
+
+  current_id="invalid"
+  if (reset_limine_config); then
+    echo "first-boot provisioning accepted an invalid current identity" >&2
+    exit 1
+  fi
+  cmp "$test_tmp/foreign-only-menu" "$esp/limine.conf"
+)
+
+owner_fixture="$test_tmp/owner-staging-root"
+mkdir -p "$owner_fixture/usr/share/monarch/"{bin,install/provisioning}
+printf '%s\n' old >"$owner_fixture/usr/share/monarch/bin/monarch-provision-owner"
+for attempt in 1 2; do
+  stage_current_owner_provisioning "$owner_fixture" "$ROOT"
+  cmp "$ROOT/bin/monarch-provision-owner" "$owner_fixture/usr/share/monarch/bin/monarch-provision-owner"
+  cmp "$ROOT/install/provisioning/setup-form.sh" "$owner_fixture/usr/share/monarch/install/provisioning/setup-form.sh"
+  [[ -x $owner_fixture/usr/share/monarch/bin/monarch-provision-owner ]]
+done
+if (stage_current_owner_provisioning "$owner_fixture" "$test_tmp/missing-source") >/dev/null 2>&1; then
+  echo "factory reset staged unavailable first-boot provisioning" >&2
+  exit 1
+fi
+cmp "$ROOT/bin/monarch-provision-owner" "$owner_fixture/usr/share/monarch/bin/monarch-provision-owner"
+
 security_fixture="$test_tmp/security-root"
 mkdir -p "$security_fixture/etc/sudoers.d" \
   "$security_fixture/var/lib/monarch/provisioning"
@@ -158,5 +269,36 @@ if (retire_factory_printer_discovery \
   exit 1
 fi
 [[ ! -e $query_error_fixture/var/lib/monarch/reconcile/cups-browsed-removed ]]
+
+if [[ -x /usr/bin/pacman ]]; then
+  offline_fixture="$test_tmp/offline-printer-root"
+  mkdir -p "$offline_fixture/var/lib/pacman/local"
+  export TEST_PACMAN_CONFIG="$test_tmp/pacman.conf"
+  cat >"$TEST_PACMAN_CONFIG" <<'EOF'
+[options]
+[offline]
+Server = file:///nonexistent
+EOF
+  cat >"$test_tmp/pacman-offline" <<'EOF'
+#!/bin/bash
+exec /usr/bin/pacman --config "$TEST_PACMAN_CONFIG" "$@"
+EOF
+  chmod +x "$test_tmp/pacman-offline"
+
+  retire_factory_printer_discovery "$offline_fixture" "$test_tmp/pacman-offline"
+  [[ -f $offline_fixture/var/lib/monarch/reconcile/cups-browsed-removed ]]
+
+  rm "$offline_fixture/var/lib/monarch/reconcile/cups-browsed-removed"
+  printf '0\n' >"$offline_fixture/var/lib/pacman/local/ALPM_DB_VERSION"
+  if (retire_factory_printer_discovery \
+    "$offline_fixture" "$test_tmp/pacman-offline") >"$test_tmp/offline-error.log" 2>&1; then
+    echo "factory reset accepted an invalid local package database" >&2
+    exit 1
+  fi
+  grep -q 'database is incorrect version' "$test_tmp/offline-error.log"
+  [[ ! -e $offline_fixture/var/lib/monarch/reconcile/cups-browsed-removed ]]
+else
+  echo "SKIP: offline factory package query needs pacman"
+fi
 
 echo "factory reset ESP preservation: ok"
