@@ -1,15 +1,33 @@
-name: Enhancement
-description: Feature or change
+name: Feature request
+description: Suggest a feature or an improvement.
 labels: [enhancement]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Remember: Monarch is an open source gift, not a product you bought from a vendor
-
   - type: textarea
-    id: steps
+    id: problem
     attributes:
-      label: What do you need?
+      label: Problem or need
+      description: What are you trying to accomplish, and what gets in your way?
     validations:
       required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What would a successful improvement look like?
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Suggested approach
+      description: Describe your proposed solution, if you have one. You do not need to design a solution to request an improvement.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe existing options or workarounds you have tried.
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Include examples, screenshots, or related issues.
