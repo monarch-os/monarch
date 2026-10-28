@@ -98,6 +98,16 @@ Invoke dependencies guaranteed by the default package set directly. Presence che
 - `default/noctalia/indicators/` - the shell scripts the bar indicators stream; each emits one JSON object per line
 - `themes/<scheme>/` - per-Noctalia-scheme wallpaper sets (flat layout, the only surviving `themes/` content); seeded into `~/.config/monarch/backgrounds/<scheme>/` by `monarch-theme-apply`
 
+### Memory pressure policy
+
+The package copies `etc/` into `/etc`. Memory policy belongs there so both the current settings package and the unified runtime package deploy it without an extra copy step:
+
+- `etc/systemd/user/app.slice.d/10-monarch-oomd.conf` makes application descendants eligible for `systemd-oomd` pressure and swap decisions. Niri runs in `session.slice` through UWSM and is outside this candidate tree. A selected application group can contain several processes, including VMs launched from an agent; eligibility does not guarantee which application will be stopped, nor protection from the kernel OOM killer.
+- `etc/systemd/oomd.conf.d/10-monarch.conf` retains the pressure threshold of 50% for 20 seconds. Enabling the daemon alone is insufficient without the application slice policy. User reconciliation reloads the user manager before proceeding so package updates register the new policy; a failed reload stops reconciliation and remains retryable.
+- `etc/systemd/zram-generator.conf.d/90-monarch.conf` adopts Omarchy Quattro's RAM-sized logical capacity, `zstd` compression and priority 100. Compression savings depend on the workload; logical swap capacity is not additional physical RAM. Generator drop-ins override the base configuration, while a later local drop-in or a same-named `/dev/null` symlink can override or mask this policy. User systemd policy can override the same-named application slice drop-in or set different values in a later drop-in.
+
+Zram sizing takes effect at the next boot. Installation and reconciliation must not reset active zram, disable swap or restart the desktop to apply it. Disk swap creation and hibernation remain explicit setup operations; this policy does not adopt an unreferenced swapfile, edit `fstab`, remove Docker data or impose a global Docker memory cap. The existing zswap-disable tmpfiles rule avoids double compression and is unchanged.
+
 ## Menu
 
 Monarch's interface language is independent of the system locale and Noctalia.
