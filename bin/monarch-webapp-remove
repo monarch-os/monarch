@@ -15,8 +15,16 @@ fi
 [[ ${1:-} != "--" ]] || shift
 if (( $# == 0 )); then
   (( ${#WEBAPP_FILES[@]} )) || { webapp_error 'No web apps to remove.'; exit 1; }
-  APP_NAMES_STRING=$(gum choose --no-limit --header 'Select web app to remove...' --selected-prefix='✗ ' -- "${WEBAPP_NAMES[@]}")
-  [[ -n $APP_NAMES_STRING ]] || exit 1
+  if APP_NAMES_STRING=$(printf '%s\n' "${WEBAPP_NAMES[@]}" | FZF_DEFAULT_OPTS= FZF_DEFAULT_OPTS_FILE= fzf --multi --no-sort --layout=reverse \
+    --header 'Space: select · Enter: remove selected · Esc: cancel' \
+    --bind 'space:toggle' \
+    --bind 'enter:transform:if [ "$FZF_SELECT_COUNT" -gt 0 ]; then echo accept; else echo "change-header(Select at least one app · Space: select · Esc: cancel)"; fi'); then
+    [[ -n $APP_NAMES_STRING ]] || exit 0
+  else
+    status=$?
+    (( status != 130 )) || exit 0
+    exit "$status"
+  fi
   mapfile -t APP_NAMES <<< "$APP_NAMES_STRING"
 else
   APP_NAMES=("$@")

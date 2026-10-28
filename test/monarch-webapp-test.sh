@@ -100,6 +100,11 @@ case $prompt in
   *) exit 97 ;;
 esac
 EOF
+cat > "$TMP/bin/fzf" <<'EOF'
+#!/bin/bash
+[[ ${WEBAPP_FZF_CANCEL:-0} != 1 ]] || exit 130
+printf '%s' "${WEBAPP_FZF_CHOICE:-}"
+EOF
 cat > "$TMP/bin/find" <<'EOF'
 #!/bin/bash
 /usr/bin/find "$@"
@@ -645,17 +650,17 @@ printf 'ok - borrowed, owned, shared and symbolic icon cleanup\n'
   normalized_icon "$APP_DIR/ManualLocal.desktop"
   present "$APP_DIR/icons/local.png"
   monarch-webapp-install Keep example.com local.png
-  export WEBAPP_GUM_CANCEL_AT=choose
-  reject monarch-webapp-remove
+  export WEBAPP_FZF_CANCEL=1
+  monarch-webapp-remove
   present "$APP_DIR/Keep.desktop"
-  unset WEBAPP_GUM_CANCEL_AT
-  export WEBAPP_GUM_CHOICE=''
-  reject monarch-webapp-remove
+  unset WEBAPP_FZF_CANCEL
+  export WEBAPP_FZF_CHOICE=''
+  monarch-webapp-remove
   present "$APP_DIR/Keep.desktop"
   export WEBAPP_GUM_NAME="L'appli interactive" WEBAPP_CURL_FAIL_FIRST=1
   monarch-webapp-install > /dev/null
   present "$APP_DIR/L'appli interactive.desktop"
-  export WEBAPP_GUM_CHOICE="L'appli interactive"
+  export WEBAPP_FZF_CHOICE="L'appli interactive"
   monarch-webapp-remove > /dev/null
   absent "$APP_DIR/L'appli interactive.desktop"
   present "$APP_DIR/Keep.desktop"
