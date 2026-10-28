@@ -158,7 +158,7 @@ assert_equals "AI removal mirrors the install catalog" "${output% }" \
   "ChatGPT Desktop Dictation LM Studio Ollama T3 Code Hermes Desktop"
 
 output=$(jq -r '.[] | select(.id | test("^remove\\.service\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
-assert_equals "specialized service removals are grouped" "${output% }" "Tailscale LazyVPN Displaylink"
+assert_equals "specialized service removals are grouped" "${output% }" "Tailscale LazyVPN PentestEnv Displaylink"
 
 output=$(jq -r '.[] | select(.id == "install.service.signal") | [.label, .disabled, .action] | join("|")' <<<"$SHIPPED_TREE")
 assert_equals "Signal is available in the service catalog" "$output" \
@@ -485,7 +485,7 @@ fi
 pass "install rows carry a presence guard"
 
 output=$(jq -r '[.tree[] | select(.id | startswith("install.cyber.")) | select(.disabled)] | length' <<<"$STATE")
-assert_equals "every Cyber install row carries a presence guard" "$output" "4"
+assert_equals "every Cyber install row carries a presence guard" "$output" "5"
 
 output=$(jq -r '[.tree[] | select(.id | startswith("install.")) | select(.when)] | length' <<<"$STATE")
 assert_equals "install rows never hide with when" "$output" "0"

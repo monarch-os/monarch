@@ -58,17 +58,14 @@ grep -qxF linux-cachyos-headers "$ROOT/install/monarch-other.packages" &&
 
 [[ ! -v all_packages[fuzzel] ]] || fail "fuzzel remains in the package manifest"
 
-for package in dua-cli firefox obsidian signal-desktop; do
+for package in disktree-bin firefox obsidian signal-desktop; do
   [[ -v default_packages[$package] ]] || fail "$package is a default package"
 done
 
-disk_usage_desktop="$ROOT/applications/Disk Usage.desktop"
-desktop-file-validate "$disk_usage_desktop"
-grep -qFx 'TryExec=dua' "$disk_usage_desktop" || fail "Disk Usage hides when dua is absent"
-grep -qF 'Exec=monarch-launch-tui --app-id=org.monarch.disk-usage dua interactive /' "$disk_usage_desktop" ||
-  fail "Disk Usage launches dua interactively"
-grep -qF 'match app-id="org.monarch.disk-usage"' "$ROOT/default/niri/windows.kdl" ||
-  fail "Disk Usage has a dedicated Niri window rule"
+[[ ! -v all_packages[dua-cli] ]] || fail "dua remains a default package"
+[[ ! -e "$ROOT/applications/Disk Usage.desktop" ]] || fail "legacy dua launcher remains shipped"
+grep -qF 'match app-id="disktree"' "$ROOT/default/niri/windows.kdl" ||
+  fail "Disktree has a dedicated Niri window rule"
 [[ -v required_packages[cups] ]] || fail "CUPS is a required package"
 [[ -v required_packages[cups-filters] ]] || fail "CUPS filters are required"
 [[ -v required_packages[system-config-printer] ]] || fail "Print Settings is required"

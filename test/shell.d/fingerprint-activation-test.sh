@@ -12,8 +12,12 @@ python3 - "$ROOT/bin/monarch-setup-security-fingerprint" "$test_tmp/setup" "$tes
 from pathlib import Path
 import sys
 source, destination, root = sys.argv[1:]
-text = Path(source).read_text().replace('/etc/pam.d/', root + '/etc/pam.d/')
-text = text.replace('/usr/local/bin/monarch-hw-laptop-closed', root + '/gate')
+text = Path(source).read_text()
+for old, new in (('/etc/pam.d/', root + '/etc/pam.d/'),
+    ('/usr/bin/monarch-hw-laptop-closed', root + '/packaged-gate'),
+    ('sudo /usr/bin/bash /usr/share/monarch/install/reconcile/fingerprint-gate.sh', ': # migration tested separately')):
+  assert old in text, f'fixture target changed: {old!r}'
+  text = text.replace(old, new)
 Path(destination).write_text(text)
 PY
 cat >"$test_tmp/bin/sudo" <<'STUB'
@@ -42,6 +46,8 @@ for command in monarch-pkg-add noctalia; do
   printf '#!/bin/bash\nexit 0\n' >"$test_tmp/bin/$command"
 done
 chmod +x "$test_tmp/bin/"*
+printf '#!/bin/bash\nexit 0\n' >"$test_tmp/packaged-gate"
+chmod +x "$test_tmp/packaged-gate"
 printf '%s\n' 'auth include system-auth' >"$test_tmp/etc/pam.d/sudo"
 cp "$test_tmp/etc/pam.d/sudo" "$test_tmp/original"
 
@@ -60,13 +66,25 @@ for stage in enroll verify; do
 done
 pass "failed fingerprint enrollment or verification leaves authentication unchanged"
 
+mv "$test_tmp/packaged-gate" "$test_tmp/saved-gate"
+if bash "$test_tmp/setup" >/dev/null; then
+  fail "missing packaged gate enabled fingerprint authentication"
+fi
+cmp "$test_tmp/original" "$test_tmp/etc/pam.d/sudo" || fail "missing packaged gate changed PAM"
+[[ ! -e $HOME/.config/noctalia/monarch-fingerprint.toml ]] || fail "missing packaged gate enabled lock fingerprint"
+mv "$test_tmp/saved-gate" "$test_tmp/packaged-gate"
+pass "missing packaged gate leaves authentication unchanged"
+
 : >"$CALL_LOG"
 bash "$test_tmp/setup" >/dev/null
 grep -Fq 'fingerprint = true' "$HOME/.config/noctalia/monarch-fingerprint.toml" || fail "verified fingerprint is not enabled in Noctalia"
 [[ -f $HOME/.local/state/monarch/fingerprint-enabled ]] || fail "verified fingerprint has no marker"
 [[ $(sed -n '1p' "$test_tmp/etc/pam.d/sudo") == *'pam_exec.so quiet'* && \
   $(sed -n '2p' "$test_tmp/etc/pam.d/sudo") == *'pam_fprintd.so'* ]] || fail "the lid gate no longer skips just fingerprint"
+grep -qF "pam_exec.so quiet $test_tmp/packaged-gate" "$test_tmp/etc/pam.d/sudo" ||
+  fail "PAM does not reference the packaged gate"
 [[ $(grep -c 'include system-auth' "$test_tmp/etc/pam.d/polkit-1") == 4 ]] || fail "fingerprint loses password policy fallback"
+! grep -q '^install ' "$CALL_LOG" || fail "setup copied a session helper into root runtime"
 verify_line=$(grep -n '^verify$' "$CALL_LOG" | cut -d: -f1)
 pam_line=$(grep -n '^sed ' "$CALL_LOG" | head -1 | cut -d: -f1)
 (( verify_line < pam_line )) || fail "PAM is enabled before verification"

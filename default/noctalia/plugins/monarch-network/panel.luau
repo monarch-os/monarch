@@ -511,7 +511,7 @@ local function captivePortal(): { any }
       paddingH = 10,
       paddingV = 8,
       radius = 8,
-      fill = "surface_variant",
+      fill = "surface_container",
     }, {
       ui.glyph({ key = "icon", name = "alert-triangle", color = "error" }),
       ui.label({ key = "title", text = title, fontSize = 12, color = "on_surface", flexGrow = 1 }),
@@ -619,7 +619,7 @@ local function interfaceDetails(): { any }
         end
       end
       table.insert(cards, ui.column({ key = "interface:" .. device.iface, gap = 8,
-        paddingH = 10, paddingV = 10, radius = 8, fill = "surface_variant" }, fields))
+        paddingH = 10, paddingV = 10, radius = 8, fill = "surface_container" }, fields))
     end
   end
   if #cards == 0 then
@@ -724,7 +724,7 @@ local function interfaceSections(): { any }
       if device.state == "unavailable" then state = "No cable or link" end
       if device.connecting then state = "Connecting…" end
       table.insert(wired, ui.row({ key = device.iface, align = "center", gap = 10,
-        paddingH = 10, paddingV = 8, radius = 8, fill = "surface_variant" }, {
+        paddingH = 10, paddingV = 8, radius = 8, fill = "surface_container" }, {
         ui.glyph({ key = "icon", name = "ethernet", color = device.connected and "primary" or "on_surface_variant" }),
         ui.column({ key = "labels", gap = 2, flexGrow = 1 }, {
           ui.label({ key = "name", text = "Ethernet · " .. device.iface, fontSize = 12, maxLines = 1 }),
@@ -882,7 +882,7 @@ local function networkRow(network): any
       paddingH = 8,
       paddingV = 6,
       radius = 8,
-      fill = network.connected and "surface_variant" or nil,
+      fill = network.connected and "surface_container" or nil,
     }, {
       ui.glyph({
         key = "signal",

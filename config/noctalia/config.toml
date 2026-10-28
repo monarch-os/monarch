@@ -10,6 +10,19 @@
 #   - the palette moved to palettes/Monarch.json (same JSON format as v4)
 #   - catalog templates are selected by id; user templates live in overlays
 
+[plugins]
+enabled = [
+  "monarch/indicators",
+  "monarch/agents",
+  "monarch/menu",
+  "monarch/wifi-qr",
+  "monarch/network",
+  "monarch/display",
+  "monarch/theme",
+  "monarch/first-steps",
+  "monarch/crashes",
+]
+
 [theme]
 # palettes/Monarch.json is seeded to ~/.config/noctalia/palettes/. The file
 # keeps the v4 schema (mPrimary… plus the terminal block) — only its location
@@ -20,8 +33,8 @@ custom_palette = "Monarch"
 mode = "dark"
 
 [theme.templates]
-# Monarch's neovim, obsidian and zed templates exist in Noctalia's
-# community catalog, so they are enabled by id rather than shipped. Apps absent
+# Monarch preloads upstream templates for these community ids; Noctalia
+# owns their subsequent updates. Apps absent
 # from the catalogs can use `[theme.templates.user.<id>]` in a separate user
 # overlay. See config/noctalia/user-templates.toml.example.
 #
@@ -34,8 +47,7 @@ mode = "dark"
 # The enable_* switches below are only master toggles — an id absent from these
 # arrays is never rendered, however true they are.
 #
-# A template whose client is not installed is skipped silently, so listing all
-# of them is safe on any machine.
+# Community templates use upstream's application checks and hooks.
 builtin_ids = [
   "alacritty",
   "kitty",
@@ -139,7 +151,7 @@ capsule_radius = 3
 
 [widget.clock]
 # v4: Clock { formatHorizontal = "ddd dd MMM  HH:mm" }, restated as strftime.
-format = "%a %d %b  %H:%M"
+format = "%a %d %b  %H:%M  "
 vertical_format = "{:%H\n%M}"
 
 # Icon-only status widgets: drop the text label next to the glyph, so the
@@ -202,6 +214,7 @@ type = "bluetooth"
 type = "power_profile"
 
 [shell]
+niri_overview_close_on_launch_enabled = true
 # v4 kept these under general/ui, which no longer exist as sections.
 corner_radius_scale = 1.0
 clipboard_enabled = true

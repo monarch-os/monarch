@@ -111,7 +111,7 @@
   "trigger.toggle.top-bar": {"icon":"󰍜","checked":"monarch-toggle-bar status | jq -e '.enabled'","action":"monarch-toggle-bar"},
   "trigger.toggle.battery-percentage": {"icon":"󰁹","when":"monarch-battery-present","checked":"monarch-toggle-battery-percentage status | jq -e '.enabled'","action":"monarch-toggle-battery-percentage"},
   "trigger.toggle.direct-boot": {"icon":"","checked":"monarch-direct-boot-present","action":"monarch-launch-floating-terminal-with-presentation monarch-config-direct-boot"},
-  "trigger.toggle.passwordless-sudo": {"icon":"󰟵","checked":"sudo -n test -f /etc/sudoers.d/99-monarch-nopasswd-$USER && systemctl is-active --quiet monarch-nopasswd-expire-$USER.timer","action":"monarch-launch-floating-terminal-with-presentation monarch-sudo-passwordless"},
+  "trigger.toggle.passwordless-sudo": {"icon":"󰟵","checked":"sudo -n -- /usr/bin/monarch-sudo-passwordless __status \"$(id -u)\"","action":"monarch-launch-floating-terminal-with-presentation monarch-sudo-passwordless"},
 
   // Trigger > Hardware
   "trigger.hardware.displays": {"icon":"󰍺","keywords":["monitor","screen","resolution"],"action":"noctalia msg panel-toggle monarch/display:panel"},
@@ -305,7 +305,7 @@
 
   // Install > AI. The Ollama build follows the GPU present on the machine, which
   // is why its package name is resolved inside the action rather than declared.
-  "install.ai.chatgpt": {"icon":"󰭹","disabled":"monarch-pkg-present openai-codex-desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-install-ai-chatgpt"},
+  "install.ai.chatgpt": {"icon":"󰭹","disabled":"monarch-pkg-present chatgpt-desktop-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-install-ai-chatgpt"},
   "install.ai.dictation": {"icon":"","disabled":"monarch-pkg-present voxtype-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-voxtype-install"},
   "install.ai.lm-studio": {"icon":"󱚤","action":"monarch-install-app 'LM Studio' lmstudio-bin","disabled":"monarch-pkg-present lmstudio-bin"},
   "install.ai.ollama": {"icon":"󱚤","action":"if monarch-cmd-present nvidia-smi; then ollama_pkg=ollama-cuda; elif monarch-cmd-present rocminfo; then ollama_pkg=ollama-rocm; else ollama_pkg=ollama; fi; monarch-install-app Ollama \"$ollama_pkg\"","disabled":"monarch-cmd-present ollama"},
@@ -361,6 +361,7 @@
   // Install > Cyber
   "install.cyber.burpsuite": {"icon":"","action":"monarch-launch-floating-terminal-with-presentation monarch-install-burp","disabled":"[[ -d /opt/BurpSuiteCommunity || -d /opt/BurpSuitePro ]]"},
   "install.cyber.rfswift": {"icon":"","action":"monarch-launch-floating-terminal-with-presentation monarch-install-rfswift","disabled":"monarch-cmd-present rfswift"},
+  "install.cyber.pentestenv": {"icon":"","action":"monarch-launch-floating-terminal-with-presentation monarch-install-pentestenv","disabled":"monarch-pkg-present monarch-pentestenv"},
   "install.cyber.strix": {"icon":"󰨈","action":"monarch-launch-floating-terminal-with-presentation \"pipx install strix-agent\"","disabled":"monarch-cmd-present strix"},
   "install.cyber.wordlists": {"icon":"󱉟","action":"monarch-launch-floating-terminal-with-presentation \"echo 'Installing Seclists from AUR...'; monarch-pkg-aur-add seclists\"","disabled":"monarch-pkg-present seclists"},
   "install.remove": {"icon":"󰭌","target":"remove"},
@@ -382,7 +383,7 @@
   // command, so selecting it only ever bounced back to the root menu.
   "remove.security": {"icon":""},
 
-  "remove.ai.chatgpt": {"icon":"󰭹","when":"monarch-pkg-present openai-codex-desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-chatgpt"},
+  "remove.ai.chatgpt": {"icon":"󰭹","when":"monarch-pkg-present chatgpt-desktop-bin || monarch-pkg-present openai-codex-desktop","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-chatgpt"},
   "remove.ai.dictation": {"icon":"","when":"monarch-pkg-present voxtype-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-voxtype-remove"},
   "remove.ai.lm-studio": {"icon":"󱚤","when":"monarch-pkg-present lmstudio-bin","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-lm-studio"},
   "remove.ai.ollama": {"icon":"󱚤","when":"monarch-cmd-present ollama","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-ai-ollama"},
@@ -391,6 +392,7 @@
 
   "remove.service.tailscale": {"icon":"","when":"monarch-pkg-present tailscale","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-service-tailscale"},
   "remove.service.lazyvpn": {"icon":"󰖂","when":"monarch-pkg-present monarch-lazyvpn","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-lazyvpn"},
+  "remove.service.pentestenv": {"icon":"","when":"monarch-pkg-present monarch-pentestenv","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-pentestenv"},
   "remove.service.displaylink": {"icon":"󰹑","when":"monarch-pkg-present displaylink","action":"monarch-launch-floating-terminal-with-presentation monarch-remove-displaylink"},
 
   // Remove > Security
@@ -445,7 +447,7 @@
   "remove.development.elixir.phoenix": {"icon":"","when":"compgen -G \"$HOME/.mix/archives/phx_new*\"","action":"monarch-launch-floating-terminal-with-presentation \"monarch-remove-dev-env phoenix\""},
 
   // Update
-  "update.monarch": {"icon":"","keywords":["upgrade","system","packages"],"action":"monarch-launch-floating-terminal-with-presentation monarch-update"},
+  "update.monarch": {"icon":"","keywords":["upgrade","system","packages"],"action":"monarch-launch-floating-terminal-with-presentation --app-id=org.monarch.update monarch-update"},
   "update.theme": {"icon":"󰏘","when":"compgen -G \"$HOME/.config/monarch/themes/*/provenance.json\"","action":"monarch-launch-floating-terminal-with-presentation monarch-theme-update"},
   "update.channel": {"icon":"󰔫"},
   "update.config": {"icon":""},

@@ -29,20 +29,28 @@
 set -euo pipefail
 
 PROVISIONING_DIR=/var/lib/monarch/provisioning
-MONARCH_PATH="${MONARCH_PATH:-/usr/share/monarch}"
+export MONARCH_PATH=/usr/share/monarch
 TOP_MNT=/run/monarch-system-factory-reset/top
 NEXT_NAME=@monarch-reset-next
 LOG_FILE=/var/log/monarch-system-factory-reset.log
 
-# Self-elevate so the menu entry (and a bare shell invocation) need no sudo
-# prefix. The caller's gum theme vars are forwarded as `env` arguments rather
-# than via `sudo -E`, so styling survives even under an env_reset sudoers.
-if [[ ${MONARCH_FACTORY_RESET_LIB_ONLY:-false} != true ]] && (( EUID != 0 )); then
-  mapfile -t gum_env < <(env | grep '^GUM_' || true)
-  exec sudo env "${gum_env[@]}" "$0" "$@"
+factory_reset_library=false
+if [[ ${BASH_SOURCE[0]} != "$0" && ${MONARCH_FACTORY_RESET_LIB_ONLY:-false} == "true" ]]; then
+  factory_reset_library=true
 fi
 
-export PATH="$MONARCH_PATH/bin:$PATH"
+if [[ $factory_reset_library != "true" ]]; then
+  export PATH=/usr/bin:/usr/sbin
+  if (( EUID != 0 )); then
+    PACKAGED_RESET=/usr/bin/monarch-system-factory-reset
+    if ! /usr/bin/cmp -s -- "${BASH_SOURCE[0]}" "$PACKAGED_RESET"; then
+      echo "Error: run the installed monarch-system-factory-reset; this copy differs from the package." >&2
+      exit 1
+    fi
+    mapfile -t gum_env < <(/usr/bin/env | /usr/bin/grep '^GUM_' || true)
+    exec /usr/bin/sudo /usr/bin/env "${gum_env[@]}" "$PACKAGED_RESET" "$@"
+  fi
+fi
 
 log() {
   echo "$1" | tee -a "$LOG_FILE" >/dev/null
@@ -605,6 +613,6 @@ main() {
   fi
 }
 
-if [[ ${MONARCH_FACTORY_RESET_LIB_ONLY:-false} != true ]]; then
+if [[ $factory_reset_library != "true" ]]; then
   main "$@"
 fi

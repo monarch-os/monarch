@@ -1,29 +1,18 @@
 #!/bin/bash
-
 # monarch:summary=Remove LazyVPN
 
-echo "Removing monarch-lazyvpn..."
-
-# Remove the package
+set -euo pipefail
 monarch-pkg-drop monarch-lazyvpn
 
-# Remove the app-launcher entry
-monarch-tui-remove "LazyVPN"
-
-# The bar status widget needs no removal: it is declared by the
-# monarch-indicators Noctalia plugin and hides itself as soon as this package's
-# binary is gone. See monarch-install-lazyvpn for why it is permanent.
-
-# Remove the dedicated niri include file and its one-line include in user.kdl.
-NIRI_DIR="$HOME/.config/niri"
-rm -f "$NIRI_DIR/monarch-lazyvpn.kdl"
-USER_KDL="$NIRI_DIR/user.kdl"
-if [[ -f "$USER_KDL" ]] && grep -q 'monarch:lazyvpn:begin' "$USER_KDL"; then
-  echo "Removing the LazyVPN keybinding..."
-  sed -i '/\/\/ monarch:lazyvpn:begin/,/\/\/ monarch:lazyvpn:end/d' "$USER_KDL"
+config_dir=${XDG_CONFIG_HOME:-$HOME/.config}
+data_dir=${XDG_DATA_HOME:-$HOME/.local/share}
+rm -f "$data_dir/applications/LazyVPN.desktop"
+rm -f "$HOME/.config/niri/monarch-lazyvpn.kdl" "$config_dir/noctalia/lazyvpn.toml"
+user_kdl="$HOME/.config/niri/user.kdl"
+if [[ -f $user_kdl ]]; then
+  sed -i '/\/\/ monarch:lazyvpn:begin/,/\/\/ monarch:lazyvpn:end/d; /^[[:space:]]*include[[:space:]]*"\.\/monarch-lazyvpn\.kdl"[[:space:]]*$/d' "$user_kdl"
 fi
-if pgrep -x niri >/dev/null 2>&1; then
-  niri msg action load-config-file >/dev/null 2>&1 || true
+if [[ -n ${NIRI_SOCKET:-} ]] && pgrep -u "$(id -u)" -x niri >/dev/null 2>&1; then
+  niri validate && niri msg action load-config-file
 fi
-
-echo -e "\nLazyVPN removed!"
+echo "LazyVPN removed. Profiles and credentials have been preserved."

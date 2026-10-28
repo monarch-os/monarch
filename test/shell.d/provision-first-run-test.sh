@@ -191,6 +191,9 @@ case ${1:-all} in
     grep -qF 'mise use -g node@latest' "$user_home/calls" || fail "new users receive their Node setup"
     [[ -f $user_home/.local/state/monarch/first-steps/shown ]] || fail "the first session offers first steps"
     [[ ! -e $user_home/.local/state/monarch/first-steps/pending ]] || fail "the offered guide is no longer pending"
+    if grep -Eq '^(monarch-notification-send|nm-online) ' "$user_home/calls"; then
+      fail "first-run networking and updates belong to the guide, without competing notifications"
+    fi
     cp "$user_home/calls" "$user_home/expected-calls"
     run_for_user "$user_home" "$ROOT/bin/monarch-provision-first-run" >/dev/null
     cmp -s "$user_home/calls" "$user_home/expected-calls" || fail "successful first-run is not repeated"

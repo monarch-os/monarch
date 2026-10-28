@@ -15,6 +15,21 @@ fi
 test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
 
+# A tmpfs over /var hides its contents but cannot detach the mounts the parent
+# namespace already attached there, and mountpoint(1)/mountinfo still match
+# them by path. A synthetic caller sharing an id with a real installation would
+# therefore look installed already, so take the first pair of free ids.
+available_uid() {
+  local uid=$1
+  while grep -qF "/var/lib/monarch/windows/mounts/users/$uid/" /proc/self/mountinfo; do
+    ((uid++))
+  done
+  ((uid < 65534)) || fail "no free caller id below the subordinate range for the mount boundary probe"
+  printf '%s' "$uid"
+}
+TEST_UID=$(available_uid 1000)
+OTHER_UID=$(available_uid $((TEST_UID + 1)))
+
 # The checkout may live under /home, which the tmpfs below hides, so take a
 # mount-safe copy of the helper before the mounts land.
 cp "$ROOT/bin/monarch-windows-vm" "$test_tmp/monarch-windows-vm"
@@ -42,8 +57,8 @@ stat() {
 
 TEST_PASSWD_HOME=/home/alice
 getent() {
-  if [[ $1 == passwd && ${2:-} == 1000 ]]; then
-    printf 'alice:x:1000:1000::%s:/bin/bash\n' "$TEST_PASSWD_HOME"
+  if [[ $1 == passwd && ${2:-} == $TEST_UID ]]; then
+    printf 'alice:x:%s:%s::%s:/bin/bash\n' "$TEST_UID" "$TEST_UID" "$TEST_PASSWD_HOME"
     return 0
   fi
   return 2
@@ -63,14 +78,14 @@ assert_no_runtime_mutation "zero PKEXEC_UID"
 PKEXEC_UID=not-a-number
 resolve_caller 2>/dev/null && fail "root accepted nonnumeric PKEXEC_UID"
 assert_no_runtime_mutation "nonnumeric PKEXEC_UID"
-PKEXEC_UID=1001
+PKEXEC_UID=$OTHER_UID
 resolve_caller 2>/dev/null && fail "root accepted uid absent from passwd"
 assert_no_runtime_mutation "missing passwd entry"
 
-PKEXEC_UID=1000
+PKEXEC_UID=$TEST_UID
 resolve_caller 2>/dev/null && fail "root accepted a home not owned by caller"
 assert_no_runtime_mutation "wrong-owned home"
-chown 1000:1000 /home/alice
+chown "$TEST_UID:$TEST_UID" /home/alice
 
 chmod 0777 /home
 resolve_caller 2>/dev/null && fail "root accepted writable home parent"
@@ -78,7 +93,7 @@ assert_no_runtime_mutation "writable parent"
 chmod 0755 /home
 
 mkdir /home/real-alice
-chown 1000:1000 /home/real-alice
+chown "$TEST_UID:$TEST_UID" /home/real-alice
 ln -s /home/real-alice /home/link-alice
 TEST_PASSWD_HOME=/home/link-alice
 resolve_caller 2>/dev/null && fail "root accepted symlinked passwd home"
@@ -88,9 +103,9 @@ resolve_caller || fail "valid root PKEXEC_UID/home boundary was rejected"
 pass "root dispatch rejects missing/invalid uid, passwd, owner, symlink, and writable-parent boundaries without mutation"
 
 unset PKEXEC_UID
-SUDO_UID=1000
+SUDO_UID=$TEST_UID
 resolve_caller || fail "valid sudo caller was rejected"
-[[ $CALLER_UID == 1000 && $CALLER_HOME == /home/alice ]] || fail "sudo used root HOME"
+[[ $CALLER_UID == $TEST_UID && $CALLER_HOME == /home/alice ]] || fail "sudo used root HOME"
 PKEXEC_UID=0
 resolve_caller 2>/dev/null && fail "sudo fallback masked an invalid polkit caller"
 PKEXEC_UID=""
@@ -99,20 +114,20 @@ unset PKEXEC_UID
 SUDO_UID=invalid
 resolve_caller 2>/dev/null && fail "root accepted an invalid sudo caller"
 unset SUDO_UID
-PKEXEC_UID=1000
+PKEXEC_UID=$TEST_UID
 pass "sudo caller fallback preserves the polkit authorization boundary"
 
 # Put each familiar source on its own filesystem. Both start with legacy 0755
 # permissions and world-readable payloads to prove migration hardens the leaves.
 mkdir /home/storage-target /home/shared-target
-mount -t tmpfs -o uid=1000,gid=1000,mode=0755,size=3g storage-test /home/storage-target
-mount -t tmpfs -o uid=1000,gid=1000,mode=0755,size=64m shared-test /home/shared-target
+mount -t tmpfs -o uid=$TEST_UID,gid=$TEST_UID,mode=0755,size=3g storage-test /home/storage-target
+mount -t tmpfs -o uid=$TEST_UID,gid=$TEST_UID,mode=0755,size=64m shared-test /home/shared-target
 ln -s /home/storage-target /home/alice/.windows
 ln -s /home/shared-target /home/alice/Windows
-chown -h 1000:1000 /home/alice/.windows /home/alice/Windows
+chown -h "$TEST_UID:$TEST_UID" /home/alice/.windows /home/alice/Windows
 printf disk >/home/storage-target/disk.img
 printf shared >/home/shared-target/shared.txt
-chown 1000:1000 /home/storage-target/disk.img /home/shared-target/shared.txt
+chown "$TEST_UID:$TEST_UID" /home/storage-target/disk.img /home/shared-target/shared.txt
 chmod 0644 /home/storage-target/disk.img /home/shared-target/shared.txt
 
 home_dev=$(command stat -Lc '%d' /home/alice)
@@ -128,12 +143,12 @@ resolve_caller
 [[ $(command stat -Lc '%d' "$CALLER_DATA_ROOT") != "$storage_dev" ]] || fail "Docker boundary unexpectedly shares the storage filesystem"
 [[ $(command stat -Lc '%u:%a' "$MOUNT_ROOT") == 0:711 &&
   $(command stat -Lc '%u:%a' "$CALLER_DATA_ROOT") == 0:711 ]] || fail "production ancestors are not root-owned/private-boundary modes"
-[[ $(command stat -Lc '%u:%a' "$EXPECTED_STORAGE") == 1000:700 &&
-  $(command stat -Lc '%u:%a' "$EXPECTED_SHARED") == 1000:700 ]] || fail "migrated leaves are not caller-owned 0700"
-if setpriv --reuid=1001 --regid=1001 --clear-groups cat "$EXPECTED_STORAGE/disk.img" >/dev/null 2>&1; then
+[[ $(command stat -Lc '%u:%a' "$EXPECTED_STORAGE") == "$TEST_UID:700" &&
+  $(command stat -Lc '%u:%a' "$EXPECTED_SHARED") == "$TEST_UID:700" ]] || fail "migrated leaves are not caller-owned 0700"
+if setpriv --reuid=$OTHER_UID --regid=$OTHER_UID --clear-groups cat "$EXPECTED_STORAGE/disk.img" >/dev/null 2>&1; then
   fail "another local account read the VM disk through its anchor"
 fi
-if setpriv --reuid=1001 --regid=1001 --clear-groups cat "$EXPECTED_SHARED/shared.txt" >/dev/null 2>&1; then
+if setpriv --reuid=$OTHER_UID --regid=$OTHER_UID --clear-groups cat "$EXPECTED_SHARED/shared.txt" >/dev/null 2>&1; then
   fail "another local account read shared files through their anchor"
 fi
 pass "cross-filesystem symlink sources bind by identity and migrated 0700 leaves deny another account"
@@ -147,10 +162,10 @@ mount_anchors_ready 2>/dev/null && fail "final guard accepted a group-writable m
 [[ $(command stat -Lc '%a' "$MOUNT_ROOT") == 731 ]] || fail "rejection unexpectedly changed the writable boundary"
 chmod 0711 "$MOUNT_ROOT"
 
-chown 1000:1000 "$USERS_DIR"
+chown "$TEST_UID:$TEST_UID" "$USERS_DIR"
 with_vm_lock prepare_caller_mounts 2>/dev/null && fail "root repaired a caller-owned mount boundary instead of rejecting it"
 mount_anchors_ready 2>/dev/null && fail "final guard accepted a caller-owned mount boundary"
-[[ $(command stat -Lc '%u' "$USERS_DIR") == 1000 ]] || fail "rejection unexpectedly changed the boundary owner"
+[[ $(command stat -Lc '%u' "$USERS_DIR") == $TEST_UID ]] || fail "rejection unexpectedly changed the boundary owner"
 chown root:root "$USERS_DIR"
 
 [[ $(mount_layer_count "$EXPECTED_STORAGE") == 1 &&
@@ -181,20 +196,20 @@ pass "root removal requires persistent storage and shared identities"
 umount "$EXPECTED_SHARED"
 umount "$EXPECTED_STORAGE"
 mkdir /home/unrelated-storage /home/unrelated-shared
-chown 1000:1000 /home/unrelated-storage /home/unrelated-shared
+chown "$TEST_UID:$TEST_UID" /home/unrelated-storage /home/unrelated-shared
 printf unrelated >/home/unrelated-storage/keep
-chown 1000:1000 /home/unrelated-storage/keep
+chown "$TEST_UID:$TEST_UID" /home/unrelated-storage/keep
 rm /home/alice/.windows /home/alice/Windows
 ln -s /home/unrelated-storage /home/alice/.windows
 ln -s /home/unrelated-shared /home/alice/Windows
-chown -h 1000:1000 /home/alice/.windows /home/alice/Windows
+chown -h "$TEST_UID:$TEST_UID" /home/alice/.windows /home/alice/Windows
 with_vm_lock assert_mounts_safe remove 2>/dev/null &&
   fail "root removal trusted familiar paths retargeted after reboot"
 [[ -f /home/unrelated-storage/keep ]] || fail "identity rejection changed unrelated storage"
 rm /home/alice/.windows /home/alice/Windows
 ln -s /home/storage-target /home/alice/.windows
 ln -s /home/shared-target /home/alice/Windows
-chown -h 1000:1000 /home/alice/.windows /home/alice/Windows
+chown -h "$TEST_UID:$TEST_UID" /home/alice/.windows /home/alice/Windows
 with_vm_lock assert_mounts_safe launch || fail "recorded VM sources were not recoverable"
 pass "persistent fingerprints reject retargeted sources after bind anchors disappear"
 
@@ -242,7 +257,7 @@ read_vm_transition || fail "valid transition journal was rejected"
 chmod 0660 "$journal"
 read_vm_transition && fail "group-writable journal was accepted"
 chmod 0600 "$journal"
-chown 1000:1000 "$journal"
+chown "$TEST_UID:$TEST_UID" "$journal"
 read_vm_transition && fail "caller-owned journal was accepted as root"
 chown 0:0 "$journal"
 mv "$journal" "$journal.saved"
@@ -252,9 +267,9 @@ rm "$journal"
 mv "$journal.saved" "$journal"
 printf extra >>"$journal"
 read_vm_transition && fail "unterminated extra journal line was ignored"
-printf '1001 %s true\n' "$VM_CONTAINER_ID" >"$journal"
+printf '%s %s true\n' "$OTHER_UID" "$VM_CONTAINER_ID" >"$journal"
 read_vm_transition && fail "another caller's journal was accepted"
-printf '1000 %s arbitrary\n' "$VM_CONTAINER_ID" >"$journal"
+printf '%s %s arbitrary\n' "$TEST_UID" "$VM_CONTAINER_ID" >"$journal"
 read_vm_transition && fail "invalid activity state was accepted"
 rm "$journal"
 read_vm_transition || fail "absent journal was rejected"
@@ -265,7 +280,7 @@ umount "$EXPECTED_SHARED"
 umount "$EXPECTED_STORAGE"
 rm /home/alice/Windows
 ln -s / /home/alice/Windows
-chown -h 1000:1000 /home/alice/Windows
+chown -h "$TEST_UID:$TEST_UID" /home/alice/Windows
 with_vm_lock prepare_caller_mounts 2>/dev/null && fail "root accepted a non-caller-owned second source"
 [[ $(mount_layer_count "$EXPECTED_STORAGE") == 0 && $(mount_layer_count "$EXPECTED_SHARED") == 0 ]] || fail "failed second-source preflight left a partial bind"
 [[ $(readlink /home/alice/Windows) == / ]] || fail "failed preflight consumed or quarantined symlink"
@@ -275,7 +290,7 @@ pass "root preflights both sources before mounting either and preserves rejectio
 # root-planted anchor symlink to the expected mounted source is rejected.
 rm /home/alice/Windows
 ln -s /home/shared-target /home/alice/Windows
-chown -h 1000:1000 /home/alice/Windows
+chown -h "$TEST_UID:$TEST_UID" /home/alice/Windows
 rmdir "$EXPECTED_STORAGE"
 ln -s /home/storage-target "$EXPECTED_STORAGE"
 storage_id=$(command stat -Lc '%d:%i' /home/storage-target)

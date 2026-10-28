@@ -45,6 +45,7 @@ exec sleep 30
 STUB
 cat >"$test_tmp/bin/ffmpeg" <<'STUB'
 #!/bin/bash
+printf 'finalize\n' >>"$CAPTURE_CASE/events"
 for argument in "$@"; do
   case $argument in
     *-processed.mp4|*-preview.png)
@@ -64,6 +65,19 @@ printf '%s\n' "$@" >"$CAPTURE_CASE/notification"
 STUB
 chmod +x "$test_tmp/bin/"*
 
+cat >"$test_tmp/bin/noctalia" <<'STUB'
+#!/bin/bash
+[[ $* == "msg plugin monarch/indicators:screen-recording all refresh" ]] || exit 99
+if [[ -f $CAPTURE_CASE/recorder.pid ]]; then
+  [[ -s ${XDG_RUNTIME_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/monarch}/monarch-screenrecord-filename ]] || exit 98
+  echo started >>"$CAPTURE_CASE/events"
+else
+  echo stopped >>"$CAPTURE_CASE/events"
+fi
+exit 1
+STUB
+chmod 755 "$test_tmp/bin/noctalia"
+
 run_capture() {
   local name=$1 state_dir=$2
   shift 2
@@ -82,6 +96,7 @@ run_capture() {
   "${capture_env[@]}" "$ROOT/bin/monarch-capture-screenrecording" --stop-recording >"$case_dir/stop-output" 2>&1
   [[ $(<"$filename") == processed && -s $case_dir/notification ]] || fail "$name cannot stop and finalize its recording"
   [[ ! -e $state_dir/monarch-screenrecord-filename && ! -e $case_dir/recorder.pid ]] || fail "$name leaves active recording state behind"
+  [[ $(head -2 "$case_dir/events") == $'started\nstopped' ]] || fail "$name refreshes outside the recording lifecycle"
   pass "$name starts, stops and finalizes recordings with private state and logs"
 }
 

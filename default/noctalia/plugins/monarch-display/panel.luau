@@ -468,7 +468,7 @@ local function outputRow(output): any
     align = "center",
     radius = 10,
     padding = 10,
-    border = "outline",
+    border = "outline_variant",
     borderWidth = 1,
   }, children)
 end

@@ -2,12 +2,18 @@ set -euo pipefail
 
 echo "Reconcile Monarch user state"
 
+# Match config/uwsm/env without loading keys or replacing custom agent settings.
+systemctl --user enable --now ssh-agent.socket
 systemctl --user enable --now monarch-screencast-dnd.service
 systemctl --user try-restart monarch-crash-watch.service
 
 source "$MONARCH_PATH/install/reconcile/config-files.sh"
+bash "$MONARCH_PATH/install/reconcile/disktree-user.sh"
+python3 -I "$MONARCH_PATH/install/reconcile/exegol.py" "$MONARCH_PATH" "$HOME"
 source "$MONARCH_PATH/install/reconcile/about-branding.sh"
 source "$MONARCH_PATH/install/reconcile/noctalia-activation.sh"
+source "$MONARCH_PATH/install/reconcile/todo.sh"
+source "$MONARCH_PATH/install/reconcile/lazyvpn.sh"
 source "$MONARCH_PATH/install/reconcile/chromium-flags.sh"
 source "$MONARCH_PATH/install/reconcile/mise.sh"
 source "$MONARCH_PATH/install/reconcile/nvidia-env.sh"
@@ -34,6 +40,8 @@ monarch_reconcile_managed_file \
   "$HOME/.config/noctalia/monarch-widgets.toml"
 
 "$MONARCH_PATH/bin/monarch-state" clear-stale-restarts
+# Optional theme caches must not block desktop reconciliation.
+python3 "$MONARCH_PATH/install/reconcile/noctalia-templates.py" || true
 
 for palette in "$MONARCH_PATH"/config/noctalia/palettes/*.json; do
   monarch_reconcile_managed_file "$palette" \
@@ -84,3 +92,7 @@ if [[ $noctalia_ready == "true" ]]; then
 else
   defer_plugin_activation
 fi
+
+# The optional todo package handles its own plugin activation and legacy copies.
+monarch_reconcile_todo "$MONARCH_PATH"
+monarch_reconcile_lazyvpn "$MONARCH_PATH"
