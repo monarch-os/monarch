@@ -297,6 +297,12 @@ EOF
 cat >"$TEST_ROOT/bin/systemctl" <<'EOF'
 #!/bin/bash
 printf 'systemctl %s\n' "$*" >>"$TEST_LOG"
+if [[ -n ${TEST_SYSTEMCTL_LOG:-} ]]; then
+  printf '%s\n' "$*" >>"$TEST_SYSTEMCTL_LOG"
+fi
+if [[ $* == '--user daemon-reload' && ${TEST_SYSTEMCTL_RELOAD_FAILURE:-0} == 1 ]]; then
+  exit 42
+fi
 EOF
 
 cat >"$TEST_ROOT/bin/id" <<'EOF'
@@ -379,7 +385,19 @@ bash "$runtime_hook"
 [[ -d $HOME/.local/share/monarch && -x $runtime_hook ]]
 
 bash "$ROOT/install/reconcile/schema/1-to-2/system-after-user.sh"
+export TEST_SYSTEMCTL_LOG="$TEST_ROOT/user-systemctl.log"
+if TEST_SYSTEMCTL_RELOAD_FAILURE=1 bash "$ROOT/install/reconcile/user.sh" >/dev/null 2>&1; then
+  echo "User reconciliation continued after its manager could not reload packaged policies" >&2
+  exit 1
+fi
+[[ $(<"$TEST_SYSTEMCTL_LOG") == '--user daemon-reload' ]] || {
+  echo "User reconciliation performed work before reloading the manager" >&2
+  exit 1
+}
+: >"$TEST_SYSTEMCTL_LOG"
 bash "$ROOT/install/reconcile/user.sh"
+[[ $(sed -n '1p' "$TEST_SYSTEMCTL_LOG") == '--user daemon-reload' ]]
+unset TEST_SYSTEMCTL_LOG
 
 grep -qx 'systemctl --user enable --now ssh-agent.socket' "$TEST_LOG"
 grep -qx 'systemctl --user try-restart monarch-crash-watch.service' "$TEST_LOG"
