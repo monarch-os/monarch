@@ -8,16 +8,13 @@
 
 ## Verification
 
-<!-- Check only completed items. Include commands, results, or links. Add before/after screenshots for visual changes. Keep checks current after subsequent changes. -->
+<!-- Complete every line: check completed items and include commands, results, or links. For unchecked items, write "N/A — reason" if inapplicable or "Pending — what remains" if still required. Never leave a line unexplained. Add before/after screenshots for visual changes. Keep checks current after subsequent changes. -->
 
 - [ ] Unit tests:
 - [ ] Integration tests:
 - [ ] Manual verification:
 - [ ] Documentation updated — GitBook and/or docs/:
 - [ ] Security reviewed — relevant boundaries and failure paths:
-
-Not applicable:
-<!-- List any inapplicable checks and briefly explain why. Leave their boxes unchecked. Remove this subsection if all checks apply. -->
 
 ## Code review
 
