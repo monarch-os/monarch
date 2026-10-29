@@ -27,7 +27,7 @@ local INTERFACES_CMD = shared.bin("monarch-network-interfaces")
 local ETHERNET_CMD = shared.bin("monarch-network-ethernet")
 local ROUTE_CMD = shared.bin("monarch-network-route")
 local TERMINAL_CMD = shared.bin("monarch-launch-floating-terminal-with-presentation")
--- The Monarch runtime installs this path root-owned, and monarch-settings
+-- The Monarch package installs this path root-owned and
 -- grants the three fixed providers passwordless in etc/sudoers.d/monarch-dns.
 local PACKAGED_DNS = "/usr/bin/monarch-dns"
 

@@ -90,16 +90,76 @@ PY
 pass "invalid encoding and TOML preserve custom files without aborting sourced reconciliation"
 
 mkdir -p "$test_tmp/packages" "$test_tmp/node/node-v22.0.0-linux-x64/bin"
-printf '%s\n' offline-node >"$test_tmp/node/node-v22.0.0-linux-x64/bin/node"
+printf '#!/bin/sh\necho v22.0.0\n' >"$test_tmp/node/node-v22.0.0-linux-x64/bin/node"
+chmod +x "$test_tmp/node/node-v22.0.0-linux-x64/bin/node"
 tar -czf "$test_tmp/packages/node-v22.0.0-linux-x64.tar.gz" -C "$test_tmp/node" node-v22.0.0-linux-x64
-sed "s|node_package_dir=/opt/packages|node_package_dir=$test_tmp/packages|" \
+sed "s|node_package_dir=/opt/packages|node_package_dir=$test_tmp/packages|; s|node_package_dir=/var/lib/monarch/provisioning/packages|node_package_dir=$test_tmp/packages|" \
   "$ROOT/install/user/mise-work.sh" >"$test_tmp/mise-work.sh"
-: >"$MISE_TEST_LOG"
-MONARCH_SETUP_CONTEXT=iso-chroot bash "$test_tmp/mise-work.sh"
-[[ $(<"$HOME/.local/share/mise/installs/node/22.0.0/bin/node") == offline-node ]] || fail "offline Node is not imported"
-[[ $(<"$MISE_TEST_LOG") == "use -g node@22.0.0"$'\n'"config set tools.node latest --file $HOME/.config/mise/config.toml" ]] ||
-  fail "offline Node stays pinned instead of allowing later upgrades"
-pass "offline Node import requires no network and retains the latest global selector"
+python3 - "$test_tmp" "$real_mise" <<'PY'
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+import pwd
+import os
+import subprocess
+import sys
+import threading
+import tomllib
+
+root = Path(sys.argv[1])
+mise = Path(sys.argv[2])
+requests = []
+
+class OfflineProxy(BaseHTTPRequestHandler):
+    def do_CONNECT(self):
+        requests.append(self.path)
+        self.send_error(503)
+
+    do_GET = do_CONNECT
+
+    def log_message(self, *args):
+        pass
+
+with ThreadingHTTPServer(("127.0.0.1", 0), OfflineProxy) as proxy:
+    thread = threading.Thread(target=proxy.serve_forever, daemon=True)
+    thread.start()
+    try:
+        for context in ["iso-chroot", "provision-owner"]:
+            home = root / context
+            home.mkdir()
+            config = home / ".config/mise/config.toml"
+            environment = {
+                "HOME": str(home), "PATH": f"{mise.parent}:/usr/bin:/bin",
+                "USER": pwd.getpwuid(os.geteuid()).pw_name,
+                "MONARCH_SETUP_CONTEXT": context,
+                "MISE_HTTP_TIMEOUT": "1s", "MISE_FETCH_REMOTE_VERSIONS_TIMEOUT": "1s",
+            }
+            for key in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]:
+                environment[key] = environment[key.lower()] = f"http://127.0.0.1:{proxy.server_port}"
+            for custom in [False, True]:
+                if custom:
+                    config.write_text('[env]\nMONARCH_TEST_CUSTOM = "keep"\n')
+                result = subprocess.run(
+                    ["/bin/bash", "-e", str(root / "mise-work.sh")],
+                    cwd=home, env=environment, capture_output=True, text=True, timeout=30,
+                )
+                assert not requests, f"Bundled Node import attempted network access: {requests}"
+                assert result.returncode == 0, result.stderr
+                document = tomllib.loads(config.read_text())
+                assert document["tools"]["node"] == "latest", document
+                if custom:
+                    assert document["env"]["MONARCH_TEST_CUSTOM"] == "keep", document
+                result = subprocess.run(
+                    [str(mise), "exec", "--", "node", "--version"],
+                    cwd=home, env=environment, capture_output=True, text=True, timeout=30,
+                )
+                assert result.returncode == 0, result.stderr
+                assert result.stdout.strip() == "v22.0.0", result.stdout
+                assert not requests, f"Imported Node execution attempted network access: {requests}"
+    finally:
+        proxy.shutdown()
+        thread.join()
+PY
+pass "real mise imports and runs bundled Node offline, retains custom settings and permits later upgrades"
 
 env -u USER python3 - "$ROOT" "$test_tmp/real-home" "$real_mise" <<'PY'
 import os

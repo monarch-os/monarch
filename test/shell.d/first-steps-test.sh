@@ -362,12 +362,14 @@ if grep -q '^msg panel-open ' "$test_tmp/calls"; then fail "the terminal result 
 rm "$test_tmp/block-done"
 wait_for_update_return
 jq -e '.phase == "update"' "$test_tmp/context" >/dev/null
+: >"$test_tmp/calls"
 monarch-setup-first-steps install-tool seclists
 for ((attempt = 0; attempt < 200; attempt++)); do
   [[ -d $state_dir/installing ]] || break
   /usr/bin/sleep 0.02
 done
 monarch-setup-first-steps tools-state | jq -e '.updateResult.code == 0 and .lastResult.tool == "seclists"' >/dev/null
+wait_for_update_return
 pass "updates share the installation lock, return after acknowledgement and retain their result across tool installs"
 unset TEST_FIRST_STEPS_PANEL_DELAY
 

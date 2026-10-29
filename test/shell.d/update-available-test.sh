@@ -48,7 +48,7 @@ first_db=$(<"$UPDATE_DB_RECORD")
 [[ ! -e $first_db ]] || fail "temporary database is cleaned after an available update"
 pass "published Monarch upgrades use an isolated database without Git or sudo"
 
-printf 'monarch-settings 1 -> 2\nlinux 6.1 -> 6.2\n' >"$UPDATE_FIXTURE"
+printf 'monarch-keyring 1 -> 2\nlinux 6.1 -> 6.2\n' >"$UPDATE_FIXTURE"
 run_check
 ((status == 1)) || fail "unrelated package upgrades raise the Monarch badge"
 [[ $(<"$UPDATE_DB_RECORD") != "$first_db" ]] || fail "checks share mutable package databases"

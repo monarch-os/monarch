@@ -94,7 +94,7 @@ Invoke dependencies guaranteed by the default package set directly. Presence che
 - `config/noctalia/config.toml` - Monarch's Noctalia defaults (theme, bar lanes, per-widget settings, hooks, idle). Noctalia merges *every* `*.toml` in `~/.config/noctalia/`, and keeps its own mutable state in `~/.local/state/noctalia/settings.toml` — never ship that file.
 - `config/noctalia/palettes/Monarch.json` - the single Monarch color scheme (`dark` + `light` blocks, plus a `terminal` block of ANSI colors); Noctalia owns colors and dark/light
 - `config/noctalia/templates/herdr.toml` - Herdr's single packaged configuration source. Noctalia renders it to `~/.config/herdr/config.toml`; `monarch refresh herdr` restores and reapplies the template.
-- `default/noctalia/plugins/` - Luau plugins, seeded to `~/.local/share/noctalia/plugins/` (NOT `~/.config/`) by `monarch-settings`
+- `default/noctalia/plugins/` - Luau plugins, seeded to `~/.local/share/noctalia/plugins/` (NOT `~/.config/`) by `monarch`
 - `default/noctalia/indicators/` - the shell scripts the bar indicators stream; each emits one JSON object per line
 - `themes/<scheme>/` - per-Noctalia-scheme wallpaper sets (flat layout, the only surviving `themes/` content); seeded into `~/.config/monarch/backgrounds/<scheme>/` by `monarch-theme-apply`
 

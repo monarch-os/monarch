@@ -14,7 +14,7 @@ implement its own package or repository checks.
 - Uses one theme role for both the icon text and count, with priority:
   **Monarch → repositories → AUR** (`primary`, `secondary`, `tertiary`). These are
   theme-aware categories, not security-severity ratings. The Monarch category
-  includes `monarch` and `monarch-settings` from the repositories.
+  includes the unified `monarch` package from the repositories.
 - On hover, shows the total, category counts, and installed → available versions.
   Packages are ordered by category and name. At most twelve package rows are
   shown, followed by the remaining count, so a large upgrade fits in a tooltip.

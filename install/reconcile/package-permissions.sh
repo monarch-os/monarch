@@ -3,7 +3,10 @@ set -euo pipefail
 if ((EUID == 0)); then
   system_root=/
   trusted_uid=0
-  package_paths=$(/usr/bin/pacman -Qql monarch monarch-settings)
+  package_paths=$(/usr/bin/pacman -Qql monarch)
+  if /usr/bin/pacman -Qq monarch-settings >/dev/null 2>&1; then
+    package_paths+=$'\n'$(/usr/bin/pacman -Qql monarch-settings)
+  fi
 else
   system_root=${MONARCH_PACKAGE_PERMISSIONS_TEST_ROOT:?}
   trusted_uid=$EUID

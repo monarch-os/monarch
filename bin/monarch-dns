@@ -7,7 +7,7 @@
 # Show or set the system DNS provider. Ported from omarchy-dns.
 #
 # Installed by the root-owned Monarch runtime package. The matching NOPASSWD
-# rule is shipped by monarch-settings.
+# rule is shipped by monarch.
 #
 # Three places are written, not one: resolved asks a link's own servers before
 # the global ones, so a profile still handing out the DHCP resolver silently

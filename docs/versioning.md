@@ -89,8 +89,8 @@ ten minutes when updates are pending or checks fail, and six hours when current.
 
 Successful JSON includes `status`, `scope`, `count`, `packages`, `repositories`,
 `aur` and `counts`. Each package has `name`, `category`, `installed` and `available`
-versions. Categories are `monarch` (the `monarch` and `monarch-settings` repository
-packages), `repo` (other repository packages) and `aur`. The disjoint `counts`
+versions. Categories are `monarch` (the unified `monarch` repository package),
+`repo` (other repository packages) and `aur`. The disjoint `counts`
 object uses these three categories; `repositories` includes both `monarch` and
 `repo`. The default scope still selects only the exact `monarch` package, not the
 whole category. Failures return `status: "error"`, `count: null` and a stable
