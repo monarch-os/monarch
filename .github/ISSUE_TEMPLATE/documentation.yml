@@ -1,15 +1,28 @@
 name: Documentation
-description: New pages or changes to existing
+description: Report missing, incorrect, or unclear documentation.
 labels: [documentation]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Remember: Monarch is an open source gift, not a product you bought from a vendor
-
   - type: textarea
-    id: steps
+    id: location
     attributes:
-      label: What correction or addition do we need?
+      label: Documentation location
+      description: Provide the GitBook URL or docs/ file path. Write "New page" if none exists.
     validations:
       required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or missing information
+      description: What is incorrect, unclear, or missing?
+    validations:
+      required: true
+  - type: textarea
+    id: improvement
+    attributes:
+      label: Suggested improvement
+      description: What should be explained or corrected?
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Include the relevant Monarch version, examples, or screenshots.

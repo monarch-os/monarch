@@ -1,23 +1,49 @@
-name: Bug
-description: Report a problem
+name: Bug report
+description: Report something that is not working as expected.
 labels: [bug]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Remember: Monarch is an open source gift, not a product you bought from a vendor
-
-  - type: input
-    id: system-details
-    attributes:
-      label: System details
-      placeholder: e.g. AMD 9950X, NVIDIA 5090, Monarch 2.1.0
-    validations:
-      required: true
-
   - type: textarea
-    id: steps
+    id: summary
     attributes:
-      label: What's wrong?
+      label: Summary
+      description: What is broken?
     validations:
       required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include your Monarch version, relevant hardware and application versions.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Provide numbered steps to reproduce the problem. Mention if it is intermittent.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happens instead?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs and screenshots
+      description: Include relevant evidence. Remove passwords, tokens and personal information.
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Include recent changes, workarounds, or related issues.
