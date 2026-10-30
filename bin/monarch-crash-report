@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# monarch:summary=Review, redact and send an enriched crash report
+# monarch:args=<id> [--analyze]
+# monarch:examples=monarch crash report <id>
+
+set -euo pipefail
+runtime=${MONARCH_PATH:-/usr/share/monarch}
+exec /usr/bin/python3 "$runtime/default/monarch/crash-report/window.py" "$@"
