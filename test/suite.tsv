@@ -35,6 +35,7 @@ test/monarch-cli-test.sh	cli-routing	high	isolated
 test/monarch-agent-crash-test.sh	crash-reporting	high	isolated
 test/monarch-crash-capture-test.sh	crash-reporting	high	isolated
 test/monarch-crash-history-test.sh	crash-reporting	high	isolated
+test/monarch-crash-report-test.sh	crash-reporting	high	isolated
 test/monarch-crash-submit-test.sh	crash-reporting	high	isolated
 test/monarch-dev-env-test.sh	developer-environment	medium	isolated
 test/monarch-display-test.sh	displays	high	isolated

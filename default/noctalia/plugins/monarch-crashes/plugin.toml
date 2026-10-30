@@ -1,10 +1,10 @@
 id = "monarch/crashes"
 name = "Crashes"
-version = "1.0.0"
-plugin_api = 22
+version = "2.0.0"
+plugin_api = 24
 author = "monarch"
 license = "MIT"
-description = "Browse personal crashes and preview, export or voluntarily send diagnostic reports."
+description = "Browse personal crashes and open the native diagnostic report reviewer."
 icon = "bug"
 
 [[panel]]
