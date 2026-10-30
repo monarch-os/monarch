@@ -5,10 +5,17 @@ import os
 from pathlib import Path
 import re
 import shutil
+import sys
 import subprocess
 import tempfile
 import uuid
 from urllib.parse import urlencode
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "i18n"))
+from i18n import Translator
+
+translator = Translator()
+tr = translator.text
 
 FILE_LIMIT = 1024 * 1024
 TOTAL_LIMIT = 5 * FILE_LIMIT
@@ -18,9 +25,9 @@ ID_PATTERN = r"[a-f0-9]{32}:[0-9]{1,10}:[0-9]{1,20}"
 
 def text(value, maximum=FILE_LIMIT):
   if not isinstance(value, str) or len(value.encode("utf-8")) > maximum:
-    raise ValueError("Texte trop volumineux : réduisez l’extrait avant de continuer.")
+    raise ValueError(tr("crashReport.textTooLarge"))
   if re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", value):
-    raise ValueError("Seuls les documents texte UTF-8 sont acceptés.")
+    raise ValueError(tr("crashReport.textOnly"))
   return value
 
 
@@ -102,14 +109,14 @@ def atomic(path, value):
 def command(argv, timeout=20, **kwargs):
   result = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, **kwargs)
   if result.returncode:
-    raise ValueError(result.stderr.strip()[:500] or "La commande a échoué.")
+    raise ValueError(result.stderr.strip()[:500] or tr("crashReport.commandFailed"))
   return result.stdout
 
 
 class Draft:
   def __init__(self, root, crash_id, state=None):
     if not re.fullmatch(ID_PATTERN, crash_id):
-      raise ValueError("Identifiant de crash invalide.")
+      raise ValueError(tr("crashReport.invalidId"))
     self.root = Path(root)
     self.id = crash_id
     base = Path(state or os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state")))
@@ -129,7 +136,7 @@ class Draft:
     try:
       self.collect_journal()
     except (ValueError, subprocess.TimeoutExpired) as error:
-      self.data["warnings"].append("Collecte complémentaire incomplète : " + str(error))
+      self.data["warnings"].append(tr("crashReport.collectionIncomplete", error))
     self.save()
 
   def save(self):
@@ -137,16 +144,16 @@ class Draft:
 
   def mutable(self):
     if self.data["frozen"] is not None:
-      raise ValueError("Un envoi a déjà été tenté. Réessayez avec la version figée pour éviter les doublons.")
+      raise ValueError(tr("crashReport.frozen"))
 
   def add_document(self, name, purpose, original, anonymization="filtered", content=None):
     self.mutable()
     if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]*\.txt", name) or len(name) > 100:
-      raise ValueError("Nom de document invalide.")
+      raise ValueError(tr("crashReport.invalidName"))
     if len(self.data["documents"]) >= 50:
-      raise ValueError("Maximum de 50 documents par rapport.")
+      raise ValueError(tr("crashReport.tooManyFiles"))
     if any(d["name"] == name for d in self.data["documents"]):
-      raise ValueError("Ce nom de document existe déjà.")
+      raise ValueError(tr("crashReport.duplicateName"))
     original = text(original)
     self.data["documents"].append({"name": name, "purpose": filtered(text(purpose, 300)),
       "original": original, "content": filtered(original) if content is None else text(content),
@@ -163,14 +170,14 @@ class Draft:
       return
     entry = json.loads(output)
     if any(str(entry.get(k)) != v for k, v in [("_BOOT_ID", boot), ("COREDUMP_PID", pid), ("COREDUMP_TIMESTAMP", timestamp), ("COREDUMP_UID", str(os.getuid()))]):
-      raise ValueError("Le journal ne correspond pas au crash choisi.")
+      raise ValueError(tr("crashReport.journalMismatch"))
     message = entry.pop("MESSAGE", "")
     lines = [line for line in message.splitlines() if re.match(r"\s*(#\d+\s|Stack trace|Module |ELF object binary architecture:)", line)] if isinstance(message, str) else []
     if lines:
-      self.add_document("journal-piles.txt", "Piles et modules enregistrés lors du crash, avec adresses et threads.", "\n".join(lines))
+      self.add_document("journal-piles.txt", tr("crashReport.stackPurpose"), "\n".join(lines))
     for key in ["_BOOT_ID", "COREDUMP_PID", "COREDUMP_TIMESTAMP", "COREDUMP_UID"]:
       entry.pop(key, None)
-    self.add_document("contexte-crash.txt", "Métadonnées disponibles dans le journal au moment du crash.", json.dumps(entry, ensure_ascii=False, indent=2))
+    self.add_document("contexte-crash.txt", tr("crashReport.metadataPurpose"), json.dumps(entry, ensure_ascii=False, indent=2))
 
   def edit(self, document, content):
     self.mutable()
@@ -182,7 +189,7 @@ class Draft:
   def approve(self, document, include, override=False):
     self.mutable()
     if include and document["anonymization"] == "failed" and not override:
-      raise ValueError("Confirmez le partage malgré l’échec de l’anonymisation.")
+      raise ValueError(tr("crashReport.overrideRequired"))
     document["decision"] = "included" if include else "excluded"
     document["override"] = bool(override)
     document["approved"] = digest(document["content"]) if include else None
@@ -193,14 +200,14 @@ class Draft:
       if document["decision"] != "included":
         return False
       if document["approved"] != digest(document["content"]):
-        raise ValueError("Un document a changé depuis sa validation.")
+        raise ValueError(tr("crashReport.approvalExpired"))
       if document["anonymization"] == "failed" and not document["override"]:
-        raise ValueError("Partage non anonymisé non confirmé.")
+        raise ValueError(tr("crashReport.overrideRequired"))
       return True
     files = [{key: d[key] for key in ("name", "purpose", "content", "anonymization", "override")}
       for d in self.data["documents"] if approved(d)]
     if sum(len(d["content"].encode()) for d in files) > TOTAL_LIMIT:
-      raise ValueError("Les pièces jointes dépassent 5 Mio. Retirez des fichiers.")
+      raise ValueError(tr("crashReport.attachmentsTooLarge"))
     analysis = self.data["analysis"]
     return {"schema": 2, "report": copy.deepcopy(self.data["report"]),
       "analysis": {k: analysis[k] for k in ("content", "anonymization", "override")} if analysis and approved(analysis) else None,
@@ -213,7 +220,7 @@ class Draft:
     url = os.environ.get("MONARCH_CRASH_ENDPOINT", json.loads(config.read_text())["endpoint"])
     if not re.fullmatch(r"https://[a-zA-Z0-9][a-zA-Z0-9.-]*(?::[0-9]{1,5})?", url):
       if not (os.environ.get("MONARCH_CRASH_ALLOW_LOCAL") == "1" and re.fullmatch(r"http://127\.0\.0\.1:[0-9]{1,5}", url)):
-        raise ValueError("Destination de collecte invalide.")
+        raise ValueError(tr("crashReport.invalidEndpoint"))
     return url
 
   def request(self, path, payload=None):
@@ -228,17 +235,17 @@ class Draft:
   def service(self):
     result = self.request("/v2/status")
     if result.get("schema") != 2 or not result.get("enabled") or result.get("maxFileBytes") != FILE_LIMIT or result.get("maxAttachmentBytes") != TOTAL_LIMIT:
-      raise ValueError("La collecte enrichie n’est pas encore disponible sur ce serveur.")
+      raise ValueError(tr("crashReport.unavailable"))
     days = result.get("retentionDays")
     if type(days) is not int or not 1 <= days <= 90:
-      raise ValueError("Durée de conservation invalide.")
+      raise ValueError(tr("crashReport.invalidRetention"))
     return result
 
   def send(self, confirmed_endpoint):
     if self.endpoint() != confirmed_endpoint:
-      raise ValueError("La destination a changé : vérifiez-la à nouveau.")
+      raise ValueError(tr("crashReport.endpointChanged"))
     if self.data["endpoint"] not in (None, confirmed_endpoint):
-      raise ValueError("Le brouillon a déjà été envoyé vers une autre destination.")
+      raise ValueError(tr("crashReport.endpointConflict"))
     if self.data["frozen"] is None:
       self.data["frozen"] = self.payload()
       self.data["endpoint"] = confirmed_endpoint
@@ -246,15 +253,22 @@ class Draft:
     receipt = self.request("/v2/reports", self.data["frozen"])
     expected = confirmed_endpoint + "/admin/reports/" + digest(self.data["submission"])
     if receipt.get("url") != expected or not re.fullmatch(r"MCR-[A-F0-9]{16}", receipt.get("reference", "")):
-      raise ValueError("Reçu invalide. Vous pouvez réessayer le même envoi.")
+      raise ValueError(tr("crashReport.invalidReceipt"))
     receipt["application"] = self.data["report"]["crash"]["application"]
     receipt["signal"] = self.data["report"]["crash"]["signal"]
     atomic(self.receipt_file, receipt)
-    self.discard()
+    try:
+      self.discard()
+    except OSError as error:
+      receipt["cleanupError"] = str(error)
     return receipt
 
   def discard(self):
-    shutil.rmtree(self.folder, ignore_errors=True)
+    try:
+      shutil.rmtree(self.folder)
+    except FileNotFoundError:
+      if self.folder.exists():
+        raise
 
   def agent_job(self, deep=False):
     self.mutable()
@@ -264,11 +278,9 @@ class Draft:
       {"name": d["name"], "content": filtered(d["content"])} for d in self.data["documents"]]}
     atomic(job / "input.json", inputs)
     skill = self.root / "default/agents/skills/crash-report/SKILL.md"
-    scope = ("Investigation approfondie autorisée. Utilise ensemble les correspondances coredumpctl "
-      + " ".join(k + "=" + v for k, v in zip(("_BOOT_ID", "COREDUMP_PID", "COREDUMP_TIMESTAMP"), self.id.split(":")))
-      + ". Vérifie COREDUMP_UID=" + str(os.getuid()) + ". Lis uniquement les sources nécessaires au crash."
-      if deep else "Mode limité : lis uniquement input.json. Ne consulte aucun core, journal, fichier personnel ou autre source système. Si cela ne suffit pas, explique la limite.")
-    prompt = f"Lis et applique le skill {skill}. Dossier de travail : {job}. {scope} Écris le résultat dans result.json dans ce dossier. N’envoie rien à Monarch."
+    matches = " ".join(k + "=" + v for k, v in zip(("_BOOT_ID", "COREDUMP_PID", "COREDUMP_TIMESTAMP"), self.id.split(":")))
+    scope = tr("crashReport.deepPrompt", matches, os.getuid()) if deep else tr("crashReport.limitedPrompt")
+    prompt = tr("crashReport.agentPrompt", skill, job, scope)
     env = dict(os.environ, MONARCH_PATH=str(self.root), PATH=str(self.root / "bin") + ":" + os.environ["PATH"])
     subprocess.Popen([str(self.root / "bin/monarch-agent"), "--prompt", prompt], cwd=job, env=env,
       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
@@ -278,20 +290,29 @@ class Draft:
     self.mutable()
     path = job / "result.json"
     if path.is_symlink() or path.stat().st_size > 64 * FILE_LIMIT:
-      raise ValueError("Résultat agent invalide ou trop volumineux.")
+      raise ValueError(tr("crashReport.invalidAgentResult"))
     result = json.loads(path.read_text())
     documents = result.get("documents", [])
     if not isinstance(documents, list) or len(documents) > 20:
-      raise ValueError("Trop de documents proposés par l’agent.")
+      raise ValueError(tr("crashReport.tooManyAgentFiles"))
     if sum(len(text(d["content"]).encode()) for d in documents) > TOTAL_LIMIT:
-      raise ValueError("Les documents proposés dépassent 5 Mio : demandez des extraits plus ciblés.")
+      raise ValueError(tr("crashReport.agentFilesTooLarge"))
     if sum(len(text(d.get("original", d["content"])).encode()) for d in documents) > TOTAL_LIMIT:
-      raise ValueError("Les originaux proposés dépassent 5 Mio : demandez des extraits plus ciblés.")
+      raise ValueError(tr("crashReport.agentOriginalsTooLarge"))
     snapshot = copy.deepcopy(self.data)
     try:
       for doc in documents:
         state = "reviewed" if doc.get("anonymized") is True else "failed"
-        self.add_document(doc["name"], doc["purpose"], doc.get("original", doc["content"]), state,
+        name = doc["name"]
+        if not isinstance(name, str) or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]*\.txt", name) or len(name) > 100:
+          raise ValueError(tr("crashReport.invalidName"))
+        names = {document["name"] for document in self.data["documents"]}
+        suffix = 2
+        while name in names:
+          ending = f"-{suffix}.txt"
+          name = doc["name"][:-4][:100 - len(ending)] + ending
+          suffix += 1
+        self.add_document(name, doc["purpose"], doc.get("original", doc["content"]), state,
           content=filtered(doc["content"]))
       summary = text(result["analysis"], TEXT_LIMIT)
       self.data["analysis"] = {"original": summary, "content": filtered(summary),
@@ -305,9 +326,5 @@ class Draft:
 
 
 def issue_url(receipt):
-  body = ("## Symptôme\n" + receipt["application"] + " — " + receipt["signal"]
-    + "\n\n## Étapes de reproduction\nÀ compléter (ne publiez pas de données privées)."
-    + "\n\n## Rapport privé\n" + receipt["url"]
-    + "\nAccès réservé à l’équipe Monarch. Expiration au plus tard 90 jours après l’envoi."
-    + "\n\nLes diagnostics et pièces jointes ne sont pas recopiés dans cette issue publique.")
+  body = tr("crashReport.issueBody", receipt["application"], receipt["signal"], receipt["url"])
   return "https://github.com/monarch-os/monarch/issues/new?" + urlencode({"title": "[Crash] " + receipt["application"] + " — " + receipt["signal"], "body": body})

@@ -93,6 +93,10 @@ if __name__ == "__main__":
                         sys.stdout.write(f"{category}:{key}\0{value}\0")
     elif sys.argv[1:] == ["--ui"]:
         json.dump(translator.ui(), sys.stdout, ensure_ascii=False)
+    elif len(sys.argv) == 3 and sys.argv[1] == "--ui":
+        prefix = sys.argv[2] + "."
+        json.dump({key: translator.text(key) for key in translator.english.get("strings", {})
+                   if key.startswith(prefix)}, sys.stdout, ensure_ascii=False)
     elif sys.argv[1:] == ["--commands"]:
         payload = json.load(sys.stdin)
         for command in payload["commands"]:

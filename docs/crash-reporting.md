@@ -2,6 +2,8 @@
 
 The implementation contract and compatibility notes below describe the native reviewer and collector boundary. Public user documentation in GitBook must be updated when this feature ships.
 
+The GTK reviewer, its validation errors, AI instructions, public issue draft and Noctalia history panel support English and French through the existing Monarch catalogs. Language selection follows `MONARCH_LANGUAGE`, the saved Monarch language preference, then the locale, with English fallback. The panel passes its resolved language to the reviewer. Existing document contents, agent output and diagnostics are preserved rather than translated after approval.
+
 ![Native document reviewer using synthetic diagnostics](assets/crash-reviewer.png)
 
 Open **monarch-menu → System → Crashes** (`Win + Alt + Space`), or run:
@@ -36,6 +38,8 @@ targeted logs. Either mode may send data to the configured agent provider.
 The agent writes a structured result in its job directory; choose **Importer
 les résultats** after it finishes. Proposed documents remain unselected.
 
+Repeated imports preserve existing attachments and their decisions. New attachments whose names collide receive numbered names such as `thread-stacks-2.txt`, respecting the filename length limit. New attachments and replacement analyses always require a new decision; invalid results roll back the import.
+
 Sending shows the destination and advertised retention period (at most 90 days).
 Only the exact reviewed payload is uploaded; failed sends retain a frozen copy
 and idempotency key for retry. Success or explicit abandonment deletes draft
@@ -44,6 +48,8 @@ the draft instead. Receipts survive cleanup and require Cloudflare Access to
 view; **Créer une issue GitHub** opens a public draft on `monarch-os/monarch`
 containing the private report URL, not its analysis or attachments. It does not
 publish an issue. Closing an issue does not automatically delete a report.
+
+Cleanup errors are reported rather than treated as successful deletion. Failed abandonment leaves the window open. After successful upload, the receipt is saved before cleanup; if copies remain, the receipt screen warns and offers a local cleanup retry without uploading again. Reopening a receipt checks the draft directory even when partial cleanup removed its state file.
 
 Drafts live under `${XDG_STATE_HOME:-~/.local/state}/monarch/crashes/drafts/`,
 receipts under `crashes/receipts/`, with private permissions. Noctalia opens the

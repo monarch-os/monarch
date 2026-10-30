@@ -90,6 +90,42 @@ class Reports(unittest.TestCase):
     self.assertTrue(self.draft.receipt_file.exists())
     self.assertEqual(sibling.read_text(), "keep")
 
+  def test_cleanup_failure_preserves_receipt_and_can_retry_without_upload(self):
+    endpoint = "https://crashes.example.com"
+    receipt = {"reference": "MCR-0123456789ABCDEF", "url": endpoint + "/admin/reports/" + model.digest(self.draft.data["submission"])}
+    with patch.object(self.draft, "endpoint", return_value=endpoint), patch.object(self.draft, "request", return_value=receipt) as upload:
+      with patch.object(model.shutil, "rmtree", side_effect=PermissionError("read-only folder")):
+        result = self.draft.send(endpoint)
+        self.assertIn("cleanupError", result)
+        self.assertTrue(self.draft.receipt_file.exists())
+        self.assertTrue(self.draft.folder.exists())
+        with self.assertRaises(PermissionError):
+          self.draft.discard()
+      self.draft.discard()
+      self.draft.discard()
+      self.assertFalse(self.draft.folder.exists())
+      self.assertTrue(self.draft.receipt_file.exists())
+      upload.assert_called_once()
+
+  def test_enrichment_collisions_preserve_both_versions_unapproved(self):
+    for index in (1, 2):
+      job = Path(self.temp.name) / f"agent-{index}"
+      job.mkdir()
+      (job / "result.json").write_text(json.dumps({"analysis": f"analysis {index}", "anonymized": True,
+        "documents": [{"name": "thread-stacks.txt", "purpose": "threads", "content": f"version {index}", "anonymized": True}]}))
+      self.draft.import_agent(job)
+      if index == 1:
+        self.draft.approve(self.draft.data["documents"][0], True)
+    first, second = self.draft.data["documents"]
+    self.assertEqual(first["name"], "thread-stacks.txt")
+    self.assertEqual(first["content"], "version 1")
+    self.assertEqual(first["decision"], "included")
+    self.assertEqual(second["name"], "thread-stacks-2.txt")
+    self.assertEqual(second["content"], "version 2")
+    self.assertEqual(second["decision"], "pending")
+    self.assertEqual(self.draft.data["analysis"]["content"], "analysis 2")
+    self.assertEqual(self.draft.data["analysis"]["decision"], "pending")
+
   def test_import_is_atomic_and_does_not_read_attachment_paths(self):
     job = Path(self.temp.name) / "agent"
     job.mkdir()

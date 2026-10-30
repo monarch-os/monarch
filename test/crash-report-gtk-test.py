@@ -10,9 +10,63 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "default/monarch/crash-report"))
 from window import Window, Gtk, Gio, GLib
 from model import Draft
+import model
+import window as reviewer
 
 
 class Reviewer(unittest.TestCase):
+  def test_localized_cleanup_failure_retry_and_reopened_receipt(self):
+    for language, title, retry in (("en", "Report sent", "Retry local cleanup"),
+                                   ("fr", "Rapport envoyé", "Réessayer le nettoyage local")):
+      with self.subTest(language=language), tempfile.TemporaryDirectory() as state, patch.dict(os.environ, MONARCH_LANGUAGE=language):
+        translator = model.Translator()
+        with patch.object(reviewer, "tr", translator.text), patch.object(model, "tr", translator.text):
+          draft = Draft(ROOT, "a" * 32 + ":42:123456789", state)
+          draft.data = {"report": {"crash": {"application": "demo", "signal": "SIGILL", "date": "2026-10-30"}},
+            "documents": [], "analysis": None, "additional": "", "frozen": None, "endpoint": None, "submission": "test"}
+          draft.save()
+          app = Gtk.Application(application_id="org.monarch.CrashReport.Cleanup." + language, flags=Gio.ApplicationFlags.NON_UNIQUE)
+          app.register(None)
+          with patch.object(Window, "run"):
+            window = Window(app, draft)
+          window.documents()
+          self.assertEqual(window.heading.get_text(), translator.text("crashReport.documentsTitle"))
+          window.close_requested()
+          dialog = next(w for w in Gtk.Window.list_toplevels() if isinstance(w, Gtk.MessageDialog) and w.get_transient_for() is window)
+          with patch.object(draft, "discard", side_effect=PermissionError("locked")):
+            dialog.response(2)
+          self.assertIn("locked", window.status.get_text())
+          self.assertTrue(draft.folder.exists())
+          receipt = {"reference": "MCR-0123456789ABCDEF", "url": "https://crashes.example.com/admin/reports/" + "a" * 64}
+          model.atomic(draft.receipt_file, receipt)
+          with patch.object(draft, "load") as load:
+            loaded = window.load()
+          load.assert_not_called()
+          window.loaded(loaded)
+          self.assertEqual(window.heading.get_text(), title)
+          action = window.footer.get_first_child()
+          self.assertEqual(action.get_label(), retry)
+          with patch.object(draft, "send") as upload:
+            action.emit("clicked")
+            loop = GLib.MainLoop()
+            def complete():
+              if window.busy:
+                return True
+              loop.quit()
+              return False
+            tick = GLib.timeout_add(10, complete)
+            deadline = GLib.timeout_add(3000, lambda: (loop.quit(), False)[1])
+            loop.run()
+            GLib.source_remove(deadline)
+            if window.busy:
+              GLib.source_remove(tick)
+            self.assertFalse(window.busy)
+            upload.assert_not_called()
+          self.assertFalse(draft.folder.exists())
+          self.assertTrue(draft.receipt_file.exists())
+          self.assertNotEqual(window.footer.get_first_child().get_label(), retry)
+          window.destroy()
+
   def test_redaction_invalidates_approval_and_never_changes_original(self):
     with tempfile.TemporaryDirectory() as state:
       draft = Draft(ROOT, "a" * 32 + ":42:123456789", state)

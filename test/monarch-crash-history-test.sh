@@ -182,4 +182,14 @@ AGENT_MISSING=true monarch-crash-history open "$id"
 sed -n 's/^msg panel-open monarch\/crashes:panel //p' "$NOCTALIA_CALLS" |
   jq -e --arg id "$id" 'select(.id == $id and .agent == false)' >/dev/null
 
+for language in en fr; do
+  : > "$NOCTALIA_CALLS"
+  MONARCH_LANGUAGE=$language monarch-crash-history open "$id"
+  context=$(sed -n 's/^msg panel-open monarch\/crashes:panel //p' "$NOCTALIA_CALLS")
+  expected="Send a report"
+  [[ $language != "fr" ]] || expected="Envoyer un rapport"
+  jq -e --arg language "$language" --arg expected "$expected" \
+    '.language == $language and .strings["crashHistory.report"] == $expected' <<< "$context" >/dev/null
+done
+
 echo "Crash history identity, user scope, journal failure, report projection and private export pass"

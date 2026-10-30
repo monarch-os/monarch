@@ -12,12 +12,15 @@ local more = false
 local generation = 0
 local render
 local pageSize = 6
-local coreLabels = {
-  present = "Dump disponible",
-  truncated = "Dump partiel",
-  missing = "Dump supprimé ou inaccessible",
-  unavailable = "Sans dump mémoire",
-}
+local strings = {}
+local language = "en"
+
+local function t(key, ...)
+  local values = { ... }
+  return ((strings["crashHistory." .. key] or key):gsub("%%([1-9]%d*)", function(index)
+    return tostring(values[tonumber(index)] or ("%" .. index))
+  end))
+end
 
 local function label(text, size, color)
   return ui.label({ text = text, fontSize = size or 13,
@@ -38,7 +41,7 @@ local function load()
     local data = result and result.exitCode == 0 and noctalia.json.decode(result.stdout or "") or nil
     if type(data) ~= "table" or type(data.crashes) ~= "table" then
       crashes = {}
-      status = "L’historique n’a pas pu être chargé."
+      status = t("loadFailed")
       render()
       return
     end
@@ -59,7 +62,7 @@ local function load()
           loading = false
           local crash = detail and detail.exitCode == 0 and noctalia.json.decode(detail.stdout or "") or nil
           if type(crash) == "table" and crash.id == id then selected = crash
-          else status = "Le crash demandé n’est plus disponible." end
+          else status = t("unavailable") end
           render()
         end)
       end
@@ -70,17 +73,17 @@ end
 
 local function openReport(analyze)
   if loading or not selected or (analyze and not agentAvailable) then return end
-  local argv = { "/usr/bin/env", "MONARCH_PATH=" .. root, root .. "/bin/monarch-crash-report", selected.id }
+  local argv = { "/usr/bin/env", "MONARCH_PATH=" .. root, "MONARCH_LANGUAGE=" .. language, root .. "/bin/monarch-crash-report", selected.id }
   if analyze then table.insert(argv, "--analyze") end
   if noctalia.runAsync(argv) then panel.close()
-  else status = "La fenêtre de rapport n’a pas pu démarrer."; render() end
+  else status = t("startFailed"); render() end
 end
 
 function render()
   local children = {
     ui.row({ gap = 8, align = "center" }, {
-      ui.label({ text = "Crashes", fontSize = 15, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
-      ui.button({ text = "Actualiser", variant = "ghost", height = 30, enabled = not loading and not selected, onClick = load }),
+      ui.label({ text = t("title"), fontSize = 15, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+      ui.button({ text = t("refresh"), variant = "ghost", height = 30, enabled = not loading and not selected, onClick = load }),
       ui.button({ glyph = "close", onClick = function() panel.close() end }),
     }),
   }
@@ -89,14 +92,14 @@ function render()
     body = {
       label(selected.application, 21),
       label(selected.date .. " · " .. selected.signal, 12, "on_surface/0.7"),
-      label(coreLabels[selected.core] or coreLabels.unavailable, 13),
-      label("Préparez un rapport, examinez les pièces proposées et masquez les informations privées avant l’envoi.", 13),
-      label("Rien n’est envoyé à Monarch sans votre confirmation. Le core brut reste sur la machine.", 12, "on_surface/0.7"),
+      label(t("core." .. (selected.core or "unavailable")), 13),
+      label(t("prepareHint"), 13),
+      label(t("privacyHint"), 12, "on_surface/0.7"),
     }
   elseif loading then
-    body = { label("Chargement des crashes…") }
+    body = { label(t("loading")) }
   elseif #crashes == 0 then
-    body = { label("Aucun crash enregistré", 21) }
+    body = { label(t("empty"), 21) }
   else
     for i = (page - 1) * pageSize + 1, math.min(page * pageSize, #crashes) do
       local crash = crashes[i]
@@ -104,7 +107,7 @@ function render()
         ui.column({ gap = 2, flexGrow = 1 }, {
           label(crash.application, 14), label(crash.date .. " · " .. crash.signal, 11, "on_surface/0.65"),
         }),
-        ui.button({ text = "Détails", height = 30, variant = "outline",
+        ui.button({ text = t("details"), height = 30, variant = "outline",
           onClick = function() selected = crash; status = ""; render() end }),
       }))
     end
@@ -113,23 +116,23 @@ function render()
   if status ~= "" then table.insert(children, label(status, 12, "error")) end
   if selected then
     local buttons = {
-      ui.button({ key = "back", text = "Retour", height = 32, variant = "ghost", enabled = not loading, onClick = onBackClicked }),
+      ui.button({ key = "back", text = t("back"), height = 32, variant = "ghost", enabled = not loading, onClick = onBackClicked }),
     }
     if agentAvailable then
-      table.insert(buttons, ui.button({ key = "analyze", text = "Analyser avec l’IA", height = 32, variant = "primary", enabled = not loading,
+      table.insert(buttons, ui.button({ key = "analyze", text = t("analyze"), height = 32, variant = "primary", enabled = not loading,
         onClick = function() openReport(true) end }))
     end
     table.insert(buttons, ui.spacer({ flexGrow = 1 }))
-    table.insert(buttons, ui.button({ key = "report", text = "Envoyer un rapport", height = 32, variant = "primary", enabled = not loading,
+    table.insert(buttons, ui.button({ key = "report", text = t("report"), height = 32, variant = "primary", enabled = not loading,
       onClick = function() openReport(false) end }))
     table.insert(children, ui.row({ gap = 8 }, buttons))
   else
     local pages = math.max(1, math.ceil(#crashes / pageSize))
     table.insert(children, ui.row({ align = "center", gap = 8 }, {
-      ui.label({ text = tostring(#crashes) .. (more and "+" or "") .. " crashes · " .. tostring(page) .. " / " .. tostring(pages),
+      ui.label({ text = t("pages", tostring(#crashes) .. (more and "+" or ""), page, pages),
         fontSize = 11, color = "on_surface/0.55", flexGrow = 1 }),
-      ui.button({ key = "previous-page", text = "Précédent", height = 30, enabled = page > 1, onClick = function() page -= 1; render() end }),
-      ui.button({ key = "next-page", text = "Suivant", height = 30, enabled = page < pages, onClick = function() page += 1; render() end }),
+      ui.button({ key = "previous-page", text = t("previous"), height = 30, enabled = page > 1, onClick = function() page -= 1; render() end }),
+      ui.button({ key = "next-page", text = t("next"), height = 30, enabled = page < pages, onClick = function() page += 1; render() end }),
     }))
   end
   panel.render(ui.column({ flexGrow = 1, gap = 8 }, children))
@@ -141,6 +144,8 @@ function onOpen(context)
     or noctalia.getenv("MONARCH_PATH") or "/usr/share/monarch"
   requested = type(data) == "table" and type(data.id) == "string" and data.id or ""
   agentAvailable = type(data) == "table" and data.agent == true
+  strings = type(data) == "table" and type(data.strings) == "table" and data.strings or {}
+  language = type(data) == "table" and data.language == "fr" and "fr" or "en"
   selected = nil
   load()
 end
