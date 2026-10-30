@@ -4,8 +4,6 @@ The implementation contract and compatibility notes below describe the native re
 
 The GTK reviewer, its validation errors, AI instructions, public issue draft and Noctalia history panel support English and French through the existing Monarch catalogs. Language selection follows `MONARCH_LANGUAGE`, the saved Monarch language preference, then the locale, with English fallback. The panel passes its resolved language to the reviewer. Existing document contents, agent output and diagnostics are preserved rather than translated after approval.
 
-![Native document reviewer using synthetic diagnostics](assets/crash-reviewer.png)
-
 Open **monarch-menu → System → Crashes** (`Win + Alt + Space`), or run:
 
 ```bash
