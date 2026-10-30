@@ -60,6 +60,18 @@ class Reports(unittest.TestCase):
     self.assertNotIn("alex", filtered)
     self.assertIn("0xff", filtered)
 
+  def test_local_redaction_sources_restore_exact_passages(self):
+    original = "Préfixe [REDACTED]\nhttps://example.com/home/alex/file\nalex@example.com\n/home/alex/file\ntoken=secret\nFin"
+    spans = []
+    value = model.filtered(original, spans)
+    self.assertEqual(value, model.filtered(original))
+    self.assertEqual(len(spans), 4)
+    self.assertEqual(spans[0]["original"], "https://example.com/home/alex/file")
+    for span in reversed(spans):
+      self.assertEqual(value[span["start"]:span["end"]], "[REDACTED]")
+      value, _ = model.replace_span(value, [], span["start"], span["end"], span["original"])
+    self.assertEqual(value, original)
+
   def test_failed_send_freezes_payload_and_success_cleans_only_draft(self):
     self.draft.save()
     sibling = self.draft.folder.parent / "source.txt"

@@ -24,8 +24,22 @@ def text(value, maximum=FILE_LIMIT):
   return value
 
 
-def filtered(value):
+def replace_span(value, spans, start, end, replacement, original=None):
+  delta = len(replacement) - (end - start)
+  kept = []
+  for span in spans:
+    if span["end"] <= start:
+      kept.append(dict(span))
+    elif span["start"] >= end:
+      kept.append(dict(span, start=span["start"] + delta, end=span["end"] + delta))
+  if original is not None:
+    kept.append({"start": start, "end": start + len(replacement), "original": original})
+  return value[:start] + replacement + value[end:], sorted(kept, key=lambda span: span["start"])
+
+
+def filtered(value, redactions=None):
   value = text(value)
+  spans = []
   patterns = [
     r"-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----",
     r"(?i)\b(?:authorization|cookie|password|passwd|secret|token|api[_-]?key)\s*[:=]\s*[^\n]+",
@@ -35,7 +49,37 @@ def filtered(value):
     r"\b(?:\d{1,3}\.){3}\d{1,3}\b",
   ]
   for pattern in patterns:
-    value = re.sub(pattern, "[REDACTED]", value)
+    if redactions is None:
+      value = re.sub(pattern, "[REDACTED]", value)
+      continue
+    pieces, updated = [], []
+    cursor, delta, index = 0, 0, 0
+    for match in re.finditer(pattern, value):
+      pieces.extend((value[cursor:match.start()], "[REDACTED]"))
+      while index < len(spans) and spans[index]["end"] <= match.start():
+        span = spans[index]
+        updated.append(dict(span, start=span["start"] + delta, end=span["end"] + delta))
+        index += 1
+      nested = []
+      while index < len(spans) and spans[index]["start"] < match.end():
+        span = spans[index]
+        if match.start() <= span["start"] and span["end"] <= match.end():
+          nested.append(span)
+        index += 1
+      original = match.group()
+      for span in reversed(nested):
+        a, b = span["start"] - match.start(), span["end"] - match.start()
+        original = original[:a] + span["original"] + original[b:]
+      start = match.start() + delta
+      updated.append({"start": start, "end": start + 10, "original": original})
+      delta += 10 - len(match.group())
+      cursor = match.end()
+    pieces.append(value[cursor:])
+    for span in spans[index:]:
+      updated.append(dict(span, start=span["start"] + delta, end=span["end"] + delta))
+    value, spans = "".join(pieces), updated
+  if redactions is not None:
+    redactions.extend(spans)
   return value
 
 

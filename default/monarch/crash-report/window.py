@@ -10,7 +10,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, Gio, GLib, Gtk
-from model import Draft, command, issue_url, text
+from model import Draft, command, filtered, issue_url, replace_span, text
 
 
 def label(value, muted=False):
@@ -43,7 +43,8 @@ class Window(Gtk.ApplicationWindow):
     self.receipt = None
     self.palette = None
     self.agent = False
-    self.history = []
+    self.edit_range = None
+    self.showing_original = False
     self.extra = None
     self.connect("close-request", self.close_requested)
     self.shell = box()
@@ -112,7 +113,7 @@ class Window(Gtk.ApplicationWindow):
     elif self.analyze and self.agent:
       self.deep()
     else:
-      self.offer()
+      self.documents()
 
   def apply_palette(self):
     colors = self.palette
@@ -124,9 +125,14 @@ class Window(Gtk.ApplicationWindow):
       .crash-report {{ background: {colors['mSurface']}; color: {colors['mOnSurface']}; }}
       .crash-report button {{ background: {colors['mSurfaceVariant']}; color: {colors['mOnSurface']}; border-color: {colors['mOutline']}; box-shadow: none; }}
       .crash-report button.suggested-action {{ background: {colors['mPrimary']}; color: {colors['mOnPrimary']}; }}
+      .crash-report button:disabled {{ background: {colors['mSurfaceVariant']}; color: {colors['mOnSurface']}; opacity: 0.4; }}
       .crash-report button.flat {{ background: transparent; border-color: transparent; }}
       .crash-report button.document-active {{ background: {colors['mSurfaceVariant']}; border-color: {colors['mPrimary']}; }}
+      .crash-report button.document-included {{ border-left: 3px solid #65b889; }}
+      .crash-report button.document-excluded {{ border-left: 3px solid #df8080; }}
       .crash-report textview text {{ background: {colors['mSurfaceVariant']}; color: {colors['mOnSurface']}; }}
+      .crash-report .review-context textview text {{ background: {colors['mSurfaceVariant']}; }}
+      .crash-report .review-heading {{ font-weight: 600; color: {colors['mOnSurface']}; border-bottom: 1px solid {colors['mOutline']}; padding-bottom: 6px; margin-bottom: 3px; }}
     """
     provider = Gtk.CssProvider()
     provider.load_from_string(css)
@@ -232,7 +238,13 @@ class Window(Gtk.ApplicationWindow):
     return scroll
 
   def documents(self):
-    self.page("Documents du rapport")
+    self.set_default_size(900, 660)
+    self.page("1 · Choisir les documents à joindre")
+    crash = self.draft.data["report"]["crash"]
+    self.content.append(label(crash["application"] + " · " + crash["signal"] + " · " + crash["date"], True))
+    self.content.append(label("Relisez chaque document, masquez les passages privés, puis choisissez de le joindre ou de l’ignorer. Rien n’est envoyé à cette étape."))
+    for warning in self.draft.data.get("warnings", []):
+      self.content.append(label(warning, True))
     self.items = list(self.draft.data["documents"])
     if self.draft.data["analysis"]:
       self.items.append(self.draft.data["analysis"])
@@ -246,9 +258,14 @@ class Window(Gtk.ApplicationWindow):
     right.set_margin_start(12)
     self.paned.set_end_child(right)
     toolbar = box(False, 6)
-    toolbar.append(button("Masquer la sélection", lambda: self.safe(self.redact)))
-    toolbar.append(button("Annuler", lambda: self.safe(self.undo)))
-    toolbar.append(button("Original local", self.original))
+    self.redact_button = button("Anonymiser", lambda: self.safe(self.redact))
+    toolbar.append(self.redact_button)
+    self.restore_button = button("Déanonymiser", lambda: self.safe(self.restore_redaction))
+    toolbar.append(self.restore_button)
+    self.original_button = Gtk.ToggleButton(icon_name="view-reveal-symbolic")
+    self.original_button.set_tooltip_text("Afficher l’original local (non transmis)")
+    self.original_button.connect("toggled", lambda *_: self.original())
+    toolbar.append(self.original_button)
     right.append(toolbar)
     self.doc_title = label("")
     right.append(self.doc_title)
@@ -259,66 +276,90 @@ class Window(Gtk.ApplicationWindow):
     self.tag = self.buffer.create_tag("redacted", background="#47345f", foreground="#e0c9ff")
     self.changing = False
     self.buffer.connect("changed", self.on_edit)
+    self.buffer.connect("insert-text", lambda _, location, value, length: self.track_edit(location.get_offset(), location.get_offset(), value))
+    self.buffer.connect("delete-range", lambda _, start, end: self.track_edit(start.get_offset(), end.get_offset(), ""))
+    self.buffer.connect("mark-set", lambda *_: self.update_editor_actions() if not self.changing else None)
     scroll = Gtk.ScrolledWindow(vexpand=True, hexpand=True)
     scroll.set_child(self.editor)
     right.append(scroll)
     self.override = Gtk.CheckButton(label="Inclure malgré l’échec de l’anonymisation")
     self.override.set_visible(False)
     right.append(self.override)
+    decisions = box(False)
+    self.include_button = button("Joindre ce document", lambda: self.toggle(self.current, True), True)
+    decisions.append(self.include_button)
+    decisions.append(button("Ne pas joindre", lambda: self.toggle(self.current, False)))
+    right.append(decisions)
     right.append(label("Passages violets : masqués. Seul [REDACTED] sera transmis. Le filtrage peut manquer des informations sensibles.", True))
-    self.footer.append(button("Exclure le reste", self.exclude_rest))
-    self.footer.append(button("Continuer", lambda: self.safe(self.next_review), True))
+    if self.agent:
+      self.footer.append(button("Analyse IA…", self.offer))
+    self.progress = label("", True)
+    self.progress.set_hexpand(True)
+    self.footer.append(self.progress)
+    self.next_button = button("Vérifier le rapport", lambda: self.safe(self.next_review), True)
+    self.footer.append(self.next_button)
     self.refresh_list()
     if self.items:
       self.select_document(self.items[0])
     else:
       self.doc_title.set_text("Aucune pièce proposée")
       self.editor.set_sensitive(False)
+      decisions.set_sensitive(False)
 
   def refresh_list(self):
     while self.list.get_first_child():
       self.list.remove(self.list.get_first_child())
     for doc in self.items:
-      row = box(False, 4)
-      check = Gtk.CheckButton()
-      check.set_tooltip_text("Inclure la version affichée")
-      check.set_active(doc["decision"] == "included")
-      check.connect("toggled", lambda widget, d=doc: self.toggle(d, widget.get_active()))
-      row.append(check)
       title = doc.get("name", "Analyse IA")
-      state = {"pending": "À valider", "included": "Inclus", "excluded": "Exclu"}[doc["decision"]]
+      state = {"pending": "À examiner", "included": "Inclus", "excluded": "Exclu"}[doc["decision"]]
       item = button(title + "\n" + state, lambda d=doc: self.select_document(d))
       item.add_css_class("flat")
+      item.add_css_class("document-" + doc["decision"])
       item.get_child().set_xalign(0)
       if self.current is doc:
         item.add_css_class("document-active")
       item.set_hexpand(True)
-      row.append(item)
-      self.list.append(row)
+      self.list.append(item)
+    pending = sum(doc["decision"] == "pending" for doc in self.items)
+    self.progress.set_text(f"{len(self.items) - pending}/{len(self.items)} documents examinés")
+    self.next_button.set_sensitive(pending == 0)
 
   def select_document(self, doc):
     self.current = doc
-    self.history = []
+    if "redactions" not in doc:
+      spans = []
+      value = filtered(doc["original"], spans)
+      doc["redactions"] = spans if value == doc["content"] else []
+    self.showing_original = False
+    self.original_button.set_active(False)
     self.changing = True
     self.buffer.set_text(doc["content"])
     self.changing = False
     self.highlight()
+    self.update_editor_actions()
     self.doc_title.set_text(doc.get("name", "Analyse IA"))
     size = len(doc["content"].encode()) / 1024
     self.doc_purpose.set_text(doc.get("purpose", "Observations, hypothèses et limites proposées par l’agent.") + f" · {size:.1f} Kio")
     self.override.set_visible(doc["anonymization"] == "failed")
     self.override.set_active(False)
-    self.status.set_text("Cochez ce document pour valider la version affichée.")
+    self.status.set_text("Choisissez « Joindre ce document » ou « Ne pas joindre » après lecture.")
     self.refresh_list()
 
   def toggle(self, doc, include):
+    if doc is None:
+      return
+    if include and self.showing_original:
+      self.status.set_text("Revenez à la version à transmettre avant de la valider.")
+      return
     if include and self.current is not doc:
       self.select_document(doc)
       self.refresh_list()
-      self.status.set_text("Examinez ce document puis cochez-le pour valider cette version.")
+      self.status.set_text("Examinez ce document puis choisissez de le joindre.")
       return
     self.safe(lambda: self.draft.approve(doc, include, self.override.get_active()))
     self.refresh_list()
+    if doc["decision"] != "pending":
+      self.status.set_text("Document joint." if include else "Document non joint.")
 
   def highlight(self):
     start, end = self.buffer.get_bounds()
@@ -329,62 +370,114 @@ class Window(Gtk.ApplicationWindow):
       self.buffer.apply_tag(self.tag, self.buffer.get_iter_at_offset(offset), self.buffer.get_iter_at_offset(offset + 10))
       offset += 10
 
+  def track_edit(self, start, end, value):
+    if not self.changing:
+      self.edit_range = (start, end, value)
+
   def on_edit(self, *_):
-    if self.changing or self.current is None:
+    if self.changing or self.current is None or self.showing_original:
       return
     value = self.buffer.get_text(*self.buffer.get_bounds(), True)
     try:
+      spans = []
+      if self.edit_range:
+        expected, spans = replace_span(self.current["content"], self.current.get("redactions", []), *self.edit_range)
+        if expected != value:
+          spans = []
       self.draft.edit(self.current, value)
+      self.current["redactions"] = spans
+      self.draft.save()
       self.status.set_text("Document modifié : sa validation doit être renouvelée.")
     except Exception as error:
       self.status.set_text(str(error))
       self.changing = True
       self.buffer.set_text(self.current["content"])
       self.changing = False
+    self.edit_range = None
     self.highlight()
     self.refresh_list()
+    self.update_editor_actions()
 
   def redact(self):
+    if self.showing_original:
+      return
     bounds = self.buffer.get_selection_bounds()
     if not bounds:
       raise ValueError("Sélectionnez un passage dans le document.")
-    self.history.append(self.current["content"])
-    self.changing = True
     start, end = bounds
-    self.buffer.delete(start, end)
-    self.buffer.insert(start, "[REDACTED]")
-    self.changing = False
-    self.on_edit()
+    a, b = start.get_offset(), end.get_offset()
+    if any(a < span["end"] and b > span["start"] for span in self.current.get("redactions", [])):
+      raise ValueError("Sélectionnez un passage qui n’est pas déjà anonymisé.")
+    original = self.current["content"][a:b]
+    value, spans = replace_span(self.current["content"], self.current.get("redactions", []), a, b, "[REDACTED]", original)
+    self.apply_edit(value, spans, a)
 
-  def undo(self):
-    if self.history:
-      self.buffer.set_text(self.history.pop())
+  def selected_redaction(self):
+    if self.current is None or self.showing_original:
+      return None
+    bounds = self.buffer.get_selection_bounds()
+    if bounds:
+      a, b = (position.get_offset() for position in bounds)
+    else:
+      a = b = self.buffer.get_iter_at_mark(self.buffer.get_insert()).get_offset()
+    matches = [span for span in self.current.get("redactions", [])
+      if self.current["content"][span["start"]:span["end"]] == "[REDACTED]"
+      and ((a == b and span["start"] <= a < span["end"])
+        or (a < b and span["start"] <= a and b <= span["end"]))]
+    return matches[0] if len(matches) == 1 else None
+
+  def restore_redaction(self):
+    span = self.selected_redaction()
+    if span:
+      value, spans = replace_span(self.current["content"], self.current["redactions"], span["start"], span["end"], span["original"])
+      self.apply_edit(value, spans, span["start"])
+
+  def apply_edit(self, value, spans, cursor):
+    self.draft.edit(self.current, value)
+    self.current["redactions"] = spans
+    self.draft.save()
+    self.changing = True
+    self.buffer.set_text(value)
+    self.buffer.place_cursor(self.buffer.get_iter_at_offset(cursor))
+    self.changing = False
+    self.highlight()
+    self.refresh_list()
+    self.update_editor_actions()
+    self.status.set_text("Document modifié : vérifiez puis validez à nouveau cette version.")
+
+  def update_editor_actions(self):
+    self.editor.set_editable(not self.showing_original)
+    self.redact_button.set_sensitive(not self.showing_original and bool(self.buffer.get_selection_bounds()))
+    self.include_button.set_sensitive(not self.showing_original)
+    self.restore_button.set_sensitive(self.selected_redaction() is not None)
+    self.restore_button.set_tooltip_text("Rétablir le passage original sous le curseur ou sélectionné."
+      if self.selected_redaction() else "Placez le curseur dans un marqueur dont l’original est disponible localement.")
 
   def original(self):
     if not self.current:
       return
-    dialog = Gtk.Window(transient_for=self, modal=True, title="Original local — non transmis", default_width=680, default_height=400)
-    dialog.set_child(self.reader(self.current["original"]))
-    dialog.present()
-
-  def exclude_rest(self):
-    def action():
-      for doc in self.items:
-        if doc["decision"] == "pending":
-          self.draft.approve(doc, False)
-      self.review()
-    self.safe(action)
+    self.showing_original = self.original_button.get_active()
+    self.changing = True
+    self.buffer.set_text(self.current["original" if self.showing_original else "content"])
+    self.changing = False
+    self.highlight()
+    self.update_editor_actions()
+    title = self.current.get("name", "Analyse IA")
+    self.doc_title.set_text(title + (" · Original local — non transmis" if self.showing_original else ""))
+    self.original_button.set_tooltip_text("Revenir à la version à transmettre" if self.showing_original else "Afficher l’original local (non transmis)")
+    self.status.set_text("Original en lecture seule. Copiez un passage puis revenez à la version à transmettre pour le rétablir."
+      if self.showing_original else "Version à transmettre : les passages anonymisés restent masqués.")
 
   def next_review(self):
     for doc in self.items:
       if doc["decision"] == "pending":
         self.select_document(doc)
-        raise ValueError("Validez ce document ou utilisez « Exclure le reste ».")
+        raise ValueError("Choisissez de joindre ou non chaque document avant de vérifier le rapport.")
     self.review()
 
   def review(self):
-    self.page("Vérifier avant d’envoyer")
-    self.content.append(label("Rapport et pièces réservés à l’équipe Monarch via Cloudflare. Conservation maximale : 90 jours.", True))
+    self.set_default_size(900, 480)
+    self.page("2 · Vérifier le rapport")
     frozen = self.draft.data["frozen"]
     try:
       payload = frozen or self.draft.payload()
@@ -392,28 +485,78 @@ class Window(Gtk.ApplicationWindow):
       self.status.set_text(str(error))
       self.footer.append(button("Revenir aux documents", self.documents))
       return
-    sections = box()
+    crash = payload["report"]["crash"]
+    self.content.append(label(crash["application"] + " · " + crash["signal"], True))
+    sections = box(spacing=16)
+    sections.set_valign(Gtk.Align.START)
     scroll = Gtk.ScrolledWindow(vexpand=True)
     scroll.set_child(sections)
-    self.content.append(scroll)
-    values = [("Rapport de base", json.dumps(payload["report"], indent=2, ensure_ascii=False)),
-      ("Analyse IA", payload["analysis"]["content"] if payload["analysis"] else "Non transmise."),
-      ("Fichiers à transmettre", "\n\n".join(d["name"] + "\n" + d["purpose"]
-        + ("\nAnonymisation échouée — partage autorisé explicitement" if d["anonymization"] == "failed" else "")
-        + "\n" + d["content"] for d in payload["attachments"]) or "Aucun fichier sélectionné.")]
-    if payload["analysis"] and payload["analysis"]["anonymization"] == "failed":
-      sections.append(label("Analyse IA : partage autorisé malgré l’échec de l’anonymisation.", True))
-    for title, value in values:
-      expander = Gtk.Expander(label=title)
-      expander.set_child(self.reader(value))
-      sections.append(expander)
-    sections.append(label("Informations additionnelles"))
-    extra = Gtk.TextView(wrap_mode=Gtk.WrapMode.WORD_CHAR, editable=not bool(frozen))
+    columns = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL, position=430, vexpand=True)
+    columns.set_start_child(scroll)
+    columns.set_resize_start_child(True)
+    columns.set_resize_end_child(True)
+    right = box()
+    right.set_margin_start(24)
+    columns.set_end_child(right)
+    self.content.append(columns)
+    def section(title, detail, parent=sections):
+      group = box(spacing=4)
+      group.set_vexpand(False)
+      heading = label(title)
+      heading.add_css_class("review-heading")
+      heading.set_selectable(False)
+      group.append(heading)
+      if detail:
+        group.append(label(detail, True))
+      parent.append(group)
+      return group
+
+    def preview(parent, title, value):
+      action = button(title, lambda: self.preview_document(title, value))
+      action.add_css_class("flat")
+      action.set_tooltip_text("Ouvrir le document en lecture seule")
+      row = box(False, 8)
+      row.append(Gtk.Image.new_from_icon_name("document-open-symbolic"))
+      text_label = label(title)
+      text_label.set_selectable(False)
+      text_label.set_hexpand(True)
+      row.append(text_label)
+      action.set_child(row)
+      parent.append(action)
+
+    technical = section("Rapport technique", "Inclus · application, système et pile du crash")
+    preview(technical, "Consulter le rapport technique", json.dumps(payload["report"], indent=2, ensure_ascii=False))
+    analysis = payload["analysis"]
+    ai = section("Analyse IA", "Incluse" if analysis else "Non jointe")
+    if analysis:
+      if analysis["anonymization"] == "failed":
+        ai.append(label("Anonymisation échouée — vous avez autorisé le partage de cette version."))
+      preview(ai, "Consulter l’analyse IA", analysis["content"])
+    attachments = payload["attachments"]
+    size = sum(len(document["content"].encode()) for document in attachments)
+    files = section("Pièces jointes", f"{len(attachments)} fichier{'s' if len(attachments) != 1 else ''} · {size / 1024:.1f} Kio" if attachments else "Aucune")
+    for document in attachments:
+      preview(files, document["name"] + f" · {len(document['content'].encode()) / 1024:.1f} Kio",
+        document["purpose"] + ("\nAnonymisation échouée — partage autorisé explicitement." if document["anonymization"] == "failed" else "")
+        + "\n\n" + document["content"])
+    context = section("Ajouter du contexte", "Facultatif · étapes pour reproduire le crash", right)
+    context.add_css_class("review-context")
+    extra = Gtk.TextView(wrap_mode=Gtk.WrapMode.WORD_CHAR, editable=not bool(frozen),
+      top_margin=10, bottom_margin=10, left_margin=10, right_margin=10)
     extra.get_buffer().set_text(payload["additional"])
-    extra_scroll = Gtk.ScrolledWindow(min_content_height=100)
+    extra_scroll = Gtk.ScrolledWindow(min_content_height=180)
     extra_scroll.set_child(extra)
-    sections.append(extra_scroll)
+    context.append(extra_scroll)
     self.extra = extra.get_buffer()
+    toolbar = box(False)
+    counter = label("", True)
+    counter.set_hexpand(True)
+    toolbar.append(counter)
+    context.append(toolbar)
+    def count_extra(buffer):
+      size = len(buffer.get_text(*buffer.get_bounds(), True).encode())
+      counter.set_text(f"{size / 1024:.1f} / 64 Kio" if size else "Ajoutez du contexte si vous le souhaitez.")
+    count_extra(self.extra)
     def save_extra(buffer):
       try:
         value = text(buffer.get_text(*buffer.get_bounds(), True), 65536)
@@ -423,11 +566,52 @@ class Window(Gtk.ApplicationWindow):
         self.status.set_text(str(error))
     if not frozen:
       self.extra.connect("changed", save_extra)
-      sections.append(button("Masquer la sélection", lambda: self.safe(self.redact_extra)))
-    self.content.append(label("Relisez le contenu : le filtrage ne garantit pas l’absence d’informations sensibles. Les originaux locaux et le core brut sont exclus.", True))
+      self.extra.connect("changed", count_extra)
+      anonymize = button("Anonymiser la sélection", lambda: self.safe(self.redact_extra))
+      anonymize.set_sensitive(False)
+      self.extra.connect("mark-set", lambda buffer, *_: anonymize.set_sensitive(bool(buffer.get_selection_bounds())))
+      toolbar.append(anonymize)
+    else:
+      context.append(label("Envoi déjà tenté : cette version est figée pour permettre une nouvelle tentative sans doublon.", True))
+    self.content.append(label("Privé · équipe Monarch · 90 jours maximum. Core et originaux exclus.", True))
     if not frozen:
-      self.footer.append(button("Documents", self.documents))
-    self.footer.append(button("Vérifier la destination", self.confirm, True))
+      self.footer.append(button("Modifier les documents", self.documents))
+    spacer = box()
+    spacer.set_hexpand(True)
+    self.footer.append(spacer)
+    next_step = button("Continuer", self.confirm, True)
+    next_step.set_tooltip_text("Vérifier la destination avant de confirmer l’envoi.")
+    self.footer.append(next_step)
+
+  def preview_document(self, title, value):
+    if getattr(self, "preview_window", None):
+      self.preview_window.destroy()
+    dialog = Gtk.Window(application=self.get_application(), transient_for=self, modal=True,
+      destroy_with_parent=True, title=title, default_width=820, default_height=540)
+    self.preview_window = dialog
+    dialog.add_css_class("crash-report")
+    content = box(spacing=12)
+    for edge in ("top", "bottom", "start", "end"):
+      getattr(content, "set_margin_" + edge)(16)
+    heading = label(title)
+    heading.add_css_class("title-3")
+    heading.set_selectable(False)
+    content.append(heading)
+    content.append(label("Lecture seule · version qui sera transmise", True))
+    content.append(self.reader(value))
+    close = button("Fermer", dialog.destroy)
+    close.set_halign(Gtk.Align.END)
+    content.append(close)
+    dialog.set_child(content)
+    keys = Gtk.EventControllerKey()
+    def on_key(_, key, code, state):
+      if key == Gdk.KEY_Escape:
+        dialog.destroy()
+        return True
+      return False
+    keys.connect("key-pressed", on_key)
+    dialog.add_controller(keys)
+    dialog.present()
 
   def redact_extra(self):
     selection = self.extra.get_selection_bounds()
@@ -449,7 +633,7 @@ class Window(Gtk.ApplicationWindow):
     self.run(self.draft.service, self.destination)
 
   def destination(self, service):
-    self.page("Confirmer l’envoi à Monarch")
+    self.page("3 · Confirmer l’envoi")
     endpoint = self.draft.endpoint()
     self.content.append(label("Destination : " + endpoint))
     self.content.append(label("Conservation annoncée : " + str(service["retentionDays"]) + " jours."))

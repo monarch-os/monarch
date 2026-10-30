@@ -16,11 +16,14 @@ availability. **Envoyer un rapport** opens the native GTK reviewer; **Analyser
 avec l’IA** opens its separate deep-investigation consent screen.
 
 The reviewer separates the base report, optional AI analysis, selected text
-documents and additional user context. Its document list has unchecked boxes;
-open a document and check it to approve that exact version. Selecting text and
-choosing **Masquer la sélection** replaces it with `[REDACTED]`, highlighted in
+documents and additional user context. Open a document and choose **Joindre ce document** or **Ne pas joindre** to decide on that exact version. Selecting text and
+choosing **Anonymiser** replaces it with `[REDACTED]`, highlighted in
 the editor. Editing invalidates approval. Originals can be viewed locally and
-are never included in the upload. **Exclure le reste** excludes undecided pieces.
+are never included in the upload. The reviewer opens directly on the documents, with AI enrichment optional. Each document requires an explicit include or exclude decision; **Vérifier le rapport** remains disabled until all decisions are made. Editing a document invalidates its decision and disables progression again. A progress counter shows how many documents have been reviewed. Niri opens the reviewer as a 900 × 660 floating window.
+
+Included and excluded documents retain text labels and have green and red leading borders, without redundant checkboxes. The eye toggle displays the local original read-only in the same pane; viewing it never changes the outgoing content. **Déanonymiser** restores the individual marker containing the cursor or selection, only when its exact source is available locally. Both initial filtering and manual redactions retain local source mappings; editing a marker invalidates its mapping rather than guessing its source. Markers supplied without a known source cannot be restored automatically. Source mappings never enter the outgoing payload. Restoring text invalidates approval like any other edit.
+
+The compact review screen requests a 900 × 480 window with resizable columns: the included technical report, optional analysis and attachment count/size appear as plain sections on the left; optional reproduction context occupies the right column. Each document opens in a wide, read-only modal preview instead of expanding the summary. Only one preview is open at a time; **Fermer** or Escape returns to the unchanged summary. Context has a compact selection-only anonymization action and a UTF-8 byte counter. **Continuer** checks service availability and opens the destination confirmation; it does not send the report. A failed-send retry displays the frozen context read-only. Returning to the document editor restores its larger default size.
 
 Only UTF-8 text is supported: 1 MiB per file, 5 MiB of attachments, up to 50 files.
 There is no silent truncation. Failed anonymization requires explicit override

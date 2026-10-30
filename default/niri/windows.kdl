@@ -108,6 +108,13 @@ window-rule {
 }
 
 window-rule {
+    match app-id=r#"^org\.monarch\.CrashReport(\.Preview)?$"#
+    open-floating true
+    default-column-width { fixed 900; }
+    default-window-height { fixed 660; }
+}
+
+window-rule {
     match app-id="org.monarch.about"
     open-floating true
     default-column-width { fixed 1100; }

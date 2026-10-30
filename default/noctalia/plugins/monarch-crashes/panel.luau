@@ -113,14 +113,14 @@ function render()
   if status ~= "" then table.insert(children, label(status, 12, "error")) end
   if selected then
     local buttons = {
-      ui.button({ text = "Retour", height = 32, variant = "ghost", onClick = onBackClicked }),
+      ui.button({ key = "back", text = "Retour", height = 32, variant = "ghost", enabled = not loading, onClick = onBackClicked }),
     }
     if agentAvailable then
-      table.insert(buttons, ui.button({ text = "Analyser avec l’IA", height = 32, variant = "outline",
+      table.insert(buttons, ui.button({ key = "analyze", text = "Analyser avec l’IA", height = 32, variant = "primary", enabled = not loading,
         onClick = function() openReport(true) end }))
     end
     table.insert(buttons, ui.spacer({ flexGrow = 1 }))
-    table.insert(buttons, ui.button({ text = "Envoyer un rapport", height = 32, variant = "primary",
+    table.insert(buttons, ui.button({ key = "report", text = "Envoyer un rapport", height = 32, variant = "primary", enabled = not loading,
       onClick = function() openReport(false) end }))
     table.insert(children, ui.row({ gap = 8 }, buttons))
   else
@@ -128,8 +128,8 @@ function render()
     table.insert(children, ui.row({ align = "center", gap = 8 }, {
       ui.label({ text = tostring(#crashes) .. (more and "+" or "") .. " crashes · " .. tostring(page) .. " / " .. tostring(pages),
         fontSize = 11, color = "on_surface/0.55", flexGrow = 1 }),
-      ui.button({ text = "Précédent", height = 30, enabled = page > 1, onClick = function() page -= 1; render() end }),
-      ui.button({ text = "Suivant", height = 30, enabled = page < pages, onClick = function() page += 1; render() end }),
+      ui.button({ key = "previous-page", text = "Précédent", height = 30, enabled = page > 1, onClick = function() page -= 1; render() end }),
+      ui.button({ key = "next-page", text = "Suivant", height = 30, enabled = page < pages, onClick = function() page += 1; render() end }),
     }))
   end
   panel.render(ui.column({ flexGrow = 1, gap = 8 }, children))
