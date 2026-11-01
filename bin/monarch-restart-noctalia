@@ -13,4 +13,5 @@ done
 rm -f "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/monarch/caffeine" \
   "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/monarch/nightlight"
 
-setsid uwsm-app -- noctalia -d >/dev/null 2>&1 &
+# A scope would retain the updater's restricted PATH instead of the session's.
+uwsm-app -t service -- noctalia

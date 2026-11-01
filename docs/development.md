@@ -90,6 +90,8 @@ Invoke dependencies guaranteed by the default package set directly. Presence che
 
 ## Config Structure
 
+`monarch-restart-noctalia` launches the shell through `uwsm-app -t service`, inheriting the user manager's graphical session environment. A scope instead inherits the caller's environment, which is deliberately restricted during updates and cannot resolve user-installed tools. Noctalia runs without `-d` so systemd supervises the foreground process; failure to submit the service propagates to the caller. Do not broaden the updater's privileged command search path to repair a desktop environment.
+
 - `config/` - default configs copied to `~/.config/`
 - `config/noctalia/config.toml` - Monarch's Noctalia defaults (theme, bar lanes, per-widget settings, hooks, idle). Noctalia merges *every* `*.toml` in `~/.config/noctalia/`, and keeps its own mutable state in `~/.local/state/noctalia/settings.toml` — never ship that file.
 - `config/noctalia/palettes/Monarch.json` - the single Monarch color scheme (`dark` + `light` blocks, plus a `terminal` block of ANSI colors); Noctalia owns colors and dark/light

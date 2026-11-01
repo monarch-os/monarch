@@ -27,7 +27,11 @@ pkill() {
 }
 pgrep() { return 1; }
 setsid() { :; }
-export -f noctalia monarch-refresh-config pkill pgrep setsid
+uwsm-app() {
+  printf '%s\n' "$@" > "$test_tmp/launch"
+  return "${LAUNCH_STATUS:-0}"
+}
+export -f noctalia monarch-refresh-config pkill pgrep setsid uwsm-app
 
 for command in refresh restart; do
   printf '0\n' >"$test_tmp/nightlight"
@@ -35,6 +39,11 @@ for command in refresh restart; do
   monarch-toggle-nightlight on
   monarch-toggle-idle on
   "monarch-$command-noctalia"
+  [[ -f $test_tmp/launch ]] || fail "$command must submit the shell launch before returning"
+  mapfile -t launch < "$test_tmp/launch"
+  [[ ${launch[*]} == '-t service -- noctalia' ]] ||
+    fail "$command must use the session manager environment and keep Noctalia in the foreground"
+  rm "$test_tmp/launch"
   [[ ! -e $XDG_RUNTIME_DIR/monarch/nightlight && ! -e $XDG_RUNTIME_DIR/monarch/caffeine ]] ||
     fail "$command must clear the previous shell's toggle state"
   monarch-toggle-nightlight off
@@ -46,3 +55,10 @@ for command in refresh restart; do
   monarch-toggle-idle off
   pass "$command keeps the shell and toggle indicators consistent"
 done
+
+if LAUNCH_STATUS=23 monarch-restart-noctalia; then
+  fail "a rejected service launch must not report a successful restart"
+else
+  [[ $? == 23 ]] || fail "restart must preserve the service launch failure"
+fi
+pass "restart propagates service launch failures"
