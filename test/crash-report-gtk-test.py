@@ -15,42 +15,6 @@ import window as reviewer
 
 
 class Reviewer(unittest.TestCase):
-  def test_mise_agent_visible_with_desktop_path(self):
-    with tempfile.TemporaryDirectory() as state:
-      home = Path(state)
-      defaults = home / ".config/monarch/defaults"
-      defaults.mkdir(parents=True)
-      (defaults / "agent").write_text("codex\n")
-      shims = home / "mise/shims"
-      shims.mkdir(parents=True)
-      agent = shims / "codex"
-      agent.write_text("#!/bin/bash\nexit 99\n")
-      agent.chmod(0o755)
-      draft = Draft(ROOT, "a" * 32 + ":42:123456789", state)
-      draft.data = {"report": {"crash": {"application": "demo", "signal": "SIGILL", "date": "2026-10-30"}},
-        "documents": [], "analysis": None, "additional": "", "frozen": None, "endpoint": None, "submission": "test"}
-      draft.save()
-      app = Gtk.Application(application_id="org.monarch.CrashReport.Agent", flags=Gio.ApplicationFlags.NON_UNIQUE)
-      app.register(None)
-      with patch.object(Window, "run"):
-        window = Window(app, draft)
-      original_command = reviewer.command
-      def command(argv, **kwargs):
-        if argv[0].endswith("/monarch-theme-colors"):
-          return "{}"
-        return original_command(argv, **kwargs)
-      with patch.dict(os.environ, HOME=state, MISE_DATA_DIR=str(home / "mise"), PATH=f"{ROOT}/bin:/usr/bin"), patch.object(reviewer, "command", command):
-        window.load()
-        self.assertTrue(window.agent)
-        window.documents()
-        self.assertEqual(window.footer.get_first_child().get_label(), reviewer.tr("crashReport.aiAction"))
-        agent.unlink()
-        window.load()
-        self.assertFalse(window.agent)
-        window.documents()
-        self.assertNotEqual(window.footer.get_first_child().get_label(), reviewer.tr("crashReport.aiAction"))
-      window.destroy()
-
   def test_localized_cleanup_failure_retry_and_reopened_receipt(self):
     for language, title, retry in (("en", "Report sent", "Retry local cleanup"),
                                    ("fr", "Rapport envoyé", "Réessayer le nettoyage local")):

@@ -88,9 +88,9 @@ Exceptions are allowed for bootstrap, preflight, reconciliation, and package-hel
 
 Invoke dependencies guaranteed by the default package set directly. Presence checks are for optional dependencies or code that runs before those packages are installed, not for hiding a broken installation.
 
-Desktop crash interfaces use `monarch agent --check` to detect the configured agent without launching it. Detection and launch share the inherited `PATH`, followed by mise's shims (`MISE_DATA_DIR`, or `${XDG_DATA_HOME:-$HOME/.local/share}/mise`) and `~/.local/bin`. The terminal receives the resolved executable path so a different UWSM environment does not lose it. These are unprivileged user-session paths; no shell startup file is sourced and an unset or missing agent returns failure. The crash panel and native reviewer must use this check rather than inspecting their own, potentially narrower, process environment.
-
 ## Config Structure
+
+`monarch-restart-noctalia` launches the shell through `uwsm-app -t service`, inheriting the user manager's graphical session environment. A scope instead inherits the caller's environment, which is deliberately restricted during updates and cannot resolve user-installed tools. Noctalia runs without `-d` so systemd supervises the foreground process; failure to submit the service propagates to the caller. Do not broaden the updater's privileged command search path to repair a desktop environment.
 
 - `config/` - default configs copied to `~/.config/`
 - `config/noctalia/config.toml` - Monarch's Noctalia defaults (theme, bar lanes, per-widget settings, hooks, idle). Noctalia merges *every* `*.toml` in `~/.config/noctalia/`, and keeps its own mutable state in `~/.local/state/noctalia/settings.toml` — never ship that file.

@@ -1,21 +1,16 @@
 #!/bin/bash
 
 # monarch:summary=Launch the default coding agent in a terminal
-# monarch:args=[--inline] [--pick] [--check]
+# monarch:args=[--inline] [--pick]
 # monarch:examples=monarch agent | monarch agent --inline
 
 inline=false
 pick=false
-check=false
 
 # Flags only. A bare prompt would shadow the subcommands under this group, so
 # prompts go through monarch-agent-prompt, which passes one here as --prompt.
 while (($#)); do
   case "$1" in
-    --check)
-      check=true
-      shift
-      ;;
     --inline)
       inline=true
       shift
@@ -40,15 +35,12 @@ done
 # menu start in the work directory instead of re-asking on every session.
 [[ $PWD == "$HOME" && -d $HOME/Work ]] && cd "$HOME/Work"
 
-# Desktop callers do not necessarily inherit the interactive shell's mise PATH.
-export PATH="$PATH:${MISE_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/mise}/shims:$HOME/.local/bin"
 agent=$(monarch-default-agent)
 
 # Monarch ships without a default agent, so there is nothing to launch until one
 # is picked. --pick offers the choice instead of the error, which is what the
 # keybinding wants: a keypress that opens nothing explains nothing.
 if [[ -z $agent ]]; then
-  [[ $check == "false" ]] || exit 1
   if [[ $pick == "true" ]]; then
     exec monarch-menu setup.defaults.agent
   fi
@@ -59,7 +51,6 @@ fi
 agent_binary=$agent
 [[ $agent == "hermes" ]] && agent_binary=/usr/bin/hermes
 if monarch-cmd-missing "$agent_binary"; then
-  [[ $check == "false" ]] || exit 1
   echo "$agent is not installed. Choose an installed agent with: monarch default agent <name>" >&2
   exit 1
 fi
@@ -128,11 +119,7 @@ pi)
   ;;
 esac
 
-# UWSM may launch the terminal with a different PATH from this process.
-command[0]=$(command -v -- "$agent_binary")
-if [[ $check == "true" ]]; then
-  exit 0
-elif [[ $inline == "true" ]]; then
+if [[ $inline == "true" ]]; then
   exec "${command[@]}"
 else
   # A fixed app-id rather than the default org.monarch.<binary>, so every agent

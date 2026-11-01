@@ -155,9 +155,10 @@ export_report() {
 }
 
 open_history() {
-  local id=${1:-} context attempt agent=false strings language
+  local id=${1:-} context attempt agent=false agent_name strings language
   [[ -z $id ]] || validate_id "$id"
-  if "$runtime/bin/monarch-agent" --check; then agent=true; fi
+  agent_name=$(monarch-default-agent)
+  if [[ -n $agent_name ]] && monarch-cmd-present "$agent_name"; then agent=true; fi
   strings=$(python3 "$runtime/default/i18n/i18n.py" --ui crashHistory)
   language=$("$runtime/bin/monarch-language")
   context=$(jq -cn --arg root "$runtime" --arg id "$id" --argjson agent "$agent" --argjson strings "$strings" --arg language "$language" \
