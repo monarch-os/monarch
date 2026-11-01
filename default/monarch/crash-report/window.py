@@ -96,9 +96,8 @@ class Window(Gtk.ApplicationWindow):
       return json.loads(self.draft.receipt_file.read_text())
     self.draft.load()
     try:
-      agent = command([str(self.draft.root / "bin/monarch-default-agent")]).strip()
-      import shutil
-      self.agent = bool(agent and shutil.which(agent))
+      command([str(self.draft.root / "bin/monarch-agent"), "--check"])
+      self.agent = True
     except Exception:
       self.agent = False
     return None

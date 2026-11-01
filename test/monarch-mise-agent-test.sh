@@ -7,6 +7,7 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
 export HOME="$TMP/home"
+unset MISE_DATA_DIR XDG_DATA_HOME
 export PATH="$TMP/bin:$ROOT/bin:/usr/bin"
 export TEST_LOG="$TMP/calls"
 mkdir -p "$TMP/bin"
@@ -145,5 +146,46 @@ fi
 grep -qx 'pkg-add opencode' "$TEST_LOG"
 grep -qx 'agent --inline' "$TEST_LOG"
 [[ $(<"$HOME/.config/monarch/defaults/agent") == "opencode" ]]
+
+rm "$TMP/bin/monarch-cmd-present"
+mkdir -p "$HOME/.local/share/mise/shims"
+printf '%s\n' codex > "$HOME/.config/monarch/defaults/agent"
+cat > "$HOME/.local/share/mise/shims/codex" <<'EOF'
+#!/bin/bash
+printf 'codex %s\n' "$*" >> "$TEST_LOG"
+EOF
+chmod +x "$HOME/.local/share/mise/shims/codex"
+: > "$TEST_LOG"
+"$ROOT/bin/monarch-agent" --inline --prompt 'Explain this crash'
+grep -qx 'codex --approve-for-me -- Explain this crash' "$TEST_LOG"
+: > "$TEST_LOG"
+"$ROOT/bin/monarch-agent" --check
+[[ ! -s $TEST_LOG ]]
+cat > "$TMP/bin/monarch-launch-tui" <<'EOF'
+#!/bin/bash
+[[ $1 == "--app-id=org.monarch.agent" ]]
+shift
+export PATH=/usr/bin
+exec "$@"
+EOF
+chmod +x "$TMP/bin/monarch-launch-tui"
+"$ROOT/bin/monarch-agent" --prompt 'Desktop crash'
+grep -qx 'codex --approve-for-me -- Desktop crash' "$TEST_LOG"
+
+mv "$HOME/.local/share/mise/shims/codex" "$HOME/.local/bin/codex"
+"$ROOT/bin/monarch-agent" --check
+"$ROOT/bin/monarch-agent" --inline --prompt 'Local wrapper'
+grep -qx 'codex --approve-for-me -- Local wrapper' "$TEST_LOG"
+
+rm "$HOME/.local/bin/codex"
+if "$ROOT/bin/monarch-agent" --check >/dev/null 2>&1; then
+  echo "An absent agent was reported as available" >&2
+  exit 1
+fi
+rm "$HOME/.config/monarch/defaults/agent"
+if "$ROOT/bin/monarch-agent" --check >/dev/null 2>&1; then
+  echo "An unset agent was reported as available" >&2
+  exit 1
+fi
 
 echo "All mise agent tests passed."

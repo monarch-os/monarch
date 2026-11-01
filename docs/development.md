@@ -88,6 +88,8 @@ Exceptions are allowed for bootstrap, preflight, reconciliation, and package-hel
 
 Invoke dependencies guaranteed by the default package set directly. Presence checks are for optional dependencies or code that runs before those packages are installed, not for hiding a broken installation.
 
+Desktop crash interfaces use `monarch agent --check` to detect the configured agent without launching it. Detection and launch share the inherited `PATH`, followed by mise's shims (`MISE_DATA_DIR`, or `${XDG_DATA_HOME:-$HOME/.local/share}/mise`) and `~/.local/bin`. The terminal receives the resolved executable path so a different UWSM environment does not lose it. These are unprivileged user-session paths; no shell startup file is sourced and an unset or missing agent returns failure. The crash panel and native reviewer must use this check rather than inspecting their own, potentially narrower, process environment.
+
 ## Config Structure
 
 - `config/` - default configs copied to `~/.config/`

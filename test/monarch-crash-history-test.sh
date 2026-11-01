@@ -11,6 +11,8 @@ export PACMAN_CALLS="$test_tmp/pacman.calls"
 export NOCTALIA_CALLS="$test_tmp/noctalia.calls"
 export XDG_CONFIG_HOME="$test_tmp/home" XDG_STATE_HOME="$test_tmp/state" MONARCH_PATH="$ROOT"
 export PATH="$test_tmp/bin:$ROOT/bin:/usr/bin"
+export HOME="$test_tmp/home"
+unset MISE_DATA_DIR XDG_DATA_HOME
 boot=0123456789abcdef0123456789abcdef
 old_boot=abcdef0123456789abcdef0123456789
 id="$boot:4242:1790859948000000"
@@ -38,12 +40,16 @@ if [[ $1 == "-Qoq" ]]; then echo crasher; else echo "$3 1.2.3-1"; fi
 EOF
 cat > "$test_tmp/bin/monarch-default-agent" <<'EOF'
 #!/bin/bash
-[[ ${NO_AGENT:-false} == "true" ]] || printf 'codex\n'
+if [[ ${NO_AGENT:-false} != "true" ]]; then
+  if [[ ${AGENT_MISSING:-false} == "true" ]]; then printf 'missing-agent\n'; else printf 'codex\n'; fi
+fi
 EOF
-cat > "$test_tmp/bin/monarch-cmd-present" <<'EOF'
+mkdir -p "$HOME/.local/share/mise/shims"
+cat > "$HOME/.local/share/mise/shims/codex" <<'EOF'
 #!/bin/bash
-[[ ${AGENT_MISSING:-false} != "true" ]]
+exit 99
 EOF
+chmod +x "$HOME/.local/share/mise/shims/codex"
 cat > "$test_tmp/bin/noctalia" <<'EOF'
 #!/bin/bash
 printf '%s\n' "$*" >> "$NOCTALIA_CALLS"
