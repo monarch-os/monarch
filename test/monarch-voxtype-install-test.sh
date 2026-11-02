@@ -10,6 +10,9 @@ export PATH="$TMP/bin:/usr/bin:/bin"
 
 cat >"$TMP/bin/gum" <<'EOF'
 #!/bin/bash
+if [[ $1 == choose ]]; then
+  echo "${CHOICE:-Keep}"
+fi
 exit 0
 EOF
 cat >"$TMP/bin/monarch-pkg-add" <<'EOF'
@@ -24,6 +27,22 @@ EOF
 cat >"$TMP/bin/voxtype" <<'EOF'
 #!/bin/bash
 printf 'voxtype %s\n' "$*" >>"$LOG"
+if [[ $1 == config && $2 == get ]]; then
+  case $3 in
+    engine) echo '{"value":"whisper"}' ;;
+    whisper.mode) echo '{"value":"local"}' ;;
+    whisper.model) echo '{"value":"small"}' ;;
+  esac
+  exit 0
+fi
+if [[ $1 == info && $2 == models ]]; then
+  echo "{\"engines\":{\"whisper\":{\"models\":[{\"name\":\"small\",\"installed\":${MODEL_INSTALLED:-true}}]}}}"
+  exit 0
+fi
+if [[ $1 == info && $2 == engines ]]; then
+  echo '[{"name":"whisper","compiled":true}]'
+  exit 0
+fi
 if [[ $* == *--download* ]]; then
   mkdir -p "$XDG_CONFIG_HOME/voxtype"
   echo generated >"$XDG_CONFIG_HOME/voxtype/config.toml"
@@ -33,6 +52,10 @@ EOF
 cat >"$TMP/bin/notify-send" <<'EOF'
 #!/bin/bash
 echo notify >>"$LOG"
+EOF
+cat >"$TMP/bin/systemctl" <<'EOF'
+#!/bin/bash
+printf 'systemctl %s\n' "$*" >>"$LOG"
 EOF
 cat >"$TMP/bin/grep" <<'EOF'
 #!/bin/bash
@@ -85,6 +108,40 @@ grep -q 'voxtype setup systemd' "$LOG"
 grep -q '^notify$' "$LOG"
 
 : >"$LOG"
-bash "$ROOT/bin/monarch-voxtype-install" && exit 1
-[[ ! -s "$LOG" ]]
+sed -i -e 's/^engine = "parakeet"$/engine = "whisper"/' -e 's/^model = "base.en"$/model = "small"/' "$HOME/.config/voxtype/config.toml"
+before=$(sha256sum "$HOME/.config/voxtype/config.toml")
+CHOICE=Cancel bash "$ROOT/bin/monarch-voxtype-install"
+[[ $(sha256sum "$HOME/.config/voxtype/config.toml") == "$before" ]]
+! grep -q 'voxtype setup systemd\|^sudo\|^notify' "$LOG"
+
+: >"$LOG"
+CHOICE=Keep MODEL_INSTALLED=false bash "$ROOT/bin/monarch-voxtype-install" && exit 1
+[[ $(sha256sum "$HOME/.config/voxtype/config.toml") == "$before" ]]
+! grep -q 'voxtype setup systemd\|^notify' "$LOG"
+
+: >"$LOG"
+CHOICE=Keep bash "$ROOT/bin/monarch-voxtype-install"
+[[ $(sha256sum "$HOME/.config/voxtype/config.toml") == "$before" ]]
+grep -q 'voxtype setup systemd' "$LOG"
+
+: >"$LOG"
+mkdir -p "$HOME/.config/systemd/user"
+printf 'custom service\n' >"$HOME/.config/systemd/user/voxtype.service"
+CHOICE=Keep bash "$ROOT/bin/monarch-voxtype-install"
+grep -q '^custom service$' "$HOME/.config/systemd/user/voxtype.service"
+grep -q 'systemctl --user enable --now voxtype.service' "$LOG"
+! grep -q 'voxtype setup systemd' "$LOG"
+rm "$HOME/.config/systemd/user/voxtype.service"
+
+: >"$LOG"
+CHOICE=Replace DOWNLOAD_STATUS=1 bash "$ROOT/bin/monarch-voxtype-install" && exit 1
+[[ $(sha256sum "$HOME/.config/voxtype/config.toml") == "$before" ]]
+! grep -q 'voxtype setup systemd\|^notify' "$LOG"
+
+: >"$LOG"
+CHOICE=Replace bash "$ROOT/bin/monarch-voxtype-install"
+backup=("$HOME"/.config/voxtype/config.toml.backup.*)
+[[ ${#backup[@]} == 1 ]]
+[[ $(sha256sum "${backup[0]}" | cut -d ' ' -f1) == "${before%% *}" ]]
+grep -q 'voxtype setup systemd' "$LOG"
 echo 'Voxtype installer tests passed'
