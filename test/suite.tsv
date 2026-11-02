@@ -1,4 +1,5 @@
 path	feature	risk	environment
+test/monarch-voxtype-install-test.sh	dictation	high	isolated
 test/monarch-todo-test.sh	todo	medium	isolated
 test/monarch-lazyvpn-test.sh	lazyvpn	medium	isolated
 test/shell.d/exegol-helpers-test.sh	exegol	medium	isolated
