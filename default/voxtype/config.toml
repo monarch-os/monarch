@@ -9,6 +9,10 @@
 # ("idle", "recording", "transcribing") to this file whenever it changes.
 # Required for `voxtype record toggle` and `voxtype status` commands.
 state_file = "auto"
+engine = "parakeet"
+
+[parakeet]
+model = "parakeet-tdt-0.6b-v3-int8"
 
 [hotkey]
 # Hotkey is configured in Niri (binds.kdl). Default is Mod + Ctrl + X.
@@ -49,7 +53,7 @@ model = "base.en"
 # Language for transcription
 # Use "en" for English, "auto" for auto-detection
 # See: https://github.com/openai/whisper#available-models-and-languages
-language = "en"
+language = "auto"
 
 # Translate non-English speech to English
 translate = false

@@ -3,22 +3,97 @@
 # monarch:summary=Install and configure Voxtype dictation
 # monarch:requires-sudo=true
 
-set -e
+set -eo pipefail
 
 # Install voxtype and configure it for use.
 
-if gum confirm "Install Voxtype + AI model (~150MB) to enable dictation?"; then
+if gum confirm "Install Voxtype + multilingual AI model (~640 MiB) to enable dictation?"; then
   monarch-pkg-add wtype voxtype-bin
-
-  # Setup voxtype
-  mkdir -p ~/.config/voxtype
-  cp $MONARCH_PATH/default/voxtype/config.toml ~/.config/voxtype/
-
-  voxtype setup --download --no-post-install
-  if monarch-hw-vulkan; then
-    voxtype setup gpu --enable || true
+  config="$HOME/.config/voxtype/config.toml"
+  choice="Replace"
+  if [[ -e "$config" || -L "$config" ]]; then
+    choice=$(gum choose "Keep" "Replace" "Cancel") || exit 0
   fi
-  voxtype setup systemd
+
+  if [[ $choice == "Cancel" ]]; then
+    echo "Voxtype is installed; existing configuration was left unchanged."
+    exit 0
+  fi
+
+  if [[ $choice == "Keep" ]]; then
+    engine=$(voxtype config get engine --json | jq -er '.value | select(type == "string")')
+    if [[ $engine == "whisper" ]]; then
+      inspector=voxtype
+      mode=$(voxtype config get whisper.mode --json | jq -er '.value | select(type == "string")')
+      if [[ $mode != "local" ]]; then
+        echo "Existing Whisper mode is not local; configure it manually before starting Voxtype." >&2
+        exit 1
+      fi
+    elif [[ $engine == "parakeet" ]] && grep -qw avx2 /proc/cpuinfo; then
+      if voxtype info engines --json | jq -e 'any(.name == "parakeet" and .compiled == true)' >/dev/null; then
+        inspector=voxtype
+      else
+        inspector=/usr/lib/voxtype/voxtype-onnx-avx2
+      fi
+    else
+      echo "Cannot verify the configured engine on this machine; configure Voxtype manually." >&2
+      exit 1
+    fi
+    model=$("$inspector" config get "$engine.model" --json | jq -er '.value | select(type == "string")')
+    if [[ $model == /* ]]; then
+      if [[ $engine == "parakeet" && ! -d $model ]] || [[ $engine == "whisper" && ! -f $model ]]; then
+        echo "Configured model path is missing or has the wrong type: $model" >&2
+        exit 1
+      fi
+    elif ! "$inspector" info models --json --engine "$engine" | jq -e --arg engine "$engine" --arg model "$model" '.engines[$engine].models | any(.name == $model and .installed == true)' >/dev/null; then
+      echo "Configured model is not installed or cannot be verified: $model" >&2
+      exit 1
+    fi
+    if ! voxtype info engines --json | jq -e --arg engine "$engine" 'any(.name == $engine and .compiled == true)' >/dev/null; then
+      sudo /usr/bin/voxtype setup onnx --enable
+    fi
+  elif [[ $choice == "Replace" ]]; then
+    if grep -qw avx2 /proc/cpuinfo; then
+      model=parakeet-tdt-0.6b-v3-int8
+      sudo /usr/bin/voxtype setup onnx --enable
+    else
+      model=small
+      echo "AVX2 is unavailable; using multilingual Whisper small instead."
+    fi
+    config_stage=$(mktemp -d)
+    trap 'rm -rf "$config_stage"' EXIT
+    XDG_CONFIG_HOME="$config_stage" voxtype setup --download --model "$model" --no-post-install
+    mkdir -p "$HOME/.config/voxtype"
+    if [[ -e "$config" || -L "$config" ]]; then
+      backup=$(mktemp "$config.backup.XXXXXXXX")
+      cp -L -- "$config" "$backup"
+      echo "Existing configuration saved to $backup"
+      output=$(mktemp "$config.new.XXXXXXXX")
+    else
+      output="$config"
+    fi
+    if [[ $model == "small" ]]; then
+      (set -o noclobber; if [[ $output != "$config" ]]; then set +o noclobber; fi; sed -e 's/^engine = "parakeet"$/engine = "whisper"/' -e 's/^model = "base.en"$/model = "small"/' "$MONARCH_PATH/default/voxtype/config.toml" >"$output")
+    else
+      (set -o noclobber; if [[ $output != "$config" ]]; then set +o noclobber; fi; cat "$MONARCH_PATH/default/voxtype/config.toml" >"$output")
+    fi
+    if [[ $output != "$config" ]]; then
+      mv -T -- "$output" "$config"
+    fi
+  else
+    echo "Unknown selection; leaving the configuration unchanged." >&2
+    exit 1
+  fi
+
+  if [[ -e "$HOME/.config/systemd/user/voxtype.service" || -L "$HOME/.config/systemd/user/voxtype.service" ]]; then
+    systemctl --user enable --now voxtype.service
+    if [[ $choice == "Replace" ]]; then
+      systemctl --user restart voxtype.service
+    fi
+  else
+    voxtype setup systemd
+  fi
+  systemctl --user is-active --quiet voxtype.service
 
   notify-send "    Voxtype Dictation Ready" "Toggle dictation with Super + Ctrl + X." -t 10000
 fi
