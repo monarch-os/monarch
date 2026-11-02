@@ -4,10 +4,20 @@ source "$(dirname "$0")/base-test.sh"
 
 temporary=$(mktemp -d)
 trap 'rm -rf "$temporary"' EXIT
-mkdir -p "$temporary/bin" "$temporary/state" "$temporary/home/.local/share/applications"
+mkdir -p "$temporary/bin" "$temporary/state/sync" "$temporary/home/.local/share/applications"
 export TEST_STATE="$temporary/state"
 export HOME="$temporary/home"
 export PATH="$temporary/bin:/usr/bin:/bin"
+touch "$TEST_STATE/sync/core.db"
+
+cat >"$temporary/bin/pacman-conf" <<'SH'
+#!/bin/bash
+case "$1" in
+  DBPath) printf '%s\n' "$TEST_STATE" ;;
+  --repo-list) printf '%s\n' core ;;
+  *) exit 1 ;;
+esac
+SH
 
 cat >"$temporary/bin/pacman" <<'SH'
 #!/bin/bash
