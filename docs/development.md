@@ -79,7 +79,7 @@ Use these instead of raw shell commands:
 
 - `monarch-cmd-missing` / `monarch-cmd-present` - check for commands
 - `monarch-pkg-missing` / `monarch-pkg-present` - check for packages when the add/drop helper cannot already express the operation
-- `monarch-pkg-add` - install packages from configured pacman repositories; use `monarch-pkg-aur-add` for AUR packages
+- `monarch-pkg-add` - install packages from configured pacman repositories; if a configured repository database is missing or unreadable, ask before running a full `pacman -Syu` and stop if it fails or is declined. This checks database presence, not freshness. Use `monarch-pkg-aur-add` for AUR packages.
 - `monarch-pkg-drop` - remove packages instead of raw `pacman -R*`
 - `monarch-notification-send` - send desktop notifications instead of raw `notify-send`
 - `monarch-hw-asus-rog` - detect ASUS ROG hardware (and similar `hw-*` commands)
