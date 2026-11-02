@@ -30,14 +30,21 @@ if gum confirm "Install Voxtype + multilingual AI model (~640 MiB) to enable dic
         exit 1
       fi
     elif [[ $engine == "parakeet" ]] && grep -qw avx2 /proc/cpuinfo; then
-      inspector=/usr/lib/voxtype/voxtype-onnx-avx2
+      if voxtype info engines --json | jq -e 'any(.name == "parakeet" and .compiled == true)' >/dev/null; then
+        inspector=voxtype
+      else
+        inspector=/usr/lib/voxtype/voxtype-onnx-avx2
+      fi
     else
       echo "Cannot verify the configured engine on this machine; configure Voxtype manually." >&2
       exit 1
     fi
     model=$("$inspector" config get "$engine.model" --json | jq -er '.value | select(type == "string")')
     if [[ $model == /* ]]; then
-      [[ -f $model ]] || { echo "Configured model file is missing: $model" >&2; exit 1; }
+      if [[ $engine == "parakeet" && ! -d $model ]] || [[ $engine == "whisper" && ! -f $model ]]; then
+        echo "Configured model path is missing or has the wrong type: $model" >&2
+        exit 1
+      fi
     elif ! "$inspector" info models --json --engine "$engine" | jq -e --arg engine "$engine" --arg model "$model" '.engines[$engine].models | any(.name == $model and .installed == true)' >/dev/null; then
       echo "Configured model is not installed or cannot be verified: $model" >&2
       exit 1

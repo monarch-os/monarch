@@ -29,9 +29,9 @@ cat >"$TMP/bin/voxtype" <<'EOF'
 printf 'voxtype %s\n' "$*" >>"$LOG"
 if [[ $1 == config && $2 == get ]]; then
   case $3 in
-    engine) echo '{"value":"whisper"}' ;;
+    engine) jq -n --arg value "${TEST_ENGINE:-whisper}" '{value:$value}' ;;
     whisper.mode) echo '{"value":"local"}' ;;
-    whisper.model) echo '{"value":"small"}' ;;
+    whisper.model|parakeet.model) jq -n --arg value "${TEST_MODEL:-small}" '{value:$value}' ;;
   esac
   exit 0
 fi
@@ -40,7 +40,7 @@ if [[ $1 == info && $2 == models ]]; then
   exit 0
 fi
 if [[ $1 == info && $2 == engines ]]; then
-  echo '[{"name":"whisper","compiled":true}]'
+  echo '[{"name":"whisper","compiled":true},{"name":"parakeet","compiled":true}]'
   exit 0
 fi
 if [[ $* == *--download* ]]; then
@@ -123,6 +123,21 @@ CHOICE=Keep MODEL_INSTALLED=false bash "$ROOT/bin/monarch-voxtype-install" && ex
 CHOICE=Keep bash "$ROOT/bin/monarch-voxtype-install"
 [[ $(sha256sum "$HOME/.config/voxtype/config.toml") == "$before" ]]
 grep -q 'voxtype setup systemd' "$LOG"
+
+mkdir -p "$TMP/parakeet-model"
+touch "$TMP/whisper-model.bin"
+: >"$LOG"
+CHOICE=Keep TEST_ENGINE=parakeet TEST_MODEL="$TMP/parakeet-model" bash "$ROOT/bin/monarch-voxtype-install"
+grep -q 'voxtype setup systemd' "$LOG"
+: >"$LOG"
+CHOICE=Keep TEST_ENGINE=parakeet TEST_MODEL="$TMP/whisper-model.bin" bash "$ROOT/bin/monarch-voxtype-install" && exit 1
+! grep -q 'voxtype setup systemd\|^notify' "$LOG"
+: >"$LOG"
+CHOICE=Keep TEST_ENGINE=whisper TEST_MODEL="$TMP/whisper-model.bin" bash "$ROOT/bin/monarch-voxtype-install"
+grep -q 'voxtype setup systemd' "$LOG"
+: >"$LOG"
+CHOICE=Keep TEST_ENGINE=whisper TEST_MODEL="$TMP/parakeet-model" bash "$ROOT/bin/monarch-voxtype-install" && exit 1
+! grep -q 'voxtype setup systemd\|^notify' "$LOG"
 
 : >"$LOG"
 mkdir -p "$HOME/.config/systemd/user"
