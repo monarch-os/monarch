@@ -1,5 +1,12 @@
 {
   "strings": {
+    "pkgAdd.missingDatabases": "Package databases for these repositories are missing or unreadable: %1",
+    "pkgAdd.updateExplanation": "Before installing the requested software, Monarch must synchronize the repositories and update the entire system. Other software may be upgraded; this can take several minutes.",
+    "pkgAdd.confirmUpdate": "Update the entire system, then install the requested software?",
+    "pkgAdd.confirmYes": "Update and install",
+    "pkgAdd.confirmNo": "Cancel",
+    "pkgAdd.cancelled": "Installation cancelled. Synchronize the package databases before retrying.",
+    "pkgAdd.stillMissing": "The package database for repository %1 is still missing or unreadable.",
     "crashHistory.core.present": "Core dump available",
     "crashHistory.core.truncated": "Partial core dump",
     "crashHistory.core.missing": "Core dump deleted or inaccessible",
