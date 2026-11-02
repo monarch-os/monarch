@@ -48,8 +48,20 @@ if ! grep -qw avx2 /proc/cpuinfo; then
   exit 0
 fi
 
-NO_AVX2=1 bash "$ROOT/bin/monarch-voxtype-install" && exit 1
-[[ ! -e "$LOG" ]]
+mkdir -p "$TMP/fallback-home"
+HOME="$TMP/fallback-home" NO_AVX2=1 bash "$ROOT/bin/monarch-voxtype-install"
+python3 - "$TMP/fallback-home/.config/voxtype/config.toml" <<'PY'
+import sys, tomllib
+with open(sys.argv[1], 'rb') as f:
+    config = tomllib.load(f)
+assert config['engine'] == 'whisper'
+assert config['whisper']['model'] == 'small'
+assert config['whisper']['language'] == 'auto'
+PY
+grep -q 'voxtype setup --download --model small' "$LOG"
+grep -q 'voxtype setup systemd' "$LOG"
+! grep -q '^sudo ' "$LOG"
+: >"$LOG"
 
 SUDO_STATUS=1 bash "$ROOT/bin/monarch-voxtype-install" && exit 1
 [[ ! -e "$HOME/.config/voxtype/config.toml" ]]

@@ -12,19 +12,24 @@ if gum confirm "Install Voxtype + multilingual AI model (~640 MiB) to enable dic
     echo "Voxtype configuration already exists; refusing to overwrite it." >&2
     exit 1
   fi
-  if ! grep -qw avx2 /proc/cpuinfo; then
-    echo "The default Parakeet model requires an AVX2-capable CPU." >&2
-    exit 1
-  fi
-
   monarch-pkg-add wtype voxtype-bin
 
-  sudo /usr/bin/voxtype setup onnx --enable
+  if grep -qw avx2 /proc/cpuinfo; then
+    model=parakeet-tdt-0.6b-v3-int8
+    sudo /usr/bin/voxtype setup onnx --enable
+  else
+    model=small
+    echo "AVX2 is unavailable; using multilingual Whisper small instead."
+  fi
   config_stage=$(mktemp -d)
   trap 'rm -rf "$config_stage"' EXIT
-  XDG_CONFIG_HOME="$config_stage" voxtype setup --download --model parakeet-tdt-0.6b-v3-int8 --no-post-install
+  XDG_CONFIG_HOME="$config_stage" voxtype setup --download --model "$model" --no-post-install
   mkdir -p "$HOME/.config/voxtype"
-  (set -o noclobber; cat "$MONARCH_PATH/default/voxtype/config.toml" >"$HOME/.config/voxtype/config.toml")
+  if [[ $model == "small" ]]; then
+    (set -o noclobber; sed -e 's/^engine = "parakeet"$/engine = "whisper"/' -e 's/^model = "base.en"$/model = "small"/' "$MONARCH_PATH/default/voxtype/config.toml" >"$HOME/.config/voxtype/config.toml")
+  else
+    (set -o noclobber; cat "$MONARCH_PATH/default/voxtype/config.toml" >"$HOME/.config/voxtype/config.toml")
+  fi
   voxtype setup systemd
 
   notify-send "    Voxtype Dictation Ready" "Toggle dictation with Super + Ctrl + X." -t 10000
