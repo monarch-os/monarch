@@ -36,7 +36,10 @@ comment: Default EFI loader
 path: boot():/EFI/BOOT/BOOTX64.EFI
 EOF
 
+original_exit_trap=$(trap -p EXIT)
 MONARCH_FACTORY_RESET_LIB_ONLY=true source "$ROOT/bin/monarch-system-factory-reset"
+[[ $(trap -p EXIT) == "$original_exit_trap" ]] || { echo 'library sourcing replaced the caller EXIT trap' >&2; exit 1; }
+gum() { [[ $1 == style ]] || return 1; printf '%s\n' "${@: -1}"; }
 LOG_FILE="$test_tmp/factory-reset.log"
 reset_limine_config "$fixture" /boot "$old_id"
 

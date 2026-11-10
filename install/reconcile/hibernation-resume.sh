@@ -144,7 +144,7 @@ limine_stage=$stage
 while IFS= read -r line || [[ -n $line ]]; do
   if [[ $line == "$previous" && -n $previous ]]; then
     printf '%s\n' "$expected"
-  elif [[ $line =~ $pattern && ( ${BASH_REMATCH[2]} == "$offset" || -z ${BASH_REMATCH[2]} ) && ${BASH_REMATCH[1]} == /dev/* && ${BASH_REMATCH[1]} != /dev/mapper/* ]]; then
+  elif [[ $line =~ $pattern && ( ${BASH_REMATCH[2]} == "$offset" || -z ${BASH_REMATCH[2]} ) && ( ${BASH_REMATCH[1]} == "$device" || ( ${BASH_REMATCH[1]} == /dev/* && ${BASH_REMATCH[1]} != /dev/mapper/* ) ) ]]; then
     printf '%s\n' "$expected"
   else
     printf '%s\n' "$line"

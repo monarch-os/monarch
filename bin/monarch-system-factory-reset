@@ -161,10 +161,12 @@ cleanup() {
   fi
   if [[ $top_owned == 1 ]]; then rmdir "$TOP_MNT" 2>/dev/null || true; fi
 }
-trap cleanup EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
-trap 'exit 129' HUP
+if [[ $factory_reset_library != "true" ]]; then
+  trap cleanup EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  trap 'exit 129' HUP
+fi
 
 confirm_reset() {
   echo

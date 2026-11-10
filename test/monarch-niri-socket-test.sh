@@ -76,6 +76,11 @@ printf '# itself is only checked when a real session is present.\n'
 cp /bin/sleep "$TMP/niri"
 "$TMP/niri" 300 &
 FAKE_NIRI_PID=$!
+for ((attempt = 0; attempt < 100; attempt++)); do
+  [[ $(cat "/proc/$FAKE_NIRI_PID/comm" 2>/dev/null) == niri ]] && break
+  sleep 0.01
+done
+[[ $(cat "/proc/$FAKE_NIRI_PID/comm" 2>/dev/null) == niri ]] || fail 'niri stand-in did not start'
 
 export XDG_RUNTIME_DIR="$TMP"
 LIVE_SOCKET="$TMP/niri.wayland-1.$FAKE_NIRI_PID.sock"

@@ -210,6 +210,21 @@ reconcile
 [[ ! -e $pending ]] || fail 'deferred rebuild was not completed'
 pass 'no-rebuild retains durable intent and retry repairs a partially published pair'
 
+mapper_empty='KERNEL_CMDLINE[default]+=" resume=/dev/mapper/root resume_offset="'
+mapper_fixed='KERNEL_CMDLINE[default]+=" resume=/dev/mapper/root resume_offset=4242"'
+machine "$mapper_empty"
+export RESUME_TEST_SOURCE='/dev/mapper/root[/@swap]'
+reconcile --no-rebuild
+other_mapper='KERNEL_CMDLINE[default]+=" resume=/dev/mapper/other resume_offset="'
+printf '%s\n' "$manual" "$mapper_empty" "$other_mapper" >"$limine"
+reconcile
+grep -qxF "$mapper_fixed" "$limine" || fail 'interrupted mapper repair left the main resume offset empty'
+grep -qxF "$other_mapper" "$limine" || fail 'mapper retry modified another mapper'
+grep -qxF "$manual" "$limine" || fail 'mapper retry lost administrator settings'
+[[ ! -e $pending ]] || fail 'mapper retry did not complete'
+export RESUME_TEST_SOURCE='/dev/nvme0n1p2[/@swap]'
+pass 'interrupted mapper resume repair updates the old main-file copy before acknowledging the rebuild'
+
 machine
 reconcile --no-rebuild
 rm "$hook" "$drop_in"
