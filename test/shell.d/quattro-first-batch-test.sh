@@ -37,7 +37,7 @@ key=519BC3D5AEA652C94F89F0AAC13B3766D969CE82
 for failed_call in \
   "pacman-key --recv-keys $key --keyserver keys.openpgp.org" \
   "pacman-key --lsign-key $key" 'pacman -Sy' 'pkg monarch-keyring' \
-  "pacman-key --list-keys $key" 'pacman -Sy --noconfirm archlinux-keyring' \
+  "pacman-key --list-keys $key" 'pacman -Sy --noconfirm archlinux-keyring monarch-keyring' \
   'pacman -Sy --noconfirm cachyos-keyring'; do
   if FAIL_CALL="$failed_call" "$ROOT/bin/monarch-update-keyring" >"$test_tmp/output" 2>&1; then
     fail "a failed signing key repair reports success" "$failed_call"

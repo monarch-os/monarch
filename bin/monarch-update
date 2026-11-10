@@ -184,10 +184,12 @@ else
 fi
 monarch-reconcile
 monarch-update-orphan-pkgs
-PATH="$update_user_path" "${update_entrypoint%/*}/monarch-hook" --strict post-update
 monarch-update-analyze-logs
 monarch-update-restart --services-only
+# Finish trusted work before user code: reauthorizing later would also expose
+# the new cache to descendants left running by a hook.
 monarch_update_end_authorization || exit 1
+PATH="$update_user_path" "${update_entrypoint%/*}/monarch-hook" --strict post-update
 [[ $skip_aur == "true" || $packages_current == "true" ]] || monarch-update-aur-pkgs
 noctalia msg plugin monarch/indicators:monarch-update all refresh >/dev/null 2>&1 || true
 update_refresh_panel=false

@@ -8,11 +8,13 @@ trap 'rm -rf "$test_tmp"' EXIT
 
 old_id=11111111111111111111111111111111
 foreign_id=22222222222222222222222222222222
+new_id=33333333333333333333333333333333
 fixture="$test_tmp/root"
 preserved="$test_tmp/preserved.conf"
 
 mkdir -p "$fixture/boot/$old_id" "$fixture/boot/$foreign_id" \
-  "$fixture/usr/share/monarch/install/assets/limine"
+  "$fixture/usr/share/monarch/install/assets/limine" "$fixture/etc"
+printf '%s\n' "$new_id" >"$fixture/etc/machine-id"
 touch "$fixture/boot/$old_id/local" "$fixture/boot/$foreign_id/foreign"
 printf 'interface_branding: Monarch\n' >"$fixture/usr/share/monarch/install/assets/limine/limine.conf"
 cat >"$fixture/boot/limine.conf" <<EOF
@@ -36,14 +38,15 @@ EOF
 
 MONARCH_FACTORY_RESET_LIB_ONLY=true source "$ROOT/bin/monarch-system-factory-reset"
 LOG_FILE="$test_tmp/factory-reset.log"
-reset_limine_config "$fixture" /boot "$old_id" "$preserved"
+reset_limine_config "$fixture" /boot "$old_id"
 
-grep -q '^/Windows' "$preserved"
-grep -q "machine-id=$foreign_id" "$preserved"
-! grep -q "machine-id=$old_id" "$preserved"
-! grep -q '^/EFI fallback' "$preserved"
+grep -q '^/Windows' "$fixture/boot/limine.conf"
+grep -q "machine-id=$foreign_id" "$fixture/boot/limine.conf"
+grep -q "machine-id=$new_id" "$fixture/boot/limine.conf"
+! grep -q "machine-id=$old_id" "$fixture/boot/limine.conf"
+grep -q '^/EFI fallback' "$fixture/boot/limine.conf"
 [[ -f $fixture/boot/$foreign_id/foreign ]]
-[[ ! -e $fixture/boot/$old_id ]]
+[[ -f $fixture/boot/$old_id/local ]]
 grep -q '^interface_branding: Monarch$' "$fixture/boot/limine.conf"
 
 (
@@ -149,12 +152,23 @@ for attempt in 1 2; do
   stage_current_owner_provisioning "$owner_fixture" "$ROOT"
   cmp "$ROOT/bin/monarch-provision-owner" "$owner_fixture/usr/share/monarch/bin/monarch-provision-owner"
   cmp "$ROOT/install/provisioning/setup-form.sh" "$owner_fixture/usr/share/monarch/install/provisioning/setup-form.sh"
+  cmp "$ROOT/install/provisioning/luks-rekey.sh" "$owner_fixture/usr/share/monarch/install/provisioning/luks-rekey.sh"
+  [[ $(stat -c %a "$owner_fixture/usr/share/monarch/install/provisioning/luks-rekey.sh") == 644 ]]
   [[ -x $owner_fixture/usr/share/monarch/bin/monarch-provision-owner ]]
 done
 if (stage_current_owner_provisioning "$owner_fixture" "$test_tmp/missing-source") >/dev/null 2>&1; then
   echo "factory reset staged unavailable first-boot provisioning" >&2
   exit 1
 fi
+cmp "$ROOT/bin/monarch-provision-owner" "$owner_fixture/usr/share/monarch/bin/monarch-provision-owner"
+mkdir -p "$test_tmp/missing-helper/"{bin,install/provisioning}
+printf 'must not be copied\n' >"$test_tmp/missing-helper/bin/monarch-provision-owner"
+cp "$ROOT/install/provisioning/setup-form.sh" "$test_tmp/missing-helper/install/provisioning/setup-form.sh"
+if (stage_current_owner_provisioning "$owner_fixture" "$test_tmp/missing-helper") >"$test_tmp/missing-helper.log" 2>&1; then
+  echo 'factory reset accepted a missing rekey helper' >&2
+  exit 1
+fi
+grep -q 'install/provisioning/luks-rekey.sh' "$test_tmp/missing-helper.log"
 cmp "$ROOT/bin/monarch-provision-owner" "$owner_fixture/usr/share/monarch/bin/monarch-provision-owner"
 
 security_fixture="$test_tmp/security-root"

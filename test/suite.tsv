@@ -1,4 +1,6 @@
 path	feature	risk	environment
+test/shell.d/runtime-rekey-integration-test.sh	factory-reset	high	isolated
+test/shell.d/hibernation-resume-test.sh	hibernation	high	isolated
 test/monarch-voxtype-install-test.sh	dictation	high	isolated
 test/monarch-todo-test.sh	todo	medium	isolated
 test/monarch-lazyvpn-test.sh	lazyvpn	medium	isolated
@@ -95,6 +97,7 @@ test/shell.d/sshd-hardening-test.sh	remote-access	high	isolated
 test/shell.d/sshd-removal-test.sh	remote-access	high	isolated
 test/shell.d/sudoless-docker-toggle-test.sh	docker-security	high	isolated
 test/shell.d/system-sleep-ownership-test.sh	security	high	isolated
+test/shell.d/unmount-fuse-hook-test.sh	sleep	high	isolated
 test/monarch-sudo-passwordless-test.sh	security	high	isolated
 test/monarch-tailscale-lifecycle-test.sh	tailscale	medium	isolated
 test/monarch-tailscale-receive-test.sh	tailscale	medium	isolated
@@ -119,6 +122,7 @@ test/shell.d/windows-vm-launch-test.sh	windows	medium	isolated
 test/shell.d/dns-security-test.sh	dns	medium	isolated
 test/shell.d/docker-access-test.sh	docker-security	high	isolated
 test/shell.d/factory-reset-esp-test.sh	factory-reset	high	isolated
+test/shell.d/factory-reset-transaction-test.sh	factory-reset	high	isolated
 test/shell.d/install-keyring-test.sh	installer	high	isolated
 test/shell.d/input-group-hardening-test.sh	security	high	isolated
 test/shell.d/legacy-agent-reconcile-test.sh	updates	high	isolated
@@ -141,6 +145,8 @@ test/shell.d/pentestenv-transition-test.sh	shell	medium	isolated
 test/shell.d/pkg-add-sync-test.sh	shell	medium	isolated
 test/shell.d/plocate-config-test.sh	package-runtime	medium	isolated
 test/shell.d/provision-owner-branding-test.sh	provisioning	low	isolated
+test/shell.d/provision-luks-rekey-test.sh	provisioning	high	isolated
+test/shell.d/provision-luks-keyboard-test.sh	provisioning	high	isolated
 test/shell.d/provision-user-test.sh	provisioning	high	isolated
 test/shell.d/provision-first-run-test.sh	provisioning	high	isolated
 test/shell.d/first-steps-test.sh	first-steps	high	isolated
@@ -161,6 +167,7 @@ test/shell.d/system-power-test.sh	power	high	isolated
 test/shell.d/system-lock-test.sh	lockscreen	high	isolated
 test/shell.d/update-conflict-recovery-test.sh	updates	high	isolated
 test/shell.d/update-guardrails-test.sh	updates	high	isolated
+test/shell.d/update-keyring-test.sh	updates	high	isolated
 test/shell.d/update-sudo-boundary-test.sh	updates	high	isolated
 test/shell.d/update-guards-test.sh	updates	high	isolated
 test/shell.d/update-pacman-guard-test.sh	updates	high	isolated

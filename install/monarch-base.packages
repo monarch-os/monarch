@@ -9,6 +9,7 @@ avahi
 bash-completion
 bat
 bind
+binutils
 bluez
 bluez-utils
 bolt
