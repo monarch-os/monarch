@@ -73,6 +73,8 @@ Install stage files follow this pattern:
 
 Raw `command -v`, `pacman`, and `pacman-key` are acceptable in bootstrap/preflight/package-helper contexts where the helper commands may not be available yet or where direct package-manager behavior is the point of the script.
 
+The [provisioning LUKS rekey contract](provisioning-luks-rekey.md) documents durable disk-ownership phases, reset staging, boot verification, required runtime tools and keyboard-artifact guarantees and acceptance limits.
+
 ## Helper Commands
 
 Use these instead of raw shell commands:
@@ -87,6 +89,8 @@ Use these instead of raw shell commands:
 Exceptions are allowed for bootstrap, preflight, reconciliation, and package-helper scripts where the helper may not be available yet, where the helper itself is being implemented, or where direct package-manager behavior is required.
 
 Invoke dependencies guaranteed by the default package set directly. Presence checks are for optional dependencies or code that runs before those packages are installed, not for hiding a broken installation.
+
+The [manual drive password contract](drive-password.md) defines the installed privileged helpers, LUKS1/LUKS2 metadata adapters, durable journal, slot proofs and recovery boundaries.
 
 ## Config Structure
 
@@ -215,6 +219,8 @@ For the Niri compositor specifically, prefer `monarch-refresh-niri` — it rebui
 
 ## Reconciliation
 
+The `unmount-fuse` system-sleep hook is owned by the `monarch` package at `/usr/lib/systemd/system-sleep/unmount-fuse`; package upgrades replace it directly. The existing legacy-runtime bootstrap adopts the old unowned hook via its constrained overwrite list. Do not add a reconciliation copy or a timestamped migration for this packaged path. Before sleep the hook lazy-unmounts GVFS; after sleep it submits one transient system timer per validated non-root user runtime bus. The five-second delay and nonblocking submission let the sleep hook return before `user.slice` thaws. The timer runs the fixed systemctl executable as that UID with a clean runtime/bus environment, no new privileges and a 30-second service limit. Submission and unmount failures are diagnosed and reflected in the hook status; later restart failures remain in the transient service's journal. Unsafe runtime directories or buses are skipped with a failure status, absent sessions are a no-op, and invalid UID names are ignored with a diagnostic.
+
 `monarch-reconcile` converges supported installations onto the current state
 after packages are updated. Do not add timestamped migrations. Put privileged,
 idempotent ownership in `install/reconcile/system.sh` and user/session ownership
@@ -236,6 +242,30 @@ upgrade path, keep `CURRENT_SCHEMA` and `MIN_SUPPORTED_SCHEMA` explicit in
 `monarch-reconcile`, and write the new value only after deferred work completes.
 An unversioned legacy install must prove the documented floor marker before it
 is treated as the minimum supported schema.
+
+### Hibernation resume configuration
+
+`install/reconcile/hibernation-resume.sh` owns the exact historical resume-only append lines emitted by `monarch-hibernation-setup`, provided `monarch_resume.conf` contains only the resume hook. It uses the filesystem UUID of the mounted swapfile for unencrypted storage and preserves `/dev/mapper/` names. It repairs matching generated copies in `/etc/default/limine` as well as the drop-in, without evaluating either file as shell code or replacing administrator command lines. Missing filesystem UUIDs fail closed rather than restoring volatile kernel device names.
+
+Before publishing changed boot settings, the root-only payload atomically records and synchronizes `/var/lib/monarch/hibernation-resume-rebuild`. Reconciliation and repeated setup retry the rebuild while this marker exists, including after partial publication, rebuild failure or interruption. `--no-rebuild` defers work but deliberately retains the marker; an external installer rebuild alone does not acknowledge completion. The marker is removed only after Limine exits successfully, its output contains no per-kernel mkinitcpio failure, and the boot tree can be read successfully. This validates the rebuild protocol, not an actual boot or hibernation cycle. Customized resume files encountered while a rebuild is pending stop reconciliation for administrator review.
+
+Setup, removal and reconciliation share the root-owned `hibernation-resume.lock`. Public setup/removal re-execute only their installed, fixed command as root and hold the lock through confirmation and all swap/configuration operations. Setup passes its inherited descriptor to the resume payload, which validates the descriptor against the trusted lock inode instead of acquiring a second lock. The reconciler reads its pending state only after acquiring the lock. Removal checks for any pending marker under that same lock before either declaring hibernation absent or prompting/removing anything; pending work fails with instructions to finish setup/reconstruction first. Cancelling removal releases the lock without changing swap or boot configuration.
+
+Removal records a separate durable `/var/lib/monarch/hibernation-remove-rebuild` intention before changing swap or configuration. A rerun resumes even after the hook was deleted, and only acknowledges success after the rebuild and boot-tree validation. While removal is pending, setup/reconciliation stop rather than recreating swap or resume settings. Only exact generated resume-only append lines are removed from Limine; mixed administrator command lines remain. Customized drop-ins/hooks and unsafe file paths stop removal before destructive work. Rebuild errors, skipped kernels and signals retain the intention for an explicit retry.
+
+Removal stops on the first failed swapoff or cleanup operation. A failed rebuild, including Limine reporting a skipped kernel with exit status zero, returns failure without printing completion; this does not make the historical removal sequence transactional.
+
+## Factory reset recovery
+
+`monarch-system-factory-reset` serializes attempts with a root-owned `/run` lock. It keeps the ESP mounted outside the prepared root, saves `limine.conf`, `EFI/Linux`, `EFI/limine` and `EFI/BOOT` in a private temporary directory, and arms restoration only after that backup succeeds. Preparation must verify at least one Monarch UKI in the new identity's entry; missing or stale foreign images do not block it. The existing menu preamble and foreign top-level blocks retain their positions. Only an unambiguous old identity using exclusively the Monarch UKI namespace is handed to the new identity; duplicate owned top-level entries stop preparation.
+
+Before activation, failure or HUP/INT/TERM restores boot files and revokes only the temporary LUKS slot identified by its generated passphrase, with automatic tokens excluded from passphrase tests. Failure to restore files or revoke the slot retains the staged root and reports recovery material. A failed second root rename attempts to restore the original root to `@`; if that fails too, both recoverable roots are retained. After the new root reaches `@`, cleanup must not restore the old kernel or revoke its temporary key, including a signal immediately after the rename. Identity directories still referenced by retained entries are not removed.
+
+Cleanup only removes this attempt's staged root and owned mounts. A retained staging root or mount blocks a new attempt rather than being erased automatically; resolve the earlier attempt from a trusted recovery environment first. These guarantees cover handled failures and catchable signals, not power loss or SIGKILL. Durable, automatic reset recovery remains separate from the [provisioning](provisioning-luks-rekey.md) and [manual password-change](drive-password.md) journals.
+
+Reset prevalidates and stages the current owner executable, setup form and rekey helper from the installed runtime. It removes only the cloned provisioning journal and `.luks-rekey.*` temporaries before staging a new key, on both encrypted and unencrypted resets; live journals are preserved. A symlink in the cloned provisioning directory or its ancestors stops cleanup. Hibernation recreation also stages the current setup command, root-file/as-root/shared-lock helpers, resume payload and keyboard-backlight asset together, so old factories cannot run a new command without its dependencies.
+
+Reset, provisioning rekey and manual rekey cooperate through `/run/monarch-drive-password.lock`, acquired before inspecting disk-transition state and held through their mutations and cleanup. A pending manual journal for the same UUID blocks reset/provisioning, while unfinished first-boot provisioning blocks manual changes/reset. Completed provisioning journals do not prohibit later manual recovery keys. Independent administrator tools that ignore this lock are outside this serialization guarantee; no recovery slot is removed by the manual flow.
 
 ## Upstream Sync
 

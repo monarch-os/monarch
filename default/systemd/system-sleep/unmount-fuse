@@ -1,33 +1,63 @@
+#!/bin/bash -p
 
-#!/bin/bash
+# Privileged Bash prevents BASH_ENV and exported functions from running as root.
+if [[ $- != *p* ]]; then
+  echo "unmount-fuse: privileged Bash is required" >&2
+  exit 1
+fi
+export PATH=/usr/bin:/bin
+status=0
 
-# Lazy-unmount gvfsd-fuse filesystems before suspend/hibernate to prevent the
-# kernel's process freeze from timing out. FUSE daemons (like gvfsd-fuse from
-# Nautilus) can block in uninterruptible sleep during freeze, causing suspend
-# to silently fail. After wake, restart gvfs so the FUSE mount is restored.
+# GVFS FUSE mounts can stall the kernel's process freeze. Detach them before
+# sleep and restart GVFS after wake to restore the Nautilus gateway.
 
-if [[ $1 == "pre" ]]; then
+if [[ ${1:-} == "pre" ]]; then
   while IFS=' ' read -r _ mountpoint fstype _; do
     if [[ $fstype == fuse.gvfsd-fuse ]]; then
       mountpoint=$(printf '%b' "$mountpoint")
-      fusermount3 -uz "$mountpoint" 2>/dev/null || fusermount -uz "$mountpoint" 2>/dev/null || true
+      if ! /usr/bin/timeout --kill-after=1s 10s /usr/bin/fusermount3 -uz "$mountpoint" &&
+        ! /usr/bin/timeout --kill-after=1s 10s /usr/bin/fusermount -uz "$mountpoint"; then
+        echo "unmount-fuse: could not detach GVFS mount" >&2
+        status=1
+      fi
     fi
   done < /proc/mounts
 fi
 
-if [[ $1 == "post" ]]; then
-  # Run in background — user.slice is still frozen at this point, so a
-  # synchronous restart would block the thaw for up to 90 seconds.
-  (
-    sleep 5
-    for uid_dir in /run/user/*; do
-      uid=$(basename "$uid_dir")
-      if [[ -S $uid_dir/bus ]]; then
-        sudo -u "#$uid" env \
-          DBUS_SESSION_BUS_ADDRESS="unix:path=$uid_dir/bus" \
-          XDG_RUNTIME_DIR="$uid_dir" \
-          systemctl --user restart gvfs-daemon.service 2>/dev/null || true
-      fi
-    done
-  ) &
+if [[ ${1:-} == "post" ]]; then
+  # The sleep service kills leftover children; user.slice thaws only after we return.
+  # Submit a system timer, not a user-manager job or a background process.
+  for uid_dir in /run/user/*; do
+    [[ -e $uid_dir || -L $uid_dir ]] || continue
+    uid=${uid_dir##*/}
+    if [[ ! $uid =~ ^[1-9][0-9]{0,9}$ ]] || ((uid >= 4294967295)); then
+      echo "unmount-fuse: ignoring invalid user runtime UID" >&2
+      continue
+    fi
+    if [[ ! -d $uid_dir || -L $uid_dir ]] ||
+      [[ $(/usr/bin/stat -c '%u:%a' -- "$uid_dir") != "$uid:700" ]]; then
+      echo "unmount-fuse: ignoring unsafe runtime directory for UID $uid" >&2
+      status=1
+      continue
+    fi
+    [[ -e $uid_dir/bus || -L $uid_dir/bus ]] || continue
+    if [[ ! -S $uid_dir/bus || -L $uid_dir/bus ]] ||
+      [[ $(/usr/bin/stat -c '%u' -- "$uid_dir/bus") != "$uid" ]]; then
+      echo "unmount-fuse: ignoring unsafe user bus for UID $uid" >&2
+      status=1
+      continue
+    fi
+    if ! /usr/bin/timeout --kill-after=1s 10s /usr/bin/systemd-run --quiet --no-block --collect \
+      --on-active=5 --timer-property=AccuracySec=1s --uid="$uid" \
+      --property=Type=exec --property=NoNewPrivileges=yes \
+      --property=RuntimeMaxSec=30s --property=TimeoutStartSec=30s \
+      /usr/bin/env -i PATH=/usr/bin:/bin \
+      DBUS_SESSION_BUS_ADDRESS="unix:path=$uid_dir/bus" XDG_RUNTIME_DIR="$uid_dir" \
+      /usr/bin/systemctl --user restart gvfs-daemon.service; then
+      echo "unmount-fuse: could not schedule GVFS restart for UID $uid" >&2
+      status=1
+    fi
+  done
 fi
+
+exit "$status"

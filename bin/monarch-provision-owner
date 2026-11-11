@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -p
 
 # monarch:summary=First-boot provisioning: create the user on a machine installed in deferred provisioning
 # monarch:requires-sudo=true
@@ -11,10 +11,14 @@
 # tarball, re-keys LUKS from the throwaway install passphrase to the user's
 # password, and hands off to SDDM.
 
+# Privileged provisioning must not inherit BASH_ENV or exported functions.
+[[ $- == *p* ]] || { echo 'Error: launch the packaged provisioning executable directly.' >&2; exit 1; }
+set +x
 set -euo pipefail
+export -n password
 
 PROVISIONING_DIR=/var/lib/monarch/provisioning
-MONARCH_PATH="${MONARCH_PATH:-/usr/share/monarch}"
+MONARCH_PATH=/usr/share/monarch
 LOG_FILE=/var/log/monarch-provision-owner.log
 
 if (( EUID != 0 )); then
@@ -31,13 +35,14 @@ if [[ -f $PROVISIONING_DIR/wipe-pending ]]; then
   exit 1
 fi
 
-export PATH="$MONARCH_PATH/bin:$PATH"
+export PATH="$MONARCH_PATH/bin:/usr/bin:/bin"
 
 # The shared setup form — the same questions, prompts, and validation the ISO
 # configurator's user step asks. The ISO vendors this very file out of the
 # runtime package it bundles, so an install and the first boot that finishes it
 # can never offer different layouts or accept different usernames.
 source "$MONARCH_PATH/install/provisioning/setup-form.sh"
+source "$MONARCH_PATH/install/provisioning/luks-rekey.sh"
 
 # Unlike a fresh install target, this machine already has accounts; a pinned
 # resume (below) bypasses the prompt entirely.
@@ -290,7 +295,7 @@ FINALIZE_TOTAL=$(grep -c '^run_logged' "$MONARCH_PATH/install/user/all.sh" 2>/de
 # The re-key rebuilds the UKI and is the slowest single step, so it needs a wide
 # band of its own; unencrypted installs skip it and let finalize take the room.
 REKEY_PENDING=false
-[[ -f $PROVISIONING_DIR/luks-key ]] && REKEY_PENDING=true
+luks_rekey_pending && REKEY_PENDING=true
 
 # Per-mille bands per phase: "lo hi tau". tau shapes the asymptotic time floor;
 # it is not a duration prediction. A wide band moves visibly; a narrow one looks
@@ -571,21 +576,20 @@ confirm_reboot() {
   gum confirm --affirmative "Yes, reboot" --negative "No, keep setting up" "Reboot this machine?"
 }
 
-# Load the layout on the live VT and persist it for the installed system.
-# systemd-firstboot writes both the console KEYMAP and the XKB layout Hyprland
-# reads, matching what the ISO's configure_keyboard does at install time. A
-# keymap localectl doesn't know keeps the default rather than failing (defensive;
-# the picker no longer offers any such layout).
+# The password must be entered with the same console layout boot will use.
 apply_keyboard() {
   local keymap="$1"
-  [[ $(tty 2>/dev/null) == /dev/tty* ]] && loadkeys "$keymap" 2>/dev/null || true
+  if [[ $(tty 2>/dev/null) == /dev/tty* ]]; then
+    loadkeys "$keymap" 2>/dev/null || return 1
+  fi
 
   if localectl --no-pager list-keymaps 2>/dev/null | grep -qix "$keymap"; then
     systemd-firstboot --keymap="$keymap" --force >>"$LOG_FILE" 2>&1 || \
       localectl set-keymap "$keymap" >>"$LOG_FILE" 2>&1 || \
-      log_step "could not persist keymap $keymap"
+      { log_step "could not persist keymap $keymap"; return 1; }
   else
-    log_step "keymap $keymap unknown to localectl; keeping the default"
+    log_step "keymap $keymap unknown to localectl"
+    return 1
   fi
 }
 
@@ -806,79 +810,19 @@ finalize_user() {
     "$MONARCH_PATH/bin/monarch-provision-user" "${provision_args[@]}"
 }
 
-# Move the LUKS volume from the throwaway install passphrase to the user's
-# password: add the user's key, kill every other slot (throwaway + any seller
-# keys a reset left behind), then rebuild the UKI without the embedded
-# auto-unlock keyfile.
-#
-# Failing here must be LOUD (abort the attempt, offer retry): silently keeping
-# the staged auto-unlock keyfile would leave the disk effectively unencrypted
-# forever.
 rekey_luks() {
-  [[ -f $PROVISIONING_DIR/luks-key ]] || return 0
-
+  luks_rekey_pending || return 0
   local device
   if ! device=$(luks_device) || [[ ! -e $device ]]; then
-    log_step "cannot locate the LUKS device from /proc/cmdline: $(cat /proc/cmdline)"
+    log_step "cannot locate the LUKS provisioning device"
     say --foreground 1 "Could not locate the LUKS device to re-key."
     return 1
   fi
-
-  if ! cryptsetup open --test-passphrase --key-file "$PROVISIONING_DIR/luks-key" "$device" 2>>"$LOG_FILE"; then
-    log_step "staged LUKS key does not unlock $device"
-    say --foreground 1 "The staged LUKS key no longer unlocks $device."
+  if ! luks_rekey "$device"; then
+    log_step "LUKS provisioning re-key incomplete; journal and remaining key retained"
+    say --foreground 1 "Disk setup could not finish. Retry with the disk password chosen earlier."
     return 1
   fi
-
-  # Add the user's key (a retry with a different password just adds another
-  # slot; all but the current one are killed once the rebuild succeeds).
-  cryptsetup luksAddKey --key-file "$PROVISIONING_DIR/luks-key" "$device" <(printf '%s' "$password")
-
-  # Rebuild the no-auto-unlock UKI FIRST, keeping the throwaway key and slot as
-  # a fallback. Only once that succeeds do we kill the other slots and destroy
-  # the staged key — so a limine-update failure leaves a recoverable,
-  # still-auto-unlocking state to retry, never a disk locked to a password the
-  # user may have just changed.
-  rm -f /etc/monarch/provisioning.key \
-    /etc/limine-entry-tool.d/99-monarch-provisioning-unlock.conf \
-    /etc/mkinitcpio.conf.d/99-monarch-provisioning-key.conf
-  reset_limine_config
-  if ! limine-update >>"$LOG_FILE" 2>&1; then
-    log_step "limine-update failed during re-key; restoring auto-unlock for retry"
-    install -Dm600 "$PROVISIONING_DIR/luks-key" /etc/monarch/provisioning.key
-    echo 'KERNEL_CMDLINE[default]+=" cryptkey=rootfs:/etc/monarch/provisioning.key"' \
-      >/etc/limine-entry-tool.d/99-monarch-provisioning-unlock.conf
-    echo 'FILES+=(/etc/monarch/provisioning.key)' >/etc/mkinitcpio.conf.d/99-monarch-provisioning-key.conf
-    limine-update >>"$LOG_FILE" 2>&1 || true
-    return 1
-  fi
-
-  local new_slot slot other_slots
-  new_slot=$(cryptsetup open --test-passphrase --verbose --key-file <(printf '%s' "$password") "$device" 2>&1 |
-    grep -o 'Key slot [0-9]* unlocked' | grep -o '[0-9]*' | head -1)
-  # Retiring the throwaway/seller slots must be all-or-nothing: if we can't
-  # identify the user's slot or a kill fails, keep the staged key and retry —
-  # never shred it while a slot the seller knows still unlocks the disk.
-  if [[ -z $new_slot ]]; then
-    log_step "could not identify the user's LUKS slot after re-key; keeping the staged key for retry"
-    say --foreground 1 "Could not confirm the LUKS re-key; will retry."
-    return 1
-  fi
-  if ! other_slots=$(cryptsetup luksDump "$device" | awk '/^ +[0-9]+: luks2/ { sub(":", "", $1); print $1 }'); then
-    log_step "luksDump failed while retiring slots; keeping the staged key for retry"
-    say --foreground 1 "Could not enumerate LUKS slots; will retry."
-    return 1
-  fi
-  for slot in $other_slots; do
-    [[ $slot == "$new_slot" ]] && continue
-    if ! cryptsetup luksKillSlot -q --key-file <(printf '%s' "$password") "$device" "$slot"; then
-      log_step "failed to kill LUKS slot $slot; keeping the staged key for retry"
-      say --foreground 1 "Could not remove the throwaway LUKS key; will retry."
-      return 1
-    fi
-  done
-
-  shred -u "$PROVISIONING_DIR/luks-key" 2>/dev/null || rm -f "$PROVISIONING_DIR/luks-key"
 }
 
 esp_path() {
@@ -986,6 +930,13 @@ cleanup_oem_state() {
 # The provisioning work, backgrounded under the progress screen. Phase writes
 # to STATE_FILE drive the bar; all output lands in the log.
 run_provisioning() {
+  # Authenticate an interrupted disk transition before changing account passwords.
+  if luks_rekey_pending; then
+    log_step "re-keying LUKS to the owner's password"
+    echo rekey >"$STATE_FILE"
+    rekey_luks
+    log_step "LUKS re-key complete"
+  fi
   log_step "creating user $username"
   create_user
   install_authorized_keys
@@ -1002,13 +953,6 @@ run_provisioning() {
   if ! finalize_user; then
     log_step "finalize-user failed (continuing; user can retry after login)"
     touch "$FINALIZE_WARNING_FLAG"
-  fi
-
-  if [[ -f $PROVISIONING_DIR/luks-key ]]; then
-    log_step "re-keying LUKS to the user's password"
-    echo rekey >"$STATE_FILE"
-    rekey_luks
-    log_step "LUKS re-key complete"
   fi
 
   # After a factory reset on an unencrypted machine nothing above rebuilds the
