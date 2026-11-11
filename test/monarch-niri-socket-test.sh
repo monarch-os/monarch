@@ -80,7 +80,12 @@ for ((attempt = 0; attempt < 100; attempt++)); do
   [[ $(cat "/proc/$FAKE_NIRI_PID/comm" 2>/dev/null) == niri ]] && break
   sleep 0.01
 done
-[[ $(cat "/proc/$FAKE_NIRI_PID/comm" 2>/dev/null) == niri ]] || fail 'niri stand-in did not start'
+if [[ $(cat "/proc/$FAKE_NIRI_PID/comm" 2>/dev/null) != niri ]]; then
+  ps -p "$FAKE_NIRI_PID" -o pid,stat,comm,args >&2 || true
+  kill "$FAKE_NIRI_PID" 2>/dev/null || true
+  wait "$FAKE_NIRI_PID" || printf 'niri stand-in exit status: %s\n' "$?" >&2
+  fail 'niri stand-in did not start'
+fi
 
 export XDG_RUNTIME_DIR="$TMP"
 LIVE_SOCKET="$TMP/niri.wayland-1.$FAKE_NIRI_PID.sock"

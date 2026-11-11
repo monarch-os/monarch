@@ -1,6 +1,7 @@
 #!/bin/bash
 
-set -euo pipefail
+set -Eeuo pipefail
+trap 'printf "SSH fixture failed at line %s: %s\n" "$LINENO" "$BASH_COMMAND" >&2' ERR
 
 source "${BASH_SOURCE[0]%/*}/base-test.sh"
 
