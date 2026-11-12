@@ -127,11 +127,20 @@ pass "the form publishes the 0/1/130 status contract and leads with English (US)
 
 run_prompt monarch_prompt_keyboard "0:German"
 assert_status 0 "keyboard prompt succeeds"
-[[ $(field keyboard) == "de" ]] || fail "keyboard prompt resolves the label to a keymap"
+[[ $(field keyboard) == "de-latin1" ]] || fail "keyboard prompt resolves the label to a keymap"
 [[ $(field keyboard_label) == "German" ]] || fail "keyboard prompt keeps the label for the summary"
 [[ $(head -n 1 "$tmp_dir/stdin.1") == "English (US)" ]] || fail "keyboard prompt offers English (US) first"
 grep -qF -- '--selected French' "$GUM_ARGS" || fail "keyboard prompt preselects French"
 pass "keyboard prompt maps the chosen label to its keymap"
+
+for selection in 'French|fr-latin1' 'French (Switzerland)|fr_CH-latin1'; do
+  IFS='|' read -r label keymap <<< "$selection"
+  run_prompt monarch_prompt_keyboard "0:$label"
+  assert_status 0 "$label can be selected"
+  [[ $(field keyboard) == "$keymap" ]] || fail "$label selects its latin1 console keymap"
+  [[ $(field keyboard_label) == "$label" ]] || fail "$label remains available for the summary"
+done
+pass "French layouts select the latin1 console keymaps"
 
 run_prompt monarch_prompt_keyboard "1:"
 assert_status "$MONARCH_FORM_BACK" "keyboard prompt reports Esc as back"
