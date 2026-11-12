@@ -1,4 +1,5 @@
 path	feature	risk	environment
+test/shell.d/restart-trackpad-test.sh	trackpad-recovery	high	isolated
 test/shell.d/runtime-rekey-integration-test.sh	factory-reset	high	isolated
 test/shell.d/hibernation-resume-test.sh	hibernation	high	isolated
 test/monarch-voxtype-install-test.sh	dictation	high	isolated
