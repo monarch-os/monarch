@@ -3,18 +3,45 @@
 # monarch:summary=Reset the trackpad by unbinding and rebinding its driver.
 # monarch:requires-sudo=true
 
-for dev in /sys/bus/i2c/drivers/i2c_hid_acpi/i2c-*; do
+driver=/sys/bus/i2c/drivers/i2c_hid_acpi
+found=0
+failed=0
+
+for dev in "$driver"/i2c-*; do
   [[ -e $dev ]] || continue
-  I2C_DEVICE=$(basename "$dev")
-  echo "Resetting $I2C_DEVICE via i2c_hid_acpi unbind/rebind..."
-  echo "$I2C_DEVICE" | sudo tee /sys/bus/i2c/drivers/i2c_hid_acpi/unbind > /dev/null
+  touchpad=0
+  for input in "$dev"/*/input/input*; do
+    [[ -e $input ]] || continue
+    if ! properties=$(udevadm info --query=property "$input"); then
+      echo "Could not identify input device $input; skipping $dev" >&2
+      failed=1
+      touchpad=0
+      break
+    fi
+    if grep -qx 'ID_INPUT_TOUCHPAD=1' <<< "$properties"; then
+      touchpad=1
+    fi
+  done
+  (( touchpad )) || continue
+  found=1
+  device=${dev##*/}
+  echo "Resetting $device via i2c_hid_acpi unbind/rebind..."
+  if ! echo "$device" | sudo tee "$driver/unbind" > /dev/null; then
+    echo "Failed to unbind $device" >&2
+    failed=1
+    continue
+  fi
   sleep 1
-  echo "$I2C_DEVICE" | sudo tee /sys/bus/i2c/drivers/i2c_hid_acpi/bind > /dev/null
+  if ! echo "$device" | sudo tee "$driver/bind" > /dev/null; then
+    echo "Failed to rebind $device" >&2
+    failed=1
+    continue
+  fi
   echo "Done"
 done
 
-# Also try THC path
-if lsmod | grep -q intel_quicki2c; then
-  echo "Reloading intel_quicki2c..."
-  sudo modprobe -r intel_quicki2c && sudo modprobe intel_quicki2c
+if (( ! found )); then
+  echo "No I2C touchpad found; no device was reset." >&2
+  failed=1
 fi
+exit "$failed"
