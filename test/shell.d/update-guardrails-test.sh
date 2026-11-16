@@ -123,8 +123,8 @@ monarch-reconcile
 monarch-update-orphan-pkgs
 monarch-update-analyze-logs
 monarch-update-restart
-monarch-hook
 monarch-update-aur-pkgs
+monarch-hook
 monarch-update-stay-awake
 monarch-update-restart
 EOF
@@ -132,8 +132,8 @@ diff -u "$test_tmp/expected" "$test_tmp/names" || fail "update guardrail orderin
 grep -q '^monarch-update-system-pkgs unattended=1' "$test_tmp/steps" ||
   fail "unattended update state reaches package updates"
 pass "update orders preflight, pruning, snapshot, reconciliation and hooks"
-grep -q '^monarch-update-aur-pkgs ' "$test_tmp/steps.refresh" || fail "panel refresh must follow AUR updates"
-pass "panel refresh follows AUR updates and an unavailable shell cannot fail the transaction"
+grep -q '^monarch-hook ' "$test_tmp/steps.refresh" || fail "panel refresh must follow post-update hooks"
+pass "panel refresh follows hooks and an unavailable shell cannot fail the transaction"
 grep -q '^monarch-hook .*args=--strict post-update$' "$test_tmp/steps" || fail "updates must propagate post-update hook failures"
 
 cp "$stub_bin/monarch-update-keyring" "$test_tmp/keyring-step"

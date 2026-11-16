@@ -13,22 +13,30 @@ update_sudo_wrapper="${update_entrypoint%/*}/../default/monarch/sudo-no-update/s
 cleanup_aur() {
   local status=$?
   trap - EXIT HUP INT TERM
-  monarch_update_revoke_authorization || status=1
+  if [[ ${MONARCH_UPDATE_SUDO_SESSION:-0} != "1" ]]; then
+    monarch_update_revoke_authorization || status=1
+  fi
   exit "$status"
 }
 trap cleanup_aur EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
-monarch_update_revoke_authorization || exit 1
+if [[ ${MONARCH_UPDATE_SUDO_SESSION:-0} != "1" ]]; then
+  monarch_update_revoke_authorization || exit 1
+fi
 monarch_update_check_sudo || exit 1
 monarch_update_select_runtime || exit 1
 
 if pacman -Qm >/dev/null; then
   if monarch-pkg-aur-accessible; then
     echo -e "\e[32m\nUpdate AUR packages\e[0m"
-    PATH="${update_sudo_wrapper%/*}:$PATH" yay --sudo "$update_sudo_wrapper" --sudoloop=false \
-      -Sua --noconfirm --cleanafter --ignore gcc14,gcc14-libs || exit $?
+    if [[ ${MONARCH_UPDATE_SUDO_SESSION:-0} == "1" ]]; then
+      yay -Sua --noconfirm --cleanafter --ignore gcc14,gcc14-libs || exit $?
+    else
+      PATH="${update_sudo_wrapper%/*}:$PATH" yay --sudo "$update_sudo_wrapper" --sudoloop=false \
+        -Sua --noconfirm --cleanafter --ignore gcc14,gcc14-libs || exit $?
+    fi
     echo
   else
     echo -e "\e[31m\nAUR is unavailable (so skipping updates)\e[0m"

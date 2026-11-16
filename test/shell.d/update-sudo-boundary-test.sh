@@ -89,13 +89,21 @@ case "$name" in
   pacman) echo 'example 1' ;;
   yay)
     sleep 0.1
-    [[ ! -e $CACHE ]] || { echo 'AUR inherited cached sudo' >&2; exit 89; }
-    [[ $* == *--sudoloop=false* ]] || exit 88
-    sudo /usr/bin/true
-    [[ ! -e $CACHE ]] || exit 87
-    [[ $1 == --sudo ]] || exit 86
-    "$2" /usr/bin/true
-    [[ ! -e $CACHE ]] || exit 85 ;;
+    if [[ ${MONARCH_UPDATE_SUDO_SESSION:-0} == 1 ]]; then
+      [[ -e $CACHE ]] || { echo 'AUR lost update authorization' >&2; exit 89; }
+      [[ $* != *--sudoloop=false* ]] || exit 88
+      sudo -n /usr/bin/true
+      sudo -n /usr/bin/true
+      [[ -e $CACHE ]] || exit 87
+    else
+      [[ ! -e $CACHE ]] || exit 89
+      [[ $* == *--sudoloop=false* ]] || exit 88
+      sudo /usr/bin/true
+      [[ ! -e $CACHE ]] || exit 87
+      [[ $1 == --sudo ]] || exit 86
+      "$2" /usr/bin/true
+      [[ ! -e $CACHE ]] || exit 85
+    fi ;;
 esac
 ''')
   steps = ('monarch-update-requires-free-space', 'monarch-update-pkg-prune',
@@ -171,14 +179,13 @@ fi
     assert lines[0] == 'sudo -k', lines
     services = next(i for i, line in enumerate(lines) if line.startswith('step monarch-update-restart ') and 'args=--services-only' in line)
     reboot = next(i for i, line in enumerate(lines) if line.startswith('step monarch-update-restart ') and 'args=--reboot-only' in line)
-    assert services < aur < reboot and 'warm=yes' in lines[services] and 'warm=no' in lines[reboot], lines
+    assert services < aur < reboot and 'warm=yes' in lines[services] and 'warm=yes' in lines[aur] and 'warm=no' in lines[reboot], lines
     hook_position = next(i for i, line in enumerate(lines) if line.startswith('step monarch-hook '))
-    assert services < hook_position < aur and 'warm=no' in lines[hook_position], lines
+    assert services < aur < hook_position and 'warm=no' in lines[hook_position], lines
     assert 'descendant-cold' in lines and 'descendant-warm' not in lines, lines
-    assert 'sudo -k' in lines[:aur], lines
-    assert not any(line.startswith('sudo ') and line not in ('sudo -k', 'sudo -h', 'sudo -n /usr/bin/true')
-      and not line.startswith('sudo -N ') for line in lines[aur:]), lines
-  print('PASS: trusted stages precede cold real hooks and descendants, then cold AUR; direct and PTY launches finish cold')
+    assert 'sudo -k' not in lines[services:aur], lines
+    assert not any(line.startswith('sudo -N ') for line in lines[services:hook_position]), lines
+  print('PASS: AUR shares one update authorization; hooks and descendants remain cold')
 
   user_bin = root / 'user commands'
   user_bin.mkdir()
@@ -207,12 +214,12 @@ fi
     assert any('step monarch-update-stay-awake ' in line and 'args=stop' in line for line in lines), lines
     assert not any('args=--reboot-only' in line for line in lines), lines
     if name == 'monarch-hook':
-      assert not any('step yay ' in line for line in lines), lines
+      assert any('step yay ' in line for line in lines), lines
   for signal_name, status in (('HUP', 129), ('INT', 130), ('TERM', 143)):
     lines, result = run('-y', changes={'SIGNAL_STEP': 'monarch-hook', 'HOOK_SIGNAL': signal_name}, success=False)
     assert result.returncode == status, result
     assert any('step monarch-update-stay-awake ' in line and 'args=stop' in line for line in lines), lines
-    assert not any('step yay ' in line for line in lines), lines
+    assert any('step yay ' in line for line in lines), lines
   print('PASS: failures and HUP/INT/TERM revoke authorization, release inhibition and preserve exit status')
 
   for changes in ({'CURRENT': '1'}, {'REPAIR': '1'}, {'CURRENT': '1', 'REPAIR': '1'}):
@@ -243,12 +250,15 @@ fi
     result = subprocess.run([str(tools / 'monarch-update'), '-y'],
       env=dict(env, **{change: '1'}), capture_output=True, text=True, timeout=10)
     assert result.returncode != 0
-    assert 'step yay ' not in events.read_text()
+    if change == 'FAIL_REVOKE':
+      assert 'step yay ' not in events.read_text()
+    else:
+      assert 'step yay ' in events.read_text()
     assert 'step monarch-hook ' not in events.read_text()
     assert 'args=--reboot-only' not in events.read_text()
     if change == 'FAIL_FINAL_REVOKE':
       assert 'args=stop' in events.read_text(), events.read_text()
-  print('PASS: failed revocation prevents hooks, AUR and reboot, and still releases inhibition')
+  print('PASS: failed revocation prevents hooks and reboot, and still releases inhibition')
 
   events.write_text('')
   cache.touch()
