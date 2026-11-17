@@ -49,6 +49,26 @@ class FakeNM(wifi.NetworkManager):
 
 
 class WifiTests(unittest.TestCase):
+    def test_sae_profile_requires_sae_capability(self):
+        stored = profile(key="sae")
+        for flags, expected in ((0x100, False), (0x400, True), (0x500, True)):
+            with self.subTest(flags=flags):
+                self.assertEqual(wifi.compatible(stored, ap("candidate", flags, 80), "wlan0"), expected)
+
+    def test_sae_profile_prefers_transition_ap_over_stronger_psk_only_ap(self):
+        candidates = [ap("psk-only", 0x100, 90), ap("transition", 0x500, 40)]
+        for aps in (candidates, list(reversed(candidates))):
+            with self.subTest(first=aps[0]["path"]):
+                rows = wifi.network_rows(devices(aps, active="/", active_uuid=""), [profile(key="sae")])
+                self.assertEqual(len(rows), 1)
+                self.assertEqual((rows[0]["uuid"], rows[0]["bssid"]), ("saved", "transition"))
+                nm = FakeNM()
+                nm.rows = rows
+                with patch.object(wifi, "command") as command:
+                    nm.join(rows[0])
+                self.assertEqual(command.call_args.args[0][-2:], ["ap", "transition"])
+                self.assertEqual(nm.writes, [])
+
     def test_saved_band_selects_compatible_ap_before_signal(self):
         candidates = [dict(ap("ap24", 0x100, 90), Frequency=2412),
                       dict(ap("ap5", 0x100, 40), Frequency=5180),

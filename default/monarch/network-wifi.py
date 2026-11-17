@@ -65,6 +65,8 @@ def compatible(settings, ap, iface):
         if bounds is None or not bounds[0] <= frequency < bounds[1]:
             return False
     key = settings.get("802-11-wireless-security", {}).get("key-mgmt", "")
+    if key == "sae" and not (ap.get("RsnFlags", 0) & 0x400):
+        return False
     return key in {
         "open": ("",), "OWE": ("owe",), "WEP": ("none",),
         "WPA2": ("wpa-psk", "sae"), "WPA3": ("sae", "wpa-psk"),
