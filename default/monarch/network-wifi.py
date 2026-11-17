@@ -58,6 +58,12 @@ def compatible(settings, ap, iface):
     bssid = wireless.get("bssid")
     if bssid and bytes(bssid).hex() != ap["HwAddress"].replace(":", "").lower():
         return False
+    band = wireless.get("band", "")
+    if band:
+        frequency = ap.get("Frequency", 0)
+        bounds = {"bg": (2400, 2500), "a": (4900, 5925), "6GHz": (5925, 7125)}.get(band)
+        if bounds is None or not bounds[0] <= frequency < bounds[1]:
+            return False
     key = settings.get("802-11-wireless-security", {}).get("key-mgmt", "")
     return key in {
         "open": ("",), "OWE": ("owe",), "WEP": ("none",),
@@ -91,7 +97,8 @@ def network_rows(devices, profiles):
                     bool(profile) and profile["connection"]["uuid"] == device["uuid"]),
             }
             previous = rows.get(key)
-            if previous is None or connected or (not previous["connected"] and row["signal"] > previous["signal"]):
+            if previous is None or connected or (not previous["connected"] and
+                    (row["saved"], row["signal"]) > (previous["saved"], previous["signal"])):
                 rows[key] = row
     return sorted(rows.values(), key=lambda r: (not r["connected"], not r["saved"], -r["signal"], r["key"]))
 

@@ -49,6 +49,25 @@ class FakeNM(wifi.NetworkManager):
 
 
 class WifiTests(unittest.TestCase):
+    def test_saved_band_selects_compatible_ap_before_signal(self):
+        candidates = [dict(ap("ap24", 0x100, 90), Frequency=2412),
+                      dict(ap("ap5", 0x100, 40), Frequency=5180),
+                      dict(ap("ap6", 0x100, 70), Frequency=5955)]
+        for band, target in (("bg", "ap24"), ("a", "ap5"), ("6GHz", "ap6"), ("", "ap24")):
+            for aps in (candidates, list(reversed(candidates))):
+                with self.subTest(band=band, reversed=aps[0] != candidates[0]):
+                    stored = profile()
+                    stored["802-11-wireless"]["band"] = band
+                    rows = wifi.network_rows(devices(aps, active="/", active_uuid=""), [stored])
+                    self.assertEqual(len(rows), 1)
+                    self.assertEqual((rows[0]["uuid"], rows[0]["bssid"]), ("saved", target))
+                    nm = FakeNM()
+                    nm.rows = rows
+                    with patch.object(wifi, "command") as command:
+                        nm.join(rows[0])
+                    self.assertEqual(command.call_args.args[0][-2:], ["ap", target])
+                    self.assertEqual(nm.writes, [])
+
     def test_identity_and_active_bss(self):
         rows = wifi.network_rows(devices([ap("open", 0, 90), ap("secure", 0x100, 40), ap("strong", 0x100, 80)]), [profile()])
         self.assertEqual(len(rows), 2)

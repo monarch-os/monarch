@@ -4,7 +4,7 @@ The Luau panel presents connection actions; `monarch-wifi-panel` owns NetworkMan
 
 ## Identity and state
 
-The snapshot is JSON with `enabled`, `present` and `networks`. Each row carries a stable key (interface, SSID bytes in hex, security class), display SSID, UUID, BSSID and interface. Saved profiles are matched by wireless SSID and compatible security, not by connection name. The active compatible UUID takes precedence; otherwise the most recently used profile wins deterministically. Active BSS measurements take precedence over a stronger inactive BSS. Incompatible security classes remain separate rows.
+The snapshot is JSON with `enabled`, `present` and `networks`. Each row carries a stable key (interface, SSID bytes in hex, security class), display SSID, UUID, BSSID and interface. Saved profiles are matched by wireless SSID and compatible security, not by connection name; interface, BSSID and band restrictions must also match. The active compatible UUID takes precedence; otherwise the most recently used profile wins deterministically. Active BSS measurements take precedence over a stronger inactive BSS. For disconnected networks, an AP compatible with a saved profile takes precedence over a stronger incompatible AP; signal breaks ties. Incompatible security classes remain separate rows.
 
 Join revalidates the requested row, BSSID and UUID. Disconnect targets the active connection object matching the requested interface and UUID, so a stale row cannot disconnect its replacement. Forget deletes precisely the selected Wi-Fi UUID. Renamed and duplicate profiles remain intact unless explicitly selected for deletion.
 
