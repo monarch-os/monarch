@@ -1,5 +1,12 @@
 {
   "strings": {
+    "pkgAdd.missingDatabases": "Les bases de paquets de ces dépôts sont absentes ou illisibles : %1",
+    "pkgAdd.updateExplanation": "Avant d’installer le logiciel demandé, Monarch doit synchroniser les dépôts et mettre à jour l’ensemble du système. D’autres logiciels pourront être mis à jour ; cette opération peut prendre plusieurs minutes.",
+    "pkgAdd.confirmUpdate": "Mettre à jour tout le système, puis installer le logiciel demandé ?",
+    "pkgAdd.confirmYes": "Mettre à jour et installer",
+    "pkgAdd.confirmNo": "Annuler",
+    "pkgAdd.cancelled": "Installation annulée. Synchronisez les bases de paquets avant de réessayer.",
+    "pkgAdd.stillMissing": "La base de paquets du dépôt %1 est toujours absente ou illisible.",
     "crashHistory.core.present": "Dump disponible",
     "crashHistory.core.truncated": "Dump partiel",
     "crashHistory.core.missing": "Dump supprimé ou inaccessible",

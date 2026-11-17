@@ -343,7 +343,7 @@ grep -qF 'source /usr/share/monarch/install/helpers/root-file.sh' "$hybrid" ||
   fail "hybrid GPU cleanup bypasses the trusted root-file remover"
 
 hook_line=$(grep -En 'monarch_install_root_file keyboard-backlight' "$hibernation" | cut -d: -f1)
-resume_line=$(grep -En 'echo "HOOKS\+=\(resume\)"' "$hibernation" | cut -d: -f1)
+resume_line=$(grep -nF 'bash /usr/share/monarch/install/reconcile/hibernation-resume.sh --setup' "$hibernation" | cut -d: -f1)
 [[ -n $hook_line && -n $resume_line && $hook_line -lt $resume_line ]] ||
   fail "hibernation becomes complete before its sleep hook is safely published"
 

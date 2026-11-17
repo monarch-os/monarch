@@ -16,6 +16,7 @@ sudo bash /usr/share/monarch/install/reconcile/disktree-system.sh
 sudo bash "$MONARCH_PATH/install/reconcile/wpa-supplicant.sh"
 # Root-owned payloads stay pinned so MONARCH_PATH cannot select privileged code.
 sudo bash /usr/share/monarch/install/reconcile/limine-kernel-order.sh
+sudo bash /usr/share/monarch/install/reconcile/hibernation-resume.sh
 sudo bash /usr/share/monarch/install/reconcile/system-sleep-ownership.sh
 sudo bash /usr/share/monarch/install/reconcile/plymouth-theme-ownership.sh
 sudo bash /usr/share/monarch/install/reconcile/vconsole-initramfs.sh
