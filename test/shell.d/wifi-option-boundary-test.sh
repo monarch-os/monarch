@@ -14,6 +14,8 @@ printf '%s\n' "$*" >>"$NM_CALLS"
 case "$*" in
   *"SIGNAL,SECURITY,SSID dev wifi list"*) printf '80:WPA2:-n\n' ;;
   *"-g NAME connection show"*) printf '%s' "$NM_SAVED" ;;
+  *"-t -f UUID,TYPE connection show"*) printf 'fixture-uuid:802-11-wireless\n' ;;
+  *"802-11-wireless.ssid connection show uuid fixture-uuid"*) printf '%s\n' '-n' ;;
   *"connection delete"*|*"dev wifi connect"*) exit 0 ;;
 esac
 STUB
@@ -44,6 +46,6 @@ pass "wifi connect matches an option-like saved SSID literally"
 
 : >"$NM_CALLS"
 "$ROOT/bin/monarch-wifi-forget" -n
-grep -Fq -- 'connection delete id -n' "$NM_CALLS" ||
+grep -Fq -- 'connection delete uuid fixture-uuid' "$NM_CALLS" ||
   fail "wifi forget does not delete an option-like saved SSID"
 pass "wifi forget matches an option-like saved SSID literally"

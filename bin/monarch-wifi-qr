@@ -57,6 +57,10 @@ wep_key=${fields[4]:-}
   echo "Enterprise Wi-Fi has no shareable password" >&2
   exit 1
 }
+if [[ $key_management == "owe" ]]; then
+  echo "QR sharing for OWE networks is not supported; this network has no password." >&2
+  exit 1
+fi
 
 if [[ -n $key_management && $key_management != "none" ]]; then
   security="WPA"

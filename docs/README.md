@@ -6,6 +6,7 @@ Common contribution rules live in [AGENTS.md](../AGENTS.md). Task procedures liv
 
 - [Product decisions](product-decisions.md)
 - [Development reference](development.md)
+- [Network panel contracts](network-panel.md)
 - [Versioning and monthly patch notes](versioning.md)
 - [Theme bundle specification](theme-bundles.md) — [user guide](https://docs.monarchlinux.com/basics/themes)
 - [Agent usage integration](agent-usage.md) — [user guide](https://docs.monarchlinux.com/basics/noctalia/agents-panel)

@@ -89,6 +89,13 @@ run_qr() {
   QR_NMCLI_FIELDS=$1 "$QR" "${@:2}"
 }
 
+if run_qr $'Encrypted Guest\nowe\n\nno\n' --payload wlan0 >"$TMP/out" 2>"$TMP/err"; then
+  fail "OWE must not be encoded as WPA with a missing password"
+fi
+grep -Fq 'QR sharing for OWE networks is not supported' "$TMP/err" || fail "OWE needs an explicit unsupported diagnostic"
+[[ ! -s $TMP/out ]] || fail "unsupported OWE must not emit a payload"
+pass "OWE sharing reports its limitation instead of a secret permission error"
+
 assert_payload() {
   local description="$1" fields="$2" expected="$3"
   shift 3

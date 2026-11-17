@@ -1,24 +1,15 @@
 --!nonstrict
--- The network panel. Port of quattro's omarchy.network panel: what you are
--- connected to, how well, the Wi-Fi band, the DNS provider, and the networks in
--- range. Enterprise networks join from here too, which the stock widget cannot.
---
--- Everything it knows comes from Monarch commands printing key<TAB>value, so
--- the logic that talks to NetworkManager stays in bash where it can be tested
--- without a radio. This file is presentation and sequencing only.
---
--- No keyboard navigation, unlike quattro's j/k model: v5's plugin UI gives a
--- tab order and `capture_keys`, not per-row focus, so rows are click targets.
+-- NetworkManager identity and credential transport live in monarch-wifi-panel;
+-- the other helpers supply link diagnostics as key/value records.
 
 local shared = require("./shared.luau")
 
 local STATUS_CMD = shared.bin("monarch-network-status")
 local BAND_CMD = shared.bin("monarch-wifi-band")
-local LIST_CMD = shared.bin("monarch-wifi-list")
-local JOIN_CMD = shared.bin("monarch-wifi-join")
-local JOIN_EAP_CMD = shared.bin("monarch-wifi-enterprise")
-local FORGET_CMD = shared.bin("monarch-wifi-forget")
-local DISCONNECT_CMD = shared.bin("monarch-wifi-disconnect")
+local WIFI_CMD = shared.bin("monarch-wifi-panel")
+local LIST_CMD = WIFI_CMD .. " list"
+local FORGET_CMD = WIFI_CMD .. " forget"
+local DISCONNECT_CMD = WIFI_CMD .. " disconnect"
 local RADIO_CMD = shared.bin("monarch-toggle-wifi")
 local DNS_CMD = shared.bin("monarch-setup-dns")
 local PORTAL_CMD = shared.bin("monarch-network-captive-portal")
@@ -58,6 +49,8 @@ local detailsOpen = false
 local promptSsid = ""
 local password = ""
 local identity = ""
+local caCertificate = ""
+local serverDomain = ""
 local busy = ""
 local busySsid = ""
 local failedSsid = ""
@@ -73,6 +66,11 @@ local pings = {}
 local pingIface = ""
 local statusInFlight = false
 local ticks = 0
+local opened = false
+local bandInFlight, interfacesInFlight, networksInFlight = false, false, false
+local networkDirty = false
+local limitedSince = nil
+local heldNetworks = nil
 
 -- Reads and writes both take a ticket: a refresh started before the last click
 -- must not land its stale answer on top of the newer state.
@@ -138,12 +136,13 @@ end
 -- packet loss at all: the probe has no -c count to derive it from, so the loss
 -- is counted over time instead.
 local function updatePings()
-  local iface = info.iface or ""
+  local iface = (info.iface or "") .. ":" .. (info.uuid or "")
   if iface ~= pingIface then
     pings = {}
     pingIface = iface
   end
-  if info.internet_ping_ms == nil then
+  if info.internet_ping_ms == nil or info.connectivity == "portal" or info.connectivity == "limited" or info.connectivity == "none" then
+    pings = {}
     return
   end
 
@@ -156,7 +155,8 @@ end
 
 local function pingAverage(): number
   local total, count = 0, 0
-  for _, latency in ipairs(pings) do
+  for index = math.max(1, #pings - 4), #pings do
+    local latency = pings[index]
     if latency then
       total += latency
       count += 1
@@ -199,21 +199,31 @@ local function pollStatus()
   local ticket = generation
 
   noctalia.runAsync(STATUS_CMD .. " --verbose", function(result)
-    if ticket ~= generation then return end
     statusInFlight = false
+    if ticket ~= generation or not opened then return end
     loaded = true
-    info = (result and result.exitCode == 0) and shared.parseKeyValue(result.stdout or "") or {}
+    local nextInfo = (result and result.exitCode == 0) and shared.parseKeyValue(result.stdout or "") or {}
+    if nextInfo.connectivity == "limited" then
+      limitedSince = limitedSince or noctalia.nowMs()
+      if noctalia.nowMs() - limitedSince < 3000 then nextInfo.connectivity = "unknown" end
+    else
+      limitedSince = nil
+    end
+    info = nextInfo
     updatePings()
     updateTransfer()
     render()
-  end)
+  end, 8000)
 end
 
 local function pollBand()
+  if bandInFlight or busy == "band" then return end
+  bandInFlight = true
   local ticket = generation
 
   noctalia.runAsync(BAND_CMD, function(result)
-    if ticket ~= generation then return end
+    bandInFlight = false
+    if ticket ~= generation or not opened then return end
     if result and result.exitCode == 0 then
       local parsed = shared.parseKeyValue(result.stdout or "")
       local available = {}
@@ -225,11 +235,12 @@ local function pollBand()
       band = { band = "", selected = "auto", available = {} }
     end
     render()
-  end)
+  end, 8000)
 end
 
 local function pollNetworks(rescan: boolean)
-  if scanning then return end
+  if networksInFlight then return end
+  networksInFlight = true
   local ticket = generation
 
   if rescan then
@@ -238,78 +249,106 @@ local function pollNetworks(rescan: boolean)
   end
 
   noctalia.runAsync(LIST_CMD .. (rescan and " --rescan" or ""), function(result)
-    if ticket ~= generation then return end
+    networksInFlight = false
     scanning = false
+    if ticket ~= generation or not opened then return end
     -- The last good list stands when a sweep fails: NetworkManager refuses a
     -- rescan too close behind the last one, and blanking on that reads as a
     -- neighbourhood that emptied out.
     if result and result.exitCode == 0 then
-      networks = shared.parseNetworks(result.stdout or "")
+      local state = noctalia.json.decode(result.stdout or "")
+      if state then
+        networks = state.networks or {}
+        radioOn, radioPresent = state.enabled == true, state.present == true
+      end
       if rescan then scanErrorText = "" end
     elseif rescan then
       scanErrorText = shared.errorFrom(result, "Could not rescan Wi-Fi")
     end
     render()
-  end)
+  end, 15000)
 end
 
 local function pollInterfaces()
+  if interfacesInFlight then return end
+  interfacesInFlight = true
   local ticket = generation
   noctalia.runAsync(INTERFACES_CMD, function(result)
-    if ticket ~= generation then return end
+    interfacesInFlight = false
+    if ticket ~= generation or not opened then return end
     if result and result.exitCode == 0 then
       interfaces = noctalia.json.decode(result.stdout or "") or {}
     else
       interfaces = {}
     end
     render()
-  end)
+  end, 8000)
 end
 
 local function refresh(rescan: boolean)
   generation += 1
-  local ticket = generation
-
-  -- Whatever was in flight is already disowned by the bump above, so the guard
-  -- it set must not keep this read from starting.
-  statusInFlight = false
-  scanning = false
   pollStatus()
   pollBand()
   pollInterfaces()
-
-  noctalia.runAsync(RADIO_CMD .. " status", function(result)
-    if ticket ~= generation then return end
-    local state = result and noctalia.json.decode(result.stdout or "")
-    radioOn = not state or state.enabled ~= false
-    radioPresent = not state or state.present ~= false
-    render()
-  end)
 
   pollNetworks(rescan)
 end
 
 -- Every action ends the same way: clear the in-flight token, keep whatever the
 -- command said on stderr, and re-read rather than guess at the new state.
-local function runAction(kind: string, ssid: string, command: string, fallback: string)
+local function runAction(kind: string, ssid: string, command: string, fallback: string, request)
   if busy ~= "" then
     return
   end
 
   busy, busySsid = kind, ssid
+  generation += 1
   failedSsid, errorText = "", ""
   render()
 
-  noctalia.runAsync(command, function(result)
+  local function finished(result)
     busy, busySsid = "", ""
     if not result or result.exitCode ~= 0 then
       errorText = shared.errorFrom(result, fallback)
       failedSsid = ssid
+      if kind == "connect" then
+        for _, network in ipairs(networks) do
+          if network.key == ssid and shared.requiresCredentials(network) then
+            promptSsid = ssid
+            heldNetworks = shared.sortNetworks(networks)
+          end
+        end
+      end
     else
       promptSsid, password, identity = "", "", ""
+      caCertificate, serverDomain, heldNetworks = "", "", nil
     end
-    refresh(false)
-  end)
+    if opened then refresh(false) end
+  end
+  if request then
+    noctalia.runAsync(WIFI_CMD .. " prepare", function(result)
+      if not result or result.exitCode ~= 0 then finished(result); return end
+      local directory = shared.trim(result.stdout or "")
+      local path = directory .. "/request.json"
+      local ok = noctalia.writeFile(path, noctalia.json.encode(request))
+      request = nil
+      if not ok then
+        noctalia.runAsync(WIFI_CMD .. " discard " .. shared.shellQuote(directory))
+        finished({ exitCode = 1, stderr = "Could not prepare the private credential request" })
+        return
+      end
+      local launched = noctalia.runAsync(WIFI_CMD .. " join " .. shared.shellQuote(path), function(reply)
+        noctalia.runAsync(WIFI_CMD .. " discard " .. shared.shellQuote(directory))
+        finished(reply)
+      end, 60000)
+      if launched == false then
+        noctalia.runAsync(WIFI_CMD .. " discard " .. shared.shellQuote(directory))
+        finished({ exitCode = 1, stderr = "Could not start the connection" })
+      end
+    end, 5000)
+  else
+    noctalia.runAsync(command, finished, 60000)
+  end
 end
 
 local function setBand(target: string)
@@ -339,57 +378,55 @@ local function setDns(provider: string)
 end
 
 local function join(network)
+  if busy ~= "" or network.connecting then return end
   local fallback = "Could not join " .. network.ssid
-
-  -- A saved profile already carries its credentials; nmcli reuses them when
-  -- nothing follows the SSID, which is what makes a bare rejoin work — and it
-  -- is the only way back onto an enterprise network, whose profile is built
-  -- once and never rebuilt from here.
   if not network.saved and shared.isEnterprise(network) then
-    if identity == "" then
-      failedSsid, errorText = network.ssid, "Enter an identity"
+    if identity == "" or caCertificate == "" or serverDomain == "" then
+      failedSsid, errorText = network.key, "Enter identity, CA certificate path and server domain"
       render()
       return
     end
-
-    local command = JOIN_EAP_CMD .. " " .. shared.shellQuote(network.ssid)
-      .. " " .. shared.shellQuote(identity)
-    if password ~= "" then
-      command ..= " " .. shared.shellQuote(password)
-    end
-    runAction("connect", network.ssid, command, fallback)
+  end
+  if promptSsid == network.key and shared.requiresCredentials(network) and password == "" then
+    failedSsid, errorText = network.key, "Enter a password"
+    render()
     return
   end
-
-  local command = JOIN_CMD .. " " .. shared.shellQuote(network.ssid)
-  if not network.saved and shared.requiresCredentials(network) and password ~= "" then
-    command ..= " " .. shared.shellQuote(password)
-  end
-  runAction("connect", network.ssid, command, fallback)
+  local request = { key = network.key, uuid = network.uuid, bssid = network.bssid,
+    password = promptSsid == network.key and password or "", identity = identity,
+    ca = caCertificate, domain = serverDomain }
+  runAction("connect", network.key, "", fallback, request)
 end
 
 local function forget(network)
-  runAction("forget", network.ssid, FORGET_CMD .. " " .. shared.shellQuote(network.ssid),
+  runAction("forget", network.key, FORGET_CMD .. " " .. shared.shellQuote(network.uuid),
     "Could not forget " .. network.ssid)
 end
 
 local function activate(network)
-  if busy ~= "" then
+  if busy ~= "" or network.connecting then
     return
   end
 
   if network.connected then
-    runAction("disconnect", network.ssid, DISCONNECT_CMD, "Could not disconnect")
+    runAction("disconnect", network.key, DISCONNECT_CMD .. " " .. shared.shellQuote(network.device)
+      .. " " .. shared.shellQuote(network.uuid), "Could not disconnect")
     return
   end
 
-  if network.saved or not shared.requiresCredentials(network) then
+  if promptSsid == network.key then
+    join(network)
+    return
+  end
+  if (network.saved and failedSsid ~= network.key) or not shared.requiresCredentials(network) then
     join(network)
     return
   end
 
-  promptSsid = promptSsid == network.ssid and "" or network.ssid
+  promptSsid = promptSsid == network.key and "" or network.key
+  heldNetworks = promptSsid ~= "" and shared.sortNetworks(networks) or nil
   password, identity = "", ""
+  caCertificate, serverDomain = "", ""
   failedSsid, errorText = "", ""
   render()
 end
@@ -473,7 +510,7 @@ local function hero(): any
     }),
   }
 
-  if info.type == "wifi" then
+  if info.type == "wifi" and info.shareable == "yes" then
     table.insert(children, ui.button({
       key = "qr",
       glyph = "qrcode",
@@ -633,7 +670,7 @@ local function bandSection(): { any }
   -- Nothing to choose and nothing pinned means nothing worth showing, exactly
   -- as upstream hides its band section; a pin stays visible even on a network
   -- answering on one band, or it could not be cleared from here.
-  if info.type ~= "wifi" or (#band.available < 2 and band.selected == "auto") then
+  if (info.type ~= "wifi" and busy ~= "band") or (#band.available < 2 and band.selected == "auto") then
     return {}
   end
 
@@ -782,7 +819,7 @@ local function interfaceSections(): { any }
 end
 
 local function rowStatus(network): (string, string)
-  local ssid = network.ssid
+  local ssid = network.key
 
   if busySsid == ssid then
     if busy == "connect" then
@@ -798,8 +835,10 @@ local function rowStatus(network): (string, string)
     return errorText, "error"
   elseif network.connected then
     return "Connected", "on_surface"
+  elseif network.connecting then
+    return "Connecting…", "on_surface_variant"
   end
-  return network.saved and "Saved" or (shared.isSecured(network) and "Encrypted network" or "Open network"), "on_surface_variant"
+  return (network.saved and "Saved · " or "") .. network.security .. " · " .. network.device, "on_surface_variant"
 end
 
 local function credentials(network): any
@@ -816,6 +855,10 @@ local function credentials(network): any
         identity = value
       end,
     }))
+    table.insert(fields, ui.input({ key = "ca", placeholder = "CA certificate (/absolute/path.pem)",
+      onChange = function(value) caCertificate = value end }))
+    table.insert(fields, ui.input({ key = "domain", placeholder = "Authentication server domain",
+      onChange = function(value) serverDomain = value end }))
   end
 
   table.insert(fields, ui.input({
@@ -892,7 +935,7 @@ local function networkRow(network): any
       ui.column({ key = "name", gap = 1, flexGrow = 1 }, {
         ui.label({
           key = "ssid",
-          text = network.ssid,
+           text = network.ssid,
           fontSize = 13,
           color = network.connected and "primary" or "on_surface",
           maxLines = 1,
@@ -910,17 +953,17 @@ local function networkRow(network): any
       ui.row({ key = "actions", gap = 4, align = "center" }, {
         trailing,
         ui.button({ key = "connect", text = network.connected and "Disconnect" or "Connect",
-          controlSize = "sm", variant = "outline", enabled = busy == "",
+           controlSize = "sm", variant = "outline", enabled = busy == "" and not network.connecting,
           onClick = function() activate(network) end }),
       }),
     }),
   }
 
-  if promptSsid == network.ssid then
+  if promptSsid == network.key then
     table.insert(children, credentials(network))
   end
 
-  return ui.column({ key = "net:" .. network.ssid, gap = 6 }, children)
+  return ui.column({ key = "net:" .. network.key, gap = 6 }, children)
 end
 
 local function networkList(): { any }
@@ -942,7 +985,7 @@ local function networkList(): { any }
   local rows = {}
   local group = nil
 
-  for _, network in ipairs(shared.sortNetworks(networks)) do
+  for _, network in ipairs(heldNetworks or shared.sortNetworks(networks)) do
     if network.saved ~= group then
       group = network.saved
       table.insert(rows, sectionHeader(
@@ -957,6 +1000,7 @@ local function networkList(): { any }
 end
 
 function render()
+  if not opened then return end
   local body = {}
 
   for _, node in ipairs(captivePortal()) do
@@ -1013,15 +1057,15 @@ end
 -- is on at the moment it is summoned. The list comes from NetworkManager's
 -- cache, so it paints at once; the tick below is what rescans.
 function onOpen(context)
+  opened = true
+  limitedSince = nil
   loaded = false
   detailsOpen = context == "details"
-  scanning = false
   interfaces = {}
   promptSsid = ""
   password = ""
   identity = ""
-  busy, busySsid = "", ""
-  failedSsid, errorText = "", ""
+  heldNetworks = nil
   scanErrorText = ""
   ticks = 0
   sample = { iface = "", rx = 0, tx = 0, at = 0 }
@@ -1036,7 +1080,12 @@ end
 -- The tick is what makes the throughput and the loss window exist at all; the
 -- rest of the panel would be happy with a single read on open.
 function update()
+  if not opened then return end
   ticks += 1
+  if networkDirty and busy == "" then
+    networkDirty = false
+    refresh(false)
+  end
   pollStatus()
 
   -- Band availability only moves when a scan turns up a new BSSID, and reading
@@ -1044,6 +1093,7 @@ function update()
   if ticks % 4 == 0 then
     pollBand()
     pollInterfaces()
+    pollNetworks(false)
   end
   if radioPresent and radioOn and busy == "" and ticks % RESCAN_TICKS == 0 then
     pollNetworks(true)
@@ -1051,13 +1101,19 @@ function update()
 end
 
 function onClose()
+  opened = false
   generation += 1
   panel.setWantsSecondTicks(false)
-  statusInFlight = false
   password = ""
   identity = ""
-  busy, busySsid = "", ""
+  caCertificate, serverDomain, heldNetworks = "", "", nil
 end
+
+-- Noctalia has no network subscription API; nmcli streams NM changes without
+-- forcing scans. Coalesce bursts on the existing panel tick.
+noctalia.runStream("LC_ALL=C /usr/bin/nmcli monitor", function()
+  networkDirty = true
+end)
 
 function onShareClicked()
   noctalia.togglePanel("monarch/wifi-qr:panel")
