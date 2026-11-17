@@ -163,7 +163,7 @@ class NetworkManager:
         if row is None:
             raise ValueError("This access point is no longer available. Refresh and try again.")
         wanted = request.get("uuid", "")
-        if wanted and row["uuid"] != wanted:
+        if row["uuid"] != wanted:
             raise ValueError("The saved profile changed. Refresh and try again.")
         if row["security"] == "WEP":
             raise ValueError("Configure legacy WEP networks in NetworkManager settings.")

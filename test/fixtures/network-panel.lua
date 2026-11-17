@@ -220,3 +220,21 @@ environment.update()
 assert(button('Connect'), 'external events must refresh the network list')
 assert(not hasText('Wi-Fi is off'), 'external radio enable must be reflected without reopening')
 print('ok - NetworkManager events trigger a cache refresh')
+
+wifiRows = {{key = 'new-key', ssid = 'New network', uuid = '', device = 'wlan0', bssid = 'ap',
+  saved = false, connected = false, signal = 80, security = 'WPA3'}}
+environment.onClose()
+environment.onOpen()
+button('Connect').onClick()
+input('password').onChange('incorrect-fixture')
+input('password').onSubmit('incorrect-fixture')
+assert(requests[3].uuid == '')
+wifiRows = {{key = 'new-key', ssid = 'New network', uuid = 'created-uuid', device = 'wlan0', bssid = 'new-ap',
+  saved = true, connected = false, signal = 40, security = 'WPA3'}}
+joins[3]({exitCode = 1, stderr = 'Authentication failed'})
+input('password').onChange('corrected-fixture')
+input('password').onSubmit('corrected-fixture')
+assert(requests[4].uuid == 'created-uuid', 'retry must repair the profile retained after the first failure')
+assert(requests[4].bssid == 'new-ap', 'the frozen form must use the current access point')
+joins[4]({exitCode = 0})
+print('ok - a failed first join refreshes the retained profile identity before credential repair')

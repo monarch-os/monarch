@@ -259,6 +259,21 @@ local function pollNetworks(rescan: boolean)
       local state = noctalia.json.decode(result.stdout or "")
       if state then
         networks = state.networks or {}
+        if heldNetworks then
+          local current = {}
+          for _, network in ipairs(networks) do current[network.key] = network end
+          local ordered = {}
+          for _, previous in ipairs(heldNetworks) do
+            if current[previous.key] then
+              table.insert(ordered, current[previous.key])
+              current[previous.key] = nil
+            end
+          end
+          for _, network in ipairs(networks) do
+            if current[network.key] then table.insert(ordered, network) end
+          end
+          heldNetworks = ordered
+        end
         radioOn, radioPresent = state.enabled == true, state.present == true
       end
       if rescan then scanErrorText = "" end

@@ -93,6 +93,14 @@ class WifiTests(unittest.TestCase):
         command.assert_not_called()
         self.assertEqual(nm.writes, [])
 
+    def test_new_profile_appearing_before_retry_is_not_duplicated(self):
+        nm = FakeNM()
+        request = dict(nm.rows[0], uuid="", password="fixture")
+        with patch.object(wifi, "command") as command, self.assertRaisesRegex(ValueError, "profile changed"):
+            nm.join(request)
+        command.assert_not_called()
+        self.assertEqual(nm.writes, [])
+
     def test_enterprise_requires_ca_and_domain(self):
         nm = FakeNM()
         nm.rows[0].update(uuid="", security="802.1X")
