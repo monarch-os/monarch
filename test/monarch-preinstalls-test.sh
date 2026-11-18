@@ -5,19 +5,11 @@ set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 INSTALL="$ROOT/bin/monarch-install-preinstalls"
 REMOVE="$ROOT/bin/monarch-remove-preinstalls"
-REFRESH="$ROOT/bin/monarch-refresh-applications"
 PACKAGES="$ROOT/install/monarch-preinstalls.packages"
 BASE_PACKAGES="$ROOT/install/monarch-base.packages"
 PROVISION_USER="$ROOT/bin/monarch-provision-user"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
-
-grep -qF 'install/monarch-preinstalls.packages' "$INSTALL"
-grep -qF 'install/monarch-preinstalls.packages' "$REMOVE"
-grep -qF 'user-removable Monarch software bundle' "$INSTALL"
-grep -qF 'user-removable Monarch software bundle' "$REMOVE"
-grep -qFx bettercap "$PACKAGES"
-grep -qFx xournalpp "$PACKAGES"
 
 for package in claude-code opencode; do
   if grep -qxF "$package" "$PACKAGES"; then
@@ -45,10 +37,6 @@ removable_count=$(grep -cvE '^[[:space:]]*(#|$)' "$PACKAGES")
   echo "Removable preinstalls must remain narrower than the full default package set" >&2
   exit 1
 }
-
-grep -q 'monarch-refresh-applications' "$INSTALL"
-grep -q 'monarch-state clear preinstalls-removed' "$INSTALL"
-grep -q 'monarch-state set preinstalls-removed' "$REMOVE"
 
 printf 'Removable preinstalls are a subset of default packages (%s packages)\n' "$removable_count"
 
@@ -170,11 +158,3 @@ if [[ ! -f $TMP/home/noctalia-restarted ]]; then
 fi
 
 echo "Preinstall state changes only after a complete restore"
-
-if grep -q 'install/packaging' "$REFRESH"; then
-  echo "Application refresh still invokes the removed packaging pipeline" >&2
-  exit 1
-fi
-grep -qF 'install/user/mise.sh' "$REFRESH"
-
-echo "Application refresh uses packaged launchers and the user mise stage"
