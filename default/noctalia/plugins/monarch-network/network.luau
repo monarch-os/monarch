@@ -11,6 +11,12 @@ local shared = require("./shared.luau")
 local STATUS_CMD = shared.bin("monarch-network-status")
 local BAND_CMD = shared.bin("monarch-wifi-band")
 local POLL_MS = 10000
+local generation = 0
+local inFlight = false
+local dirty = false
+local connectivity = "unknown"
+local restrictedSince = nil
+local bandInFlight = false
 
 noctalia.setUpdateInterval(POLL_MS)
 barWidget.setGlyph("wifi-off")
@@ -51,13 +57,22 @@ end
 -- The pin is read separately because the bare status line is the cheap one and
 -- says nothing about it; only Wi-Fi pays for the second call.
 local function showWifi(ssid: string, signal: string, freq: string)
+  local ticket = generation
   local band = bandForFreq(freq)
 
-  barWidget.setGlyph(shared.signalGlyph(tonumber(signal) or 0))
+  local restricted = connectivity == "portal" or connectivity == "limited"
+  barWidget.setGlyph(restricted and "alert-triangle" or shared.signalGlyph(tonumber(signal) or 0))
   barWidget.setText("")
   barWidget.setVisible(true)
+  barWidget.setColor(restricted and "error" or "on_surface")
+  barWidget.setGlyphColor(restricted and "error" or "on_surface")
+  barWidget.setTooltip(ssid)
+  if bandInFlight then return end
+  bandInFlight = true
 
   noctalia.runAsync(BAND_CMD, function(result)
+    bandInFlight = false
+    if ticket ~= generation then return end
     local pinned = ""
     if result and result.exitCode == 0 then
       local status = shared.parseKeyValue(result.stdout or "")
@@ -67,7 +82,7 @@ local function showWifi(ssid: string, signal: string, freq: string)
     end
 
     -- Glyph and text both, or the pill reads as half-lit.
-    local role = pinned ~= "" and "primary" or "on_surface"
+    local role = restricted and "error" or (pinned ~= "" and "primary" or "on_surface")
     barWidget.setColor(role)
     barWidget.setGlyphColor(role)
 
@@ -80,13 +95,20 @@ local function showWifi(ssid: string, signal: string, freq: string)
     elseif band ~= "" then
       detail ..= ", on " .. shared.bandLabel(band)
     end
+    if restricted then detail ..= connectivity == "portal" and " — Sign-in required" or " — Limited connectivity" end
     barWidget.setTooltip(detail)
-  end)
+  end, 8000)
 end
 
 function update()
+  if inFlight then return end
+  inFlight = true
+  generation += 1
+  local ticket = generation
   noctalia.runAsync(STATUS_CMD, function(result)
+    if ticket ~= generation then inFlight = false; dirty = false; update(); return end
     if not result or result.exitCode ~= 0 then
+      inFlight = false
       showDisconnected()
       return
     end
@@ -94,17 +116,38 @@ function update()
     -- type<TAB>name<TAB>signal<TAB>freq, always four fields.
     local line = (result.stdout or ""):match("^[^\n]*") or ""
     local kind, name, signal, freq = line:match("^([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)$")
-
-    if kind == "wifi" then
-      showWifi(name, signal, freq)
-    elseif kind == "ethernet" then
-      showEthernet(name)
-    else
-      showDisconnected()
-    end
-    barWidget.setVisible(true)
-  end)
+    noctalia.runAsync(shared.bin("monarch-wifi-panel") .. " connectivity", function(reply)
+      inFlight = false
+      if ticket ~= generation then dirty = false; update(); return end
+      connectivity = reply and reply.exitCode == 0 and shared.trim(reply.stdout or "") or "unknown"
+      if connectivity == "limited" then
+        restrictedSince = restrictedSince or noctalia.nowMs()
+        if noctalia.nowMs() - restrictedSince < 3000 then connectivity = "unknown" end
+      else
+        restrictedSince = nil
+      end
+      if kind == "wifi" then
+        showWifi(name, signal, freq)
+      elseif kind == "ethernet" then
+        showEthernet(name)
+        if connectivity == "portal" or connectivity == "limited" then
+          barWidget.setGlyph("alert-triangle")
+          barWidget.setTooltip(connectivity == "portal" and "Sign-in required" or "Limited connectivity")
+        end
+      else
+        showDisconnected()
+      end
+      barWidget.setVisible(true)
+      if dirty then dirty = false end
+    end, 5000)
+  end, 8000)
 end
+
+noctalia.runStream("LC_ALL=C /usr/bin/nmcli monitor", function()
+  generation += 1
+  dirty = true
+  if not inFlight then update() end
+end)
 
 function onClick()
   noctalia.togglePanel("monarch/network:panel")

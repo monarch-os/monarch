@@ -40,7 +40,8 @@ cat >"$TMP/bin/nmcli" <<'STUB'
 printf '%s\n' "$*" >>"$NM_CALLS"
 case "$*" in
   *"DEVICE,TYPE,STATE device status"*) printf 'wlan0:wifi:connected\n' ;;
-  *"GENERAL.CONNECTION device show"*)  printf '%s\n' "$NM_PROFILE" ;;
+  *"GENERAL.CON-UUID device show"*)  printf '%s\n' "$NM_PROFILE" ;;
+  *"802-11-wireless.ssid connection show uuid"*) printf '%s\n' "$IW_SSID" ;;
   *"802-11-wireless.band connection show"*) printf '%s\n' "${NM_BAND:-}" ;;
   *"FREQ,SSID dev wifi list"*) printf '%s' "$NM_SCAN" ;;
   *"connection up"*) exit "${NM_UP_STATUS:-0}" ;;
@@ -79,14 +80,14 @@ assert_equals "asks NetworkManager for no change" "$(grep -c 'connection modify'
 : >"$NM_CALLS"
 "$BAND" 2.4
 assert_equals "pins 2.4GHz as nmcli's bg" \
-  "$(grep -m1 'connection modify' "$NM_CALLS")" "connection modify Cafe 802-11-wireless.band bg"
+  "$(grep -m1 'connection modify' "$NM_CALLS")" "connection modify uuid Cafe 802-11-wireless.band bg"
 assert_equals "reassociates so the pin takes effect" \
-  "$(grep -c 'connection up Cafe' "$NM_CALLS" || true)" "1"
+  "$(grep -c 'connection up uuid Cafe' "$NM_CALLS" || true)" "1"
 
 : >"$NM_CALLS"
 NM_BAND="a" "$BAND" auto
 assert_equals "auto clears the pin" \
-  "$(grep -m1 'connection modify' "$NM_CALLS")" "connection modify Cafe 802-11-wireless.band "
+  "$(grep -m1 'connection modify' "$NM_CALLS")" "connection modify uuid Cafe 802-11-wireless.band "
 
 # Nothing to do, so nothing is touched: a no-op must not bounce the connection.
 : >"$NM_CALLS"
@@ -99,9 +100,9 @@ assert_equals "an unchanged band is left alone" \
 if err=$(NM_BAND="a" NM_UP_STATUS=1 "$BAND" 2.4 2>&1 >/dev/null); then
   fail "fails when the radio cannot reassociate"
 fi
-assert_equals "says it reverted" "$err" "Error: could not connect on 2.4; reverted to previous band."
+assert_equals "reports a failed restoration" "$err" "Error: could not connect on 2.4; restoring the previous connection also failed."
 assert_equals "puts the previous band back" \
-  "$(grep 'connection modify' "$NM_CALLS" | tail -1)" "connection modify Cafe 802-11-wireless.band a"
+  "$(grep 'connection modify' "$NM_CALLS" | tail -1)" "connection modify uuid Cafe 802-11-wireless.band a"
 
 # An SSID with a colon survives nmcli's field splitting.
 : >"$NM_CALLS"

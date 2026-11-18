@@ -61,7 +61,9 @@ print_status() {
 
   nm=$(LC_ALL=C nmcli -t -f GENERAL.STATE,GENERAL.CONNECTION dev show "$device" 2>/dev/null)
   state=$(awk -F: '$1 == "GENERAL.STATE" { print $2; exit }' <<<"$nm")
-  ssid=$(awk -F: '$1 == "GENERAL.CONNECTION" { print $2; exit }' <<<"$nm")
+  local uuid
+  uuid=$(LC_ALL=C nmcli -g GENERAL.CON-UUID device show "$device" 2>/dev/null)
+  ssid=$(LC_ALL=C nmcli -e no -g 802-11-wireless.ssid connection show uuid "$uuid" 2>/dev/null)
   signal=$(LC_ALL=C nmcli -t -f IN-USE,SIGNAL dev wifi list ifname "$device" --rescan no 2>/dev/null |
     awk -F: '$1 == "*" { print $2; exit }')
   freq=$(iw dev "$device" link 2>/dev/null | awk '/freq:/ { print $2; exit }')
@@ -101,6 +103,9 @@ print_connectivity() {
   local state
 
   state=$(LC_ALL=C nmcli -t -f CONNECTIVITY general 2>/dev/null)
+  if [[ $(busctl --system get-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager ConnectivityCheckEnabled 2>/dev/null) == "b false" ]]; then
+    state=unknown
+  fi
   case "$state" in
     full | limited | portal | none | unknown) ;;
     *) state=unknown ;;
@@ -176,7 +181,15 @@ print_verbose() {
     link=$(iw dev "$iface" link 2>/dev/null)
     [[ -n $link ]] || return 0
 
-    printf 'ssid\t%s\n' "$(awk '/SSID:/ { sub(/.*SSID: /, ""); print; exit }' <<<"$link")"
+    local uuid security ssid
+    uuid=$(LC_ALL=C nmcli -g GENERAL.CON-UUID device show "$iface" 2>/dev/null)
+    ssid=$(LC_ALL=C nmcli -e no -g 802-11-wireless.ssid connection show uuid "$uuid" 2>/dev/null)
+    security=$(LC_ALL=C nmcli -g 802-11-wireless-security.key-mgmt connection show uuid "$uuid" 2>/dev/null)
+    printf 'uuid\t%s\nssid\t%s\n' "$uuid" "$ssid"
+    case "$security" in
+      *eap* | *ieee8021x* | owe) printf 'shareable\tno\n' ;;
+      *) printf 'shareable\tyes\n' ;;
+    esac
     printf 'signal_dbm\t%s\n' "$(awk '/signal:/ { print $2; exit }' <<<"$link")"
     printf 'freq\t%s\n' "$(awk '/freq:/ { print $2; exit }' <<<"$link")"
     printf 'bitrate\t%s %s\n' \
