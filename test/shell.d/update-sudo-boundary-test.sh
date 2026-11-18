@@ -5,6 +5,7 @@ python3 - "$ROOT" <<'PY'
 import os
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -19,7 +20,7 @@ with tempfile.TemporaryDirectory() as temporary:
   home.mkdir()
   events = root / 'events'
   cache = root / 'cache'
-  for name in ('monarch-update', 'monarch-update-aur-pkgs', 'monarch-update-lock'):
+  for name in ('monarch-update', 'monarch-update-aur-pkgs', 'monarch-update-lock', 'monarch-hook'):
     shutil.copy2(repo / 'bin' / name, tools / name)
   (runtime / 'default/monarch').mkdir(parents=True)
   shutil.copy2(repo / 'default/monarch/update-guards.py', runtime / 'default/monarch/update-guards.py')
@@ -84,8 +85,6 @@ case "$name" in
     if [[ ${CURRENT:-0} == 1 ]]; then echo '{"status":"current","count":0}'; exit 1; fi
     echo '{"status":"available","count":2}' ;;
   monarch-update-keyring) touch "$KEYRING_READY" ;;
-  monarch-hook)
-    [[ ${USER_TOOL_REQUIRED:-0} != 1 ]] || user-update-tool ;;
   monarch-update-confirm | gum) exit "${CANCEL:-0}" ;;
   pacman) echo 'example 1' ;;
   yay)
@@ -102,11 +101,32 @@ esac
   steps = ('monarch-update-requires-free-space', 'monarch-update-pkg-prune',
     'monarch-snapshot', 'monarch-update-switch-branch', 'monarch-update-stay-awake',
     'monarch-update-git', 'monarch-update-keyring', 'monarch-update-system-pkgs',
-    'monarch-reconcile', 'monarch-update-orphan-pkgs', 'monarch-hook',
+    'monarch-reconcile', 'monarch-update-orphan-pkgs',
     'monarch-update-analyze-logs', 'monarch-update-restart', 'monarch-update-available',
     'monarch-update-confirm', 'monarch-pkg-aur-accessible', 'pacman', 'yay', 'gum')
   for name in steps:
     (tools / name).symlink_to('step')
+  hook = home / '.config/monarch/hooks/post-update'
+  hook.parent.mkdir(parents=True)
+  hook.write_text(r'''
+warm=no
+[[ ! -e $CACHE ]] || warm=yes
+printf 'step monarch-hook warm=%s args=--strict post-update\n' "$warm" >>"$EVENTS"
+[[ $warm == no ]] || exit 84
+if sudo -n /usr/bin/true; then exit 83; fi
+[[ ${USER_TOOL_REQUIRED:-0} != 1 ]] || user-update-tool
+[[ ${FAIL_STEP:-} != monarch-hook ]] || exit 42
+if [[ ${SIGNAL_STEP:-} == monarch-hook ]]; then
+  updater_pid=$(/usr/bin/ps -o ppid= -p "$PPID")
+  kill -"${HOOK_SIGNAL:-TERM}" "${updater_pid// /}"
+  exit 0
+fi
+if [[ ${HOLD_STEP:-} == monarch-hook ]]; then
+  sleep 0.2
+  if sudo -n /usr/bin/true; then exit 82; fi
+fi
+/bin/bash -c 'sleep 0.3; if sudo -n /usr/bin/true; then echo descendant-warm >>"$EVENTS"; else echo descendant-cold >>"$EVENTS"; fi' &
+''')
   i18n = root / 'i18n'
   i18n.write_text('monarch_i18n_load() { :; }\nmonarch_message() { :; }\nmonarch_t() { echo "$1"; }\n')
   executable('monarch-i18n', f"printf '%s\\n' '{i18n}'\n")
@@ -127,16 +147,24 @@ esac
     (root / 'renewals').unlink(missing_ok=True)
     selected = dict(env, **(changes or {}))
     result = subprocess.run([str(tools / 'monarch-update'), *args], env=selected,
-      capture_output=True, text=True, timeout=10)
+      capture_output=True, text=True, timeout=10,
+      preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_DFL))
     assert (result.returncode == 0) == success, (result.returncode, result.stdout,
       result.stderr, events.read_text())
     assert not cache.exists(), ('cached authorization survived', events.read_text())
-    return events.read_text().splitlines(), result
+    lines = events.read_text().splitlines()
+    assert 'descendant-warm' not in lines, lines
+    hooks = [i for i, line in enumerate(lines) if line.startswith('step monarch-hook ')]
+    if hooks:
+      assert 'warm=no' in lines[hooks[0]], lines
+      assert not any(line.startswith('sudo ') and line not in ('sudo -k', 'sudo -h', 'sudo -n /usr/bin/true')
+        and not line.startswith('sudo -N ') for line in lines[hooks[0]:]), lines
+    return lines, result
 
   for logged in ('1', ''):
     lines, _ = run('-y', changes={'MONARCH_UPDATE_LOGGED': logged})
     aur = next(i for i, line in enumerate(lines) if line.startswith('step yay '))
-    for name in ('monarch-update-system-pkgs', 'monarch-reconcile', 'monarch-hook',
+    for name in ('monarch-update-system-pkgs', 'monarch-reconcile',
         'monarch-update-orphan-pkgs'):
       position = next(i for i, line in enumerate(lines) if line.startswith('step '+name+' '))
       assert position < aur and 'warm=yes' in lines[position], lines
@@ -144,10 +172,13 @@ esac
     services = next(i for i, line in enumerate(lines) if line.startswith('step monarch-update-restart ') and 'args=--services-only' in line)
     reboot = next(i for i, line in enumerate(lines) if line.startswith('step monarch-update-restart ') and 'args=--reboot-only' in line)
     assert services < aur < reboot and 'warm=yes' in lines[services] and 'warm=no' in lines[reboot], lines
+    hook_position = next(i for i, line in enumerate(lines) if line.startswith('step monarch-hook '))
+    assert services < hook_position < aur and 'warm=no' in lines[hook_position], lines
+    assert 'descendant-cold' in lines and 'descendant-warm' not in lines, lines
     assert 'sudo -k' in lines[:aur], lines
-    assert not any(line.startswith('sudo ') and line not in ('sudo -k', 'sudo -h')
+    assert not any(line.startswith('sudo ') and line not in ('sudo -k', 'sudo -h', 'sudo -n /usr/bin/true')
       and not line.startswith('sudo -N ') for line in lines[aur:]), lines
-  print('PASS: trusted stages precede cold AUR; direct and PTY launches finish cold')
+  print('PASS: trusted stages precede cold real hooks and descendants, then cold AUR; direct and PTY launches finish cold')
 
   user_bin = root / 'user commands'
   user_bin.mkdir()
@@ -164,17 +195,25 @@ esac
     assert 'user-tool' in lines, lines
   print('PASS: packaged stages ignore user PATH overrides while hooks retain user tools')
 
-  run('-y', changes={'HOLD_STEP': 'monarch-hook'})
+  run('-y', changes={'HOLD_STEP': 'monarch-reconcile'})
   assert (root / 'renewals').read_text().count('renewed') >= 2
-  print('PASS: long trusted steps renew authorization; the keepalive stops before AUR')
+  run('-y', changes={'HOLD_STEP': 'monarch-hook'})
+  print('PASS: long trusted steps renew authorization; long hooks cannot renew it')
 
   for name in ('monarch-update-system-pkgs', 'monarch-reconcile', 'monarch-hook',
       'monarch-update-keyring', 'yay'):
-    _, result = run('-y', changes={'FAIL_STEP': name}, success=False)
+    lines, result = run('-y', changes={'FAIL_STEP': name}, success=False)
     assert result.returncode == 42, result
-  _, result = run('-y', changes={'SIGNAL_STEP': 'monarch-hook'}, success=False)
-  assert result.returncode == 143, result
-  print('PASS: failures and TERM revoke authorization and preserve exit status')
+    assert any('step monarch-update-stay-awake ' in line and 'args=stop' in line for line in lines), lines
+    assert not any('args=--reboot-only' in line for line in lines), lines
+    if name == 'monarch-hook':
+      assert not any('step yay ' in line for line in lines), lines
+  for signal_name, status in (('HUP', 129), ('INT', 130), ('TERM', 143)):
+    lines, result = run('-y', changes={'SIGNAL_STEP': 'monarch-hook', 'HOOK_SIGNAL': signal_name}, success=False)
+    assert result.returncode == status, result
+    assert any('step monarch-update-stay-awake ' in line and 'args=stop' in line for line in lines), lines
+    assert not any('step yay ' in line for line in lines), lines
+  print('PASS: failures and HUP/INT/TERM revoke authorization, release inhibition and preserve exit status')
 
   for changes in ({'CURRENT': '1'}, {'REPAIR': '1'}, {'CURRENT': '1', 'REPAIR': '1'}):
     run('-y', changes=changes)
@@ -205,8 +244,11 @@ esac
       env=dict(env, **{change: '1'}), capture_output=True, text=True, timeout=10)
     assert result.returncode != 0
     assert 'step yay ' not in events.read_text()
-    assert ('step monarch-hook ' in events.read_text()) == (change == 'FAIL_FINAL_REVOKE')
-  print('PASS: failed revocation prevents entry into AUR')
+    assert 'step monarch-hook ' not in events.read_text()
+    assert 'args=--reboot-only' not in events.read_text()
+    if change == 'FAIL_FINAL_REVOKE':
+      assert 'args=stop' in events.read_text(), events.read_text()
+  print('PASS: failed revocation prevents hooks, AUR and reboot, and still releases inhibition')
 
   events.write_text('')
   cache.touch()

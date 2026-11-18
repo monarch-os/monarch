@@ -71,6 +71,11 @@ cat >"$TMP/bin/nmcli" <<'STUB'
 printf '%s\n' "$*" >>"$NM_CALLS"
 case "$*" in
   *"CONNECTIVITY general"*) printf '%s\n' "${NM_CONNECTIVITY:-full}" ;;
+  *"GENERAL.CON-UUID device show"*) echo fixture-uuid ;;
+  *"-g 802-11-wireless.ssid connection show uuid"*)
+    if [[ ${!#} == fixture-uuid ]]; then printf '%s\n' "$NM_CONN"; else printf '%s\n' "${!#}"; fi ;;
+  *"-t -f UUID,TYPE connection show"*)
+    while IFS= read -r name; do [[ -z $name ]] || printf '%s:802-11-wireless\n' "$name"; done <<<"$NM_SAVED" ;;
   *"GENERAL.STATE,GENERAL.CONNECTION dev show"*)
     printf 'GENERAL.STATE:%s\nGENERAL.CONNECTION:%s\n' "$NM_STATE" "$NM_CONN" ;;
   *"IN-USE,SIGNAL dev wifi list"*) printf '*:%s\n' "$NM_SIGNAL" ;;
@@ -99,6 +104,10 @@ cat >"$TMP/bin/ping" <<'STUB'
 #!/bin/bash
 printf '%s\n' "$*" >>"$PING_CALLS"
 exit 0
+STUB
+cat >"$TMP/bin/busctl" <<'STUB'
+#!/bin/bash
+printf 'b %s\n' "${NM_CONNECTIVITY_ENABLED:-true}"
 STUB
 export PING_CALLS="$TMP/pings"
 cat >"$TMP/bin/uuidgen" <<'STUB'
@@ -306,24 +315,13 @@ assert_equals "the in-use star is found on any BSS of the name" \
 
 export NM_SAVED=$'Cafe\n'
 : >"$NM_CALLS"
-"$JOIN" "Cafe" "hunter2"
-assert_equals "a join passes the passphrase through" \
-  "$(grep -c 'device wifi connect Cafe password hunter2' "$NM_CALLS")" "1"
-
-: >"$NM_CALLS"
-"$JOIN" "Cafe"
-assert_equals "a join without one leaves the saved secret alone" \
-  "$(grep -c 'device wifi connect Cafe$' "$NM_CALLS")" "1"
-
-NM_JOIN_STATUS=1 "$JOIN" "Cafe" 2>"$TMP/err" && fail "a failed join exits non-zero"
-pass "a failed join exits non-zero"
+"$JOIN" "Cafe" "fixture-secret" 2>"$TMP/err" && fail "password arguments must be refused"
+assert_equals "rejected password arguments never reach NetworkManager" "$(wc -l <"$NM_CALLS")" "0"
 
 grep -Fq 'function M.requiresCredentials(network: Network): boolean' "$SHARED" ||
   fail "the plugin separates credentials from encryption"
 grep -Fq 'network.security:find("OWE", 1, true) == nil' "$SHARED" ||
   fail "the plugin treats OWE as passwordless"
-assert_equals "the panel uses credential requirements only for prompting" \
-  "$(grep -c 'shared.requiresCredentials(network)' "$PANEL")" "2"
 grep -Fq 'elseif shared.isSecured(network) then' "$PANEL" ||
   fail "OWE keeps the encrypted-network indicator"
 pass "the plugin treats OWE as encrypted but passwordless"
@@ -366,12 +364,12 @@ if "$FORGET" "Unknown" 2>"$TMP/err"; then
   fail "forgetting an unsaved network is refused"
 fi
 assert_equals "forgetting an unsaved network says so" \
-  "$(<"$TMP/err")" "Error: no saved profile named Unknown."
+  "$(<"$TMP/err")" "Error: no saved Wi-Fi profile for Unknown."
 
 : >"$NM_CALLS"
 "$FORGET" "Cafe"
-assert_equals "forget deletes the profile by name" \
-  "$(grep -c 'connection delete id Cafe' "$NM_CALLS")" "1"
+assert_equals "forget deletes the profile by UUID" \
+  "$(grep -c 'connection delete uuid Cafe' "$NM_CALLS")" "1"
 
 # ── Enterprise (802.1X) ──────────────────────────────────────────────────────
 
@@ -384,7 +382,8 @@ pass "an enterprise join without an identity is refused"
 
 : >"$NM_CALLS"
 : >"$NM_EDIT_INPUT"
-"$JOIN_EAP" "eduroam" "you@univ.fr" "hunter2"
+touch "$TMP/ca.pem"
+"$JOIN_EAP" "eduroam" "you@univ.fr" "$TMP/ca.pem" "auth.example.org" <<<"fixture-secret"
 assert_equals "the profile is keyed wpa-eap" \
   "$(grep -c 'wifi-sec.key-mgmt wpa-eap' "$NM_CALLS")" "1"
 assert_equals "it asks for PEAP under the identity given" \
@@ -395,14 +394,14 @@ assert_equals "it is brought up by uuid, not by name" \
 # The whole reason for `connection edit`: nmcli takes no secret on `add`, and an
 # argument would leave the passphrase in a world-readable /proc/<pid>/cmdline.
 assert_equals "the passphrase reaches nmcli on stdin" \
-  "$(awk '/^set 802-1x.password/ { print $3 }' "$NM_EDIT_INPUT")" "hunter2"
+  "$(awk '/^set 802-1x.password/ { print $3 }' "$NM_EDIT_INPUT")" "fixture-secret"
 assert_equals "and never through its argv" \
-  "$(grep -c hunter2 "$NM_CALLS" || true)" "0"
+  "$(grep -c fixture-secret "$NM_CALLS" || true)" "0"
 
 # A profile that never came up shadows the SSID in the saved list, so the next
 # attempt would reuse the identity that just failed instead of asking again.
 : >"$NM_CALLS"
-NM_UP_STATUS=1 "$JOIN_EAP" "eduroam" "you@univ.fr" "hunter2" 2>"$TMP/err" &&
+NM_UP_STATUS=1 "$JOIN_EAP" "eduroam" "you@univ.fr" "$TMP/ca.pem" "auth.example.org" <<<"fixture-secret" 2>"$TMP/err" &&
   fail "a failed enterprise join exits non-zero"
 pass "a failed enterprise join exits non-zero"
 assert_equals "a failed enterprise join discards its profile" \

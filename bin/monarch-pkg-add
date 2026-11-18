@@ -6,6 +6,34 @@
 # monarch:requires-sudo=true
 
 if monarch-pkg-missing "$@"; then
+  db_path=$(pacman-conf DBPath) || { echo "Could not read pacman's database path." >&2; exit 1; }
+  repositories=$(pacman-conf --repo-list) || { echo "Could not read pacman's repositories." >&2; exit 1; }
+  if [[ -z $db_path || -z $repositories ]]; then
+    echo "Pacman's database path or repository list is empty." >&2
+    exit 1
+  fi
+
+  missing_databases=()
+  while IFS= read -r repo; do
+    [[ -f $db_path/sync/$repo.db && -r $db_path/sync/$repo.db ]] || missing_databases+=("$repo")
+  done <<< "$repositories"
+
+  if (( ${#missing_databases[@]} )); then
+    source "$("$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/monarch-i18n" --helper)"
+    monarch_message pkgAdd.missingDatabases "${missing_databases[*]}" >&2
+    monarch_message pkgAdd.updateExplanation >&2
+    if ! gum confirm --affirmative "$(monarch_t pkgAdd.confirmYes)" --negative "$(monarch_t pkgAdd.confirmNo)" "$(monarch_t pkgAdd.confirmUpdate)"; then
+      monarch_message pkgAdd.cancelled >&2
+      exit 1
+    fi
+    monarch-update-pacman -Syu || exit 1
+    for repo in "${missing_databases[@]}"; do
+      if [[ ! -f $db_path/sync/$repo.db || ! -r $db_path/sync/$repo.db ]]; then
+        monarch_message pkgAdd.stillMissing "$repo" >&2
+        exit 1
+      fi
+    done
+  fi
   sudo pacman -S --noconfirm --needed -- "$@" || exit 1
 fi
 

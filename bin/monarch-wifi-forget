@@ -17,14 +17,21 @@ if [[ -z $ssid ]]; then
   exit 2
 fi
 
-# Match the profile name exactly: a substring match would delete a neighbour's
-# saved network whose name happens to contain this one.
-if ! LC_ALL=C nmcli -g NAME connection show 2>/dev/null | grep -Fxq -- "$ssid"; then
-  echo "Error: no saved profile named $ssid." >&2
+profiles=()
+while IFS=: read -r uuid kind; do
+  [[ $kind == "802-11-wireless" ]] || continue
+  name=$(LC_ALL=C nmcli -e no -g 802-11-wireless.ssid connection show uuid "$uuid") || exit 1
+  [[ $name != "$ssid" ]] || profiles+=("$uuid")
+done < <(LC_ALL=C nmcli -t -f UUID,TYPE connection show)
+if ((${#profiles[@]} == 0)); then
+  echo "Error: no saved Wi-Fi profile for $ssid." >&2
+  exit 1
+elif ((${#profiles[@]} > 1)); then
+  echo "Error: multiple profiles for $ssid; select a specific profile in NetworkManager settings." >&2
   exit 1
 fi
 
-if out=$(LC_ALL=C nmcli connection delete id "$ssid" 2>&1); then
+if out=$(LC_ALL=C nmcli connection delete uuid "${profiles[0]}" 2>&1); then
   exit 0
 fi
 

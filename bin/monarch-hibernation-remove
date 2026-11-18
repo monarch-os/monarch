@@ -3,57 +3,139 @@
 # monarch:summary=Remove hibernation setup including swap and boot resume settings
 # monarch:requires-sudo=true
 
-MKINITCPIO_CONF="/etc/mkinitcpio.conf.d/monarch_resume.conf"
+set -euo pipefail
 
-# Check if hibernation is configured
-if [[ ! -f $MKINITCPIO_CONF ]] || ! grep -q "^HOOKS+=(resume)$" "$MKINITCPIO_CONF"; then
+if ((EUID == 0)); then
+  export PATH=/usr/bin:/usr/sbin
+fi
+unset MONARCH_ROOT_FILE_TEST_ROOT MONARCH_ROOT_FILE_TEST_RUNTIME
+source /usr/share/monarch/install/helpers/root-file.sh
+source /usr/share/monarch/install/helpers/hibernation-lock.sh
+monarch_root_file_context system_root runtime_root trusted_uid stop test_mode || exit 1
+if ((EUID != 0 && ! test_mode)); then
+  exec sudo /usr/bin/bash /usr/share/monarch/bin/monarch-hibernation-remove "$@"
+fi
+umask 077
+monarch_hibernation_lock || exit 1
+pending="$system_root/var/lib/monarch/hibernation-resume-rebuild"
+if [[ -e $pending || -L $pending ]]; then
+  echo "Hibernation resume rebuild is pending. Finish hibernation setup/reconciliation and its boot image rebuild before removing hibernation." >&2
+  exit 1
+fi
+
+MKINITCPIO_CONF="$system_root/etc/mkinitcpio.conf.d/monarch_resume.conf"
+removal="$system_root/var/lib/monarch/hibernation-remove-rebuild"
+drop_in="$system_root/etc/limine-entry-tool.d/resume.conf"
+limine="$system_root/etc/default/limine"
+pattern='^KERNEL_CMDLINE\[default\]\+=" ?resume=(/dev/[^[:space:]"$`\\]+|UUID=[a-fA-F0-9-]+) resume_offset=([0-9]*)"$'
+stages=()
+trap 'rm -f -- "${stages[@]}"' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+for path in "$MKINITCPIO_CONF" "$drop_in" "$limine" "$system_root/etc/fstab" "$removal" \
+  "$system_root/etc/systemd/logind.conf.d/lid.conf" "$system_root/etc/systemd/sleep.conf.d/hibernate.conf"; do
+  if [[ -e ${path%/*} || -L ${path%/*} ]]; then
+    monarch_root_file_trusted_directory "${path%/*}" "$trusted_uid" "$stop"
+  fi
+  if [[ -e $path || -L $path ]]; then
+    monarch_root_file_trusted_source "$path" "$trusted_uid" "$stop"
+  fi
+done
+if [[ -f $MKINITCPIO_CONF && $(<"$MKINITCPIO_CONF") != 'HOOKS+=(resume)' ]]; then
+  echo "Resume hook customized; review it before removing hibernation" >&2
+  exit 1
+fi
+if [[ -f $drop_in && ! $(<"$drop_in") =~ $pattern ]]; then
+  echo "Resume configuration customized; review it before removing hibernation" >&2
+  exit 1
+fi
+
+if [[ ! -f $removal && ! -f $MKINITCPIO_CONF ]]; then
   echo "Hibernation is not set up"
   exit 0
+fi
+
+monarch_root_file_trusted_source "$limine" "$trusted_uid" "$stop"
+monarch_root_file_trusted_source "$system_root/etc/fstab" "$trusted_uid" "$stop"
+if [[ -e $system_root/swap || -L $system_root/swap ]]; then
+  monarch_root_file_trusted_directory "$system_root/swap" "$trusted_uid" "$stop"
+fi
+if [[ -e $system_root/swap/swapfile || -L $system_root/swap/swapfile ]]; then
+  monarch_root_file_trusted_source "$system_root/swap/swapfile" "$trusted_uid" "$stop"
 fi
 
 if ! gum confirm "Remove hibernation setup?"; then
   exit 0
 fi
 
-SWAP_SUBVOLUME="/swap"
+if [[ ! -f $removal ]]; then
+  stage=$(mktemp "${removal%/*}/.hibernation-remove.XXXXXX")
+  stages+=("$stage")
+  printf 'hibernation removal pending\n' >"$stage"
+  mv -fT -- "$stage" "$removal"
+  sync -f "${removal%/*}"
+fi
+
+SWAP_SUBVOLUME="$system_root/swap"
 SWAP_FILE="$SWAP_SUBVOLUME/swapfile"
 
 # Disable swap if active
 if swapon --show | grep -q "$SWAP_FILE"; then
   echo "Disabling swap on $SWAP_FILE"
-  sudo swapoff "$SWAP_FILE"
+  as_root swapoff "$SWAP_FILE"
 fi
 
 # Remove swapfile
 if [[ -f $SWAP_FILE ]]; then
   echo "Removing swapfile"
-  sudo rm "$SWAP_FILE"
+  as_root rm "$SWAP_FILE"
 fi
 
 # Remove swap subvolume
-if sudo btrfs subvolume show "$SWAP_SUBVOLUME" &>/dev/null; then
+if as_root btrfs subvolume show "$SWAP_SUBVOLUME" &>/dev/null; then
   echo "Removing Btrfs subvolume $SWAP_SUBVOLUME"
-  sudo btrfs subvolume delete "$SWAP_SUBVOLUME"
+  as_root btrfs subvolume delete "$SWAP_SUBVOLUME"
 fi
 
-# Remove fstab entry
-if grep -Fq "$SWAP_FILE" /etc/fstab; then
-  echo "Removing swapfile from /etc/fstab"
-  sudo cp -a /etc/fstab "/etc/fstab.$(date +%Y%m%d%H%M%S).back"
-  sudo sed -i "\|$SWAP_FILE|d" /etc/fstab
-  sudo sed -i '/^# Btrfs swapfile for system hibernation$/d' /etc/fstab
-fi
+stage=$(mktemp "$system_root/etc/.fstab.hibernation.XXXXXX")
+stages+=("$stage")
+cp --preserve=mode,ownership -- "$system_root/etc/fstab" "$stage"
+awk -v swap="$SWAP_FILE" '$1 != swap && $0 != "# Btrfs swapfile for system hibernation"' \
+  "$system_root/etc/fstab" >"$stage"
+mv -fT -- "$stage" "$system_root/etc/fstab"
+
+stage=$(mktemp "${limine%/*}/.limine.hibernation.XXXXXX")
+stages+=("$stage")
+cp --preserve=mode,ownership -- "$limine" "$stage"
+while IFS= read -r line || [[ -n $line ]]; do
+  if [[ ! $line =~ $pattern ]]; then printf '%s\n' "$line"; fi
+done <"$limine" >"$stage"
+mv -fT -- "$stage" "$limine"
+rm -f -- "$drop_in"
 
 # Remove suspend-then-hibernate configuration
 echo "Removing suspend-then-hibernate configuration"
-sudo rm -f /etc/systemd/logind.conf.d/lid.conf
-sudo rm -f /etc/systemd/sleep.conf.d/hibernate.conf
+as_root rm -f "$system_root/etc/systemd/logind.conf.d/lid.conf"
+as_root rm -f "$system_root/etc/systemd/sleep.conf.d/hibernate.conf"
 
 # Remove mkinitcpio resume hook
 echo "Removing resume hook"
-sudo rm "$MKINITCPIO_CONF"
+as_root rm -f "$MKINITCPIO_CONF"
+sync
 
 echo "Regenerating initramfs..."
-sudo limine-mkinitcpio
+log=$(mktemp "$system_root/var/lib/monarch/.hibernation-remove.XXXXXX")
+stages+=("$log")
+as_root limine-mkinitcpio 2>&1 | tee "$log"
+if grep -q 'mkinitcpio failed for kernel' "$log"; then
+  echo "A kernel image was not rebuilt; hibernation removal did not complete" >&2
+  exit 1
+fi
+limine-entry-tool --tree --no-hooks >/dev/null
+sync
+rm -- "$removal"
+sync -f "${removal%/*}"
 
 echo "Hibernation removed"

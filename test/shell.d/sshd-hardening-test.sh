@@ -1,6 +1,7 @@
 #!/bin/bash
 
-set -euo pipefail
+set -Eeuo pipefail
+trap 'printf "SSH fixture failed at line %s: %s\n" "$LINENO" "$BASH_COMMAND" >&2' ERR
 
 source "${BASH_SOURCE[0]%/*}/base-test.sh"
 
@@ -117,6 +118,10 @@ while (( $# > 0 )); do
     *) args+=("$1"); shift ;;
   esac
 done
+if [[ ${args[0]:-} == -m && ${args[2]:-} == /dev/stdin && ${#args[@]} == 4 ]]; then
+  cat >"${args[3]}" && /usr/bin/chmod "${args[1]}" "${args[3]}"
+  exit $?
+fi
 exec /usr/bin/install "${args[@]}"
 EOF
 chmod +x "$stub_bin"/*

@@ -1,0 +1,6 @@
+#!/bin/bash
+# monarch:summary=Network panel state and credential-safe actions
+# monarch:hidden=true
+set -euo pipefail
+MONARCH_ROOT=${MONARCH_PATH:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}
+exec /usr/bin/python3 "$MONARCH_ROOT/default/monarch/network-wifi.py" "$@"

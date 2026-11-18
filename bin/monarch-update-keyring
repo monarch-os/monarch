@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# monarch:summary=Ensure the Arch, Cachy, and Monarch keyrings package are installed and populated
+# monarch:summary=Refresh and populate the Arch, CachyOS, and Monarch keyring packages
 # monarch:requires-sudo=true
 
 set -euo pipefail
@@ -15,9 +15,9 @@ if monarch-pkg-missing monarch-keyring || ! sudo pacman-key --list-keys 519BC3D5
   sudo pacman-key --list-keys 519BC3D5AEA652C94F89F0AAC13B3766D969CE82
 fi
 
-# Always reinstall, as the keyring can be updated without a package version bump.
-echo -e "\e[32m\nUpdate Arch signing keys\e[0m"
-sudo pacman -Sy --noconfirm archlinux-keyring >/dev/null 2> >(grep -vE '^warning: archlinux-keyring-[^ ]+ is up to date -- reinstalling$' >&2)
+# Reinstall even current versions to preserve keyring repopulation.
+echo -e "\e[32m\nUpdate Arch and Monarch signing keys\e[0m"
+sudo pacman -Sy --noconfirm archlinux-keyring monarch-keyring >/dev/null 2> >(grep -vE '^warning: (archlinux|monarch)-keyring-[^ ]+ is up to date -- reinstalling$' >&2)
 
 echo -e "\e[32m\nUpdate CachyOS signing keys\e[0m"
 sudo pacman -Sy --noconfirm cachyos-keyring >/dev/null

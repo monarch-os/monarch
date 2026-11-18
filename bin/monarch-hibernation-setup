@@ -4,8 +4,19 @@
 # monarch:requires-sudo=true
 # monarch:args=[--force] [--no-rebuild]
 
+if ((EUID == 0)); then
+  export PATH=/usr/bin:/usr/sbin
+fi
 unset MONARCH_ROOT_FILE_TEST_ROOT MONARCH_ROOT_FILE_TEST_RUNTIME
 source /usr/share/monarch/install/helpers/root-file.sh
+source /usr/share/monarch/install/helpers/hibernation-lock.sh
+monarch_root_file_context system_root runtime_root trusted_uid stop test_mode || exit 1
+if ((EUID != 0 && ! test_mode)); then
+  exec sudo /usr/bin/bash /usr/share/monarch/bin/monarch-hibernation-setup "$@"
+fi
+umask 077
+monarch_hibernation_lock || exit 1
+monarch_hibernation_require_no_removal || exit 1
 
 FORCE=false
 NO_REBUILD=false
@@ -16,35 +27,31 @@ for arg in "$@"; do
   esac
 done
 
+resume_arguments=(--lock-fd "$monarch_hibernation_lock_fd")
+$NO_REBUILD && resume_arguments+=(--no-rebuild)
+
 if [[ ! -f /sys/power/image_size ]]; then
   echo -e "Hibernation is not supported on your system" >&2
   exit 0
 fi
 
-# When --no-rebuild is set, the caller is responsible for the UKI rebuild
-# (e.g. running before limine-mkinitcpio-hook is installed during initial
-# install), so we only require limine-mkinitcpio when we'd invoke it ourselves.
+# Initial installation can defer rebuilding until the Limine hook is installed.
+# The durable pending marker is retained until setup/reconciliation validates it.
 if ! $NO_REBUILD && ! command -v limine-mkinitcpio &>/dev/null; then
+  if [[ -e /var/lib/monarch/hibernation-resume-rebuild ]]; then
+    echo "Resume rebuild pending but limine-mkinitcpio is unavailable" >&2
+    exit 1
+  fi
   echo "Skipping hibernation setup (requires Limine bootloader)"
   exit 0
 fi
 
 MKINITCPIO_CONF="/etc/mkinitcpio.conf.d/monarch_resume.conf"
 SWAP_FILE="/swap/swapfile"
-RESUME_DROP_IN="/etc/limine-entry-tool.d/resume.conf"
 
 # Check if hibernation is already configured
 if [[ -f $MKINITCPIO_CONF ]] && grep -q "^HOOKS+=(resume)$" "$MKINITCPIO_CONF"; then
-  # Fix empty resume_offset if btrfs map-swapfile failed during initial setup
-  if [[ -f $RESUME_DROP_IN ]] && grep -q 'resume_offset="$' "$RESUME_DROP_IN" && [[ -f $SWAP_FILE ]]; then
-    RESUME_OFFSET=$(sudo btrfs inspect-internal map-swapfile -r "$SWAP_FILE" 2>/dev/null)
-    if [[ -n $RESUME_OFFSET ]]; then
-      echo "Fixing empty resume_offset ($RESUME_OFFSET)"
-      sudo sed -i "s/resume_offset=\"$/resume_offset=$RESUME_OFFSET\"/" "$RESUME_DROP_IN"
-      sudo sed -i "s/resume_offset=\"$/resume_offset=$RESUME_OFFSET\"/" /etc/default/limine
-      $NO_REBUILD || sudo limine-mkinitcpio
-    fi
-  fi
+  bash /usr/share/monarch/install/reconcile/hibernation-resume.sh "${resume_arguments[@]}" || exit 1
   echo "Hibernation is already set up"
   exit 0
 fi
@@ -59,30 +66,30 @@ fi
 SWAP_SUBVOLUME="/swap"
 
 # Create btrfs subvolume for swap
-if ! sudo btrfs subvolume show "$SWAP_SUBVOLUME" &>/dev/null; then
+if ! as_root btrfs subvolume show "$SWAP_SUBVOLUME" &>/dev/null; then
   echo "Creating Btrfs subvolume"
-  sudo btrfs subvolume create "$SWAP_SUBVOLUME"
-  sudo chattr +C "$SWAP_SUBVOLUME"
+  as_root btrfs subvolume create "$SWAP_SUBVOLUME"
+  as_root chattr +C "$SWAP_SUBVOLUME"
 fi
 
 # Create swapfile
-if ! sudo swaplabel "$SWAP_FILE" &>/dev/null; then
+if ! as_root swaplabel "$SWAP_FILE" &>/dev/null; then
   echo "Creating swapfile in Btrfs subvolume"
   MEM_TOTAL_KB="$(awk '/MemTotal/ {print $2}' /proc/meminfo)k"
-  sudo btrfs filesystem mkswapfile -s "$MEM_TOTAL_KB" "$SWAP_FILE"
+  as_root btrfs filesystem mkswapfile -s "$MEM_TOTAL_KB" "$SWAP_FILE"
 fi
 
 # Add swapfile to fstab
 if ! grep -Fq "$SWAP_FILE" /etc/fstab; then
   echo "Adding swapfile to /etc/fstab"
-  sudo cp -a /etc/fstab "/etc/fstab.$(date +%Y%m%d%H%M%S).back"
-  printf "\n# Btrfs swapfile for system hibernation\n%s none swap defaults,pri=0 0 0\n" "$SWAP_FILE" | sudo tee -a /etc/fstab >/dev/null
+  as_root cp -a /etc/fstab "/etc/fstab.$(date +%Y%m%d%H%M%S).back"
+  printf "\n# Btrfs swapfile for system hibernation\n%s none swap defaults,pri=0 0 0\n" "$SWAP_FILE" | as_root tee -a /etc/fstab >/dev/null
 fi
 
 # Enable swap
 if ! swapon --show | grep -q "$SWAP_FILE"; then
   echo "Enabling swap on $SWAP_FILE"
-  sudo swapon -p 0 "$SWAP_FILE"
+  as_root swapon -p 0 "$SWAP_FILE"
 fi
 
 if ! monarch_install_root_file keyboard-backlight; then
@@ -90,35 +97,16 @@ if ! monarch_install_root_file keyboard-backlight; then
   exit 1
 fi
 
-# Add resume hook to mkinitcpio
-sudo mkdir -p /etc/mkinitcpio.conf.d
-echo "Adding resume hook to $MKINITCPIO_CONF"
-echo "HOOKS+=(resume)" | sudo tee "$MKINITCPIO_CONF" >/dev/null
-
-# Add resume= kernel parameters so the initramfs resume hook knows where to find the
-# hibernation image. Without these, resume happens late (after GPU drivers load) and fails.
-if [[ ! -f $RESUME_DROP_IN ]]; then
-  echo "Adding resume kernel parameters"
-  sudo swapon -p 0 "$SWAP_FILE" 2>/dev/null
-  RESUME_DEVICE=$(findmnt -no SOURCE -T "$SWAP_FILE" | sed 's/\[.*\]//')
-  RESUME_OFFSET=$(sudo btrfs inspect-internal map-swapfile -r "$SWAP_FILE")
-  if [[ -n $RESUME_OFFSET ]]; then
-    sudo mkdir -p /etc/limine-entry-tool.d
-    echo "KERNEL_CMDLINE[default]+=\" resume=$RESUME_DEVICE resume_offset=$RESUME_OFFSET\"" | sudo tee "$RESUME_DROP_IN" >/dev/null
-    sudo tee -a /etc/default/limine < "$RESUME_DROP_IN" >/dev/null
-  else
-    echo "Warning: Could not determine resume offset for $SWAP_FILE" >&2
-  fi
-fi
+bash /usr/share/monarch/install/reconcile/hibernation-resume.sh --setup --no-rebuild --lock-fd "$monarch_hibernation_lock_fd" || exit 1
 
 # Use ACPI alarm for RTC wakeup on s2idle systems (needed for suspend-then-hibernate)
 if grep -q "\[s2idle\]" /sys/power/mem_sleep 2>/dev/null; then
   LIMINE_DROP_IN="/etc/limine-entry-tool.d/rtc-alarm.conf"
   if [[ ! -f $LIMINE_DROP_IN ]]; then
     echo "Enabling ACPI RTC alarm for s2idle suspend"
-    sudo mkdir -p /etc/limine-entry-tool.d
-    echo 'KERNEL_CMDLINE[default]+=" rtc_cmos.use_acpi_alarm=1"' | sudo tee "$LIMINE_DROP_IN" >/dev/null
-    sudo tee -a /etc/default/limine < "$LIMINE_DROP_IN" >/dev/null
+    as_root mkdir -p /etc/limine-entry-tool.d
+    echo 'KERNEL_CMDLINE[default]+=" rtc_cmos.use_acpi_alarm=1"' | as_root tee "$LIMINE_DROP_IN" >/dev/null
+    as_root tee -a /etc/default/limine < "$LIMINE_DROP_IN" >/dev/null
   fi
 fi
 
@@ -128,10 +116,18 @@ if ! $NO_REBUILD; then
   # binary on the ESP doesn't change here, so we don't need limine-update
   # (which would also re-deploy the binary and rebuild a second time).
   echo "Regenerating initramfs..."
-  sudo limine-mkinitcpio
+  bash /usr/share/monarch/install/reconcile/hibernation-resume.sh --lock-fd "$monarch_hibernation_lock_fd" || exit 1
   echo
 fi
 
 if ! $FORCE && ! $NO_REBUILD && gum confirm "Reboot to enable hibernation?"; then
-  monarch-system-reboot
+  if ((EUID == 0)) && [[ ${SUDO_UID:-} =~ ^[0-9]+$ ]] && ((SUDO_UID != 0)); then
+    caller=$(id -nu "$SUDO_UID") || exit 1
+    (
+      exec {monarch_hibernation_lock_fd}>&-
+      runuser -u "$caller" -- env XDG_RUNTIME_DIR="/run/user/$SUDO_UID" /usr/bin/monarch-system-reboot
+    )
+  else
+    monarch-system-reboot
+  fi
 fi
