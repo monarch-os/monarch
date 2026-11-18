@@ -146,7 +146,6 @@ assert_equals "software follows the install workflow" "${output% }" \
 output=$(jq -r '.[] | select(.id | test("^install\\.ai\\.[^.]+$")) | .label' <<<"$SHIPPED_TREE" | tr '\n' ' ')
 assert_equals "AI follows Monarch's supported catalog" "${output% }" \
   "ChatGPT Desktop Dictation LM Studio Ollama T3 Code Hermes Desktop"
-refute_contains "AI no longer lists Crush as a desktop app" "$output" "Crush"
 
 if ! grep -q '^local WINDOW_ROWS = 10$' "$ROOT/default/noctalia/plugins/monarch-menu/panel.luau"; then
   fail "menu viewport keeps its last row above the footer"

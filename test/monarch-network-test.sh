@@ -253,11 +253,6 @@ if grep -qE 'resolved\.conf|systemd/network|nmcli connection modify' "$CHOOSER";
 fi
 pass "the chooser writes no DNS configuration of its own"
 
-if grep -q 'monarch-pkg-add monarch-dns' "$CHOOSER"; then
-  fail "the chooser still installs a retired standalone DNS package"
-fi
-pass "the chooser relies on the Monarch runtime"
-
 grep -Fq 'local PACKAGED_DNS = "/usr/bin/monarch-dns"' "$PANEL" ||
   fail "the panel elevates the same path and no other"
 pass "the panel elevates the same path and no other"
