@@ -16,7 +16,7 @@ fi
 
 pkill slurp && exit 0
 
-SCREENSHOT_EDITOR="${MONARCH_SCREENSHOT_EDITOR:-tensaku-edit}"
+SCREENSHOT_EDITOR="${MONARCH_SCREENSHOT_EDITOR:-tensaku}"
 
 # Parse --editor flag from any position
 ARGS=()
@@ -31,6 +31,12 @@ set -- "${ARGS[@]}"
 
 MODE="${1:-smart}"
 PROCESSING="${2:-slurp}"
+
+FILENAME="screenshot-$(date +'%Y-%m-%d_%H-%M-%S').png"
+FILEPATH="$OUTPUT_DIR/$FILENAME"
+
+TENSAKU=0
+[[ $SCREENSHOT_EDITOR == tensaku ]] && TENSAKU=1
 
 # Niri reports outputs and windows in logical pixels via its IPC.
 # format_output_geo: "<x>,<y> <w>x<h>" (already scale-adjusted by niri).
@@ -52,25 +58,23 @@ get_rectangles() {
   niri msg --json windows 2>/dev/null | jq -r --arg ws "$focused_workspace" '.[] | select(.workspace_id == ($ws | tonumber)) | select(.layout.pos_in_scrolling_layout != null) | "\(.layout.pos_in_scrolling_layout[0]),\(.layout.pos_in_scrolling_layout[1]) \(.layout.window_size[0])x\(.layout.window_size[1])"'
 }
 
-# Keep hyprpicker alive until after grim captures so the screenshot sees the
-# frozen overlay rather than live content shifting during teardown.
-cleanup_freeze() {
-  [[ -n $PID ]] && kill $PID 2>/dev/null
-}
-trap cleanup_freeze EXIT
+# Tensaku's capture overlay freezes the screen and folds region, window and
+# full-screen selection into one window, so the editor path no longer needs
+# slurp, grim or a separate freeze helper for interactive selections.
+if ((TENSAKU)) && [[ $PROCESSING == "edit" && $MODE != "windows" && $MODE != "fullscreen" ]]; then
+  tensaku --capture --output-filename "$FILEPATH" \
+    --actions-on-enter save-to-clipboard --copy-command wl-copy --early-exit
+  exit $?
+fi
+
+SELECTION=""
 
 # Select based on mode
 case "$MODE" in
 region)
-  hyprpicker -r -z >/dev/null 2>&1 &
-  PID=$!
-  sleep .1
   SELECTION=$(slurp 2>/dev/null)
   ;;
 windows)
-  hyprpicker -r -z >/dev/null 2>&1 &
-  PID=$!
-  sleep .1
   SELECTION=$(get_rectangles | slurp -r 2>/dev/null)
   ;;
 fullscreen)
@@ -78,9 +82,6 @@ fullscreen)
   ;;
 smart | *)
   RECTS=$(get_rectangles)
-  hyprpicker -r -z >/dev/null 2>&1 &
-  PID=$!
-  sleep .1
   SELECTION=$(echo "$RECTS" | slurp 2>/dev/null)
 
   # If the selection area is L * W < 20, we'll assume you were trying to select whichever
@@ -110,18 +111,17 @@ esac
 
 [[ -z $SELECTION ]] && exit 0
 
-FILENAME="screenshot-$(date +'%Y-%m-%d_%H-%M-%S').png"
-FILEPATH="$OUTPUT_DIR/$FILENAME"
-
 case "$PROCESSING" in
   slurp)
     grim -g "$SELECTION" "$FILEPATH" || exit 1
     echo "$FILEPATH"
     wl-copy --type image/png <"$FILEPATH"
 
+    EDIT_ACTION=("$SCREENSHOT_EDITOR")
+    ((TENSAKU)) && EDIT_ACTION=(tensaku-edit)
     monarch-notification-send -t 10000 --image "$FILEPATH" \
       "Screenshot saved to clipboard and file" "Click to edit" \
-      --action "Edit" "$SCREENSHOT_EDITOR" "$FILEPATH"
+      --action "Edit" "${EDIT_ACTION[@]}" "$FILEPATH"
     ;;
   copy)
     grim -g "$SELECTION" - | wl-copy --type image/png
@@ -131,8 +131,23 @@ case "$PROCESSING" in
     echo "$FILEPATH"
     ;;
   edit)
-    grim -g "$SELECTION" "$FILEPATH" || exit 1
-    echo "$FILEPATH"
-    "$SCREENSHOT_EDITOR" "$FILEPATH"
+    if ((TENSAKU)); then
+      # Edit a throwaway copy: Enter only copies, and Pictures gets the file only
+      # when the save action is used explicitly.
+      capture=$(mktemp --suffix=.png) || exit 1
+      trap 'rm -f "$capture"' EXIT
+      grim -g "$SELECTION" "$capture" || exit 1
+
+      if ! tensaku --filename "$capture" --output-filename "$FILEPATH" \
+        --actions-on-enter save-to-clipboard --copy-command wl-copy --early-exit; then
+        wl-copy --type image/png <"$capture"
+        monarch-notification-send -g 󰃉 "$(monarch-i18n 'capture.editorUnavailable')" \
+          "$(monarch-i18n 'capture.editorUnavailableHint')"
+        exit 1
+      fi
+    else
+      grim -g "$SELECTION" "$FILEPATH" || exit 1
+      "$SCREENSHOT_EDITOR" "$FILEPATH"
+    fi
     ;;
-esac
+  esac

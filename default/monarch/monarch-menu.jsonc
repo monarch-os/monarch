@@ -79,7 +79,7 @@
   "trigger.capture.screenrecord": {"icon":"","keywords":["record","video","screen"]},
   "trigger.capture.text": {"icon":"󰴑","action":"monarch-capture-text-extraction"},
   "trigger.capture.qr": {"icon":"󰐲","action":"monarch-capture-qr"},
-  "trigger.capture.color": {"icon":"󰃉","action":"pkill hyprpicker || hyprpicker -a"},
+  "trigger.capture.color": {"icon":"󰃉","action":"monarch-capture-color"},
 
   // Trigger > Capture > Screenrecord. The bash menu stopped an ongoing recording
   // on the way in, so entering the submenu twice was the only way to stop one.

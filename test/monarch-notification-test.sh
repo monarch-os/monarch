@@ -91,10 +91,10 @@ grep -A2 'sleep 2' "$screenrecording" | grep -Fq 'rm -f "$preview"'
 grep -Fq -- '--fullscreen) FULLSCREEN="true"' "$screenrecording"
 
 screenshot="$ROOT/bin/monarch-capture-screenshot"
-[[ $(grep -Fc 'wl-copy --type image/png' "$screenshot") == 2 ]]
+[[ $(grep -Fc 'wl-copy --type image/png' "$screenshot") == 3 ]]
 grep -Fq '^(-?[0-9]+),(-?[0-9]+)[[:space:]]' "$screenshot"
-grep -Fq 'SCREENSHOT_EDITOR="${MONARCH_SCREENSHOT_EDITOR:-tensaku-edit}"' "$screenshot"
-grep -Fq -- '--action "Edit" "$SCREENSHOT_EDITOR" "$FILEPATH"' "$screenshot"
+grep -Fq 'SCREENSHOT_EDITOR="${MONARCH_SCREENSHOT_EDITOR:-tensaku}"' "$screenshot"
+grep -Fq -- '--action "Edit" "${EDIT_ACTION[@]}" "$FILEPATH"' "$screenshot"
 [[ ! -e $ROOT/bin/monarch-capture-screenshot-edit ]]
 
 grep -Fxq tensaku "$ROOT/install/monarch-base.packages"

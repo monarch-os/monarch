@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# monarch:summary=Pick a pixel color and copy it
+# monarch:group=capture
+# monarch:examples=monarch capture color
+
+set -o pipefail
+
+POINT=$(slurp -p 2>/dev/null)
+[[ -z $POINT ]] && exit 0
+
+COLOR=$(grim -g "$POINT" -s 1 -t ppm - | python3 -c '
+import re
+import sys
+
+data = sys.stdin.buffer.read()
+# Grim emits a P6, 8-bit, single-pixel image; consume exactly one separator
+# after maxval so whitespace-valued pixel bytes remain part of the color.
+match = re.fullmatch(rb"P6\s+1\s+1\s+255\s([\s\S]{3})", data)
+if match is None:
+    sys.exit("Invalid single-pixel PPM capture")
+red, green, blue = match[1]
+print(f"#{red:02x}{green:02x}{blue:02x}")
+') || exit 1
+
+[[ -z $COLOR ]] && exit 1
+
+printf '%s' "$COLOR" | wl-copy || exit 1
+monarch-notification-send -g 󰃉 "$(monarch-i18n 'capture.colorCopied' "$COLOR")"
+printf '%s\n' "$COLOR"

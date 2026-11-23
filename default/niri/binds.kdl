@@ -67,7 +67,7 @@ binds {
     Alt+Print hotkey-overlay-title="Screen recording" { spawn "monarch-menu" "trigger.capture.screenrecord"; }
     Mod+Alt+Minus hotkey-overlay-title="Shrink webcam overlay" { spawn "monarch-capture-webcam-resize" "smaller"; }
     Mod+Alt+Equal hotkey-overlay-title="Expand webcam overlay" { spawn "monarch-capture-webcam-resize" "larger"; }
-    Mod+Print hotkey-overlay-title="Color picker" { spawn-sh "pkill hyprpicker || hyprpicker -a"; }
+    Mod+Print hotkey-overlay-title="Color picker" { spawn "monarch-capture-color"; }
     Mod+Ctrl+Print hotkey-overlay-title="OCR from screenshot" { spawn "monarch-capture-text-extraction"; }
 
     // --- Sharing / transcoding / reminders ---
