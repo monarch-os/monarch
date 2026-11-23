@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# monarch:summary=Pick a pixel color and copy it
+# monarch:group=capture
+# monarch:examples=monarch capture color
+
+POINT=$(slurp -p 2>/dev/null)
+[[ -z $POINT ]] && exit 0
+
+COLOR=$(grim -g "${POINT%,*},${POINT#*,} 1x1" -t ppm - 2>/dev/null | python3 -c '
+import sys
+
+data = sys.stdin.buffer.read()
+offset = 0
+for _ in range(4):  # magic, width, height, maxval
+    while data[offset:offset + 1].isspace():
+        offset += 1
+    while not data[offset:offset + 1].isspace():
+        offset += 1
+offset += 1
+red, green, blue = data[offset:offset + 3]
+print(f"#{red:02x}{green:02x}{blue:02x}")
+')
+
+[[ -z $COLOR ]] && exit 1
+
+printf '%s' "$COLOR" | wl-copy
+monarch-notification-send -g 󰃉 "$(monarch-i18n 'capture.colorCopied' "$COLOR")"
+printf '%s\n' "$COLOR"

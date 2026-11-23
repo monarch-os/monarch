@@ -167,11 +167,7 @@ get_rectangles() {
 # Returns non-zero if the user cancelled the picker.
 select_capture_target() {
   local rects=$(get_rectangles)
-  hyprpicker -r -z >/dev/null 2>&1 &
-  local picker_pid=$!
-  sleep .1
   local selection=$(echo "$rects" | slurp 2>/dev/null)
-  kill $picker_pid 2>/dev/null
 
   # X and Y can be negative (Niri places monitors at signed coordinates in
   # multi-display layouts); widths and heights are always positive.

@@ -35,11 +35,6 @@ touch "$PORTAL_RECORDING_CASE/picker"
 printf '%s\n' '0,0 1920x1080'
 EOF
 
-cat >"$test_tmp/bin/hyprpicker" <<'EOF'
-#!/bin/bash
-sleep 1
-EOF
-
 cat >"$test_tmp/bin/gpu-screen-recorder" <<'EOF'
 #!/bin/bash
 printf '%s\n' "$@" >>"$PORTAL_RECORDING_CASE/arguments"
