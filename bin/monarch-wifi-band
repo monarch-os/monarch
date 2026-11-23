@@ -52,18 +52,18 @@ nm_get() {
 }
 
 wifi_profile() {
-  nm_get GENERAL.CONNECTION device show "$1"
+  nm_get GENERAL.CON-UUID device show "$1"
 }
 
 selected_band() {
-  band_from_nm "$(nm_get 802-11-wireless.band connection show "$1")"
+  band_from_nm "$(nm_get 802-11-wireless.band connection show uuid "$1")"
 }
 
 # Sets $ssid and $freq from one `iw dev <device> link`.
 read_link() {
   local link
   link=$(iw dev "$1" link 2>/dev/null)
-  ssid=$(awk '/SSID:/ { sub(/.*SSID: /, ""); print; exit }' <<<"$link")
+  ssid=$(nm_get 802-11-wireless.ssid connection show uuid "$(wifi_profile "$1")")
   freq=$(awk '/freq:/ { print $2; exit }' <<<"$link")
 }
 
@@ -135,17 +135,20 @@ set_band() {
     desired=$(nm_band_for "$target")
   fi
 
-  previous=$(nm_get 802-11-wireless.band connection show "$profile")
+  previous=$(nm_get 802-11-wireless.band connection show uuid "$profile")
   [[ $previous == "$desired" ]] && exit 0
 
-  nmcli connection modify "$profile" 802-11-wireless.band "$desired" >/dev/null
+  nmcli connection modify uuid "$profile" 802-11-wireless.band "$desired" >/dev/null
 
   # A band change only takes effect on reassociation, so put the previous value
   # back rather than leaving the machine stranded offline on a band it cannot
   # come up on.
-  if ! nmcli connection up "$profile" >/dev/null 2>&1; then
-    nmcli connection modify "$profile" 802-11-wireless.band "$previous" >/dev/null
-    nmcli connection up "$profile" >/dev/null 2>&1 || true
+  if ! nmcli --wait 20 connection up uuid "$profile" >/dev/null 2>&1; then
+    if ! nmcli connection modify uuid "$profile" 802-11-wireless.band "$previous" >/dev/null ||
+      ! nmcli --wait 20 connection up uuid "$profile" >/dev/null 2>&1; then
+      echo "Error: could not connect on ${target}; restoring the previous connection also failed." >&2
+      exit 1
+    fi
     echo "Error: could not connect on ${target}; reverted to previous band." >&2
     exit 1
   fi

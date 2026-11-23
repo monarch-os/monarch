@@ -31,8 +31,25 @@ set -euo pipefail
 PROVISIONING_DIR=/var/lib/monarch/provisioning
 export MONARCH_PATH=/usr/share/monarch
 TOP_MNT=/run/monarch-system-factory-reset/top
+ESP_MNT=/run/monarch-system-factory-reset/esp
 NEXT_NAME=@monarch-reset-next
 LOG_FILE=/var/log/monarch-system-factory-reset.log
+next_owned=0
+top_owned=0
+esp_owned=0
+activation_started=0
+root_activated=0
+root_previous=""
+esp_restore=""
+esp_backup=""
+esp_old_id=""
+esp_new_id=""
+RESET_LUKS_ADDED=0
+RESET_LUKS_DEVICE=""
+RESET_LUKS_AUTH=""
+RESET_THROWAWAY=""
+RESET_LUKS_SLOT=""
+export -n RESET_LUKS_AUTH RESET_THROWAWAY
 
 factory_reset_library=false
 if [[ ${BASH_SOURCE[0]} != "$0" && ${MONARCH_FACTORY_RESET_LIB_ONLY:-false} == "true" ]]; then
@@ -47,8 +64,8 @@ if [[ $factory_reset_library != "true" ]]; then
       echo "Error: run the installed monarch-system-factory-reset; this copy differs from the package." >&2
       exit 1
     fi
-    mapfile -t gum_env < <(/usr/bin/env | /usr/bin/grep '^GUM_' || true)
-    exec /usr/bin/sudo /usr/bin/env "${gum_env[@]}" "$PACKAGED_RESET" "$@"
+    mapfile -d '' -t gum_env < <(/usr/bin/env -0 | /usr/bin/grep -z '^GUM_[A-Za-z0-9_]*=' || true)
+    exec /usr/bin/sudo /usr/bin/env -- "${gum_env[@]}" "$PACKAGED_RESET" "$@"
   fi
 fi
 
@@ -107,15 +124,49 @@ generate_passphrase() {
 }
 
 cleanup() {
-  if mountpoint -q "$TOP_MNT" 2>/dev/null; then
-    if [[ -d $TOP_MNT/$NEXT_NAME && ${swap_done:-0} == 0 ]]; then
+  trap '' HUP INT TERM
+  local activated=false recoverable=true
+  # The rename may have succeeded just before a signal, before swap_done was set.
+  if [[ $root_activated == 1 || ( $activation_started == 1 && ! -d $TOP_MNT/$NEXT_NAME && -d $TOP_MNT/@ ) ]]; then
+    activated=true
+  fi
+  if [[ $activated == false && ! -d $TOP_MNT/@ && -n ${root_previous:-} && -d $TOP_MNT/$root_previous ]]; then
+    mv "$TOP_MNT/$root_previous" "$TOP_MNT/@" || {
+      echo "Error: restore $root_previous to @ from a live USB; staged roots retained" >&2
+      recoverable=false
+    }
+  fi
+  if [[ -n ${esp_restore:-} && $activated == false ]]; then
+    if restore_esp "$esp_restore" "$esp_backup" "${esp_new_id:-}"; then
+      rm -rf -- "$esp_backup" || true
+    else
+      echo "Error: ESP restoration failed; boot copies retained at $esp_backup" >&2
+      recoverable=false
+    fi
+  elif [[ -n ${esp_backup:-} ]]; then
+    rm -rf -- "$esp_backup" || true
+  fi
+  if [[ $activated == false ]]; then
+    revoke_reset_luks || recoverable=false
+  fi
+  if [[ $esp_owned == 1 ]] && mountpoint -q "$ESP_MNT" 2>/dev/null; then
+    umount -R "$ESP_MNT" 2>/dev/null || true
+  fi
+  if [[ $esp_owned == 1 ]]; then rmdir "$ESP_MNT" 2>/dev/null || true; fi
+  if [[ $top_owned == 1 ]] && mountpoint -q "$TOP_MNT" 2>/dev/null; then
+    if [[ ${next_owned:-0} == 1 && -d $TOP_MNT/$NEXT_NAME && ${swap_done:-0} == 0 && -d $TOP_MNT/@ && $recoverable == true ]]; then
       btrfs subvolume delete --recursive "$TOP_MNT/$NEXT_NAME" >/dev/null 2>&1 || true
     fi
     umount -R "$TOP_MNT" 2>/dev/null || true
   fi
-  rmdir "$TOP_MNT" 2>/dev/null || true
+  if [[ $top_owned == 1 ]]; then rmdir "$TOP_MNT" 2>/dev/null || true; fi
 }
-trap cleanup EXIT
+if [[ $factory_reset_library != "true" ]]; then
+  trap cleanup EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  trap 'exit 129' HUP
+fi
 
 confirm_reset() {
   echo
@@ -138,7 +189,10 @@ confirm_reset() {
 # Re-key to a throwaway passphrase whose keyfile auto-unlocks boot during the
 # provisioning window. $1 is the root of the staged factory system.
 stage_luks_rekey() {
+  local -
+  set +x
   local next="$1" device passphrase
+  export -n passphrase
 
   device=$(luks_device) || fail "encrypted install, but no usable cryptdevice= in /proc/cmdline"
   [[ -e $device ]] || fail "LUKS device $device not found"
@@ -146,30 +200,72 @@ stage_luks_rekey() {
   echo
   gum style "Confirm your disk encryption passphrase to authorize the re-key."
   local current
+  export -n current
   while true; do
     current=$(gum input --password --placeholder "Current disk encryption passphrase" --prompt "Passphrase> ") || exit 1
-    if cryptsetup open --test-passphrase --key-file <(printf '%s' "$current") "$device" 2>/dev/null; then
+    if cryptsetup open --test-passphrase --token-type passphrase-only --key-file <(printf '%s' "$current") "$device" 2>/dev/null; then
       break
     fi
     gum style --foreground 1 "That passphrase does not unlock $device. Try again."
   done
 
   passphrase=$(generate_passphrase)
+  RESET_LUKS_DEVICE=$device
+  RESET_LUKS_AUTH=$current
+  RESET_THROWAWAY=$passphrase
+  RESET_LUKS_ADDED=1
   cryptsetup luksAddKey --key-file <(printf '%s' "$current") "$device" <(printf '%s' "$passphrase")
+  RESET_LUKS_SLOT=$(reset_luks_slot) || fail "could not identify the reset's temporary LUKS slot"
 
   install -d -m 755 "$next$PROVISIONING_DIR"
+  install -m 600 /dev/null "$next$PROVISIONING_DIR/luks-key"
   printf '%s' "$passphrase" >"$next$PROVISIONING_DIR/luks-key"
-  chmod 600 "$next$PROVISIONING_DIR/luks-key"
 
   install -d -m 755 "$next/etc/monarch"
+  install -m 600 /dev/null "$next/etc/monarch/provisioning.key"
   printf '%s' "$passphrase" >"$next/etc/monarch/provisioning.key"
-  chmod 600 "$next/etc/monarch/provisioning.key"
 
   install -d "$next/etc/limine-entry-tool.d" "$next/etc/mkinitcpio.conf.d"
   echo 'KERNEL_CMDLINE[default]+=" cryptkey=rootfs:/etc/monarch/provisioning.key"' \
     >"$next/etc/limine-entry-tool.d/99-monarch-provisioning-unlock.conf"
   echo 'FILES+=(/etc/monarch/provisioning.key)' \
     >"$next/etc/mkinitcpio.conf.d/99-monarch-provisioning-key.conf"
+}
+
+reset_luks_slot() {
+  local -
+  set +x
+  local output
+  output=$(LC_ALL=C cryptsetup open --test-passphrase --verbose --token-type passphrase-only \
+    --key-file <(printf '%s' "$RESET_THROWAWAY") "$RESET_LUKS_DEVICE" 2>&1) || return 1
+  [[ $output =~ Key\ slot\ ([0-9]+)\ unlocked ]] || return 1
+  printf '%s\n' "${BASH_REMATCH[1]}"
+}
+
+revoke_reset_luks() {
+  local -
+  set +x
+  [[ ${RESET_LUKS_ADDED:-0} == 1 ]] || return 0
+  local slot
+  slot=$(reset_luks_slot) || {
+    echo "Error: cannot identify the reset keyslot; retain the staged root for recovery" >&2
+    return 1
+  }
+  [[ -z ${RESET_LUKS_SLOT:-} || $slot == "$RESET_LUKS_SLOT" ]] || {
+    echo "Error: the reset keyslot identity changed; no key revoked; staged root retained" >&2
+    return 1
+  }
+  cryptsetup open --test-passphrase --token-type passphrase-only \
+    --key-file <(printf '%s' "$RESET_LUKS_AUTH") "$RESET_LUKS_DEVICE" 2>/dev/null || {
+    echo "Error: the original disk passphrase no longer unlocks; no key revoked; staged root retained" >&2
+    return 1
+  }
+  cryptsetup luksKillSlot -q --key-file <(printf '%s' "$RESET_LUKS_AUTH") \
+    "$RESET_LUKS_DEVICE" "$slot" || {
+    echo "Error: could not revoke the reset keyslot; retain the staged root for recovery" >&2
+    return 1
+  }
+  RESET_LUKS_ADDED=0
 }
 
 install_provisioning_units() {
@@ -188,61 +284,123 @@ install_provisioning_units() {
     "$next/etc/systemd/system/sysinit.target.wants/monarch-system-factory-reset-finish.service"
 }
 
-# Start the ESP's limine.conf over from the shipped template, preserve entries
-# belonging to other installations, and drop only the previous Monarch
-# identity's state. limine-entry-tool keys OS entries by machine-id, so the
-# stale local entry must not survive the identity change.
 reset_limine_config() {
-  local root="$1" esp="$2" old_id="$3" preserved_entries="$4" template found=""
-
-  # limine-update owns the current Monarch entry and the generic EFI fallback.
-  # Keep every other top-level entry verbatim so a shared ESP retains Windows
-  # and foreign Linux installations across the reset. An entry is Monarch-owned
-  # only when both its machine-id and UKI namespace match this installation.
-  if [[ -f $root$esp/limine.conf ]]; then
-    awk -v old_id="$old_id" '
-      function flush() {
-        if (block == "") return
-        owned = index(block, "machine-id=" old_id) && index(block, "boot():/EFI/Linux/monarch_")
-        fallback = index(block, "Default EFI loader") && index(block, "boot():/EFI/BOOT/BOOTX64.EFI")
-        if (!owned && !fallback) printf "%s", block
-        block = ""
-      }
-      /^\// { flush() }
-      /^\// || block != "" { block = block $0 ORS }
-      END { flush() }
-    ' "$root$esp/limine.conf" >"$preserved_entries"
-  else
-    : >"$preserved_entries"
+  local root="$1" esp="$2" old_id="$3" template machine_id filtered
+  local conf="$1$2/limine.conf"
+  machine_id=$(cat "$root/etc/machine-id")
+  [[ $machine_id =~ ^[0-9a-f]{32}$ && $old_id =~ ^[0-9a-f]{32}$ ]] || fail "invalid reset machine identity"
+  if [[ ! -f $conf ]]; then
+    for template in "$root/usr/share/monarch/install/assets/limine/limine.conf" \
+                    "$root/usr/share/monarch/default/limine/limine.conf"; do
+      if [[ -f $template ]]; then
+        cp "$template" "$conf"
+        return
+      fi
+    done
+    fail "no limine.conf template in $root/usr/share/monarch"
   fi
+  filtered=$(mktemp)
+  # Preserve the live preamble (including default_entry) and every foreign block.
+  # An ambiguous identity or mixed namespace is never ours to rewrite.
+  if ! awk -v old="$old_id" -v new="$machine_id" '
+    function flush( lines, n, i, value, id, owned, foreign, ambiguous, header, nested) {
+      if (block == "") return
+      n = split(block, lines, "\n")
+      for (i = 1; i <= n; i++) {
+        if (lines[i] ~ /^[ \t]*comment:[ \t]*machine-id=/) {
+          value = lines[i]; sub(/^.*machine-id=/, "", value); sub(/[ \t].*$/, "", value)
+          if (length(value) != 32 || value ~ /[^0-9a-f]/ || (id != "" && id != value)) ambiguous = 1
+          id = value
+        }
+        if (lines[i] ~ /^[ \t]*path:/) {
+          if (lines[i] ~ /^[ \t]*path:[ \t]*boot\(\):\/EFI\/Linux\/monarch_/) owned = 1
+          else foreign = 1
+        }
+        if (lines[i] ~ /^[ \t]*\/\//) nested = 1
+        if (!nested && lines[i] !~ /^[ \t]*path:/) header = header lines[i] "\n"
+      }
+      if (id == old && owned && !foreign && !ambiguous) {
+        if (++rekeyed > 1) exit 1
+        gsub("machine-id=" old, "machine-id=" new, header)
+        printf "%s", header
+      } else printf "%s", block
+      block = ""
+    }
+    /^\/[^\/]/ { flush(); block = $0 ORS; next }
+    { if (block != "") block = block $0 ORS; else print }
+    END { if (rekeyed <= 1) flush() }
+  ' "$conf" >"$filtered"; then
+    rm -f "$filtered"
+    fail "ambiguous duplicate Monarch entries; repair the boot menu before resetting"
+  fi
+  cat "$filtered" >"$conf"
+  rm -f "$filtered"
+}
 
-  for template in "$root/usr/share/monarch/install/assets/limine/limine.conf" \
-                  "$root/usr/share/monarch/default/limine/limine.conf"; do
-    if [[ -f $template ]]; then
-      cp "$template" "$root$esp/limine.conf"
-      found=1
-      break
+esp_boot_paths() {
+  printf '%s\n' limine.conf EFI/Linux EFI/limine EFI/BOOT
+}
+
+backup_esp() {
+  local esp="$1" backup="$2" path
+  install -d "$backup/EFI" || return 1
+  while IFS= read -r path; do
+    if [[ -e $esp/$path ]]; then
+      cp -r -- "$esp/$path" "$backup/$path" || return 1
     fi
-  done
-  [[ -n $found ]] || fail "no limine.conf template in $root/usr/share/monarch"
+  done < <(esp_boot_paths)
+}
 
-  [[ $old_id =~ ^[0-9a-f]{32}$ ]] && rm -rf "${root:?}$esp/$old_id"
+restore_esp() {
+  local esp="$1" backup="$2" new_id="$3" path
+  # Drop staged additions first: copying originals over a full ESP can fail.
+  while IFS= read -r path; do
+    rm -rf -- "${esp:?}/$path" || return 1
+  done < <(esp_boot_paths)
+  cp -r -- "$backup/." "$esp/" || return 1
+  if [[ $new_id =~ ^[0-9a-f]{32}$ ]]; then
+    rm -rf -- "${esp:?}/$new_id" || return 1
+  fi
+}
+
+commit_esp_staging() {
+  local status=0
+  esp_restore=""
+  # Cloned/foreign entries can still reference the old identity directory.
+  if [[ ${esp_old_id:-} =~ ^[0-9a-f]{32}$ && $esp_old_id != "${esp_new_id:-}" ]]; then
+    grep -qE "machine-id=$esp_old_id([[:space:]]|$)|/$esp_old_id/" "$ESP_MNT/limine.conf" || status=$?
+    case $status in
+      0) return 0 ;;
+      1) rm -rf -- "${ESP_MNT:?}/$esp_old_id" ;;
+      *) return "$status" ;;
+    esac
+  fi
 }
 
 # Every UKI entry in limine.conf carries a #blake2b hash of the file it
 # points at; a mismatch makes Limine stop at a scary warning. Never hand over
 # a staged reset in that state.
 verify_limine_hashes() {
-  local root="$1" esp="$2" line path hash file
+  local root="$1" esp="$2" line path hash file machine_id checked=0 entries
+  machine_id=$(cat "$root/etc/machine-id")
+  [[ $machine_id =~ ^[0-9a-f]{32}$ ]] || fail "invalid factory machine identity"
+  entries=$(awk -v id="$machine_id" '
+    /^\/[^\/]/ { mine = 0 }
+    $0 ~ ("^[[:space:]]*comment:[[:space:]]*machine-id=" id "([[:space:]]|$)") { mine = 1 }
+    mine
+  ' "$root$esp/limine.conf") || fail "could not read rebuilt boot entries"
   while IFS= read -r line; do
     path=${line#*boot():}
     path=${path%%#*}
     hash=${line##*#}
+    [[ $hash =~ ^[0-9a-f]{128}$ && $path != *'/../'* ]] || fail "invalid rebuilt UKI reference"
     file="$root$esp$path"
     [[ -f $file ]] || fail "limine.conf points at missing $path"
     [[ $(b2sum "$file" | cut -d' ' -f1) == "$hash" ]] ||
       fail "limine.conf hash for $path does not match the rebuilt file"
-  done < <(grep -o 'boot():/EFI/Linux/[^#]*#[0-9a-f]*' "$root$esp/limine.conf")
+    checked=$((checked + 1))
+  done < <(printf '%s\n' "$entries" | grep -o 'boot():/EFI/Linux/monarch_[^[:space:]]*')
+  ((checked > 0)) || fail "limine.conf has no rebuilt UKI for this system"
 }
 
 # Rebuild the UKI from inside the next root so the deployed kernel/initramfs
@@ -262,7 +420,11 @@ rebuild_next_boot() {
   fi
   [[ -e $esp_device ]] || fail "ESP device $esp_device not found"
 
-  mount "$esp_device" "$next$esp_mount"
+  mkdir -p "$ESP_MNT"
+  if mountpoint -q "$ESP_MNT"; then fail "the reset ESP mount is already in use"; fi
+  mount "$esp_device" "$ESP_MNT"
+  esp_owned=1
+  mount --bind "$ESP_MNT" "$next$esp_mount"
 
   local dir
   for dir in proc sys dev run; do
@@ -276,6 +438,7 @@ rebuild_next_boot() {
   # bakes the cmdline; the empty placeholder directory has to go first so the
   # subvolume can be recreated.
   if [[ -x $next/usr/bin/monarch-hibernation-setup ]] && grep -q "/swap/swapfile" "$next/etc/fstab"; then
+    stage_current_hibernation "$next"
     log "Recreating the hibernation swapfile in the factory system"
     if [[ -d $next/swap ]] && ! btrfs subvolume show "$next/swap" >/dev/null 2>&1; then
       rmdir "$next/swap" 2>/dev/null || true
@@ -298,21 +461,18 @@ rebuild_next_boot() {
       fail "hibernation setup did not recreate $next/swap/swapfile (see $LOG_FILE)"
   fi
 
-  local preserved_entries
-  preserved_entries=$(mktemp)
-  reset_limine_config "$next" "$esp_mount" "$ORIGINAL_MACHINE_ID" "$preserved_entries"
+  esp_old_id=$ORIGINAL_MACHINE_ID
+  esp_new_id=$(cat "$next/etc/machine-id")
+  [[ $esp_new_id =~ ^[0-9a-f]{32}$ && ! -e $ESP_MNT/$esp_new_id ]] || fail "factory ESP identity already exists or is invalid"
+  esp_backup=$(mktemp -d /var/tmp/monarch-system-factory-reset-esp.XXXXXX)
+  backup_esp "$ESP_MNT" "$esp_backup"
+  esp_restore=$ESP_MNT
+  reset_limine_config "$next" "$esp_mount" "$ORIGINAL_MACHINE_ID"
 
   log "Rebuilding boot files from the factory system (this can take a minute)"
   if ! chroot "$next" /usr/bin/limine-update >>"$LOG_FILE" 2>&1; then
-    rm -f "$preserved_entries"
     fail "limine-update failed in the factory root (see $LOG_FILE)"
   fi
-
-  if [[ -s $preserved_entries ]]; then
-    printf '\n' >>"$next$esp_mount/limine.conf"
-    cat "$preserved_entries" >>"$next$esp_mount/limine.conf"
-  fi
-  rm -f "$preserved_entries"
 
   verify_limine_hashes "$next" "$esp_mount"
 
@@ -499,10 +659,10 @@ stage_current_apple_display_access() {
 
 stage_current_owner_provisioning() {
   local root="$1" source="${2:-/usr/share/monarch}" relative target
-  local -a files=(bin/monarch-provision-owner install/provisioning/setup-form.sh)
+  local -a files=(bin/monarch-provision-owner install/provisioning/setup-form.sh install/provisioning/luks-rekey.sh)
   for relative in "${files[@]}"; do
     target="$root/usr/share/monarch/$relative"
-    [[ -f $source/$relative && -d ${target%/*} && ! -L ${target%/*} && ! -d $target ]] ||
+    [[ -f $source/$relative && ! -L $source/$relative && -d ${target%/*} && ! -L ${target%/*} && ! -d $target ]] ||
       fail "cannot stage current first-boot provisioning: $relative"
   done
   for relative in "${files[@]}"; do
@@ -515,12 +675,50 @@ stage_current_owner_provisioning() {
   done
 }
 
+stage_current_hibernation() {
+  local root=$1 source=${2:-/usr/share/monarch} relative target parent
+  local -a files=(bin/monarch-hibernation-setup install/helpers/as-root.sh
+    install/helpers/root-file.sh install/helpers/hibernation-lock.sh
+    install/reconcile/hibernation-resume.sh default/systemd/system-sleep/keyboard-backlight)
+  for relative in "${files[@]}"; do
+    target="$root/usr/share/monarch/$relative"
+    [[ -f $source/$relative && ! -L $source/$relative && ! -d $target ]] ||
+      fail "cannot stage current hibernation support: $relative"
+    parent=${target%/*}
+    while [[ $parent != "$root" ]]; do
+      [[ ! -L $parent && ( ! -e $parent || -d $parent ) ]] || fail "unsafe factory runtime path: $parent"
+      parent=${parent%/*}
+    done
+  done
+  for relative in "${files[@]}"; do
+    target="$root/usr/share/monarch/$relative"
+    install -d -m 0755 "${target%/*}"
+    rm -f -- "$target"
+    case $relative in
+      bin/*|default/*) install -m 0755 -T "$source/$relative" "$target" ;;
+      *) install -m 0644 -T "$source/$relative" "$target" ;;
+    esac
+  done
+}
+
+prepare_reset_provisioning() {
+  local root=$1 directory="$1$PROVISIONING_DIR"
+  [[ -d $root && ! -L $root && $(realpath -e -- "$root") == "$root" ]] || fail "invalid prepared reset root"
+  while [[ $directory != "$root" ]]; do
+    [[ ! -L $directory && ( ! -e $directory || -d $directory ) ]] || fail "unsafe cloned provisioning path: $directory"
+    directory=${directory%/*}
+  done
+  install -d -m 755 "$root$PROVISIONING_DIR"
+  rm -f -- "$root$PROVISIONING_DIR/luks-rekey-state" "$root$PROVISIONING_DIR"/.luks-rekey.*
+}
+
 stage_full_reset() {
   local top="$TOP_MNT" next="$TOP_MNT/$NEXT_NAME"
 
   log "Cloning the factory snapshot"
-  [[ -d $next ]] && btrfs subvolume delete --recursive "$next" >/dev/null
+  [[ ! -e $next ]] || fail "a staged reset already exists at $next; recover the previous attempt before retrying"
   btrfs subvolume snapshot "$top/@factory" "$next" >>"$LOG_FILE"
+  next_owned=1
   retire_factory_privilege_grants "$next"
   retire_factory_printer_discovery "$next"
   stage_current_apple_display_access "$next"
@@ -555,7 +753,7 @@ stage_full_reset() {
     fi
   fi
 
-  install -d -m 755 "$next$PROVISIONING_DIR"
+  prepare_reset_provisioning "$next"
   touch "$next$PROVISIONING_DIR/pending" "$next$PROVISIONING_DIR/wipe-pending"
 
   install_provisioning_units "$next" "$unit_src"
@@ -566,12 +764,31 @@ stage_full_reset() {
 
   rebuild_next_boot "$next"
 
-  log "Activating the factory system"
-  local old="@monarch-old-$(date +%s)"
-  mv "$top/@" "$top/$old"
-  mv "$next" "$top/@"
-  swap_done=1
+  activate_factory_root
+  commit_esp_staging || log "Could not retire the previous ESP identity directory"
+  umount "$ESP_MNT" 2>/dev/null || true
   sync
+}
+
+activate_factory_root() {
+  local top="$TOP_MNT" next="$TOP_MNT/$NEXT_NAME"
+  log "Activating the factory system"
+  local old
+  old=$(mktemp -d "$top/@monarch-old-XXXXXXXX")
+  rmdir "$old"
+  old=${old##*/}
+  root_previous=$old
+  activation_started=1
+  mv "$top/@" "$top/$old"
+  if ! mv "$next" "$top/@"; then
+    if mv "$top/$old" "$top/@"; then
+      fail "could not activate the factory root; the current root is back at @"
+    fi
+    swap_done=1
+    fail "root activation and rollback failed; keep $NEXT_NAME and $old for recovery. From a live USB, mount the Btrfs top level and rename $old to @"
+  fi
+  root_activated=1
+  swap_done=1
 }
 
 # A reset is a clone of @factory, so a machine without one has nothing to
@@ -591,7 +808,30 @@ require_factory_snapshot() {
   exit 1
 }
 
+reset_disk_transition_ready() {
+  local device uuid pending
+  for pending in pending wipe-pending luks-key; do
+    [[ ! -e $PROVISIONING_DIR/$pending && ! -L $PROVISIONING_DIR/$pending ]] ||
+      fail "finish first-boot provisioning before resetting"
+  done
+  if [[ -e $PROVISIONING_DIR/luks-rekey-state || -L $PROVISIONING_DIR/luks-rekey-state ]]; then
+    [[ -f $PROVISIONING_DIR/luks-rekey-state && ! -L $PROVISIONING_DIR/luks-rekey-state ]] &&
+      grep -qx 'phase=done' "$PROVISIONING_DIR/luks-rekey-state" || fail "finish the pending provisioning rekey before resetting"
+  fi
+  if device=$(luks_device); then
+    uuid=$(cryptsetup luksUUID "$device") || fail "could not identify the reset LUKS device"
+    [[ $uuid =~ ^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$ ]] || fail "invalid reset LUKS UUID"
+    [[ ! -e /var/lib/monarch-drive-password/$uuid.json && ! -L /var/lib/monarch-drive-password/$uuid.json ]] ||
+      fail "finish the pending manual drive password change before resetting"
+  fi
+}
+
 main() {
+  exec {drive_lock_fd}>/run/monarch-drive-password.lock
+  flock -n "$drive_lock_fd" || fail "another disk password or reset operation is running"
+  exec {reset_lock_fd}>/run/monarch-system-factory-reset.lock
+  flock -n "$reset_lock_fd" || fail "another factory reset is already running"
+  reset_disk_transition_ready
   monarch-cmd-present btrfs || { echo "Error: btrfs-progs is required" >&2; exit 1; }
 
   root_is_btrfs_at || fail "reset requires the standard Monarch Btrfs layout (subvol=@)"
@@ -609,7 +849,9 @@ main() {
   [[ -n $device ]] || fail "could not determine the root device"
 
   mkdir -p "$TOP_MNT"
-  mountpoint -q "$TOP_MNT" || mount -o subvolid=5 "$device" "$TOP_MNT"
+  if mountpoint -q "$TOP_MNT"; then fail "the reset top-level mount is already in use; recover the previous attempt first"; fi
+  mount -o subvolid=5 "$device" "$TOP_MNT"
+  top_owned=1
 
   require_factory_snapshot
 

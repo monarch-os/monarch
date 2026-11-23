@@ -2,27 +2,30 @@
 
 # monarch:summary=Join a WPA-Enterprise (802.1X) Wi-Fi network without prompting
 # monarch:group=wifi
-# monarch:args=<ssid> <identity> [password]
-# monarch:examples=monarch wifi enterprise eduroam you@univ.fr
+# monarch:args=<ssid> <identity> <ca-certificate> <server-domain>
+# monarch:examples=monarch wifi enterprise eduroam you@univ.fr /path/to/ca.pem auth.example.org
 
 # PEAP with MSCHAPv2 — what eduroam and nearly every corporate WPA-EAP
 # deployment asks for. Certificates or another phase-2 still want nmcli by hand;
 # this covers the case the panel can ask two questions for.
 #
-# `connection add` has no way to take a secret, so the profile is created
-# without one and the passphrase goes in through the scriptable
-# `connection edit` on stdin. printf is a builtin, so it never reaches nmcli's
-# argv — the exposure that remains is this script's own, the same one
-# monarch-wifi-join documents for the pre-shared key.
+# The password stays on stdin; neither this helper nor nmcli receives it in argv.
 
 set -uo pipefail
 
 ssid=${1:-}
 identity=${2:-}
-password=${3:-}
+ca=${3:-}
+domain=${4:-}
+password=""
 
-if [[ -z $ssid || -z $identity ]]; then
-  echo "Usage: monarch-wifi-enterprise <ssid> <identity> [password]" >&2
+if (($# != 4)) || [[ -z $ssid || -z $identity || $ca != /* || ! -r $ca || -z $domain ]]; then
+  echo "Usage: monarch-wifi-enterprise <ssid> <identity> <ca-certificate> <server-domain>; password on stdin." >&2
+  exit 2
+fi
+IFS= read -r password || [[ -n $password ]] || exit 2
+if [[ $password == *$'\r'* ]]; then
+  echo "Invalid password." >&2
   exit 2
 fi
 
@@ -44,6 +47,8 @@ if ! out=$(LC_ALL=C nmcli connection add type wifi con-name "$ssid" ssid "$ssid"
     802-1x.eap peap \
     802-1x.phase2-auth mschapv2 \
     802-1x.identity "$identity" \
+    802-1x.ca-cert "$ca" \
+    802-1x.domain-suffix-match "$domain" \
     802-1x.auth-timeout 8 2>&1); then
   printf '%s\n' "${out:-Could not create a profile for $ssid}" >&2
   exit 1

@@ -53,6 +53,7 @@ for package in chromium gpu-screen-recorder grim localsend mpv mpv-mpris neovim 
   [[ -v required_packages[$package] ]] || fail "$package is a required package"
 done
 [[ -v required_packages[linux-cachyos-headers] ]] || fail "CachyOS kernel headers are required"
+[[ -v required_packages[binutils] ]] || fail "provisioning requires objcopy without optional base-devel"
 grep -qxF linux-cachyos-headers "$ROOT/install/monarch-other.packages" &&
   fail "CachyOS kernel headers remain mirror-only"
 

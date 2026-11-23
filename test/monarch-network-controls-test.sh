@@ -146,7 +146,7 @@ pass "NetworkManager failures propagate to the panel"
 
 PANEL="$ROOT/default/noctalia/plugins/monarch-network/panel.luau"
 grep -Fq 'onClick = "onRescanClicked"' "$PANEL" || fail "missing manual rescan"
-grep -Fq 'if scanning then return end' "$PANEL" || fail "overlapping scans"
+grep -Fq 'if networksInFlight then return end' "$PANEL" || fail "overlapping scans"
 grep -Fq 'radioPresent and radioOn and busy == ""' "$PANEL" || fail "scan on disabled radio"
 pass "panel exposes manual rescan and guards overlapping and disabled-radio scans"
 grep -Fq 'device.managed and not device.virtual' "$PANEL" || fail "virtual device clutter"

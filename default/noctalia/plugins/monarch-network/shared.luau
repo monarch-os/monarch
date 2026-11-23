@@ -18,7 +18,7 @@ end
 -- /usr/local/sbin:/usr/local/bin:/usr/bin — Monarch's bin/ is absent and a bare
 -- command name silently fails to launch.
 function M.bin(name: string): string
-  return monarchRoot() .. "/bin/" .. name
+  return M.shellQuote(monarchRoot() .. "/bin/" .. name)
 end
 
 -- runAsync's argv-table form needs plugin_api >= 24 and this plugin targets 22,
@@ -60,34 +60,18 @@ function M.bandLabel(band: string): string
   return band ~= "" and (band .. " GHz") or ""
 end
 
--- monarch-wifi-list prints signal, security, in-use and saved before the name,
--- which is last because it is the only field that may contain a tab.
 export type Network = {
+  key: string,
+  uuid: string,
+  device: string,
+  bssid: string,
+  connecting: boolean?,
   ssid: string,
   signal: number,
   security: string,
   connected: boolean,
   saved: boolean,
 }
-
-function M.parseNetworks(text: string): { Network }
-  local networks: { Network } = {}
-
-  for line in text:gmatch("[^\n]+") do
-    local signal, security, inUse, saved, ssid = line:match("^(%d+)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t(.*)$")
-    if ssid and ssid ~= "" then
-      table.insert(networks, {
-        ssid = ssid,
-        signal = tonumber(signal) or 0,
-        security = security,
-        connected = inUse == "yes",
-        saved = saved == "yes",
-      })
-    end
-  end
-
-  return networks
-end
 
 -- Quattro's order. The name breaks ties so a re-render cannot shuffle
 -- equal-signal rows: table.sort is not stable.
@@ -102,7 +86,7 @@ function M.sortNetworks(networks: { Network }): { Network }
     elseif a.signal ~= b.signal then
       return a.signal > b.signal
     end
-    return a.ssid < b.ssid
+    return a.key < b.key
   end)
 
   return sorted
@@ -124,14 +108,12 @@ function M.isEnterprise(network: Network): boolean
   return network.security:find("802.1X", 1, true) ~= nil
 end
 
--- Tabler's Wi-Fi ramp is five filled arcs, not four: `wifi-3` sits between
--- `wifi-2` and the full `wifi`, and skipping it made the middle of the scale
--- jump. Five steps in twenties is also exactly what quattro draws, over the
--- five Nerd Font glyphs its own shell has.
+-- Keep Quattro's thresholds to reduce jumps between signal conversions.
 local SIGNAL = { "wifi-0", "wifi-1", "wifi-2", "wifi-3", "wifi" }
 
 function M.signalGlyph(signal: number): string
-  return SIGNAL[math.max(1, math.min(#SIGNAL, math.ceil(signal / 20)))]
+  local index = signal < 15 and 1 or signal < 40 and 2 or signal < 50 and 3 or signal < 60 and 4 or 5
+  return SIGNAL[index]
 end
 
 return M

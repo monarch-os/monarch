@@ -6,10 +6,8 @@
 # only failure mode is silence: a socket it cannot reach costs one `niri msg`
 # that fails, then a loop that spins forever finding nothing to recover.
 #
-# Needs no niri: a copy of /bin/sleep named `niri` gives /proc/<pid>/comm the
-# name the discovery matches on, and perl binds the socket files — nothing in
-# bash or coreutils can, and perl is present on both a bare CI image and a
-# Monarch desktop, which python3 is not.
+# Needs no niri: Python sets the fixture process name with prctl, and Perl
+# creates the Unix socket files.
 #
 # Run: bash test/monarch-niri-socket-test.sh
 
@@ -70,12 +68,21 @@ trap cleanup EXIT
 unset NIRI_SOCKET
 # Stated in the output because the CI step that runs this has no compositor,
 # and a log full of niri assertions should not read as if it had one.
-printf '# niri is stood in for by a copy of /bin/sleep; the naming convention\n'
+printf '# niri is stood in for by a process named with prctl; the naming convention\n'
 printf '# itself is only checked when a real session is present.\n'
 
-cp /bin/sleep "$TMP/niri"
-"$TMP/niri" 300 &
+python3 -c 'import ctypes,time; assert ctypes.CDLL(None).prctl(15,b"niri",0,0,0)==0; time.sleep(300)' &
 FAKE_NIRI_PID=$!
+for ((attempt = 0; attempt < 100; attempt++)); do
+  [[ $(cat "/proc/$FAKE_NIRI_PID/comm" 2>/dev/null) == niri ]] && break
+  sleep 0.01
+done
+if [[ $(cat "/proc/$FAKE_NIRI_PID/comm" 2>/dev/null) != niri ]]; then
+  ps -p "$FAKE_NIRI_PID" -o pid,stat,comm,args >&2 || true
+  kill "$FAKE_NIRI_PID" 2>/dev/null || true
+  wait "$FAKE_NIRI_PID" || printf 'niri stand-in exit status: %s\n' "$?" >&2
+  fail 'niri stand-in did not start'
+fi
 
 export XDG_RUNTIME_DIR="$TMP"
 LIVE_SOCKET="$TMP/niri.wayland-1.$FAKE_NIRI_PID.sock"

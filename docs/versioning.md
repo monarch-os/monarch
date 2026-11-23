@@ -111,6 +111,8 @@ installation, but still runs reconciliation, orphan cleanup, post-update hooks,
 log analysis and restart handling. These stages must converge even after an
 earlier updater installed all packages and failed before finalization; a failed
 finalization remains a failed update. `-y` skips confirmation, not verification.
+Log analysis and required service restarts finish before post-update hooks. The updater stops and waits for its bounded sudo keepalive, then invalidates cached authorization before executing any hook. Failed revocation stops finalization before hooks or AUR; EXIT/signal cleanup still attempts revocation and releases the sleep inhibitor. No update keepalive or cache is recreated after this boundary, including on current-package retries. Hooks retain the caller's tool PATH, while trusted stages retain the runtime/system PATH. This removes inherited update authorization, not explicit administrator authentication or independent sudoers grants; hooks are not a sandbox. AUR retains its separate cold-cache and no-update sudo wrapper contract. Hooks that request service restarts now leave those requests for a later explicit restart or update.
+
 Post-update hooks run with `monarch-hook --strict`, so a failed hook stops the
 update and remains retryable. Other hook callers retain their default tolerant
 behaviour. AUR updates include foreign packages installed as dependencies, and

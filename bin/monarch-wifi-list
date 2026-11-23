@@ -35,11 +35,14 @@ if [[ -z $device ]]; then
 fi
 [[ -n $device ]] || exit 0
 
-saved=$(LC_ALL=C nmcli -g NAME connection show 2>/dev/null)
+saved=$(while IFS=: read -r uuid kind; do
+  [[ $kind == "802-11-wireless" ]] || continue
+  LC_ALL=C nmcli -e no -g 802-11-wireless.ssid connection show uuid "$uuid"
+done < <(LC_ALL=C nmcli -t -f UUID,TYPE connection show))
 
 # `-e no` keeps SSIDs raw: -t otherwise escapes ':' and '\', and the escaped
 # name would not match the saved-profile list or what the user sees on the AP.
-LC_ALL=C nmcli -e no -t -f IN-USE,SIGNAL,SECURITY,SSID dev wifi list ifname "$device" --rescan "$rescan" 2>/dev/null |
+LC_ALL=C nmcli -e no -t -f IN-USE,SIGNAL,SECURITY,SSID dev wifi list ifname "$device" --rescan "$rescan" |
   saved="$saved" awk -F: '
     BEGIN {
       split(ENVIRON["saved"], lines, "\n")
@@ -57,15 +60,21 @@ LC_ALL=C nmcli -e no -t -f IN-USE,SIGNAL,SECURITY,SSID dev wifi list ifname "$de
       # seen through a weaker radio. The in-use star, though, sits on the BSS we
       # associated with, which a dual-band router under one name puts on a later
       # row, so it is collected across all of them.
-      if ($1 == "*") in_use[ssid] = 1
-      if (seen[ssid]++) next
-      order[++rows] = ssid
-      strongest[ssid] = signal "\t" security
+      key = ssid SUBSEP security
+      if ($1 == "*") {
+        in_use[key] = 1
+        strongest[key] = signal "\t" security
+      }
+      if (seen[key]++) next
+      order[++rows] = key
+      names[key] = ssid
+      strongest[key] = signal "\t" security
     }
     END {
       for (i = 1; i <= rows; i++) {
-        ssid = order[i]
-        printf "%s\t%s\t%s\t%s\n", strongest[ssid], (ssid in in_use ? "yes" : "no"),
+        key = order[i]
+        ssid = names[key]
+        printf "%s\t%s\t%s\t%s\n", strongest[key], (key in in_use ? "yes" : "no"),
           (ssid in known ? "yes" : "no"), ssid
       }
     }'
