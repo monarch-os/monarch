@@ -12,7 +12,7 @@ installed="$test_root/installed"
 log="$test_root/pacman.log"
 mkdir -p "$test_root/bin"
 
-grep -qF 'reconcile/hyprpicker.sh' "$ROOT/install/reconcile/system.sh" || fail "system reconciliation does not retire hyprpicker"
+grep -qxF 'sudo bash /usr/share/monarch/install/reconcile/hyprpicker.sh' "$ROOT/install/reconcile/system.sh" || fail "hyprpicker retirement is not pinned to the packaged runtime"
 ! grep -qF 'reconcile/hyprpicker.sh' "$ROOT/install/config/all.sh" || fail "fresh installs run hyprpicker retirement"
 pass "hyprpicker retirement runs only during system reconciliation"
 
