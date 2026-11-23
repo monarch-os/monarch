@@ -16,7 +16,18 @@ printf '%s\n' '-12,34 1x1'
 EOF
 cat >"$test_root/bin/grim" <<'EOF'
 #!/bin/bash
-[[ $1 == -g && $2 == '-12,34 1x1' && $3 == -t && $4 == ppm && $5 == - ]] || exit 2
+[[ $1 == -g && $2 == '-12,34 1x1' ]] || exit 2
+shift 2
+scale=${COLOR_TEST_OUTPUT_SCALE:-1}
+if [[ $1 == -s ]]; then
+  scale=$2
+  shift 2
+fi
+[[ $1 == -t && $2 == ppm && $3 == - ]] || exit 2
+if [[ $scale == 2 ]]; then
+  printf 'P6\n2 2\n255\n123456789012'
+  exit 0
+fi
 case ${COLOR_TEST_MODE:-valid} in
   empty) exit 0 ;;
   truncated) printf 'P6\n1 1\n255'; exit 0 ;;
@@ -52,6 +63,10 @@ run_picker || fail "valid pixel capture failed" "$(cat "$test_root/error")"
 [[ $(cat "$test_root/clipboard") == '#123456' ]] || fail "wrong pixel copied"
 [[ $(cat "$test_root/output") == '#123456' && -f $test_root/notified ]] || fail "successful capture not reported"
 pass "slurp geometry is passed intact, including negative coordinates"
+
+COLOR_TEST_OUTPUT_SCALE=2 run_picker || fail "scaled display capture failed"
+[[ $(cat "$test_root/clipboard") == '#123456' ]] || fail "scaled display changed the pixel color"
+pass "capture scale stays at one on HiDPI displays"
 
 COLOR_TEST_MODE=whitespace-pixel run_picker || fail "whitespace-valued pixel rejected"
 [[ $(cat "$test_root/clipboard") == '#0a2009' ]] || fail "pixel bytes consumed as header whitespace"

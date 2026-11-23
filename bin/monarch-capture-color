@@ -9,7 +9,7 @@ set -o pipefail
 POINT=$(slurp -p 2>/dev/null)
 [[ -z $POINT ]] && exit 0
 
-COLOR=$(grim -g "$POINT" -t ppm - | python3 -c '
+COLOR=$(grim -g "$POINT" -s 1 -t ppm - | python3 -c '
 import re
 import sys
 
